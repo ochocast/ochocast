@@ -1,4 +1,11 @@
+# editor files
+.idea
+
 # compiled output
 /node_modules
 /build
 /dist
+package-lock.json
+
+# database files
+database/postgres-data/
