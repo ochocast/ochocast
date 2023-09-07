@@ -1,5 +1,6 @@
 # editor files
-.idea
+/.idea
+/.vscode
 
 # compiled output
 /node_modules
