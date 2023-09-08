@@ -1,0 +1,12 @@
+# editor files
+/.idea
+/.vscode
+
+# compiled output
+/node_modules
+/build
+/dist
+package-lock.json
+
+# database files
+database/postgres-data/
