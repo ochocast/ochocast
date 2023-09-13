@@ -2,9 +2,9 @@ import { FC } from 'react';
 import { ChangeEvent, FormEvent, useState } from 'react'
 import './LoginBox.css';
 
-import TextBox from '../../../components/TextBox/TextBox'
+import TextBox from '../TextBox/TextBox'
 
-import octoLogo from "../../../assets/octoBichrome.png"
+import octoLogo from "../../assets/octoBichrome.png"
 
 interface LoginBoxProps {}
 

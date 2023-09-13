@@ -3,7 +3,7 @@ import './Header.css';
 
 import octoLogo from '../../assets/OctoTechnology.png'
 
-import HeaderUserButton from './UserButton/UserButton';
+import HeaderUserButton from '../buttons/UserButton/UserButton';
 
 interface HeaderProps {}
 
