@@ -1,11 +1,11 @@
 # editor files
-/.idea
-/.vscode
+.idea
+.vscode
 
 # compiled output
-/node_modules
-/build
-/dist
+node_modules
+build
+dist
 package-lock.json
 
 # database files
