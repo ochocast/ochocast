@@ -10,3 +10,5 @@ package-lock.json
 
 # database files
 database/postgres-data/
+
+.env
