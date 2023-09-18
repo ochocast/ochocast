@@ -22,6 +22,6 @@ export class User {
   @Column()
   role: string;
 
-  @Column()
+  @Column('json', { array: true, default: [] })
   events: Event[];
 }

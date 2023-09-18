@@ -39,7 +39,7 @@ export class Event {
   @Column()
   imageslug: string;
 
-  @Column()
+  @Column('json', { array: true, default: [] })
   tracks: Track[];
 
   @ManyToOne(() => User, (user) => user.events)
