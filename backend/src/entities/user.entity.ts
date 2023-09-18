@@ -7,22 +7,21 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
-    @PrimaryGeneratedColumn()
-    id: number;
-    
-    @Column()
-    firstName: string;
-    
-    @Column()
-    lastName: string;
-    
-    @Column()
-    email: string;
-    
-    @Column()
-    role: string;
-    
-    @Column()
-    events: Event[];
+  @PrimaryGeneratedColumn()
+  id: number;
 
+  @Column()
+  firstName: string;
+
+  @Column()
+  lastName: string;
+
+  @Column()
+  email: string;
+
+  @Column()
+  role: string;
+
+  @Column()
+  events: Event[];
 }
