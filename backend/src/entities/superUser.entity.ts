@@ -7,13 +7,12 @@ import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class SuperUser {
-    @PrimaryGeneratedColumn()
-    id: number;
-    
-    @Column()
-    username: string;
-    
-    @Column()
-    password: string;
-    
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  username: string;
+
+  @Column()
+  password: string;
 }

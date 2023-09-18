@@ -8,24 +8,24 @@ import { Event } from './event.entity';
 
 @Entity()
 export class Track {
-    @PrimaryGeneratedColumn()
-    id: number;
-    
-    @Column()
-    name: string;
-    
-    @Column()
-    description: string;
-    
-    @Column()
-    keywords: string;
-    
-    @Column()
-    streamkey: string;
-    
-    @Column()
-    closed: boolean;
-    
-    @ManyToOne(() => Event, event => event.tracks)
-    event: Event;
+  @PrimaryGeneratedColumn()
+  id: number;
+
+  @Column()
+  name: string;
+
+  @Column()
+  description: string;
+
+  @Column()
+  keywords: string;
+
+  @Column()
+  streamkey: string;
+
+  @Column()
+  closed: boolean;
+
+  @ManyToOne(() => Event, (event) => event.tracks)
+  event: Event;
 }

@@ -9,39 +9,39 @@ import { Track } from './track.entity';
 
 @Entity()
 export class Event {
-    @PrimaryGeneratedColumn()
-    id: number;
-    
-    @Column()
-    name: string;
-    
-    @Column()
-    description: string;
-    
-    @Column()
-    category: string;
-    
-    @Column()
-    tags: string;
-    
-    @Column()
-    date: string;
-    
-    @Column()
-    published: boolean;
-    
-    @Column()
-    private: boolean;
-    
-    @Column()
-    closed: boolean;
-    
-    @Column()
-    imageslug: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    tracks: Track[];
-    
-    @ManyToOne(() => User, user => user.events)
-    user: User;
+  @Column()
+  name: string;
+
+  @Column()
+  description: string;
+
+  @Column()
+  category: string;
+
+  @Column()
+  tags: string;
+
+  @Column()
+  date: string;
+
+  @Column()
+  published: boolean;
+
+  @Column()
+  private: boolean;
+
+  @Column()
+  closed: boolean;
+
+  @Column()
+  imageslug: string;
+
+  @Column()
+  tracks: Track[];
+
+  @ManyToOne(() => User, (user) => user.events)
+  user: User;
 }
