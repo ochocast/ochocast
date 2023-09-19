@@ -5,6 +5,6 @@ export class CreateEventDto {
   tags: string[];
   date: Date;
   creator: bigint;
-  private: boolean;
+  isPrivate: boolean;
   imageSlug: string;
 }
