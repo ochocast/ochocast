@@ -4,9 +4,10 @@
 // Path: backend/src/entities/user.entity.ts
 
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { EventEntity } from './event.entity';
 
 @Entity()
-export class User {
+export class UserEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -23,5 +24,5 @@ export class User {
   role: string;
 
   @Column('json', { array: true, default: [] })
-  events: Event[];
+  events: EventEntity[];
 }

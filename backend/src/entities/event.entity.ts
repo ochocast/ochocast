@@ -4,11 +4,11 @@
 // Path: backend/src/entities/event.entity.ts
 
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
-import { User } from './user.entity';
-import { Track } from './track.entity';
+import { UserEntity } from './user.entity';
+import { TrackEntity } from './track.entity';
 
 @Entity()
-export class Event {
+export class EventEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -25,7 +25,7 @@ export class Event {
   tags: string;
 
   @Column()
-  date: string;
+  date: Date;
 
   @Column()
   published: boolean;
@@ -40,8 +40,8 @@ export class Event {
   imageslug: string;
 
   @Column('json', { array: true, default: [] })
-  tracks: Track[];
+  tracks: TrackEntity[];
 
-  @ManyToOne(() => User, (user) => user.events)
-  user: User;
+  @ManyToOne(() => UserEntity, (user) => user.events)
+  creator: UserEntity;
 }

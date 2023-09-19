@@ -4,10 +4,10 @@
 // Path: backend/src/entities/track.entity.ts
 
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
-import { Event } from './event.entity';
+import { EventEntity } from './event.entity';
 
 @Entity()
-export class Track {
+export class TrackEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -26,6 +26,6 @@ export class Track {
   @Column()
   closed: boolean;
 
-  @ManyToOne(() => Event, (event) => event.tracks)
-  event: Event;
+  @ManyToOne(() => EventEntity, (event) => event.tracks)
+  event: EventEntity;
 }
