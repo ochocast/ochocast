@@ -1,6 +1,8 @@
 import React, { FC } from 'react';
+import "./button.css";
 
 interface ButtonProps {
+   className?: string;
    border?: string;
    bcolor?: string;
    tcolor?: string;
@@ -14,6 +16,7 @@ interface ButtonProps {
 }
 
 const Button: FC<ButtonProps> = ({ 
+   className,
    border,
    bcolor="#0E2356",
    tcolor="white",
@@ -26,6 +29,7 @@ const Button: FC<ButtonProps> = ({
    children
 }) => (
 <button 
+      className={className}
       onClick={onClick}
       type={type}
       style={{

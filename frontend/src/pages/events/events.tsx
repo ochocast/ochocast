@@ -62,28 +62,28 @@ const EventsPage: FC<eventsProps> = () => {
             <h1>Créer un nouvel évènement</h1>
             <form onSubmit={handleSubmit}>
                 <div className="side-by-side">
-                <TextBox
-                    type="text"
-                    label="Nom de l'évènement"
-                    placeholder="Mon évènement"
-                    value={name}
-                    name='name'
-                    error={errorName}
-                    onChange={handleNameChange}
-                />
-                <div className='input-wrapper'>
-                    <label>Date de l'évènement</label>
-                    <input type='date'  
-                        name="date"
-                        required
+                    <TextBox
+                        type="text"
+                        label="Nom de l'évènement"
+                        placeholder="Mon évènement"
+                        value={name}
+                        name='name'
+                        error={errorName}
+                        onChange={handleNameChange}
                     />
-                </div>
-                <SelectBox
-                    title="Catégorie"
-                    options={options}
-                    value={value}
-                    onChange={handleSelectChange}
-                />
+                    <div className='input-wrapper'>
+                        <label>Date de l'évènement</label>
+                        <input type='date'  
+                            name="date"
+                            required
+                        />
+                    </div>
+                    <SelectBox
+                        title="Catégorie"
+                        options={options}
+                        value={value}
+                        onChange={handleSelectChange}
+                    />
                 </div>
                 <TextArea
                     label="Description de l'évènement"
@@ -93,7 +93,7 @@ const EventsPage: FC<eventsProps> = () => {
                     error={errorDescription}
                     onChange={handleDescriptionChange}
                 />
-                <Button type="submit">Créer l'évènement</Button>
+                <Button className="submit-button" type="submit">Créer l'évènement</Button>
             </form>
         </Modal>
     </div>

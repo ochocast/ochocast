@@ -14,6 +14,7 @@ label {
 select {
     font-size: 16px;
     font-weight: 400;
+    height: 42px;
     color: #344054;
     background: #ffffff;
     border: 1px solid #d0d5dd;
