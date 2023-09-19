@@ -4,8 +4,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppConfig, DatabaseConfig } from './config';
-// import { UserModule } from './user/user.module';
 import { EventsModule } from './events/events.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -22,7 +22,7 @@ import { EventsModule } from './events/events.module';
       inject: [ConfigService],
     }),
     EventsModule,
-    // UserModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
