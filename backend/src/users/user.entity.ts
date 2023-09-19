@@ -4,10 +4,10 @@
 // Path: backend/src/entities/user.entity.ts
 
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
-import { EventEntity } from './event.entity';
+import { Event } from '../events/event.entity';
 
 @Entity()
-export class UserEntity {
+export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -23,13 +23,13 @@ export class UserEntity {
   @Column()
   role: string;
 
-  @OneToMany(() => EventEntity, (event) => event.creator, { cascade: true })
-  events: EventEntity[];
+  @OneToMany(() => Event, (event) => event.creator, { cascade: true })
+  events: Event[];
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  constructor(user: Partial<UserEntity>) {
+  constructor(user: Partial<User>) {
     Object.assign(this, user);
   }
 }

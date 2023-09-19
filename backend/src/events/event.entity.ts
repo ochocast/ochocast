@@ -10,11 +10,11 @@ import {
   ManyToOne,
   OneToMany,
 } from 'typeorm';
-import { UserEntity } from './user.entity';
-import { TrackEntity } from './track.entity';
+import { User } from '../users/user.entity';
+import { Track } from '../tracks/track.entity';
 
 @Entity()
-export class EventEntity {
+export class Event {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -45,16 +45,16 @@ export class EventEntity {
   @Column()
   imageslug: string;
 
-  @OneToMany(() => TrackEntity, (track) => track.event, { cascade: true })
-  tracks: TrackEntity[];
+  @OneToMany(() => Track, (track) => track.event, { cascade: true })
+  tracks: Track[];
 
-  @ManyToOne(() => UserEntity, (user) => user.events)
-  creator: UserEntity;
+  @ManyToOne(() => User, (user) => user.events) // , { cascade: true })
+  creator: User;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  constructor(event: Partial<EventEntity>) {
+  constructor(event: Partial<Event>) {
     Object.assign(this, event);
   }
 }

@@ -6,7 +6,7 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
-export class SuperUserEntity {
+export class SuperUser {
   @PrimaryGeneratedColumn()
   id: number;
 
