@@ -3,7 +3,13 @@
 
 // Path: backend/src/entities/event.entity.ts
 
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  OneToMany,
+} from 'typeorm';
 import { UserEntity } from './user.entity';
 import { TrackEntity } from './track.entity';
 
@@ -39,9 +45,16 @@ export class EventEntity {
   @Column()
   imageslug: string;
 
-  @Column('json', { array: true, default: [] })
+  @OneToMany(() => TrackEntity, (track) => track.event, { cascade: true })
   tracks: TrackEntity[];
 
   @ManyToOne(() => UserEntity, (user) => user.events)
   creator: UserEntity;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  constructor(event: Partial<EventEntity>) {
+    Object.assign(this, event);
+  }
 }

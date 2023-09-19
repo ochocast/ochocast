@@ -28,4 +28,11 @@ export class TrackEntity {
 
   @ManyToOne(() => EventEntity, (event) => event.tracks)
   event: EventEntity;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  constructor(track: Partial<TrackEntity>) {
+    Object.assign(this, track);
+  }
 }

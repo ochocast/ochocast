@@ -3,7 +3,7 @@
 
 // Path: backend/src/entities/user.entity.ts
 
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 import { EventEntity } from './event.entity';
 
 @Entity()
@@ -17,12 +17,19 @@ export class UserEntity {
   @Column()
   lastName: string;
 
-  @Column()
+  @Column({ unique: true })
   email: string;
 
   @Column()
   role: string;
 
-  @Column('json', { array: true, default: [] })
+  @OneToMany(() => EventEntity, (event) => event.creator, { cascade: true })
   events: EventEntity[];
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
+
+  constructor(user: Partial<UserEntity>) {
+    Object.assign(this, user);
+  }
 }
