@@ -1,4 +1,4 @@
-.input-wrapper {
+.area-wrapper {
     margin-top: 20px;
 }
 
@@ -11,10 +11,9 @@ label {
     align-self: self-start;
 }
 
-input {
+textarea {
     font-size: 16px;
     font-weight: 400;
-    width: 240px;
     color: #344054;
     background: #ffffff;
     border: 1px solid #d0d5dd;
@@ -23,7 +22,7 @@ input {
     padding: 10px 14px;
 }
 
-input::placeholder {
+textarea::placeholder {
     font-size: 16px;
     font-weight: 400;
     color: #667085;
