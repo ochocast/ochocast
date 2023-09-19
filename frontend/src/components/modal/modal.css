@@ -14,6 +14,7 @@
 }
 
 .box {
+  display:grid;
   margin: 15% auto;
   background-color: white;
   border-radius: 0.25rem;
