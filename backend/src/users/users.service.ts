@@ -12,7 +12,7 @@ export class UsersService {
   ) {}
 
   async insert(userDetails: CreateUserDto): Promise<User> {
-    const user = new User({
+    const user: User = new User({
       ...userDetails,
     });
     return await this.usersRepository.save(user);
@@ -20,5 +20,11 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return await this.usersRepository.find();
+  }
+
+  async findOne(id: number): Promise<User> {
+    return await this.usersRepository.findOne({
+      where: { id },
+    });
   }
 }
