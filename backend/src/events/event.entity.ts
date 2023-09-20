@@ -43,7 +43,7 @@ export class Event {
   closed: boolean;
 
   @Column()
-  imageslug: string;
+  imageSlug: string;
 
   @OneToMany(() => Track, (track) => track.event, { cascade: true })
   tracks: Track[];

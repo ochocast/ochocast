@@ -2,42 +2,32 @@ import { Injectable } from '@nestjs/common';
 import { CreateEventDto } from './dto/create-event.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { EventEntity } from '../entities/event.entity';
+import { Event } from './event.entity';
+import { User } from '../users/user.entity';
 
 @Injectable()
 export class EventsService {
   constructor(
     @InjectRepository(Event)
-    private eventsRepository: Repository<Event>,
+    private readonly eventsRepository: Repository<Event>,
   ) {}
-  async insert(eventDetails: CreateEventDto): Promise<EventEntity> {
+
+  async insert(eventDetails: CreateEventDto): Promise<Event> {
     console.log(eventDetails);
-    const eventEntity: EventEntity = EventEntity.create();
-    const {
-      name,
-      description,
-      category,
-      tags,
-      date,
-      creator,
-      isPrivate,
-      imageSlug,
-    } = eventDetails;
 
-    eventEntity.name = name;
-    eventEntity.description = description;
-    eventEntity.category = category;
-    eventEntity.tags = tags.toString();
-    eventEntity.date = date;
-    eventEntity.creator = creator;
-    eventEntity.private = isPrivate;
-    eventEntity.imageslug = imageSlug;
+    const event: Event = new Event({
+      ...eventDetails,
+      tags: eventDetails.tags.toString(),
+      creator: new User({ id: Number(eventDetails.creator) }),
+      published: false,
+      private: false,
+      closed: false,
+    });
 
-    await this.eventsRepository.save(eventEntity);
-    return eventEntity;
+    return await this.eventsRepository.save(event);
   }
 
-  async getAllEvents() {
+  async findAll() {
     return await this.eventsRepository.find();
   }
 }
