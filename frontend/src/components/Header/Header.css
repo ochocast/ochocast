@@ -1,5 +1,7 @@
 .Header {
     display: flex;
+    position: sticky;
+    top: 0;
     background-color: #0E2356;
     height: 100px;
     width: 100%;

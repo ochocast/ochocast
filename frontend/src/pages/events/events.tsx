@@ -75,6 +75,7 @@ const EventsPage: FC<eventsProps> = () => {
                         <label>Date de l'évènement</label>
                         <input type='date'  
                             name="date"
+                            min={new Date().toISOString().split('T')[0]}  
                             required
                         />
                     </div>
