@@ -33,16 +33,8 @@ $ npm install
 ```
 
 ## Running the app
-To run the app you will need a .env file with the following variables (Only for testing purposes):
+To run the app you will need a .env file, you can use the .env.example provided for development purposes.
 
-```bash
-PG_PORT=5432
-PG_HOST=localhost
-PG_USERNAME=admin
-PG_PASSWORD=admin
-PG_DATABASE=octocast-db
-NODE_ENV=development
-```
 You will find a docker-compose.yml file in the database folder of the project. To run the database you will need to run the following command in the database folder:
 ```bash
 $ docker-compose up --detach
