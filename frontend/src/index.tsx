@@ -5,13 +5,27 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter } from 'react-router-dom';
 
+import { AuthProvider } from 'react-oidc-context';
+
+const authority = process.env.REACT_APP_AUTHORIZATION_ENDPOINT!
+
+const oidcConfig  = {
+  authority : authority,
+  client_id : process.env.REACT_APP_CLIENT_ID!,
+  // "response_type": "code",
+  redirect_uri: process.env.REACT_APP_REDIRECT_URI!,
+  // "scope": "profile",
+};
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <AuthProvider {...oidcConfig}>
+        <App />
+      </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

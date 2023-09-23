@@ -1,5 +1,6 @@
 import { FC } from 'react';
 import { ChangeEvent, FormEvent, useState } from 'react'
+import {useAuth} from 'react-oidc-context'
 
 import './LoginBox.css';
 
@@ -9,21 +10,15 @@ import octoLogo from "../../assets/octoBichrome.png"
 
 interface LoginBoxProps {}
 
-const authority = process.env.REACT_APP_AUTHORIZATION_ENDPOINT
-
-const authenticationInfo = {
-  "client_id" : process.env.REACT_APP_CLIENT_ID!,
-  "response_type": "code",
-  "redirect_uri" : process.env.REACT_APP_REDIRECT_URI!,
-  "scope": "profile",
-};
 
 const LoginBox: FC<LoginBoxProps> = () => {
+  const auth = useAuth()
 
-  const handle0Auth2Login = () => {
+  /*const handle0Auth2Login = () => {
     // Renvoie vers l'autorité en charge 0Auth2, pour qu'il prenne en charge le login SSO (authorizationEndpoint)
-    window.location.href = `${authority}?${new URLSearchParams(authenticationInfo)}`
-  };
+    // window.location.href = `${authority}?${new URLSearchParams(authenticationInfo)}`
+    signIn(authenticationInfo)
+  };*/
 
   const [name, setName] = useState('')
   const [pass, setPass] = useState('')
@@ -75,7 +70,7 @@ const LoginBox: FC<LoginBoxProps> = () => {
         <button className="sbtn" type="submit">Connexion</button>
       </form>
       <hr/>
-      <button className="btn" onClick={() => handle0Auth2Login()}>Continuer avec Google</button>
+        <button className="btn" onClick={() => auth.signinRedirect()}>Continuer avec Google</button>
     </div>
 )};
 
