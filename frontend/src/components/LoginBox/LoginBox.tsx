@@ -1,5 +1,7 @@
 import { FC } from 'react';
 import { ChangeEvent, FormEvent, useState } from 'react'
+import {useAuth} from 'react-oidc-context'
+
 import './LoginBox.css';
 
 import TextBox from '../../components/TextBox/TextBox'
@@ -10,6 +12,9 @@ interface LoginBoxProps {}
 
 
 const LoginBox: FC<LoginBoxProps> = () => {
+  // Authentication from oidc
+  const auth = useAuth()
+
   const [name, setName] = useState('')
   const [pass, setPass] = useState('')
   const [errorEmail, setErrorEmail] = useState(false)
@@ -60,7 +65,7 @@ const LoginBox: FC<LoginBoxProps> = () => {
         <button className="sbtn" type="submit">Connexion</button>
       </form>
       <hr/>
-      <button className="btn">Continuer avec Google</button>
+      <button className="btn" onClick={() => auth.signinRedirect()}>Continuer avec Google</button>
     </div>
 )};
 
