@@ -7,11 +7,9 @@ import { BrowserRouter } from 'react-router-dom';
 
 import { AuthProvider } from 'react-oidc-context';
 
-const authority = process.env.REACT_APP_AUTHORIZATION_ENDPOINT!
-
 // Config necessary to access authority login page
 const oidcConfig  = {
-  authority : authority,
+  authority : process.env.REACT_APP_AUTHORIZATION_ENDPOINT!,
   client_id : process.env.REACT_APP_CLIENT_ID!,
   redirect_uri: process.env.REACT_APP_REDIRECT_URI!,
 };
