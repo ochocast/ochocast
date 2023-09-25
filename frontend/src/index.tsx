@@ -9,12 +9,11 @@ import { AuthProvider } from 'react-oidc-context';
 
 const authority = process.env.REACT_APP_AUTHORIZATION_ENDPOINT!
 
+// Config necessary to access authority login page
 const oidcConfig  = {
   authority : authority,
   client_id : process.env.REACT_APP_CLIENT_ID!,
-  // "response_type": "code",
   redirect_uri: process.env.REACT_APP_REDIRECT_URI!,
-  // "scope": "profile",
 };
 
 const root = ReactDOM.createRoot(

@@ -12,13 +12,8 @@ interface LoginBoxProps {}
 
 
 const LoginBox: FC<LoginBoxProps> = () => {
+  // Authentication from oidc
   const auth = useAuth()
-
-  /*const handle0Auth2Login = () => {
-    // Renvoie vers l'autorité en charge 0Auth2, pour qu'il prenne en charge le login SSO (authorizationEndpoint)
-    // window.location.href = `${authority}?${new URLSearchParams(authenticationInfo)}`
-    signIn(authenticationInfo)
-  };*/
 
   const [name, setName] = useState('')
   const [pass, setPass] = useState('')
@@ -70,7 +65,7 @@ const LoginBox: FC<LoginBoxProps> = () => {
         <button className="sbtn" type="submit">Connexion</button>
       </form>
       <hr/>
-        <button className="btn" onClick={() => auth.signinRedirect()}>Continuer avec Google</button>
+      <button className="btn" onClick={() => auth.signinRedirect()}>Continuer avec Google</button>
     </div>
 )};
 
