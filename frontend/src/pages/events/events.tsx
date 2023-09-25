@@ -19,14 +19,19 @@ const EventsPage: FC<eventsProps> = () => {
     const toggle = () => { setisOpen(!isOpen);};
 
     const [name, setName] = useState('')
-    const [description, setDescription] = useState('')
     const [errorName, setErrorName] = useState(false)
+
+    const [description, setDescription] = useState('')
     const [errorDescription, setErrorDescription] = useState(false)
 
-    const [value, setValue] = useState('');
+    const [categoryValue, setCategoryValue] = useState('');
 
+    const [date, setDate] = useState('');
+
+    const [message, setMessage] = useState("");
+    
     const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
-        setValue(event.target.value);
+        setCategoryValue(event.target.value);
     };
 
     const options: Option[] = [
@@ -41,14 +46,42 @@ const EventsPage: FC<eventsProps> = () => {
         setDescription(e.target.value)
     }
 
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-      e.preventDefault()
-      if (!name.trim()) {
+    const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setDate(e.target.value)
+    }
+
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault()
+        if (!name.trim()) {
         setErrorName(true)
-      }
-      if (!description.trim()) {
+        }
+        if (!description.trim()) {
         setErrorDescription(true)
-      }
+        }
+        try {
+            let res = await fetch("http://localhost:3001/api/events", {
+                method: "POST",
+                mode: "cors",
+                body: JSON.stringify({
+                    name: name,
+                    date: date,
+                    description: description,
+                    category: categoryValue,
+                    tags: [],
+                    creator: 1,
+                    isPrivate: "true",
+                    imageSlug: ""
+                }),
+            });
+            let resJson = await res.json();
+            if (res.status === 200) {
+                setMessage("L'évènement a été créer");
+                toggle();
+            }
+        } catch (error) {
+            console.log(error)
+            setMessage("L'évènement n'a pas pu être créer, une erreur est survenue");
+        }
     }
 
     return (
@@ -75,14 +108,16 @@ const EventsPage: FC<eventsProps> = () => {
                         <label>Date de l'évènement</label>
                         <input type='date'  
                             name="date"
+                            value={date}
                             min={new Date().toISOString().split('T')[0]}  
+                            onChange={handleDateChange}
                             required
                         />
                     </div>
                     <SelectBox
                         title="Catégorie"
                         options={options}
-                        value={value}
+                        value={categoryValue}
                         onChange={handleSelectChange}
                     />
                 </div>
@@ -95,8 +130,10 @@ const EventsPage: FC<eventsProps> = () => {
                     onChange={handleDescriptionChange}
                 />
                 <Button className="submit-button" type="submit">Créer l'évènement</Button>
+                <div className="message">{message ? <p>{message}</p> : null}</div>
             </form>
         </Modal>
     </div>
 )};
+
 export default EventsPage;
