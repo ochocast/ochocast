@@ -24,7 +24,7 @@
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+[Nest](https://github.com/nestjs/nest) backend for a streaming platform.
 
 ## Installation
 
@@ -33,6 +33,12 @@ $ npm install
 ```
 
 ## Running the app
+To run the app you will need a .env file, you can use the .env.example provided for development purposes.
+
+You will find a docker-compose.yml file in the database folder of the project. To run the database you will need to run the following command in the database folder:
+```bash
+$ docker-compose up --detach
+```
 
 ```bash
 # development
@@ -61,12 +67,6 @@ $ npm run test:cov
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
 
 ## License
 
