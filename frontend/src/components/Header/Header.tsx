@@ -1,7 +1,8 @@
 import React, { FC } from 'react';
+import { Outlet } from 'react-router-dom';
 import './Header.css';
 
-import octoLogo from '../../assets/OctoTechnology.png'
+import octoLogo from '../../assets/OctoTechnology.png';
 
 import HeaderUserButton from '../buttons/UserButton/UserButton';
 
@@ -11,6 +12,8 @@ const Header: FC<HeaderProps> = () => (
   <div className='Header'>
     <img className='Logo' src={octoLogo} alt='Logo'></img>
     <HeaderUserButton/>
+    <Outlet />
   </div>
 );
+
 export default Header;

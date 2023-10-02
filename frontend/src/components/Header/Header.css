@@ -1,17 +1,25 @@
 .Header {
     display: flex;
-    position: sticky;
     top: 0;
     background-color: #0E2356;
     height: 100px;
     width: 100%;
     align-items: center;
     justify-content: space-between;
+    margin-bottom: 20px;
 }
 
-.Header .Logo {
+.Logo {
     height: 48.59px;
     width: 135.05px;
-    padding-left: 95px;
+    padding-left: 5%;
     align-items: flex-start;
+}
+
+.HeaderUserButton {
+    /* display: flex; */
+    align-items: center;
+    column-gap: 10px;
+    position: absolute;
+    right:5%; /* Adjust the right value as needed */
 }

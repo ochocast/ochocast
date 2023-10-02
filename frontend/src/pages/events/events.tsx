@@ -2,7 +2,6 @@ import { FC } from 'react';
 import { ChangeEvent, FormEvent, useState } from 'react'
 import './events.css';
 
-import Header from '../../components/Header/Header';
 import Button from '../../components/buttons/button/button';
 import Modal from '../../components/modal/modal';
 import TextBox from '../../components/TextBox/TextBox';
@@ -86,11 +85,12 @@ const EventsPage: FC<eventsProps> = () => {
 
     return (
     <div className="events">
-        <Header/>
-        <Button
-            onClick={toggle}
-            children = "Créer un évènement"
-        />
+        <div className="button-event-creation">
+            <Button
+                onClick={toggle}
+                children="Créer un évènement"
+            />
+        </div>
         <Modal isOpen={isOpen} toggle={toggle}>
             <h1>Créer un nouvel évènement</h1>
             <form onSubmit={handleSubmit}>

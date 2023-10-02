@@ -5,8 +5,7 @@
     border-radius: 12px;
     padding: 10px;
     column-gap: 24px;
-
-    margin-right: 95px;
+    justify-self: center;
 
     background-color: white;
 }

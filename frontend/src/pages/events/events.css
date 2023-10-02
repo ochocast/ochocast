@@ -1,3 +1,12 @@
+.events {
+  display: flex;
+  justify-content: center;  
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  margin-top: 200px;
+}
 
 .side-by-side .input-wrapper .select-wrapper{
     width: 100%;
@@ -31,3 +40,11 @@ h1 {
     gap: 10px 3em;
     width: 100%;
 }
+
+.button-event-creation {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh; /* Pour centrer verticalement sur toute la hauteur de la page */
+} 
