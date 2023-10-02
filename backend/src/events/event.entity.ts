@@ -31,7 +31,10 @@ export class Event {
   tags: string;
 
   @Column()
-  date: Date;
+  startDate: Date;
+
+  @Column()
+  endDate: Date;
 
   @Column()
   published: boolean;

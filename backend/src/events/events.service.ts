@@ -27,7 +27,17 @@ export class EventsService {
     return await this.eventsRepository.save(event);
   }
 
-  async findAll() {
-    return await this.eventsRepository.find();
+  async find(filter: any): Promise<Event[]> {
+    return await this.eventsRepository.find({
+      where: {
+        ...filter,
+      },
+    });
+  }
+
+  async findOne(id: number): Promise<Event> {
+    return await this.eventsRepository.findOneBy({
+      id: id,
+    });
   }
 }

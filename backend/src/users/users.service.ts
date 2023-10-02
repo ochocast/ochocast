@@ -18,13 +18,17 @@ export class UsersService {
     return await this.usersRepository.save(user);
   }
 
-  async findAll(): Promise<User[]> {
-    return await this.usersRepository.find();
+  async find(filter): Promise<User[]> {
+    return await this.usersRepository.find({
+      where: {
+        ...filter,
+      },
+    });
   }
 
   async findOne(id: number): Promise<User> {
-    return await this.usersRepository.findOne({
-      where: { id },
+    return await this.usersRepository.findOneBy({
+      id: id,
     });
   }
 }

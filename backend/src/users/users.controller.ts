@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -22,8 +23,8 @@ export class UsersController {
   }
 
   @Get()
-  findAll(): Promise<User[]> {
-    return this.usersService.findAll();
+  find(@Query() filter: any): Promise<User[]> {
+    return this.usersService.find(filter);
   }
 
   @Get(':id')

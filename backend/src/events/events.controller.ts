@@ -2,7 +2,9 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
+  Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -20,8 +22,14 @@ export class EventsController {
     return this.eventsService.insert(event);
   }
 
+  // Standard GET route with query parameters
   @Get()
-  findAll(): Promise<Event[]> {
-    return this.eventsService.findAll();
+  find(@Query() filter: any): Promise<Event[]> {
+    return this.eventsService.find(filter);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: number): Promise<Event> {
+    return this.eventsService.findOne(id);
   }
 }
