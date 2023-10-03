@@ -26,6 +26,8 @@ const EventsPage: FC<eventsProps> = () => {
     const [categoryValue, setCategoryValue] = useState('');
 
     const [date, setDate] = useState('');
+    const [startHour, setStartHour] = useState('');
+    const [endHour, setEndHour] = useState('');
 
     const [message, setMessage] = useState("");
     
@@ -48,34 +50,49 @@ const EventsPage: FC<eventsProps> = () => {
     const handleDateChange = (e: ChangeEvent<HTMLInputElement>) => {
         setDate(e.target.value)
     }
+    const handleStartHourChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setStartHour(e.target.value)
+    }
+    const handleEndHourChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setEndHour(e.target.value)
+    }
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         if (!name.trim()) {
-        setErrorName(true)
+            setErrorName(true)
         }
         if (!description.trim()) {
-        setErrorDescription(true)
+            setErrorDescription(true)
         }
         try {
             let res = await fetch("http://localhost:3001/api/events", {
                 method: "POST",
-                mode: "cors",
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },
                 body: JSON.stringify({
                     name: name,
-                    date: date,
                     description: description,
                     category: categoryValue,
                     tags: [],
+                    startDate: date + 'T' + startHour + ":00.000Z",
+                    endDate: date + 'T' + endHour + ":00.000Z",
                     creator: 1,
-                    isPrivate: "true",
-                    imageSlug: ""
+                    isPrivate: true,
+                    imageSlug: "imageSlug"
                 }),
             });
-            let resJson = await res.json();
-            if (res.status === 200) {
-                setMessage("L'évènement a été créer");
+            
+            if (res.status === 201) {
                 toggle();
+                setName('')
+                setDescription('')
+                setDate('')
+                setStartHour('')
+                setEndHour('')
+                setCategoryValue('')
             }
         } catch (error) {
             console.log(error)
@@ -113,6 +130,24 @@ const EventsPage: FC<eventsProps> = () => {
                             onChange={handleDateChange}
                             required
                         />
+                    </div>
+                    <div className='input-wrapper'>
+                        <label>Début de l'évènement</label>
+                            <input type='time'  
+                                name="time"
+                                value={startHour}
+                                onChange={handleStartHourChange}
+                                required
+                            />
+                    </div>
+                    <div className='input-wrapper'>
+                        <label>Fin de l'évènement</label>
+                            <input type='time'  
+                                name="time"
+                                value={endHour}
+                                onChange={handleEndHourChange}
+                                required
+                            />
                     </div>
                     <SelectBox
                         title="Catégorie"

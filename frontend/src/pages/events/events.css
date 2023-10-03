@@ -24,6 +24,12 @@ input[type=text] {
     width: 100%;
     box-sizing: border-box;
 }
+
+input[type=time] {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 input[type=date] {
     width: 100%;
     height: 43px;
