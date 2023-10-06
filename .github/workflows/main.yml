@@ -1,0 +1,57 @@
+on:
+  push
+
+jobs:
+  build-front:
+    name: build-front
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: ./frontend
+    - run: npm ci
+    - run: npm run build --if-present
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-front
+        path: |
+          ./frontend/build/
+        retention-days: 2
+  
+  deploy-front:
+    name: deploy-front
+    runs-on: ubuntu-latest
+    needs: build-front
+
+    steps:
+      - name: Download front artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-front
+      - name: Install config Scaleway scw CLI
+        uses: jawher/action-scw@v2.21.0
+        env:
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_DEFAULT_ORGANIZATION_ID }}
+          SCW_ORGANIZATION_ID: ${{ secrets.SCW_DEFAULT_ORGANIZATION_ID }}
+          SCW_DEFAULT_PROJECT_ID: ${{secrets.SCW_DEFAULT_PROJECT_ID}}
+          SCW_PROJECT_ID: ${{secrets.SCW_DEFAULT_PROJECT_ID}}
+          SCW_DEFAULT_ZONE: fr-par-1
+          SCW_ZONE: fr-par-1
+        with:
+          args: object config install type=s3cmd
+      - run: mv /home/runner/work/_temp/_github_home/.s3cfg "$GITHUB_WORKSPACE/.s3cfg"
+      - run: sudo chown runner:docker ./.s3cfg
+      - name: Set up S3cmd cli tool
+        uses: s3-actions/s3cmd@v1.5.0
+      - run: s3cmd -c "./.s3cfg" sync --delete-removed --exclude=.s3cfg --exclude=scw.output ./ s3://prod-frontend
