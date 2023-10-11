@@ -1,11 +1,11 @@
 import React, { ChangeEvent, FC } from 'react';
-import "./SelectBox.css";
+import './SelectBox.css';
 type Option = {
   label: string;
   value: string;
 };
 
-interface SelectBoxProps {
+export interface SelectBoxProps {
   title: string;
   value?: string;
   disabled?: boolean;
@@ -14,7 +14,7 @@ interface SelectBoxProps {
   onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
 }
 
-const SelectBox: FC<SelectBoxProps> =  ({
+const SelectBox: FC<SelectBoxProps> = ({
   title,
   value,
   disabled,
@@ -25,20 +25,21 @@ const SelectBox: FC<SelectBoxProps> =  ({
   return (
     <div className="select-wrapper">
       <label htmlFor={title}>{title}</label>
-      <select 
-        className={className} 
+      <select
+        className={className}
         disabled={disabled}
-        onChange={onChange} 
-        value={value}>
-      {options.map(({ value, label }) => (
-        <option key={value} value={value}>
-          {label}
-        </option>
-      ))}
-    </select>
+        onChange={onChange}
+        value={value}
+      >
+        {options.map(({ value, label }) => (
+          <option key={value} value={value}>
+            {label}
+          </option>
+        ))}
+      </select>
     </div>
-  )
-}
+  );
+};
 
 export { SelectBox };
 export type { Option };

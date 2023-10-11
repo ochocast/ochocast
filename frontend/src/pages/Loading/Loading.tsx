@@ -3,16 +3,16 @@ import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 
 function LoadingPage() {
-  const  auth  = useAuth();
+  const auth = useAuth();
   const navigate = useNavigate();
 
-  React.useEffect(() => {    
+  React.useEffect(() => {
     if (!auth.isLoading) {
       if (auth.isAuthenticated) {
-        console.log("Authenticated");
+        console.log('Authenticated');
         navigate('/events');
       } else {
-        console.log("Not authenticated");
+        console.log('Not authenticated');
         navigate('/');
       }
     }

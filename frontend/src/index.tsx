@@ -8,14 +8,14 @@ import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider } from 'react-oidc-context';
 
 // Config necessary to access authority login page
-const oidcConfig  = {
-  authority : process.env.REACT_APP_AUTHORIZATION_ENDPOINT!,
-  client_id : process.env.REACT_APP_CLIENT_ID!,
+const oidcConfig = {
+  authority: process.env.REACT_APP_AUTHORIZATION_ENDPOINT!,
+  client_id: process.env.REACT_APP_CLIENT_ID!,
   redirect_uri: process.env.REACT_APP_REDIRECT_URI!,
 };
 
 const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
+  document.getElementById('root') as HTMLElement,
 );
 root.render(
   <React.StrictMode>
@@ -24,7 +24,7 @@ root.render(
         <App />
       </AuthProvider>
     </BrowserRouter>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
 
 // If you want to start measuring performance in your app, pass a function

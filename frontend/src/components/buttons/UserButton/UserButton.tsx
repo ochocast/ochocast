@@ -1,14 +1,14 @@
 import React, { FC } from 'react';
 import './UserButton.css';
 
-import userIcon from '../../../assets/UserIcon.png'
+import userIcon from '../../../assets/UserIcon.png';
 
-interface HeaderUserButtonProps {}
+export interface HeaderUserButtonProps {}
 
 const HeaderUserButton: FC<HeaderUserButtonProps> = () => (
   <div className="HeaderUserButton">
-    <span className='TextBox'>Utilisateur</span>
-    <img className='IconLogo' src={userIcon} alt='IconLogo'></img>
+    <span className="TextBox">Utilisateur</span>
+    <img className="IconLogo" src={userIcon} alt="IconLogo"></img>
   </div>
 );
 

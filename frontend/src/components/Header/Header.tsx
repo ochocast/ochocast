@@ -6,12 +6,12 @@ import octoLogo from '../../assets/OctoTechnology.png';
 
 import HeaderUserButton from '../buttons/UserButton/UserButton';
 
-interface HeaderProps {}
+export interface HeaderProps {}
 
 const Header: FC<HeaderProps> = () => (
-  <div className='Header'>
-    <img className='Logo' src={octoLogo} alt='Logo'></img>
-    <HeaderUserButton/>
+  <div className="Header">
+    <img className="Logo" src={octoLogo} alt="Logo"></img>
+    <HeaderUserButton />
     <Outlet />
   </div>
 );

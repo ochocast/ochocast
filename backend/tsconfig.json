@@ -17,5 +17,6 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./src/**/*.json", "./src/**/*.d.ts", "./src/**/*.js", "./src/**/*.jsx", "./test/**/*.ts", "./test/**/*.tsx", "./test/**/*.json", "./test/**/*.d.ts", "./test/**/*.js", "./test/**/*.jsx"],
 }

@@ -1,15 +1,15 @@
-import { ChangeEvent, FC } from 'react'
+import React, { ChangeEvent, FC } from 'react';
 import './TextBox.css';
 
-interface TextBoxProps {
-  type: 'text' | 'number' | 'email' | 'password'
-  label: string
-  value: string | number
-  name: string
-  placeholder: string
-  error: boolean
-  disabled?: boolean
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void
+export interface TextBoxProps {
+  type: 'text' | 'number' | 'email' | 'password';
+  label: string;
+  value: string | number;
+  name: string;
+  placeholder: string;
+  error: boolean;
+  disabled?: boolean;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }
 
 const TextBox: FC<TextBoxProps> = ({
@@ -34,9 +34,9 @@ const TextBox: FC<TextBoxProps> = ({
         onChange={onChange}
         disabled={disabled}
       />
-      {error && <p className="error">Le champ ne peut pas être vide !</p>}
+      {error && <p className="error">Le champ ne peut pas être vide!</p>}
     </div>
-  )
-}
+  );
+};
 
 export default TextBox;
