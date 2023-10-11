@@ -1,5 +1,7 @@
 on:
-  push
+  push:
+    branches:
+      - 'us/oct-37-mettre-en-place-ci-cd'
 
 jobs:
   build-front:
