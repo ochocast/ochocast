@@ -1,11 +1,10 @@
 .events {
   display: flex;
-  justify-content: center;  
   flex-direction: column;
+  justify-content: center;
   align-items: center;
   height: 100%;
   width: 100%;
-  margin-top: 200px;
 }
 
 .side-by-side .input-wrapper .select-wrapper{
@@ -40,6 +39,10 @@ h1 {
     margin-top: 0px;
 }
 
+Button {
+    cursor: pointer;
+}
+
 .side-by-side {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -52,5 +55,4 @@ h1 {
     justify-content: center;
     flex-direction: column;
     align-items: center;
-    height: 100vh; /* Pour centrer verticalement sur toute la hauteur de la page */
-} 
+}

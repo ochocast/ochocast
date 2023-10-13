@@ -1,0 +1,77 @@
+.event-box {
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 4px 0 grey;
+    width: 333px;
+    height: 422px;
+    row-gap: 25px;
+}
+
+.event-image {
+    height: 181px;
+}
+
+.event-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-inline: 20px
+}
+
+.event-title {
+    font-size:20px;
+    font-weight: 200;
+    font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+    color: #0E2356;
+}
+
+.event-date {
+    font-size: 16px;
+    font-weight:600;
+    color: #000000;
+    opacity: 70%;
+}
+
+.event-info {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.event-buttons-wrapper {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 18px;
+    margin-inline: 40px;
+    column-gap: 40px;
+    width: 100%;
+}
+
+.button {
+    height: 29px;
+    width: 100px;
+    border-radius: 50px;
+    border: none;
+    background: #0E2356;
+    color: white;
+    cursor: pointer;
+}
+
+.event-subscriptions-wrapper {
+    display: flex;
+    align-items: center;
+    column-gap: 5px;
+}
+
+.dot {
+    height: 6px;
+    width: 6px;
+    border-radius: 100px;
+    background: #08B7D1;
+}
+
+.event-subscritpions {
+    font-size: 14px;
+    color: black;
+    opacity: 70%;
+}
