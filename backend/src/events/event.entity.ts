@@ -37,13 +37,13 @@ export class Event {
   endDate: Date;
 
   @Column()
-  published: boolean;
+  published: boolean = false;
 
   @Column()
-  private: boolean;
+  isPrivate: boolean = true;
 
   @Column()
-  closed: boolean;
+  closed: boolean = false;
 
   @Column()
   imageSlug: string;

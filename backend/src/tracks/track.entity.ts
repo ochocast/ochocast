@@ -24,7 +24,7 @@ export class Track {
   streamkey: string;
 
   @Column()
-  closed: boolean;
+  closed: boolean = false;
 
   @ManyToOne(() => Event, (event) => event.tracks)
   event: Event;

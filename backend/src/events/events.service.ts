@@ -13,17 +13,11 @@ export class EventsService {
   ) {}
 
   async insert(eventDetails: CreateEventDto): Promise<Event> {
-    console.log(eventDetails);
-
     const event: Event = new Event({
       ...eventDetails,
       tags: eventDetails.tags.toString(),
       creator: new User({ id: Number(eventDetails.creator) }),
-      published: false,
-      private: false,
-      closed: false,
     });
-
     return await this.eventsRepository.save(event);
   }
 

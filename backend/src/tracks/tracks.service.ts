@@ -13,15 +13,11 @@ export class TracksService {
   ) {}
 
   async insert(trackDetails: CreateTrackDto): Promise<Track> {
-    console.log(trackDetails);
-
     const track: Track = new Track({
       ...trackDetails,
       keywords: trackDetails.keywords.toString(),
       event: new Event({ id: Number(trackDetails.event) }),
-      closed: false,
     });
-
     return await this.tracksRepository.save(track);
   }
 
