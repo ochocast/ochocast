@@ -14,10 +14,13 @@ function App() {
     <div>
       <Header />
       <Routes>
-        <Route path='/' element={<LoginPage />} />
-        <Route path='events' element={<ProtectedRoute Element={EventsPage} />} />
-        <Route path='/loading' element={<LoadingPage />} />
-        <Route path='*' element={<NotFoundPage />} />
+        <Route path="/" element={<LoginPage />} />
+        <Route
+          path="events"
+          element={<ProtectedRoute Element={EventsPage} />}
+        />
+        <Route path="/loading" element={<LoadingPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
   );
