@@ -1,0 +1,41 @@
+.track-settings {
+    display: flex;
+    flex-direction: column;
+    width: 60%;
+}
+
+.track-settings hr {
+    width: 100%;
+    border: 3px solid #D9D9D9;
+}
+
+.submit-button {
+    align-self: flex-end;
+}
+
+.title-layout {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.title-layout h1 {
+    margin: 0px;
+    font-size: 36px;
+}
+.select {
+    height: 100px;
+    width: 500px
+}
+.selected {
+    border: 1px solid black;
+    margin: 10px;
+    padding: 5px;
+    width: 500px;
+}
+.color {
+    background-color: #8691AA;
+    margin: 2px;
+    padding-left: 3px;
+    padding-right: 3px;
+    border-radius: 5px;
+}

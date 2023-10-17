@@ -13,6 +13,7 @@ export interface ButtonProps {
   radius?: string;
   type?: 'submit' | 'reset' | 'button';
   children?: React.ReactNode;
+  disabled?: boolean
 }
 
 const Button: FC<ButtonProps> = ({
@@ -27,13 +28,15 @@ const Button: FC<ButtonProps> = ({
   radius = '50px',
   type,
   children,
+  disabled
 }) => (
   <button
     className={className}
     onClick={onClick}
     type={type}
+    disabled={disabled}
     style={{
-      backgroundColor: bcolor,
+      backgroundColor: disabled ? "gray" : bcolor,
       color: tcolor,
       fontSize: tsize,
       border,
