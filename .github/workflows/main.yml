@@ -13,6 +13,7 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+    - run: sed -i 's@process.env.REACT_APP_AUTHORIZATION_ENDPOINT!@"${{ vars.REACT_APP_AUTHORIZATION_ENDPOINT }}"@;s@process.env.REACT_APP_CLIENT_ID!@"${{ vars.REACT_APP_CLIENT_ID }}"@; s@process.env.REACT_APP_REDIRECT_URI!@"${{ vars.REACT_APP_REDIRECT_URI }}"@' ./src/index.tsx
     - name: Use Node.js 18.x
       uses: actions/setup-node@v3
       with:
@@ -56,4 +57,6 @@ jobs:
       - run: sudo chown runner:docker ./.s3cfg
       - name: Set up S3cmd cli tool
         uses: s3-actions/s3cmd@v1.5.0
-      - run: s3cmd -c "./.s3cfg" sync --delete-removed --exclude=.s3cfg --exclude=scw.output ./ s3://prod-frontend
+      - run: s3cmd -c "./.s3cfg" sync --delete-removed --exclude=.s3cfg --exclude=scw.output --exclude=./static/css/*.css --exclude=./static/js/*.js ./ s3://prod-frontend
+      - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.css -m 'text/css' ./static/css/ s3://prod-frontend/static/css/
+      - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.js -m 'text/javascript' ./static/js/ s3://prod-frontend/static/js/
