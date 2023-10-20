@@ -1,5 +1,4 @@
-import React, { FC } from 'react';
-import { ChangeEvent, FormEvent, useState, useEffect } from 'react';
+import React, {ChangeEvent, FC, FormEvent, useEffect, useState} from 'react';
 import './events.css';
 
 import Button from '../../components/buttons/button/button';
@@ -7,9 +6,10 @@ import Modal from '../../components/modal/modal';
 import TextBox from '../../components/TextBox/TextBox';
 import TextArea from '../../components/TextArea/TextArea';
 import EventsList from './../../components/EventsList/EventsList';
-import { Option } from '../../components/SelectBox/SelectBox';
-import { SelectBox } from '../../components/SelectBox/SelectBox';
+import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
+import { getPublishedEvents, getUnpublishedEvents } from "../../utils/api";
+import { createEvent } from "../../utils/api";
 
 export interface eventsProps {}
 
@@ -17,9 +17,8 @@ const categories = ['BBL', 'Conférence'];
 
 const fetchEventsNotPublished = async () => {
   try {
-    const res = await fetch('http://localhost:3001/api/events?published=false');
-    const finalRes = await res.json();
-    return finalRes;
+    const res = await getUnpublishedEvents();
+    return await res.data;
   } catch (error) {
     console.error(`Failed to fetch nonpublished events: ${error}`);
   }
@@ -27,9 +26,8 @@ const fetchEventsNotPublished = async () => {
 
 const fetchEventsPublished = async () => {
   try {
-    const res = await fetch('http://localhost:3001/api/events?published=true');
-    const finalRes = await res.json();
-    return finalRes;
+    const res = await getPublishedEvents();
+    return await res.data;
   } catch (error) {
     console.error(`Failed to fetch nonpublished events: ${error}`);
   }
@@ -109,24 +107,18 @@ const EventsPage: FC<eventsProps> = () => {
       setErrorDescription(true);
     }
     try {
-      const res = await fetch('http://localhost:3001/api/events', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name,
-          description: description,
-          category: categoryValue,
-          tags: [],
-          startDate: date + 'T' + startHour + ':00.000Z',
-          endDate: date + 'T' + endHour + ':00.000Z',
-          creator: 1,
-          isPrivate: true,
-          imageSlug: 'imageSlug',
-        }),
+      const res = await createEvent({
+        name: name,
+        description: description,
+        category: categoryValue,
+        tags: [],
+        startDate: date + 'T' + startHour + ':00.000Z',
+        endDate: date + 'T' + endHour + ':00.000Z',
+        creator: 1,
+        isPrivate: true,
+        imageSlug: 'imageSlug',
       });
+
       if (res.status === 201) {
         toggle();
         setName('');
