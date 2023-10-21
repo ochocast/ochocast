@@ -1,7 +1,7 @@
 import { create } from 'apisauce';
 
 const api = create({
-  baseURL: `${process.env.API_URL}:${process.env.API_PORT}/api`,
+  baseURL: `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/api`,
   timeout: 20000, // 20 seconds
   maxContentLength: 10000000,
   maxBodyLength: 10000000,
