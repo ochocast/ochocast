@@ -14,3 +14,24 @@ $ npm run lint
 # run prettie in front and back
 $ npm run format
 ```
+
+## Open documentation
+
+### Generate documentation:
+
+The documentation command `npm run doc` will generate documentation for `/frontend` and `/backend` folder
+
+### `cd docs/ && open index.html`
+
+###  How to document code example:
+
+```js
+/**
+ * Starts the application with given options
+ * @param options options to start the application with
+ * @param app the application to start
+ * @returns a promise resolved true when the application is ready
+ */
+declare function startApplication(app: FooApplication, options: FooOptions): Promise<boolean>
+
+```

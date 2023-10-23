@@ -8,12 +8,14 @@
     "start:backend": "cd backend && npm run start:dev",
     "start:frontend": "cd frontend && npm run start",
     "lint": "cd backend && npm run lint && cd ../frontend && npm run lint",
-    "format": "cd backend && npm run format && cd ../frontend && npm run format"
+    "format": "cd backend && npm run format && cd ../frontend && npm run format",
+    "doc": "typedoc --out ./docs --entryPoints ./frontend/src --entryPoints ./backend/src --entryPointStrategy expand"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "concurrently": "^8.2.1"
+    "concurrently": "^8.2.1",
+    "typedoc": "^0.25.2"
   }
 }

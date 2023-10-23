@@ -43,7 +43,24 @@ You don’t have to ever use `eject`. The curated feature set is suitable for sm
 
 ### `npm run doc`
 
-Create a typedoc documentation folder in frontend/docs
+Create a typedoc documentation folder for backend in backend/docs
+
+### Open documentation
+
+## `cd docs/ && open index.html`
+
+###  How to document code example:
+
+```js
+/**
+ * Starts the application with given options
+ * @param options options to start the application with
+ * @param app the application to start
+ * @returns a promise resolved true when the application is ready
+ */
+declare function startApplication(app: FooApplication, options: FooOptions): Promise<boolean>
+
+```
 
 ## Learn More
 
