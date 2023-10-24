@@ -1,4 +1,4 @@
-import React, {ChangeEvent, FC, FormEvent, useEffect, useState} from 'react';
+import React, { ChangeEvent, FC, FormEvent, useEffect, useState } from 'react';
 import './events.css';
 
 import Button from '../../components/buttons/button/button';
@@ -8,8 +8,8 @@ import TextArea from '../../components/TextArea/TextArea';
 import EventsList from './../../components/EventsList/EventsList';
 import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
-import { getPublishedEvents, getUnpublishedEvents } from "../../utils/api";
-import { createEvent } from "../../utils/api";
+import { getPublishedEvents, getUnpublishedEvents } from '../../utils/api';
+import { createEvent } from '../../utils/api';
 
 export interface eventsProps {}
 

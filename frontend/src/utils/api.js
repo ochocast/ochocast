@@ -7,12 +7,11 @@ const api = create({
   maxBodyLength: 10000000,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  }
+    Accept: 'application/json',
+  },
 });
 
 // Users
-
 
 // Events
 export const createEvent = (event) => api.post('/events', event);
@@ -20,3 +19,4 @@ export const getPublishedEvents = () => api.get('/events?published=true');
 export const getUnpublishedEvents = () => api.get('/events?published=false');
 
 // Tracks
+export const getTracks = () => api.get('/tracks');
