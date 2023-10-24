@@ -5,6 +5,7 @@ import { AppConfig, DatabaseConfig } from './config';
 import { EventsModule } from './events/events.module';
 import { UsersModule } from './users/users.module';
 import { TracksModule } from './tracks/tracks.module';
+import { KeycloakModule } from './keycloak.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { TracksModule } from './tracks/tracks.module';
       }),
       inject: [ConfigService],
     }),
+    KeycloakModule,
     EventsModule,
     UsersModule,
     TracksModule,

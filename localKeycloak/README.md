@@ -1,18 +1,51 @@
+## Getting Started
+
+To get started, run the following command to start the Docker container:
+
 ```bash
 docker-compose up -d
-
-docker exec local_keycloak \
-    /opt/jboss/keycloak/bin/add-user-keycloak.sh \
-    -u admin \
-    -p admin \
-&& docker restart local_keycloak
 ```
-Connect to http://localhost:28080/auth/admin/ and create a new realm named `local-realm` with a client named `octocast` and a user with whatever credentiials you want.
 
-## Keycloak client configuration
+Once the container is running, you can connect to Keycloak by visiting http://localhost:8080 in your web browser.
 
-### Client settings
+## Creating a Realm
 
-- Valid Redirect URIs: `http://localhost:3000/loading`
-- Base URL: `http://localhost:3000`
-- Web Origins: `http://localhost:3000`
+To use Keycloak, you'll need to create a new realm. To do this, follow these steps:
+
+1. Log in to the Keycloak admin console at http://localhost:8080.
+2. Click on the "Add Realm" button and give your new realm the name local-realm.
+3. Click on the "Create" button to create the new realm.
+
+## Configuring the Octocast Client
+
+To configure the Octocast client, follow these steps:
+
+1. In the Keycloak admin console, select your new realm from the dropdown menu.
+2. Click on the "Clients" tab and then click on the "Create" button.
+3. Give your new client the name octocast.
+4. Under "Valid Redirect URIs", add `http://localhost:3000/*`.
+5. Under "Base URL", add `http://localhost:3000`.
+6. Under "Web Origins", add `http://localhost:3000`.
+7. Click on the "Save" button to save your changes.
+
+## Configuring the Nest-Back Client
+
+To configure the Nest-Back client, follow these steps:
+
+1. In the Keycloak admin console, select your new realm from the dropdown menu.
+2. Click on the "Clients" tab and then click on the "Create" button.
+3. Give your new client a name (e.g. "nest-back").
+4. Under "Root URL", add `http://localhost:3001`.
+5. Under "Authorization Enabled", select "On".
+6. Under "Flow", select "Implicit Flow" and set to "off" Standard flow.
+7. Click on the "Save" button to save your changes.
+8. Click on the "Credentials" tab, copy the secret and paste it in yout .env file under "AUTH_SECRET".
+
+## Creating a User
+
+To create a user, follow these steps:
+
+1. In the Keycloak admin console, select your new realm from the dropdown menu.
+2. Click on the "Users" tab and then click on the "Add User" button.
+3. Enter the user's details (e.g. username, password, etc.).
+4. Click on the "Save" button to save your changes.

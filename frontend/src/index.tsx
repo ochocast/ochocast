@@ -4,6 +4,7 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter } from 'react-router-dom';
+import { WebStorageStateStore } from 'oidc-client-ts';
 
 import { AuthProvider } from 'react-oidc-context';
 
@@ -12,6 +13,7 @@ const oidcConfig = {
   authority: process.env.REACT_APP_AUTHORIZATION_ENDPOINT!,
   client_id: process.env.REACT_APP_CLIENT_ID!,
   redirect_uri: process.env.REACT_APP_REDIRECT_URI!,
+  userStore: new WebStorageStateStore({ store: window.localStorage }),
 };
 
 const root = ReactDOM.createRoot(
