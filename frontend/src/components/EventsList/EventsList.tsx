@@ -21,7 +21,7 @@ const EventsList: FC<EventsListProps> = ({
   title,
   events = [],
 }) => {
-  const [eventsShown, changeEvents] = useState(events.slice(0, 3));
+  const [eventsShown, changeEvents] = useState(events);
   const [index, setIndex] = useState(0); // index of navigation
 
   // Navigate between events when clicking arrows
@@ -54,7 +54,7 @@ const EventsList: FC<EventsListProps> = ({
           ></img>
         </div>
         <div className="event-container">
-          {eventsShown.map((event, index) => (
+          {eventsShown.slice(0,3).map((event, index) => (
             <EventBox
               eventStatus={eventStatus}
               key={index}

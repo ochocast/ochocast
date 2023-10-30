@@ -10,6 +10,7 @@ import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
 import { getPublishedEvents, getUnpublishedEvents } from '../../utils/api';
 import { createEvent } from '../../utils/api';
+import Event from '../../utils/EventsProperties';
 
 export interface eventsProps {}
 
@@ -43,7 +44,7 @@ const EventsPage: FC<eventsProps> = () => {
   const [errorName, setErrorName] = useState(false);
 
   const [eventsPublished, setEventsPublished] = useState([]);
-  const [eventsUnpublished, setEventsUnpublished] = useState([]);
+  const [eventsUnpublished, setEventsUnpublished] = useState<Event[]>([]);
 
   const [description, setDescription] = useState('');
   const [errorDescription, setErrorDescription] = useState(false);
@@ -127,6 +128,7 @@ const EventsPage: FC<eventsProps> = () => {
         setStartHour('');
         setEndHour('');
         setCategoryValue('');
+        eventsUnpublished.push(res.data);
       }
     } catch (error) {
       console.log(error);
