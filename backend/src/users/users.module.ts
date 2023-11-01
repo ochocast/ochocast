@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
-import { UsersController } from './users.controller';
-import { UsersService } from './users.service';
+import { UsersController } from './infra/controllers/users.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './user.entity';
+import { UserEntity } from './infra/gateways/entities/user.entity';
+import { UserGateway } from './infra/gateways/user.gateway';
+import { CreateNewUserUsecase } from './domain/usecases/createNewUser.usecase';
+import { GetUsersUsecase } from './domain/usecases/getUsers.usecase';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User])],
+  imports: [TypeOrmModule.forFeature([UserEntity])],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [
+    {
+      provide: 'UserGateway',
+      useClass: UserGateway,
+    },
+    CreateNewUserUsecase,
+    GetUsersUsecase,
+  ],
 })
 export class UsersModule {}

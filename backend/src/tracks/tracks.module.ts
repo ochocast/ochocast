@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
-import { TracksController } from './tracks.controller';
-import { TracksService } from './tracks.service';
+import { TracksController } from './infra/controllers/tracks.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Track } from './track.entity';
+import { TrackEntity } from './infra/gateways/entities/track.entity';
+import { TrackGateway } from './infra/gateways/track.gateway';
+import { CreateNewTrackUsecase } from './domain/usecases/createNewTrack.usecase';
+import { GetTracksUsecase } from './domain/usecases/getTracks.usecase';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Track])],
+  imports: [TypeOrmModule.forFeature([TrackEntity])],
   controllers: [TracksController],
-  providers: [TracksService],
+  providers: [
+    {
+      provide: 'TrackGateway',
+      useClass: TrackGateway,
+    },
+    CreateNewTrackUsecase,
+    GetTracksUsecase,
+  ],
 })
 export class TracksModule {}

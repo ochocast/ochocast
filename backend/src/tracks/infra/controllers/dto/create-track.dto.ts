@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsNumber } from 'class-validator';
+import { IsNotEmpty } from 'class-validator';
 
 export class CreateTrackDto {
   @IsNotEmpty()
@@ -11,9 +11,5 @@ export class CreateTrackDto {
   keywords: string[];
 
   @IsNotEmpty()
-  streamkey: string;
-
-  @IsNotEmpty()
-  @IsNumber()
-  event: bigint;
+  event: string;
 }

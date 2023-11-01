@@ -1,4 +1,4 @@
-import { IsDateString, IsNotEmpty, IsNumber } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsUUID } from 'class-validator';
 
 export class CreateEventDto {
   @IsNotEmpty()
@@ -22,8 +22,8 @@ export class CreateEventDto {
   endDate: Date;
 
   @IsNotEmpty()
-  @IsNumber()
-  creator: bigint;
+  @IsUUID()
+  creator: string;
 
   @IsNotEmpty()
   isPrivate: boolean;

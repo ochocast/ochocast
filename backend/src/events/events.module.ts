@@ -1,12 +1,21 @@
 import { Module } from '@nestjs/common';
-import { EventsController } from './events.controller';
-import { EventsService } from './events.service';
+import { EventsController } from './infra/controllers/events.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Event } from './event.entity';
+import { EventEntity } from './infra/gateways/entities/event.entity';
+import { EventGateway } from './infra/gateways/event.gateway';
+import { CreateNewEventUsecase } from './domain/usecases/createNewEvent.usecase';
+import { GetEventsUsecase } from './domain/usecases/getEvents.usecase';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Event])],
+  imports: [TypeOrmModule.forFeature([EventEntity])],
   controllers: [EventsController],
-  providers: [EventsService],
+  providers: [
+    {
+      provide: 'EventGateway',
+      useClass: EventGateway,
+    },
+    CreateNewEventUsecase,
+    GetEventsUsecase,
+  ],
 })
 export class EventsModule {}
