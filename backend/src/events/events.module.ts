@@ -5,6 +5,7 @@ import { EventEntity } from './infra/gateways/entities/event.entity';
 import { EventGateway } from './infra/gateways/event.gateway';
 import { CreateNewEventUsecase } from './domain/usecases/createNewEvent.usecase';
 import { GetEventsUsecase } from './domain/usecases/getEvents.usecase';
+import { UpdateEventUsecase } from './domain/usecases/updateEvent.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([EventEntity])],
@@ -16,6 +17,7 @@ import { GetEventsUsecase } from './domain/usecases/getEvents.usecase';
     },
     CreateNewEventUsecase,
     GetEventsUsecase,
+    UpdateEventUsecase,
   ],
 })
 export class EventsModule {}

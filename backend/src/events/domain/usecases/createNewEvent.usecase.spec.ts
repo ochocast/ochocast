@@ -6,6 +6,7 @@ describe('CreateNewEventUseCase', () => {
   const eventGatewayMock: IEventGateway = {
     createNewEvent: jest.fn(),
     getEvents: jest.fn(),
+    updateEvent: jest.fn(),
   };
 
   const createEventUsecase = new CreateNewEventUsecase(eventGatewayMock);

@@ -26,4 +26,17 @@ export class EventGateway implements IEventGateway {
       relations: filter.id ? ['tracks'] : [],
     });
   }
+
+  async updateEvent(eventDetails: EventObject): Promise<EventObject> {
+    const event = await this.eventsRepository.findOne({
+      where: {
+        id: eventDetails.id,
+      },
+    });
+
+    return await this.eventsRepository.save({
+      ...event,
+      ...eventDetails,
+    });
+  }
 }
