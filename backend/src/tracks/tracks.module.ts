@@ -5,6 +5,7 @@ import { TrackEntity } from './infra/gateways/entities/track.entity';
 import { TrackGateway } from './infra/gateways/track.gateway';
 import { CreateNewTrackUsecase } from './domain/usecases/createNewTrack.usecase';
 import { GetTracksUsecase } from './domain/usecases/getTracks.usecase';
+import { UpdateTrackUsecase } from './domain/usecases/updateTrack.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([TrackEntity])],
@@ -16,6 +17,7 @@ import { GetTracksUsecase } from './domain/usecases/getTracks.usecase';
     },
     CreateNewTrackUsecase,
     GetTracksUsecase,
+    UpdateTrackUsecase,
   ],
 })
 export class TracksModule {}

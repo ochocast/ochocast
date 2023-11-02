@@ -25,4 +25,17 @@ export class TrackGateway implements ITrackGateway {
       },
     });
   }
+
+  async updateTrack(trackDetails: TrackObject): Promise<TrackObject> {
+    const track = await this.tracksRepository.findOne({
+      where: {
+        id: trackDetails.id,
+      },
+    });
+
+    return await this.tracksRepository.save({
+      ...track,
+      ...trackDetails,
+    });
+  }
 }
