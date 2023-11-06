@@ -1,16 +1,6 @@
 import { create } from 'apisauce';
-import { User } from 'oidc-client-ts';
 
-
-function getToken() {
-  const oidcStorage = localStorage.getItem(`oidc.user:${process.env.REACT_APP_AUTHORIZATION_ENDPOINT}:${process.env.REACT_APP_CLIENT_ID}`);
-  if (!oidcStorage) return null;
-
-  const user = User.fromStorageString(oidcStorage);
-  return user.access_token;
-}
-
-const api = create({
+export const api = create({
   baseURL: `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/api`,
   timeout: 20000, // 20 seconds
   maxContentLength: 10000000,
@@ -18,7 +8,6 @@ const api = create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'Authorization': `Bearer ${getToken()}`
   }
 });
 
