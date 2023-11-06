@@ -3,11 +3,13 @@ import './UserButton.css';
 
 import userIcon from '../../../assets/UserIcon.png';
 
-export interface HeaderUserButtonProps {}
+export interface HeaderUserButtonProps {
+  username: string;
+}
 
-const HeaderUserButton: FC<HeaderUserButtonProps> = () => (
+const HeaderUserButton: FC<HeaderUserButtonProps> = props => (
   <div className="HeaderUserButton">
-    <span className="TextBox">Utilisateur</span>
+    <span className="TextBox">{props.username}</span>
     <img className="IconLogo" src={userIcon} alt="IconLogo"></img>
   </div>
 );
