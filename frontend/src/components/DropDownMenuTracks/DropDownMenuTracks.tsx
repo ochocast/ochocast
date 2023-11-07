@@ -1,13 +1,13 @@
 import React, { FC } from 'react';
 import './DropDownMenuTracks.css';
-import Track from '../../utils/EventsProperties';
+import { Track } from '../../utils/EventsProperties';
 import addButton from '../../assets/addButton.png';
 import { useNavigate } from 'react-router-dom';
 
 interface DropDownMenuTracksProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tracks?: Track[];
-  eventId?: number;
+  eventId?: string;
   imageUrl?: string;
   isButtonDisplayed?: boolean;
 }

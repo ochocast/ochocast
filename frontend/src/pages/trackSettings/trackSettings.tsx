@@ -6,9 +6,10 @@ import './trackSettings.css';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
-import { getTracks } from '../../utils/api';
+import { createTrack, getTracks } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
+import { Track } from '../../utils/EventsProperties';
 
 interface TrackSettingsProps {
   isNew: boolean;
@@ -25,7 +26,6 @@ const fetchTracks = async () => {
 
 const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
   const { eventId } = useParams();
-  const id: number = Number(eventId);
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
 
@@ -47,7 +47,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
 
   const navigate = useNavigate();
 
-  const [tracks, setTracks] = useState([]);
+  const [tracks, setTracks] = useState<Track[]>([]);
 
   useEffect(() => {
     const fetchTracksData = async () => {
@@ -71,25 +71,19 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
     }
 
     try {
-      const res = await fetch('http://localhost:3001/api/tracks', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name,
-          description: description,
-          keywords: [],
-          streamkey: 'key',
-          closed: false,
-          event: id,
-        }),
+      const res = await createTrack({
+        name: name,
+        description: description,
+        keywords: [],
+        streamkey: '',
+        closed: false,
+        event: eventId,
       });
       if (res.status === 201) {
         setButtonDisabled(true);
-        const resJson = await res.json();
-        const url = '/events/' + id + '/track-settings/' + resJson.id;
+        const resJson = await res.data;
+        const url = '/events/' + eventId + '/track-settings/' + resJson.id;
+        tracks.push(res.data);
         navigate(url);
       }
     } catch (error) {
@@ -106,14 +100,14 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
           <button
             className="button-settings"
             type="button"
-            onClick={() => navigate(`/events/${id}/settings/`)}
+            onClick={() => navigate(`/events/${eventId}/settings/`)}
           >
             Paramètres
           </button>
         </div>
         <DropDownMenuTracks
           tracks={tracks}
-          eventId={id}
+          eventId={eventId}
           isButtonDisplayed={true}
           imageUrl={trackSelectImage}
         />

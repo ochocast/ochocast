@@ -20,3 +20,4 @@ export const getUnpublishedEvents = () => api.get('/events?published=false');
 
 // Tracks
 export const getTracks = () => api.get('/tracks');
+export const createTrack = (track) => api.post('/tracks', track);
