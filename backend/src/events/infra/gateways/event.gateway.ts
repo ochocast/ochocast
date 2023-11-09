@@ -23,7 +23,7 @@ export class EventGateway implements IEventGateway {
       where: {
         ...filter,
       },
-      relations: filter.id ? ['tracks'] : [],
+      relations: filter.id ? ['creator', 'tracks'] : ['creator'],
     });
   }
 

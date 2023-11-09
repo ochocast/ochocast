@@ -26,4 +26,18 @@ export class UserGateway implements IUserGateway {
       relations: filter.id ? ['events'] : [],
     });
   }
+
+  async loginUser(keycloak_user: any): Promise<UserObject> {
+    let user = await this.usersRepository.findOne({
+      where: {
+        email: keycloak_user.email,
+      },
+      relations: ['events'],
+    });
+    if (!user) {
+      user = await this.createNewUser(keycloak_user);
+    }
+
+    return user;
+  }
 }

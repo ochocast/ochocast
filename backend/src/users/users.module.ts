@@ -5,6 +5,7 @@ import { UserEntity } from './infra/gateways/entities/user.entity';
 import { UserGateway } from './infra/gateways/user.gateway';
 import { CreateNewUserUsecase } from './domain/usecases/createNewUser.usecase';
 import { GetUsersUsecase } from './domain/usecases/getUsers.usecase';
+import { LoginUserUseCase } from './domain/usecases/loginUser.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity])],
@@ -16,6 +17,7 @@ import { GetUsersUsecase } from './domain/usecases/getUsers.usecase';
     },
     CreateNewUserUsecase,
     GetUsersUsecase,
+    LoginUserUseCase,
   ],
 })
 export class UsersModule {}

@@ -108,6 +108,11 @@ const EventsPage: FC<eventsProps> = () => {
       setErrorDescription(true);
     }
     try {
+      const user_string = localStorage.getItem('backendUser');
+      if (!user_string) {
+        throw new Error('User not found');
+      }
+      const user = JSON.parse(user_string);
       const res = await createEvent({
         name: name,
         description: description,
@@ -115,7 +120,7 @@ const EventsPage: FC<eventsProps> = () => {
         tags: [],
         startDate: date + 'T' + startHour + ':00.000Z',
         endDate: date + 'T' + endHour + ':00.000Z',
-        creator: 1,
+        creator: user.id,
         isPrivate: true,
         imageSlug: 'imageSlug',
       });

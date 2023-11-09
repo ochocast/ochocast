@@ -12,6 +12,7 @@ export const api = create({
 });
 
 // Users
+export const loginUser = () => api.get('/users/login');
 
 // Events
 export const createEvent = (event) => api.post('/events', event);

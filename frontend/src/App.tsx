@@ -12,13 +12,22 @@ import TrackSettings from './pages/trackSettings/trackSettings';
 import EventSettings from './pages/eventSettings/eventSettings';
 import { useAuth } from 'react-oidc-context';
 import { User } from 'oidc-client-ts';
-import { api } from './utils/api';
-
+import { api, loginUser } from './utils/api';
 
 function App() {
   const auth = useAuth();
   const navigate = useNavigate();
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
+
+  const fetchBackendUser = async () => {
+    try {
+      const res = await loginUser();
+      localStorage.setItem('backendUser', JSON.stringify(await res.data));
+    }
+    catch (error) {
+      console.error(`Failed to fetch user: ${error}`);
+    }
+  };
 
   React.useEffect(() => {
     const oidcStorage = localStorage.getItem(`oidc.user:${process.env.REACT_APP_AUTHORIZATION_ENDPOINT}:${process.env.REACT_APP_CLIENT_ID}`);
@@ -27,8 +36,8 @@ function App() {
       if (user && !user.expired) {
         auth.signinSilent();
         setIsAuthenticated(true);
-        api.setHeaders({Authorization: `Bearer ${user.access_token}`});        
-        navigate('/events');
+        api.setHeaders({Authorization: `Bearer ${user.access_token}`});
+        fetchBackendUser();
       }
     }
     
