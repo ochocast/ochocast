@@ -33,7 +33,7 @@ const TracksPage: FC<tracksProps> = () => {
     };
 
     fetchEventData();
-  }, []);
+  }, [eventId]);
 
   const handleBackButtonClick = () => {
     navigate('/events');

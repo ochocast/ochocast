@@ -29,7 +29,7 @@ const LiveTrack = () => {
       }
     };
     fetchTracksData();
-  }, []);
+  }, [trackId]);
   return (
     <div className="live-page">
       {track ? (
