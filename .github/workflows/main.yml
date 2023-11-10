@@ -1,7 +1,7 @@
 on:
   push:
     branches:
-      - 'us/oct-37-mettre-en-place-ci-cd'
+      - 'main'
 
 jobs:
   build-front:
@@ -10,10 +10,15 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      REACT_APP_API_URL: ${{ secrets.API_URL }}
+      REACT_APP_API_PORT: ${{ secrets.API_PORT }}
+      REACT_APP_AUTHORIZATION_ENDPOINT: ${{ vars.AUTHORIZATION_ENDPOINT }}
+      REACT_APP_CLIENT_ID: ${{ vars.CLIENT_ID }}
+      REACT_APP_REDIRECT_URI: ${{ vars.REDIRECT_URI }}
     
     steps:
     - uses: actions/checkout@v4
-    - run: sed -i 's@process.env.REACT_APP_AUTHORIZATION_ENDPOINT!@"${{ vars.REACT_APP_AUTHORIZATION_ENDPOINT }}"@;s@process.env.REACT_APP_CLIENT_ID!@"${{ vars.REACT_APP_CLIENT_ID }}"@; s@process.env.REACT_APP_REDIRECT_URI!@"${{ vars.REACT_APP_REDIRECT_URI }}"@' ./src/index.tsx
     - name: Use Node.js 18.x
       uses: actions/setup-node@v3
       with:
@@ -60,3 +65,70 @@ jobs:
       - run: s3cmd -c "./.s3cfg" sync --delete-removed --exclude=.s3cfg --exclude=scw.output --exclude=./static/css/*.css --exclude=./static/js/*.js ./ s3://prod-frontend
       - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.css -m 'text/css' ./static/css/ s3://prod-frontend/static/css/
       - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.js -m 'text/javascript' ./static/js/ s3://prod-frontend/static/js/
+  
+  build-and-push-back:
+    name: build-and-push-back
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@v3.0.0
+      - name: Docker Login
+        uses: docker/login-action@v3.0.0
+        with:
+          registry: ${{ secrets.SCW_REGISTRY }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
+      - name: Build and push Docker images
+        # You may pin to the exact commit or the version.
+        # uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09
+        uses: docker/build-push-action@v5.0.0
+        with:
+          context: ./backend
+          # List of metadata for an image
+          #labels: # optional
+          # Push is a shorthand for --output=type=registry
+          push: true
+          # List of tags
+          tags: ${{ secrets.SCW_CONTAINER }}
+  
+  deploy-back:
+    name: deploy-back
+    runs-on: ubuntu-latest
+    needs: build-and-push-back
+
+    steps:
+      - name: remove-old-serverless
+        uses: philibea/scaleway-containers-deploy@v1.1.0
+        continue-on-error: true
+        with:
+          type: teardown
+          scw_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
+          scw_registry: ${{ secrets.SCW_CONTAINER }}
+      - name: deploy-new-serverless
+        uses: philibea/scaleway-containers-deploy@v1.1.0
+        with:
+          # This input can be used for deploy or teardown your environment. type by default is deploy ( deploy | teadown )
+          type: deploy
+          scw_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
+          scw_registry: ${{ secrets.SCW_CONTAINER }}
+          scw_region: fr-par
+          scw_container_port: 80 # optional, default is 80
+          scw_memory_limit: 512
+          # DNS name where your container will be available. Limitation: 63 char maximun
+          #scw_dns: # optional
+          # This will override prefix of your dns. if it's not set thane name of the containers ( max 34 char actually) will be set
+          #scw_dns_prefix: # optional
+          # This will add ALIAS on your root zone. Actually CNAME is used for all `¨scw_dns_prefix.scw_dns` of your dns
+          #root_zone: # optional, default is false
+          # List of environnment variables in the form of KEY=VALUE, separated by commas
+          scw_environment_variables: NODE_ENV=production,${{ secrets.BACK_SERVERLESS_SECRETS }}
+          # List of secrets in the form of KEY=VALUE, separated by commas. The value can't contains commas nor equal signs
+          # scw_secrets: 

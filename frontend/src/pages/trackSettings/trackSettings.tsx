@@ -40,6 +40,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
   const navigate = useNavigate();
 
   const [tracks, setTracks] = useState<Track[]>([]);
+
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
     setisOpen(!isOpen);
