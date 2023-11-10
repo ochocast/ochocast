@@ -1,0 +1,51 @@
+.track_box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid black;
+    border-radius: 20px;
+    padding-inline: 20px;
+}
+
+.button_title_wrapper {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: 10px;
+}
+
+.track_title {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.track_button {
+    margin-bottom: 5px;
+    width: 150px;
+    height: 30px;
+    border-radius: 50px;
+    border: 1px solid #0E2356;
+    transition: transform 0.3s ease;
+    color: black;
+    cursor: pointer;
+    backface-visibility: hidden;
+}
+
+.track_button:hover {
+    -webkit-transform: scale(1.1);
+    -ms-transform: scale(1.1);
+    transform: scale(1.2);
+}
+
+.line {
+    background-color: #D9D9D9;
+    height: 5px;
+    width: 100%;
+}
+
+.track_content {
+    display: flex;
+    align-self: flex-start;
+    margin-top: 7px;
+}

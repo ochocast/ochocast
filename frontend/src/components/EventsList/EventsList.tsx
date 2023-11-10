@@ -54,8 +54,9 @@ const EventsList: FC<EventsListProps> = ({
           ></img>
         </div>
         <div className="event-container">
-          {eventsShown.slice(0,3).map((event, index) => (
+          {eventsShown.slice(0, 3).map((event, index) => (
             <EventBox
+              eventId={event.id}
               eventStatus={eventStatus}
               key={index}
               name={event.name}

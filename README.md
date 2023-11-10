@@ -11,7 +11,7 @@ REACT_APP_AUTHORIZATION_ENDPOINT
 # run linting in front and back
 $ npm run lint
 
-# run prettie in front and back
+# run prettier in front and back
 $ npm run format
 ```
 

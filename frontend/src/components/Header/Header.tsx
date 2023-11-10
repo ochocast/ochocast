@@ -13,12 +13,12 @@ const Header: FC<HeaderProps> = () => {
   const auth = useAuth();
   const username = auth.user?.profile.name || 'Not logged in';
   return (
-  <div className="Header">
-    <img className="Logo" src={octoLogo} alt="Logo"></img>
-    <HeaderUserButton username={username}/>
-    <Outlet />
-  </div>
-);
+    <div className="Header">
+      <img className="Logo" src={octoLogo} alt="Logo"></img>
+      <HeaderUserButton username={username} />
+      <Outlet />
+    </div>
+  );
 };
 
 export default Header;

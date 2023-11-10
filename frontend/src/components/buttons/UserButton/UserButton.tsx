@@ -7,7 +7,7 @@ export interface HeaderUserButtonProps {
   username: string;
 }
 
-const HeaderUserButton: FC<HeaderUserButtonProps> = props => (
+const HeaderUserButton: FC<HeaderUserButtonProps> = (props) => (
   <div className="HeaderUserButton">
     <span className="TextBox">{props.username}</span>
     <img className="IconLogo" src={userIcon} alt="IconLogo"></img>

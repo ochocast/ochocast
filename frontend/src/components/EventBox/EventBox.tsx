@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FC } from 'react';
 
 import { EventStatus } from '../../utils/EventStatus';
@@ -7,7 +8,7 @@ import './EventBox.css';
 
 // Changera probablement a la propriete event contenant toutes les informations necessaires
 interface EventBoxProps {
-  className?: string;
+  eventId?: number;
   name?: string;
   date: Date;
   createdBy?: string;
@@ -18,6 +19,7 @@ interface EventBoxProps {
 }
 
 const EventBox: FC<EventBoxProps> = ({
+  eventId,
   name,
   date,
   createdBy,
@@ -28,8 +30,13 @@ const EventBox: FC<EventBoxProps> = ({
 }) => {
   const dateDisplay = new Date(date); // to be able to getDay..
 
+  const navigate = useNavigate();
+
   return (
-    <div className="event-box">
+    <div
+      className="event-box"
+      onClick={() => navigate(`/events/${eventId}/tracks`)}
+    >
       <img
         className="event-image"
         src={require('../../assets/' + imageURL)}

@@ -12,7 +12,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute: FC<ProtectedRouteProps> = ({ Element }) => {
   const auth = useAuth();
   const [isLoading, setIsLoading] = React.useState(auth.isLoading);
-  
+
   React.useEffect(() => {
     setIsLoading(auth.isLoading);
   }, [auth]);
@@ -24,7 +24,11 @@ const ProtectedRoute: FC<ProtectedRouteProps> = ({ Element }) => {
     return <Element />;
   }
 
-  return <div><h1>Checking your authorization...</h1></div>;
+  return (
+    <div>
+      <h1>Checking your authorization...</h1>
+    </div>
+  );
 };
 
 export default ProtectedRoute;

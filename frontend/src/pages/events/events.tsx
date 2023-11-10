@@ -30,7 +30,7 @@ const fetchEventsPublished = async () => {
     const res = await getPublishedEvents();
     return await res.data;
   } catch (error) {
-    console.error(`Failed to fetch nonpublished events: ${error}`);
+    console.error(`Failed to fetch published events: ${error}`);
   }
 };
 
@@ -150,14 +150,14 @@ const EventsPage: FC<eventsProps> = () => {
         {eventsPublished && eventsPublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.Published}
-            title="Published Events"
+            title="Prochain évènements"
             events={eventsPublished}
           />
         ) : null}
         {eventsUnpublished && eventsUnpublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.NotPublished}
-            title="Not Published Events"
+            title="Évènements non publiés"
             events={eventsUnpublished}
           />
         ) : null}
