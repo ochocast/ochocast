@@ -10,22 +10,14 @@ import { createTrack, getTracks } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
+import Modal from '../../components/modal/modal';
 
 interface TrackSettingsProps {
   isNew: boolean;
 }
 
-const fetchTracks = async () => {
-  try {
-    const res = await getTracks();
-    return await res.data;
-  } catch (error) {
-    console.error(`Failed to fetch tracks: ${error}`);
-  }
-};
-
 const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
-  const { eventId } = useParams();
+  const { eventId, trackId } = useParams();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
 
@@ -48,17 +40,25 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
   const navigate = useNavigate();
 
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [isOpen, setisOpen] = useState(false);
+  const toggle = () => {
+    setisOpen(!isOpen);
+  };
 
   useEffect(() => {
-    const fetchTracksData = async () => {
+    const fetchTracks = async () => {
       try {
-        const tracks = await fetchTracks();
-        setTracks(tracks);
+        const res = await getTracks();
+      //TO BE FIXED : 2 CALLS MADE AND FIRST ONE RETURNS 401
+        if (res.status === 200) {
+          setTracks(res.data);
+        }
+        //setTracks([]);
       } catch (error) {
         console.error(`Failed to fetch tracks: ${error}`);
       }
     };
-    fetchTracksData();
+    fetchTracks();
   }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -115,8 +115,16 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
       <form onSubmit={handleSubmit} className="track-settings">
         <div className="title-layout">
           <h1>Nouvelle Piste</h1>
+          {!isNew ? <Button className='start-live' type='button' onClick={toggle}> Commencer le live </Button> : null}
         </div>
         <hr />
+        <Modal isOpen={isOpen} toggle={toggle}>
+          <h1>Commencer le live</h1>
+          <div className='start-live-buttons'>
+            <Button type='button' > Lancer le live depuis OBS</Button>
+            <Button className='octocast-start-button' type='button' onClick={() => navigate('/tracks/'+ trackId)}> Lancer le live depuis OCTOCast</Button>
+          </div>
+        </Modal>
         <TextBox
           type="text"
           label="Nom de la piste"

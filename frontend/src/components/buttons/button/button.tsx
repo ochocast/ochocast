@@ -23,7 +23,6 @@ const Button: FC<ButtonProps> = ({
   tcolor = 'white',
   tsize = '20px',
   height = '45px',
-  width = '240px',
   onClick,
   radius = '50px',
   type,
@@ -42,7 +41,6 @@ const Button: FC<ButtonProps> = ({
       border,
       borderRadius: radius,
       height,
-      width,
     }}
   >
     {children}

@@ -1,3 +1,6 @@
 Button {
     margin-top: 15px;
+    width: fit-content;
+    padding-left: 2%;
+    padding-right: 2%;
 }

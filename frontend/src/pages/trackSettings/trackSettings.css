@@ -84,3 +84,7 @@
     display: flex;
     width: 100%;
 }
+.start-live-buttons {
+    display: flex;
+    justify-content: space-evenly;
+}

@@ -13,6 +13,8 @@ import EventSettings from './pages/eventSettings/eventSettings';
 import { useAuth } from 'react-oidc-context';
 import { User } from 'oidc-client-ts';
 import { api, loginUser } from './utils/api';
+import LiveTrack from './pages/liveTrack/liveTrack';
+
 
 function App() {
   const auth = useAuth();
@@ -61,6 +63,10 @@ function App() {
         <Route
           path="/events/:eventId/track-settings/:trackId"
           element={<TrackSettings isNew={false} />}
+        />
+        <Route
+          path="/tracks/:trackId"
+          element={<ProtectedRoute Element={LiveTrack} />}
         />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

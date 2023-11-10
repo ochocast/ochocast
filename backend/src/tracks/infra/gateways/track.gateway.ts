@@ -23,6 +23,7 @@ export class TrackGateway implements ITrackGateway {
       where: {
         ...filter,
       },
+      relations: ['event'],
     });
   }
 
