@@ -1,5 +1,4 @@
 import { create } from 'apisauce';
-import { User } from 'oidc-client-ts';
 
 export const api = create({
   baseURL: `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/api`,
