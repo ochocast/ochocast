@@ -13,7 +13,8 @@ export default interface Event {
   tracks: Track[];
   creator: User;
   createdAt: Date;
-};
+  // eslint-disable-next-line
+}
 
 export interface Track {
   id: number;
@@ -24,7 +25,7 @@ export interface Track {
   closed: boolean;
   event: Event;
   createdAt: Date;
-};
+}
 
 export interface User {
   id: number;
@@ -34,4 +35,4 @@ export interface User {
   role: string;
   events: Event[];
   createdAt: Date;
-};
+}

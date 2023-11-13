@@ -1,59 +1,59 @@
 .tracks {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .back_image {
-    height: 43px;
-    width: 55px;
-    cursor: pointer;
+  height: 43px;
+  width: 55px;
+  cursor: pointer;
 }
 
 .tracks_page_title_wrapper {
-    display: flex;
-    width: 100%;
-    margin-left: 50px;
-    margin-top: 45px;
-    column-gap: 5px;
-    align-items: center;
+  display: flex;
+  width: 100%;
+  margin-left: 50px;
+  margin-top: 45px;
+  column-gap: 5px;
+  align-items: center;
 }
 
 .tracks_page_title {
-    font-size: 36px;
-    color: black;
+  font-size: 36px;
+  color: black;
 }
 
 .tracks_container {
-    display: grid;
-    justify-content: center;
-    margin-top: 80px;
-    margin-bottom: 40px;
-    grid-template-columns: 475px 475px;
-    grid-template-rows: 175px 175px;
-    grid-column-gap: 105px;
-    grid-row-gap: 95px;
+  display: grid;
+  justify-content: center;
+  margin-top: 80px;
+  margin-bottom: 40px;
+  grid-template-columns: 475px 475px;
+  grid-template-rows: 175px 175px;
+  grid-column-gap: 105px;
+  grid-row-gap: 95px;
 }
 
 .no_tracks_message {
-    position: absolute;
-    justify-self: center;
-    font-size: 40px;
-    letter-spacing:5px;
-    width: 50%;
-    bottom: 35%;
-    display:table;
-    margin:40px auto;
-    transition:.6s;
-  }
-  .no_tracks_message:before,
-  .no_tracks_message:after {
-    content:attr(data-text);
-    transition:.6s;
-  }
-  .no_tracks_message:before {
-    position: absolute;
-    z-index:-1;
-    text-shadow:
+  position: absolute;
+  justify-self: center;
+  font-size: 40px;
+  letter-spacing: 5px;
+  width: 50%;
+  bottom: 35%;
+  display: table;
+  margin: 40px auto;
+  transition: 0.6s;
+}
+.no_tracks_message:before,
+.no_tracks_message:after {
+  content: attr(data-text);
+  transition: 0.6s;
+}
+.no_tracks_message:before {
+  position: absolute;
+  z-index: -1;
+  text-shadow:
     0px 0px,
     0px 0px,
     0px 0px,
@@ -64,14 +64,22 @@
     0px 0px,
     0px 0px,
     0px 0px;
-    -webkit-mask:repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.5) 0 6px);
-    mask:repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.5) 0 6px);
-  }
-  .no_tracks_message:hover {
-    transform:translate(-8px,-8px);
-  }
-  .no_tracks_message:hover:before {
-    text-shadow:
+  -webkit-mask: repeating-linear-gradient(
+    45deg,
+    transparent 0 3px,
+    rgba(0, 0, 0, 0.5) 0 6px
+  );
+  mask: repeating-linear-gradient(
+    45deg,
+    transparent 0 3px,
+    rgba(0, 0, 0, 0.5) 0 6px
+  );
+}
+.no_tracks_message:hover {
+  transform: translate(-8px, -8px);
+}
+.no_tracks_message:hover:before {
+  text-shadow:
     0.5px 0.5px,
     1px 1px,
     1.5px 1.5px,
@@ -82,4 +90,4 @@
     4px 4px,
     4.5px 4.5px,
     5px 4px;
-  }
+}

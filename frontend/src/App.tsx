@@ -16,7 +16,6 @@ import { User } from 'oidc-client-ts';
 import { api, loginUser } from './utils/api';
 import LiveTrack from './pages/liveTrack/liveTrack';
 
-
 function App() {
   const auth = useAuth();
   const navigate = useNavigate();

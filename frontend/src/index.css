@@ -1,4 +1,7 @@
-body, input, textarea, button {
+body,
+input,
+textarea,
+button {
   margin: 0;
   font-family: 'Outfit', sans-serif;
 }

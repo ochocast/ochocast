@@ -1,20 +1,20 @@
 .HeaderUserButton {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-radius: 12px;
-    padding: 10px;
-    column-gap: 24px;
-    justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 12px;
+  padding: 10px;
+  column-gap: 24px;
+  justify-self: center;
 
-    background-color: white;
+  background-color: white;
 }
 
 .HeaderUserButton .TextBox {
-    color: black;
-    font-size: 16px;
+  color: black;
+  font-size: 16px;
 }
 
 .HeaderUserButton .IconLogo {
-    height: 27px;
+  height: 27px;
 }

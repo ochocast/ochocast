@@ -50,7 +50,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
     const fetchTracks = async () => {
       try {
         const res = await getTracks();
-      //TO BE FIXED : 2 CALLS MADE AND FIRST ONE RETURNS 401
+        //TO BE FIXED : 2 CALLS MADE AND FIRST ONE RETURNS 401
         if (res.status === 200) {
           setTracks(res.data);
         }
@@ -116,14 +116,24 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
       <form onSubmit={handleSubmit} className="track-settings">
         <div className="title-layout">
           <h1>Nouvelle Piste</h1>
-          {!isNew ? <Button className='start-live' type='button' onClick={toggle}> Commencer le live </Button> : null}
+          {!isNew ? (
+            <Button className="start-live" type="button" onClick={toggle}>
+              Commencer le live
+            </Button>
+          ) : null}
         </div>
         <hr />
         <Modal isOpen={isOpen} toggle={toggle}>
           <h1>Commencer le live</h1>
-          <div className='start-live-buttons'>
-            <Button type='button' > Lancer le live depuis OBS</Button>
-            <Button className='octocast-start-button' type='button' onClick={() => navigate('/tracks/'+ trackId)}> Lancer le live depuis OCTOCast</Button>
+          <div className="start-live-buttons">
+            <Button type="button"> Lancer le live depuis OBS</Button>
+            <Button
+              className="octocast-start-button"
+              type="button"
+              onClick={() => navigate('/tracks/' + trackId)}
+            >
+              Lancer le live depuis OCTOCast
+            </Button>
           </div>
         </Modal>
         <TextBox
