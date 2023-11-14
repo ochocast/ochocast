@@ -101,43 +101,51 @@ const EventsPage: FC<eventsProps> = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    let isError = false;
     if (!name.trim()) {
       setErrorName(true);
+      isError = true;
     }
     if (!description.trim()) {
       setErrorDescription(true);
+      isError = true;
     }
-    try {
-      const user_string = localStorage.getItem('backendUser');
-      if (!user_string) {
-        throw new Error('User not found');
-      }
-      const user = JSON.parse(user_string);
-      const res = await createEvent({
-        name: name,
-        description: description,
-        category: categoryValue,
-        tags: [],
-        startDate: date + 'T' + startHour + ':00.000Z',
-        endDate: date + 'T' + endHour + ':00.000Z',
-        creator: user.id,
-        isPrivate: true,
-        imageSlug: 'imageSlug',
-      });
 
-      if (res.status === 201) {
-        toggle();
-        setName('');
-        setDescription('');
-        setDate('');
-        setStartHour('');
-        setEndHour('');
-        setCategoryValue('');
-        eventsUnpublished.push(res.data);
+    if (!isError) {
+      try {
+        const userString = localStorage.getItem('backendUser');
+        if (!userString) {
+          throw new Error('User not found');
+        }
+        const user = JSON.parse(userString);
+        const res = await createEvent({
+          name: name,
+          description: description,
+          category: categoryValue,
+          tags: [],
+          startDate: date + 'T' + startHour + ':00.000Z',
+          endDate: date + 'T' + endHour + ':00.000Z',
+          creator: user.id,
+          isPrivate: true,
+          imageSlug: 'imageSlug',
+        });
+
+        if (res.status === 201) {
+          toggle();
+          setName('');
+          setDescription('');
+          setDate('');
+          setStartHour('');
+          setEndHour('');
+          setCategoryValue('');
+          eventsUnpublished.push(res.data);
+        }
+      } catch (error) {
+        console.log(error);
+        setMessage(
+          "L'évènement n'a pas pu être créer, une erreur est survenue",
+        );
       }
-    } catch (error) {
-      console.log(error);
-      setMessage("L'évènement n'a pas pu être créer, une erreur est survenue");
     }
   };
 
@@ -201,6 +209,7 @@ const EventsPage: FC<eventsProps> = () => {
               <input
                 type="time"
                 name="time"
+                min={startHour}
                 value={endHour}
                 onChange={handleEndHourChange}
                 required
@@ -211,6 +220,7 @@ const EventsPage: FC<eventsProps> = () => {
               options={options}
               value={categoryValue}
               onChange={handleSelectChange}
+              required={true}
             />
           </div>
           <TextArea
