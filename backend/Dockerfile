@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:20-alpine as build
 
 WORKDIR /usr/src/app
 
@@ -10,6 +10,13 @@ COPY . .
 
 RUN npm run build
 
-EXPOSE 3001/tcp
 
-CMD [ "node", "dist/main.js" ]
+FROM node:20-alpine as prod
+
+WORKDIR /usr/src/app
+
+COPY --from=build /usr/src/app/dist ./dist
+
+EXPOSE 80/tcp
+
+CMD npx typeorm migration:run && node dist/main.js

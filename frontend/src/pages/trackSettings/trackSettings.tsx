@@ -58,7 +58,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
       }
     };
     fetchTracks();
-  }, []);
+  }, [eventId]);
 
   useEffect(() => {
     if (trackId) {
