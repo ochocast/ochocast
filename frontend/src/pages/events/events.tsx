@@ -8,7 +8,11 @@ import TextArea from '../../components/TextArea/TextArea';
 import EventsList from './../../components/EventsList/EventsList';
 import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
-import { getPublishedEvents, getUnpublishedEvents } from '../../utils/api';
+import {
+  getPublishedEvents,
+  getUnpublishedEvents,
+  updateEvent,
+} from '../../utils/api';
 import { createEvent } from '../../utils/api';
 import Event from '../../utils/EventsProperties';
 
@@ -43,7 +47,7 @@ const EventsPage: FC<eventsProps> = () => {
   const [name, setName] = useState('');
   const [errorName, setErrorName] = useState(false);
 
-  const [eventsPublished, setEventsPublished] = useState([]);
+  const [eventsPublished, setEventsPublished] = useState<Event[]>([]);
   const [eventsUnpublished, setEventsUnpublished] = useState<Event[]>([]);
 
   const [description, setDescription] = useState('');
@@ -97,6 +101,24 @@ const EventsPage: FC<eventsProps> = () => {
   };
   const handleEndHourChange = (e: ChangeEvent<HTMLInputElement>) => {
     setEndHour(e.target.value);
+  };
+
+  const onPublish = async (eventId: string) => {
+    try {
+      const res = await updateEvent(eventId, { published: true });
+      //add event to published events
+      const published = eventsPublished.slice();
+      published.push(res.data);
+      setEventsPublished(published);
+
+      //remove event from unpublished events
+      const eventWithIdIndex = eventsUnpublished.findIndex(
+        (event) => event.id === res.data.id,
+      );
+      eventsUnpublished.splice(eventWithIdIndex, 1);
+    } catch (error) {
+      console.error(`Failed to update event: ${error}`);
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -160,6 +182,7 @@ const EventsPage: FC<eventsProps> = () => {
             eventStatus={EventStatus.Published}
             title="Prochain évènements"
             events={eventsPublished}
+            onPublish={onPublish}
           />
         ) : null}
         {eventsUnpublished && eventsUnpublished.length >= 1 ? (
@@ -167,6 +190,7 @@ const EventsPage: FC<eventsProps> = () => {
             eventStatus={EventStatus.NotPublished}
             title="Évènements non publiés"
             events={eventsUnpublished}
+            onPublish={onPublish}
           />
         ) : null}
       </div>

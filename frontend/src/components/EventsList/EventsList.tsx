@@ -14,12 +14,14 @@ interface EventsListProps {
   eventStatus: EventStatus;
   title: string;
   events?: Event[];
+  onPublish: (eventId: string) => void;
 }
 
 const EventsList: FC<EventsListProps> = ({
   eventStatus,
   title,
   events = [],
+  onPublish,
 }) => {
   const [eventsShown, changeEvents] = useState(events);
   const [index, setIndex] = useState(0); // index of navigation
@@ -66,6 +68,7 @@ const EventsList: FC<EventsListProps> = ({
                 event.creator?.firstName ? event.creator.firstName : 'Swann'
               }
               category={event.category}
+              onPublish={onPublish}
             />
           ))}
         </div>

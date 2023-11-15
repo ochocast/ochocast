@@ -8,7 +8,7 @@ import './EventBox.css';
 
 // Changera probablement a la propriete event contenant toutes les informations necessaires
 interface EventBoxProps {
-  eventId?: number;
+  eventId?: string;
   name?: string;
   date: Date;
   createdBy?: string;
@@ -16,10 +16,11 @@ interface EventBoxProps {
   subscriptions?: number;
   imageURL?: string;
   eventStatus: EventStatus;
+  onPublish: (eventId: string) => void;
 }
 
 const EventBox: FC<EventBoxProps> = ({
-  eventId,
+  eventId = '',
   name,
   date,
   createdBy,
@@ -27,23 +28,26 @@ const EventBox: FC<EventBoxProps> = ({
   subscriptions = 200,
   imageURL,
   eventStatus,
+  onPublish,
 }) => {
   const dateDisplay = new Date(date); // to be able to getDay..
 
   const navigate = useNavigate();
 
   return (
-    <div
-      className="event-box"
-      onClick={() => navigate(`/events/${eventId}/tracks`)}
-    >
+    <div className="event-box">
       <img
         className="event-image"
         src={require('../../assets/' + imageURL)}
         alt="img"
       ></img>
       <div className="event-wrapper">
-        <div className="event-title">{name}</div>
+        <div
+          className="event-title"
+          onClick={() => navigate(`/events/${eventId}/tracks`)}
+        >
+          {name}
+        </div>
         <div className="event-date">{`Date de début: ${dateDisplay.getDay()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>
@@ -63,7 +67,9 @@ const EventBox: FC<EventBoxProps> = ({
       ) : (
         <div className="event-buttons-wrapper">
           <button className="button">Modifier</button>
-          <button className="button">Publier</button>
+          <button className="button" onClick={() => onPublish(eventId)}>
+            Publier
+          </button>
         </div>
       )}
     </div>

@@ -19,6 +19,8 @@ export const createEvent = (event) => api.post('/events', event);
 export const getPublishedEvents = () => api.get('/events?published=true');
 export const getUnpublishedEvents = () => api.get('/events?published=false');
 export const getEvent = (eventId) => api.get(`/events?id=${eventId}`);
+export const updateEvent = (eventId, event) =>
+  api.put('/events/' + eventId, event);
 
 // Tracks
 export const getTrack = (trackId) => api.get('/tracks?id=' + trackId);
