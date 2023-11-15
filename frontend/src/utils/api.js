@@ -24,3 +24,5 @@ export const getEvent = (eventId) => api.get(`/events?id=${eventId}`);
 export const getTrack = (trackId) => api.get('/tracks?id=' + trackId);
 export const getTracks = () => api.get('/tracks');
 export const createTrack = (track) => api.post('/tracks', track);
+export const updateTrack = (trackId, track) =>
+  api.put('/tracks/' + trackId, track);

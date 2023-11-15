@@ -6,7 +6,7 @@ import './trackSettings.css';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
-import { createTrack, getTracks } from '../../utils/api';
+import { createTrack, getTrack, updateTrack, getEvent } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
@@ -49,18 +49,36 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
   useEffect(() => {
     const fetchTracks = async () => {
       try {
-        const res = await getTracks();
-        //TO BE FIXED : 2 CALLS MADE AND FIRST ONE RETURNS 401
+        const res = await getEvent(eventId);
         if (res.status === 200) {
-          setTracks(res.data);
+          setTracks(res.data[0].tracks);
         }
-        //setTracks([]);
       } catch (error) {
         console.error(`Failed to fetch tracks: ${error}`);
       }
     };
     fetchTracks();
   }, []);
+
+  useEffect(() => {
+    if (trackId) {
+      const fetchOneTrack = async () => {
+        try {
+          const res = await getTrack(trackId);
+          setDescription(res.data[0].description);
+          setName(res.data[0].name);
+        } catch (error) {
+          console.error(
+            `Failed to fetch track from track id ${trackId}: ${error}`,
+          );
+        }
+      };
+      fetchOneTrack();
+    } else {
+      setDescription('');
+      setName('');
+    }
+  }, [trackId]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -71,25 +89,45 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
       setErrorDescription(true);
     }
 
-    try {
-      const res = await createTrack({
-        name: name,
-        description: description,
-        keywords: [],
-        streamkey: '',
-        closed: false,
-        event: eventId,
-      });
-      if (res.status === 201) {
+    const trackBody = {
+      name: name,
+      description: description,
+      keywords: [],
+      streamkey: '',
+      closed: false,
+      event: eventId,
+    };
+
+    if (trackId) {
+      try {
+        const res = await updateTrack(trackId, trackBody);
         setButtonDisabled(true);
-        const resJson = await res.data;
-        const url = '/events/' + eventId + '/track-settings/' + resJson.id;
-        tracks.push(res.data);
-        navigate(url);
+        const trackIndex = tracks.findIndex(
+          (track) => track.id === Number(trackId),
+        );
+        tracks[trackIndex] = res.data;
+      } catch (error) {
+        console.log(error);
+        setMessage(
+          "La piste n'a pas pu être sauvegardé, une erreur est survenue",
+        );
       }
-    } catch (error) {
-      console.log(error);
-      setMessage("L'évènement n'a pas pu être créer, une erreur est survenue");
+    } else {
+      try {
+        const res = await createTrack(trackBody);
+        if (res.status === 201) {
+          setButtonDisabled(true);
+          const resJson = await res.data;
+          const url = '/events/' + eventId + '/track-settings/' + resJson.id;
+          tracks.push(res.data);
+          navigate(url);
+        }
+      } catch (error) {
+        console.log(error);
+        setMessage(
+          "La piste n'a pas pu être créer, une erreur est survenue",
+        );
+      }
     }
   };
   return (
@@ -115,7 +153,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
       </div>
       <form onSubmit={handleSubmit} className="track-settings">
         <div className="title-layout">
-          <h1>Nouvelle Piste</h1>
+          <h1>{trackId ? name : 'Nouvelle Piste'}</h1>
           {!isNew ? (
             <Button className="start-live" type="button" onClick={toggle}>
               Commencer le live
