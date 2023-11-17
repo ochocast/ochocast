@@ -54,12 +54,7 @@ const TracksPage: FC<tracksProps> = () => {
       <div className="tracks_container">
         {event && event.tracks && event.tracks.length ? (
           event.tracks.map((track, index) => (
-            <TrackBox
-              key={index}
-              title={track.name}
-              speakers={[]}
-              description={track.description}
-            ></TrackBox>
+            <TrackBox key={index} track={track}></TrackBox>
           ))
         ) : (
           <div

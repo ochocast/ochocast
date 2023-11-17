@@ -107,9 +107,6 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
 # Copy  nginx config file to container
 COPY conf/nginx.conf /etc/nginx/nginx.conf
 
-# Copy  html players to container
-COPY players /usr/local/nginx/html/players
-
 EXPOSE 1935
 EXPOSE 8080
 

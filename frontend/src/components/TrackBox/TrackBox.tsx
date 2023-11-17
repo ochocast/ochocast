@@ -1,23 +1,25 @@
 import React, { FC } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import './TrackBox.css';
+import { Track } from '../../utils/EventsProperties';
 
 interface trackBoxProps {
-  title: string;
-  speakers: string[];
-  description: string;
+  track: Track;
 }
 
-const TrackBox: FC<trackBoxProps> = ({ title, speakers, description }) => {
+const TrackBox: FC<trackBoxProps> = ({ track }) => {
+  track.speakers = ['Speaker 1', 'Speaker 2']; // FIXME : delete when speakers will be implemented in back
+
+  const navigate = useNavigate();
   const handleOnClickTrackButton = () => {
-    // FIX ME : go to streaming page
-    console.log('Button clicked !');
+    navigate(`/tracks/${track.id}`);
   };
 
   return (
     <div className="track_box">
       <div className="button_title_wrapper">
-        <span className="track_title">{title}</span>
+        <span className="track_title">{track.name}</span>
         <button className="track_button" onClick={handleOnClickTrackButton}>
           Regarder la piste
         </button>
@@ -25,13 +27,17 @@ const TrackBox: FC<trackBoxProps> = ({ title, speakers, description }) => {
       <div className="line" />
       <div className="track_content">
         Orateurs :{' '}
-        {speakers && speakers.length
-          ? speakers.map((speaker, index) =>
-              index === speakers.length - 1 ? <>{speaker}</> : <>{speaker}, </>,
+        {track.speakers && track.speakers.length
+          ? track.speakers.map((speaker, index) =>
+              index === track.speakers.length - 1 ? (
+                <>{speaker}</>
+              ) : (
+                <>{speaker}, </>
+              ),
             )
           : null}
       </div>
-      <div className="track_content">{description}</div>
+      <div className="track_content">{track.description}</div>
     </div>
   );
 };

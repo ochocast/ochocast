@@ -6,7 +6,7 @@ import { Inject } from '@nestjs/common';
 
 const generateStreamKey = (
   length = 32,
-  characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@-#%^*()_+',
+  characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz~!@-^*()_+',
 ) =>
   Array.from(crypto.getRandomValues(new Uint32Array(length)))
     .map((x) => characters[x % characters.length])

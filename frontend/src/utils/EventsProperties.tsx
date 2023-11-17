@@ -21,8 +21,9 @@ export interface Track {
   name: string;
   description: string;
   keywords: string;
-  streamkey: string;
+  streamKey: string;
   closed: boolean;
+  speakers: string[];
   event: Event;
   createdAt: Date;
 }
