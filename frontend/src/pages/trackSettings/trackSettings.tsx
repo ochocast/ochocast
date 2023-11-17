@@ -6,7 +6,12 @@ import './trackSettings.css';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
-import { createTrack, getTrack, updateTrack, getEvent } from '../../utils/api';
+import {
+  createTrack,
+  getTrackById,
+  updateTrack,
+  getEvent,
+} from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
@@ -64,9 +69,9 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
     if (trackId) {
       const fetchOneTrack = async () => {
         try {
-          const res = await getTrack(trackId);
-          setDescription(res.data[0].description);
-          setName(res.data[0].name);
+          const trck = await getTrackById(trackId);
+          setDescription(trck.description);
+          setName(trck.name);
         } catch (error) {
           console.error(
             `Failed to fetch track from track id ${trackId}: ${error}`,
@@ -124,9 +129,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
         }
       } catch (error) {
         console.log(error);
-        setMessage(
-          "La piste n'a pas pu être créer, une erreur est survenue",
-        );
+        setMessage("La piste n'a pas pu être créer, une erreur est survenue");
       }
     }
   };
