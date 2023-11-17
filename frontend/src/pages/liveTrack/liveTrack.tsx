@@ -18,18 +18,17 @@ const LiveTrack = () => {
     setUrl(url?.split('.m3u8')[0].split('_')[0] + quality + '.m3u8');
   };
 
-  const fetchTrack = async () => {
+  useEffect(() => {
     try {
-      const res = await getTrackById(trackId);
-      setTrack(res);
-      setUrl(`${process.env.REACT_APP_STREAM_URL}/hls/${res?.streamKey}.m3u8`);
+      getTrackById(trackId).then((res) => {
+        setTrack(res);
+        setUrl(
+          `${process.env.REACT_APP_STREAM_URL}/hls/${res?.streamKey}.m3u8`,
+        );
+      });
     } catch (error) {
       console.error(`Failed to fetch tracks: ${error}`);
     }
-  };
-
-  useEffect(() => {
-    fetchTrack();
   }, [trackId]);
   return (
     <div className="live-page">
