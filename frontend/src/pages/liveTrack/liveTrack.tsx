@@ -30,7 +30,7 @@ const LiveTrack = () => {
 
   useEffect(() => {
     fetchTrack();
-  }, []);
+  }, [trackId]);
   return (
     <div className="live-page">
       {track ? (
