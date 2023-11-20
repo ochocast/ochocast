@@ -142,7 +142,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
           <button
             className="button-settings"
             type="button"
-            onClick={() => navigate(`/events/${eventId}/settings/`)}
+            onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
             Paramètres
           </button>

@@ -55,7 +55,10 @@ function App() {
           element={<ProtectedRoute Element={EventsPage} />}
         />
         <Route path="/loading" element={<LoadingPage />} />
-        <Route path="/events/:eventId/settings" element={<EventSettings />} />
+        <Route
+          path="/events/:eventId/event-settings"
+          element={<ProtectedRoute Element={EventSettings} />}
+        />
         <Route
           path="/events/:eventId/tracks"
           element={<ProtectedRoute Element={TracksPage} />}

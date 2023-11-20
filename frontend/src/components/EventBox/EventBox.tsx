@@ -66,7 +66,12 @@ const EventBox: FC<EventBoxProps> = ({
         </div>
       ) : (
         <div className="event-buttons-wrapper">
-          <button className="button">Modifier</button>
+          <button
+            className="button"
+            onClick={() => navigate(`/events/${eventId}/event-settings`)}
+          >
+            Modifier
+          </button>
           <button className="button" onClick={() => onPublish(eventId)}>
             Publier
           </button>
