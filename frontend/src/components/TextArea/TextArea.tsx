@@ -8,6 +8,7 @@ export interface TextAreaProps {
   cols?: number;
   placeholder: string;
   error?: boolean;
+  disabled?: boolean;
   onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
 }
 
@@ -18,6 +19,7 @@ const TextArea: FC<TextAreaProps> = ({
   cols,
   placeholder,
   error,
+  disabled,
   onChange,
 }) => {
   return (
@@ -29,6 +31,7 @@ const TextArea: FC<TextAreaProps> = ({
         cols={cols}
         name={name}
         placeholder={placeholder}
+        disabled={disabled}
         onChange={onChange}
       />
       {error && <p className="error">Le champ ne peut pas être vide!</p>}
