@@ -17,11 +17,9 @@ import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
 
-interface TrackSettingsProps {
-  isNew: boolean;
-}
+interface TrackSettingsProps {}
 
-const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
+const TrackSettings: FC<TrackSettingsProps> = () => {
   const { eventId, trackId } = useParams();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
@@ -87,49 +85,53 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    let error = false;
     if (!name.trim()) {
       setErrorName(true);
+      error = true;
     }
     if (!description.trim()) {
       setErrorDescription(true);
+      error = true;
     }
+    if (!error) {
+      const trackBody = {
+        name: name,
+        description: description,
+        keywords: [],
+        streamkey: '',
+        closed: false,
+        event: eventId,
+      };
 
-    const trackBody = {
-      name: name,
-      description: description,
-      keywords: [],
-      streamkey: '',
-      closed: false,
-      event: eventId,
-    };
-
-    if (trackId) {
-      try {
-        const res = await updateTrack(trackId, trackBody);
-        setButtonDisabled(true);
-        const trackIndex = tracks.findIndex(
-          (track) => track.id === Number(trackId),
-        );
-        tracks[trackIndex] = res.data;
-      } catch (error) {
-        console.log(error);
-        setMessage(
-          "La piste n'a pas pu être sauvegardé, une erreur est survenue",
-        );
-      }
-    } else {
-      try {
-        const res = await createTrack(trackBody);
-        if (res.status === 201) {
+      if (trackId) {
+        try {
+          const res = await updateTrack(trackId, trackBody);
           setButtonDisabled(true);
-          const resJson = await res.data;
-          const url = '/events/' + eventId + '/track-settings/' + resJson.id;
-          tracks.push(res.data);
-          navigate(url);
+          const trackIndex = tracks.findIndex(
+            (track) => track.id === Number(trackId),
+          );
+          tracks[trackIndex] = res.data;
+        } catch (error) {
+          console.log(error);
+          setMessage(
+            "La piste n'a pas pu être sauvegardé, une erreur est survenue",
+          );
         }
-      } catch (error) {
-        console.log(error);
-        setMessage("La piste n'a pas pu être créer, une erreur est survenue");
+      } else {
+        try {
+          const res = await createTrack(trackBody);
+          if (res.status === 201) {
+            setButtonDisabled(true);
+            const resJson = await res.data;
+            const url = '/events/' + eventId + '/track-settings/' + resJson.id;
+            tracks.push(res.data);
+            navigate(url);
+          }
+        } catch (error) {
+          console.log(error);
+          setMessage("La piste n'a pas pu être créer, une erreur est survenue");
+        }
       }
     }
   };
@@ -157,7 +159,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
       <form onSubmit={handleSubmit} className="track-settings">
         <div className="title-layout">
           <h1>{trackId ? name : 'Nouvelle Piste'}</h1>
-          {!isNew ? (
+          {trackId ? (
             <Button className="start-live" type="button" onClick={toggle}>
               Commencer le live
             </Button>
@@ -199,7 +201,7 @@ const TrackSettings: FC<TrackSettingsProps> = ({ isNew }) => {
           type="submit"
           disabled={isButtonDisabled}
         >
-          {isNew ? <div>Créer</div> : <div>Sauvegarder</div>}
+          {trackId ? <div>Sauvegarder</div> : <div>Créer</div>}
         </Button>
         <div className="message">{message ? <p>{message}</p> : null}</div>
       </form>

@@ -65,11 +65,11 @@ function App() {
         />
         <Route
           path="/events/:eventId/track-settings"
-          element={<TrackSettings isNew={true} />}
+          element={<ProtectedRoute Element={TrackSettings} />}
         />
         <Route
           path="/events/:eventId/track-settings/:trackId"
-          element={<TrackSettings isNew={false} />}
+          element={<ProtectedRoute Element={TrackSettings} />}
         />
         <Route
           path="/tracks/:trackId"
