@@ -16,8 +16,9 @@ export const loginUser = () => api.get('/users/login');
 
 // Events
 export const createEvent = (event) => api.post('/events', event);
-export const getPublishedEvents = () => api.get('/events?published=true');
-export const getUnpublishedEvents = () => api.get('/events?published=false');
+export const getPublishedEvents = () => api.get('/events?closed=false&published=true');
+export const getUnpublishedEvents = () => api.get('/events?closed=false&published=false');
+export const getClosedEvents = () => api.get('/events?closed=true');
 export const getEvent = (eventId) => api.get(`/events?id=${eventId}`);
 export const updateEvent = (eventId, event) =>
   api.put('/events/' + eventId, event);

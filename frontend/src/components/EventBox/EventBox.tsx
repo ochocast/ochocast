@@ -16,7 +16,7 @@ interface EventBoxProps {
   subscriptions?: number;
   imageURL?: string;
   eventStatus: EventStatus;
-  onPublish: (eventId: string) => void;
+  onPublish?: (eventId: string) => void;
 }
 
 const EventBox: FC<EventBoxProps> = ({
@@ -65,17 +65,28 @@ const EventBox: FC<EventBoxProps> = ({
           </div>
         </div>
       ) : (
-        <div className="event-buttons-wrapper">
-          <button
-            className="button"
-            onClick={() => navigate(`/events/${eventId}/event-settings`)}
-          >
-            Modifier
-          </button>
-          <button className="button" onClick={() => onPublish(eventId)}>
-            Publier
-          </button>
-        </div>
+        <>
+          {eventStatus !== EventStatus.Finished ? (
+            <div className="event-buttons-wrapper">
+              <button
+                className="button"
+                onClick={() => navigate(`/events/${eventId}/event-settings`)}
+              >
+                Modifier
+              </button>
+              <button
+                className="button"
+                onClick={() => onPublish && onPublish(eventId)}
+              >
+                Publier
+              </button>
+            </div>
+          ) : (
+            <div className="event-button-center-wrapper">
+              <button className="button">Statistiques</button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

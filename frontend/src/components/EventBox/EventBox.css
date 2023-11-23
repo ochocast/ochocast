@@ -23,6 +23,7 @@
   font-weight: 200;
   font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
   color: #0e2356;
+  cursor: pointer;
 }
 
 .event-date {
@@ -47,6 +48,11 @@
   width: 100%;
 }
 
+.event-button-center-wrapper {
+  align-self: center;
+  margin-top: 18px;
+}
+
 .button {
   height: 29px;
   width: 100px;
@@ -61,6 +67,7 @@
   display: flex;
   align-items: center;
   column-gap: 5px;
+  margin-top: 20px;
 }
 
 .dot {

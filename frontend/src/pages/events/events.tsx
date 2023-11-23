@@ -11,6 +11,7 @@ import { EventStatus } from '../../utils/EventStatus';
 import {
   getPublishedEvents,
   getUnpublishedEvents,
+  getClosedEvents,
   updateEvent,
 } from '../../utils/api';
 import { createEvent } from '../../utils/api';
@@ -38,6 +39,15 @@ const fetchEventsPublished = async () => {
   }
 };
 
+const fetchEventsClosed = async () => {
+  try {
+    const res = await getClosedEvents();
+    return await res.data;
+  } catch (error) {
+    console.error(`Failed to fetch published events: ${error}`);
+  }
+};
+
 const EventsPage: FC<eventsProps> = () => {
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
@@ -49,6 +59,7 @@ const EventsPage: FC<eventsProps> = () => {
 
   const [eventsPublished, setEventsPublished] = useState<Event[]>([]);
   const [eventsUnpublished, setEventsUnpublished] = useState<Event[]>([]);
+  const [eventsClosed, setEventsClosed] = useState<Event[]>([]);
 
   const [description, setDescription] = useState('');
   const [errorDescription, setErrorDescription] = useState(false);
@@ -67,8 +78,11 @@ const EventsPage: FC<eventsProps> = () => {
       try {
         const publishedData = await fetchEventsPublished();
         const unpublishedData = await fetchEventsNotPublished();
+        const closedData = await fetchEventsClosed();
+
         setEventsPublished(publishedData);
         setEventsUnpublished(unpublishedData);
+        setEventsClosed(closedData);
       } catch (error) {
         console.error(`Failed to fetch events: ${error}`);
       }
@@ -191,6 +205,13 @@ const EventsPage: FC<eventsProps> = () => {
             title="Évènements non publiés"
             events={eventsUnpublished}
             onPublish={onPublish}
+          />
+        ) : null}
+        {eventsClosed && eventsClosed.length >= 1 ? (
+          <EventsList
+            eventStatus={EventStatus.Finished}
+            title="Évènements passé"
+            events={eventsClosed}
           />
         ) : null}
       </div>

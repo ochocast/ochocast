@@ -41,6 +41,7 @@ h1 {
 
 Button {
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .side-by-side {

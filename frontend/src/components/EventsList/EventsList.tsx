@@ -14,7 +14,7 @@ interface EventsListProps {
   eventStatus: EventStatus;
   title: string;
   events?: Event[];
-  onPublish: (eventId: string) => void;
+  onPublish?: (eventId: string) => void;
 }
 
 const EventsList: FC<EventsListProps> = ({
