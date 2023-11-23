@@ -10,9 +10,11 @@
 }
 
 .Logo {
-  height: 48.59px;
-  width: 135.05px;
-  padding-left: 5%;
+  max-height: 60px;
+  max-width: 250px;
+  height: auto;
+  width: auto;
+  padding-left: 3%;
   align-items: flex-start;
 }
 

@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 import { Outlet } from 'react-router-dom';
 import './Header.css';
 
-import octoLogo from '../../assets/OctoTechnology.png';
+import octoLogo from '../../assets/logo_1ligne_crop.png';
 
 import HeaderUserButton from '../buttons/UserButton/UserButton';
 import { useAuth } from 'react-oidc-context';
