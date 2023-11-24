@@ -21,24 +21,6 @@ export interface eventsProps {}
 
 const categories = ['BBL', 'Conférence'];
 
-const fetchEventsNotPublished = async () => {
-  try {
-    const res = await getUnpublishedEvents();
-    return await res.data;
-  } catch (error) {
-    console.error(`Failed to fetch nonpublished events: ${error}`);
-  }
-};
-
-const fetchEventsPublished = async () => {
-  try {
-    const res = await getPublishedEvents();
-    return await res.data;
-  } catch (error) {
-    console.error(`Failed to fetch published events: ${error}`);
-  }
-};
-
 const fetchEventsClosed = async () => {
   try {
     const res = await getClosedEvents();
@@ -71,17 +53,21 @@ const EventsPage: FC<eventsProps> = () => {
   const [endHour, setEndHour] = useState('');
 
   const [message, setMessage] = useState('');
+  const userString = localStorage.getItem('backendUser');
 
   // use effect called once to fetch published and unpublished events
   useEffect(() => {
     const fetchEventData = async () => {
       try {
-        const publishedData = await fetchEventsPublished();
-        const unpublishedData = await fetchEventsNotPublished();
+        if (!userString) {
+          throw new Error('User not found');
+        }
+        const publishedData = await getPublishedEvents();
+        const unpublishedData = await getUnpublishedEvents(JSON.parse(userString).id);
         const closedData = await fetchEventsClosed();
 
-        setEventsPublished(publishedData);
-        setEventsUnpublished(unpublishedData);
+        setEventsPublished(publishedData.data);
+        setEventsUnpublished(unpublishedData.data);
         setEventsClosed(closedData);
       } catch (error) {
         console.error(`Failed to fetch events: ${error}`);
@@ -149,7 +135,6 @@ const EventsPage: FC<eventsProps> = () => {
 
     if (!isError) {
       try {
-        const userString = localStorage.getItem('backendUser');
         if (!userString) {
           throw new Error('User not found');
         }

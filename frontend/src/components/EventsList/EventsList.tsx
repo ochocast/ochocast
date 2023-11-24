@@ -64,11 +64,9 @@ const EventsList: FC<EventsListProps> = ({
               name={event.name}
               date={event.startDate}
               imageURL="noImage.png"
-              createdBy={
-                event.creator?.firstName ? event.creator.firstName : 'Swann'
-              }
               category={event.category}
               onPublish={onPublish}
+              creator={event.creator}
             />
           ))}
         </div>

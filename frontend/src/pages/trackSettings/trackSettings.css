@@ -1,3 +1,11 @@
+.checkBoxListContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  height: 30vh;
+  padding-top: 10px;
+}
+
 .page-track-settings {
   display: flex;
   height: auto;

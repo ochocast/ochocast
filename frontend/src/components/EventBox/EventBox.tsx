@@ -5,13 +5,14 @@ import { FC } from 'react';
 import { EventStatus } from '../../utils/EventStatus';
 
 import './EventBox.css';
+import { User } from '../../utils/EventsProperties';
 
 // Changera probablement a la propriete event contenant toutes les informations necessaires
 interface EventBoxProps {
   eventId?: string;
   name?: string;
   date: Date;
-  createdBy?: string;
+  creator?: User;
   category?: string;
   subscriptions?: number;
   imageURL?: string;
@@ -23,12 +24,12 @@ const EventBox: FC<EventBoxProps> = ({
   eventId = '',
   name,
   date,
-  createdBy,
   category,
   subscriptions = 200,
   imageURL,
   eventStatus,
   onPublish,
+  creator,
 }) => {
   const dateDisplay = new Date(date); // to be able to getDay..
 
@@ -53,7 +54,7 @@ const EventBox: FC<EventBoxProps> = ({
         }/${dateDisplay.getFullYear()}`}</div>
       </div>
       <div className="event-wrapper">
-        <div className="event-info">{`Créé par : ${createdBy}`}</div>
+        <div className="event-info">{`Créé par : ${(creator?.firstName ? creator.firstName :'Swann')}`}</div>
         <div className="event-info">{`Catégorie : ${category}`}</div>
       </div>
       {eventStatus === EventStatus.Published ? (

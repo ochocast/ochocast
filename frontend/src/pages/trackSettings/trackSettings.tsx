@@ -6,15 +6,17 @@ import './trackSettings.css';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
+import { CheckBoxList } from '../../components/checkBoxList/CheckBoxList';
 import {
   createTrack,
   getTrackById,
   updateTrack,
   getEvent,
+  getUsers,
 } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
-import { Track } from '../../utils/EventsProperties';
+import { Track , User} from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
 
 interface TrackSettingsProps {}
@@ -23,6 +25,27 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   const { eventId, trackId } = useParams();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
+
+
+  //Handle permissions for a track
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [speakers, setSpeakers] = useState<User[]>([]);
+  const [moderators, setModerators] = useState<User[]>([]);
+
+  //Get all users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await getUsers();
+        if (res.status === 200) {
+          setAllUsers(res.data);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch users: ${error}`);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const [name, setName] = useState('');
   const [errorName, setErrorName] = useState(false);
@@ -70,6 +93,8 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           const trck = await getTrackById(trackId);
           setDescription(trck.description);
           setName(trck.name);
+          //setSpeakers(trck.speakers);
+          //setModerators(trck.moderators);
         } catch (error) {
           console.error(
             `Failed to fetch track from track id ${trackId}: ${error}`,
@@ -80,6 +105,8 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     } else {
       setDescription('');
       setName('');
+      //setSpeakers([]);
+      //setModerators([]);
     }
   }, [trackId]);
 
@@ -89,10 +116,18 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     if (!name.trim()) {
       setErrorName(true);
       error = true;
+      return;
     }
     if (!description.trim()) {
       setErrorDescription(true);
       error = true;
+      return;
+    }
+
+    if(speakers.length === 0 && moderators.length === 0){
+      setMessage("Vous devez choisir au moins un orateur et un modérateur pour cette piste");
+      error = true;
+      return;
     }
     if (!error) {
       const trackBody = {
@@ -196,6 +231,20 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           error={errorDescription}
           onChange={handleDescriptionChange}
         />
+        <div className='checkBoxListContainer'>
+          <CheckBoxList
+            allUsers={allUsers}
+            category={speakers}
+            setCategory={setSpeakers}
+            title="Orateurs"
+          />
+          <CheckBoxList
+            allUsers={allUsers}
+            category={moderators}
+            setCategory={setModerators}
+            title="Moderateurs"
+          />
+        </div>
         <Button
           className="submit-button"
           type="submit"
@@ -208,5 +257,6 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     </div>
   );
 };
+
 
 export default TrackSettings;
