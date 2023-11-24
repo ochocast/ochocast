@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './liveTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTrackById } from '../../utils/api';
+import { getTrackById, updateTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/buttons/button/button';
 import { default as _ReactPlayer } from 'react-player/lazy';
@@ -13,6 +13,18 @@ const LiveTrack = () => {
   const [track, setTrack] = useState<Track>();
   const [url, setUrl] = useState<string>();
   const navigate = useNavigate();
+
+  if (track?.closed) {
+    navigate(`/events/${track?.event.id}/tracks`);
+  }
+
+  const closeTrack = () => {
+    return () => {
+      updateTrack(trackId, { closed: true }).then(() => {
+        navigate(`/events/${track?.event.id}/tracks`);
+      });
+    };
+  };
 
   const changeQuality = (quality: string) => {
     setUrl(url?.split('.m3u8')[0].split('_')[0] + quality + '.m3u8');
@@ -34,7 +46,16 @@ const LiveTrack = () => {
     <div className="live-page">
       {track ? (
         <>
-          <h1>{track.event.name}</h1>
+          <div className="live-header">
+            <h1 className="event-title">{track.event.name}</h1>
+            <Button
+              height="40px"
+              className="close-button"
+              onClick={closeTrack()}
+            >
+              Clôturer la piste
+            </Button>
+          </div>
           <div>
             <ReactPlayer
               width="55%"

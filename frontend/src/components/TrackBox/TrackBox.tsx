@@ -5,6 +5,7 @@ import './TrackBox.css';
 import { Track } from '../../utils/EventsProperties';
 
 interface trackBoxProps {
+  key: number;
   track: Track;
 }
 
@@ -20,22 +21,20 @@ const TrackBox: FC<trackBoxProps> = ({ track }) => {
     <div className="track_box">
       <div className="button_title_wrapper">
         <span className="track_title">{track.name}</span>
-        <button className="track_button" onClick={handleOnClickTrackButton}>
-          Regarder la piste
+        <button
+          className="track_button"
+          disabled={track.closed}
+          onClick={handleOnClickTrackButton}
+        >
+          {track.closed ? 'Piste fermée' : 'Regarder la piste'}
         </button>
       </div>
       <div className="line" />
       <div className="track_content">
-        Orateurs :{' '}
-        {track.speakers && track.speakers.length
-          ? track.speakers.map((speaker, index) =>
-              index === track.speakers.length - 1 ? (
-                <>{speaker}</>
-              ) : (
-                <>{speaker}, </>
-              ),
-            )
-          : null}
+        Orateurs :
+        {track?.speakers.map((speaker, index) =>
+          index === track.speakers.length - 1 ? ` ${speaker}` : ` ${speaker},`,
+        )}
       </div>
       <div className="track_content">{track.description}</div>
     </div>
