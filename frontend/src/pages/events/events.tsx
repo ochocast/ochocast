@@ -63,7 +63,9 @@ const EventsPage: FC<eventsProps> = () => {
           throw new Error('User not found');
         }
         const publishedData = await getPublishedEvents();
-        const unpublishedData = await getUnpublishedEvents(JSON.parse(userString).id);
+        const unpublishedData = await getUnpublishedEvents(
+          JSON.parse(userString).id,
+        );
         const closedData = await fetchEventsClosed();
 
         setEventsPublished(publishedData.data);
@@ -75,7 +77,7 @@ const EventsPage: FC<eventsProps> = () => {
     };
 
     fetchEventData();
-  }, []);
+  }, [userString]);
 
   const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
     setCategoryValue(event.target.value);
