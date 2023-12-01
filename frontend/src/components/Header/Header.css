@@ -16,10 +16,10 @@
   width: auto;
   padding-left: 3%;
   align-items: flex-start;
+  cursor: pointer;
 }
 
 .HeaderUserButton {
-  /* display: flex; */
   align-items: center;
   column-gap: 10px;
   position: absolute;

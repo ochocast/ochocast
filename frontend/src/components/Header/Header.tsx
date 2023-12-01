@@ -1,5 +1,5 @@
 import React, { FC } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import './Header.css';
 
 import octoLogo from '../../assets/logo_1ligne_crop.png';
@@ -12,9 +12,11 @@ export interface HeaderProps {}
 const Header: FC<HeaderProps> = () => {
   const auth = useAuth();
   const username = auth.user?.profile.name || 'Not logged in';
+  const navigate = useNavigate();
+  
   return (
     <div className="Header">
-      <img className="Logo" src={octoLogo} alt="Logo"></img>
+      <img className="Logo" src={octoLogo} alt="Logo" onClick={() => navigate('/events')} />
       <HeaderUserButton username={username} />
       <Outlet />
     </div>
