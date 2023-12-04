@@ -7,7 +7,7 @@ import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
-import { getEvent, updateEvent } from '../../utils/api';
+import { getEvent, updateEvent, deleteEvent } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
@@ -20,6 +20,11 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
   const [eventClosed, setEventClosed] = useState(false);
+
+  const [isDeleteOpen, setisDeleteOpen] = useState(false);
+  const toggleDeleteModal = () => {
+    setisDeleteOpen(false);
+  };
 
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
@@ -139,6 +144,15 @@ const EventSettings: FC<EventSettingsProps> = () => {
     }
   };
 
+  const deleteEventHandler = async () => {
+    try {
+      await deleteEvent(eventId);
+      navigate('/events/');
+    } catch (error) {
+      setMessage("L'évènement n'a pas pu être supprimé");
+    }
+  };
+
   const closeEvent = async () => {
     for (const track of tracks) {
       if (track.closed === false) {
@@ -199,6 +213,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
               Confirmer
             </Button>
             <Button
+              tcolor="#0E2356"
               bcolor="#D9D9D9"
               onClick={() => {
                 toggle();
@@ -275,14 +290,45 @@ const EventSettings: FC<EventSettingsProps> = () => {
           onChange={handleDescriptionChange}
         />
         {!eventClosed && (
-          <Button
-            className="submit-button"
-            type="submit"
-            disabled={isButtonDisabled}
-          >
-            Sauvergarder
-          </Button>
+          <div className="confirmation-buttons">
+            <Button
+              bcolor="#FF8165"
+              border="none"
+              type="reset"
+              onClick={() => setisDeleteOpen(true)}
+            >
+              Supprimer l&apos;évènement
+            </Button>
+            <Button
+              className="submit-button"
+              type="submit"
+              disabled={isButtonDisabled}
+            >
+              Sauvegarder
+            </Button>
+          </div>
         )}
+        <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
+          <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
+          <div className="confirmation-buttons">
+            <Button type="button" onClick={deleteEventHandler}>
+              Supprimer
+            </Button>
+            <Button
+              tcolor="#0E2356"
+              bcolor="#D9D9D9"
+              onClick={() => {
+                toggleDeleteModal();
+                setModalMessage('');
+              }}
+            >
+              Annuler
+            </Button>
+          </div>
+          <div className="message">
+            {modalMessage ? <p>{modalMessage}</p> : null}
+          </div>
+        </Modal>
         <div className="message">{message ? <p>{message}</p> : null}</div>
       </form>
     </div>

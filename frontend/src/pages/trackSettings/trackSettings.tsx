@@ -16,7 +16,7 @@ import {
 } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
-import { Track , User} from '../../utils/EventsProperties';
+import { Track, User } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
 
 interface TrackSettingsProps {}
@@ -25,7 +25,6 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   const { eventId, trackId } = useParams();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
-
 
   //Handle permissions for a track
   const [allUsers, setAllUsers] = useState<User[]>([]);
@@ -124,8 +123,10 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
       return;
     }
 
-    if(speakers.length === 0 && moderators.length === 0){
-      setMessage("Vous devez choisir au moins un orateur et un modérateur pour cette piste");
+    if (speakers.length === 0 && moderators.length === 0) {
+      setMessage(
+        'Vous devez choisir au moins un orateur et un modérateur pour cette piste',
+      );
       error = true;
       return;
     }
@@ -231,7 +232,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           error={errorDescription}
           onChange={handleDescriptionChange}
         />
-        <div className='checkBoxListContainer'>
+        <div className="checkBoxListContainer">
           <CheckBoxList
             allUsers={allUsers}
             category={speakers}
@@ -257,6 +258,5 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     </div>
   );
 };
-
 
 export default TrackSettings;

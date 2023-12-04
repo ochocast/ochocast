@@ -39,4 +39,10 @@ export class EventGateway implements IEventGateway {
       ...eventDetails,
     });
   }
+
+  async deleteEvent(eventId: string): Promise<EventObject> {
+    const event = await this.eventsRepository.findOneBy({ id: eventId });
+
+    return await this.eventsRepository.remove(event);
+  }
 }

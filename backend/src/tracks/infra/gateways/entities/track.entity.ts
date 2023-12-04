@@ -21,7 +21,9 @@ export class TrackEntity {
   @Column()
   closed: boolean = false;
 
-  @ManyToOne(() => EventEntity, (event) => event.tracks)
+  @ManyToOne(() => EventEntity, (event) => event.tracks, {
+    onDelete: 'CASCADE',
+  })
   event: string;
 
   @Column()

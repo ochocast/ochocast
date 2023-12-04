@@ -56,7 +56,9 @@ const EventBox: FC<EventBoxProps> = ({
         }/${dateDisplay.getFullYear()}`}</div>
       </div>
       <div className="event-wrapper">
-        <div className="event-info">{`Créé par : ${(creator?.firstName ? creator.firstName :'Swann')}`}</div>
+        <div className="event-info">{`Créé par : ${
+          creator?.firstName ? creator.firstName : 'Swann'
+        }`}</div>
         <div className="event-info">{`Catégorie : ${category}`}</div>
       </div>
       {eventStatus === EventStatus.Published ? (

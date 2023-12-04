@@ -25,6 +25,7 @@ export const getClosedEvents = () => api.get('/events?closed=true');
 export const getEvent = (eventId) => api.get(`/events?id=${eventId}`);
 export const updateEvent = (eventId, event) =>
   api.put('/events/' + eventId, event);
+export const deleteEvent = (eventId) => api.delete('/events/' + eventId);
 
 // Tracks
 export const getTrackById = (trackId) =>
