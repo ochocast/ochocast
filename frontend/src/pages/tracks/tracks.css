@@ -3,12 +3,6 @@
   flex-direction: column;
 }
 
-.back_image {
-  height: 43px;
-  width: 55px;
-  cursor: pointer;
-}
-
 .tracks_page_title_wrapper {
   display: flex;
   width: 100%;

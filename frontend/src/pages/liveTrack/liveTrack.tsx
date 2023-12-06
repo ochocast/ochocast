@@ -6,6 +6,7 @@ import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/buttons/button/button';
 import { default as _ReactPlayer } from 'react-player/lazy';
 import { ReactPlayerProps } from 'react-player/types/lib';
+import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const LiveTrack = () => {
@@ -47,7 +48,10 @@ const LiveTrack = () => {
       {track ? (
         <>
           <div className="live-header">
-            <h1 className="event-title">{track.event.name}</h1>
+            <div className="live-header-left">
+              <NavigateBackButton />
+              <h1 className="event-title">{track.event.name}</h1>
+            </div>
             <Button
               height="40px"
               className="close-button"

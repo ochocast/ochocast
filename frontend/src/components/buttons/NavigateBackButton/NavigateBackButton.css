@@ -1,0 +1,30 @@
+/* NavigateBackButton.css */
+
+.NavigateBackButton {
+  position: relative;
+  width: 40px; /* Adjust the size as needed */
+  height: 40px; /* Adjust the size as needed */
+}
+
+.navigate-back-image {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover; /* Ensure the image covers the entire circle */
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.navigate-back-button {
+  background-color: transparent;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  cursor: pointer;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1; /* Ensure the button is on top of the image */
+  margin-top: 0;
+}

@@ -13,10 +13,15 @@ const Header: FC<HeaderProps> = () => {
   const auth = useAuth();
   const username = auth.user?.profile.name || 'Not logged in';
   const navigate = useNavigate();
-  
+
   return (
     <div className="Header">
-      <img className="Logo" src={octoLogo} alt="Logo" onClick={() => navigate('/events')} />
+      <img
+        className="Logo"
+        src={octoLogo}
+        alt="Logo"
+        onClick={() => navigate('/events')}
+      />
       <HeaderUserButton username={username} />
       <Outlet />
     </div>

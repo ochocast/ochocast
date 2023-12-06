@@ -12,6 +12,7 @@ import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
+import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 
 interface EventSettingsProps {}
 
@@ -196,8 +197,11 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <form onSubmit={handleSubmit} className="event-settings">
-        <div className="title-layout">
-          <h1>Modifier l&apos;évènement</h1>
+        <div className="top-layout">
+          <div className="title-layout">
+            <NavigateBackButton />
+            <h1>Modifier l&apos;évènement</h1>
+          </div>
           {eventClosed ? (
             <h2>L&apos;évènement est clôturé</h2>
           ) : (

@@ -1,13 +1,12 @@
 import React, { FC, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-
-import gauche from './../../assets/gauche.png';
+import { useParams } from 'react-router-dom';
 
 import TrackBox from '../../components/TrackBox/TrackBox';
 import Event from '../../utils/EventsProperties';
 
 import './tracks.css';
 import { getEvent } from '../../utils/api';
+import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 
 export interface tracksProps {}
 
@@ -24,8 +23,6 @@ const TracksPage: FC<tracksProps> = () => {
   const [event, setEvent] = useState<Event | undefined>(undefined);
   const { eventId } = useParams();
 
-  const navigate = useNavigate();
-
   useEffect(() => {
     const fetchEventData = async () => {
       const event = await fetchEvent(eventId);
@@ -35,18 +32,10 @@ const TracksPage: FC<tracksProps> = () => {
     fetchEventData();
   }, [eventId]);
 
-  const handleBackButtonClick = () => {
-    navigate('/events');
-  };
-
   return (
     <div className="tracks">
       <div className="tracks_page_title_wrapper">
-        <img
-          className="back_image"
-          src={gauche}
-          onClick={handleBackButtonClick}
-        ></img>
+        <NavigateBackButton />
         <span className="tracks_page_title">
           Les pistes de l&apos;évènement : {event?.name}
         </span>

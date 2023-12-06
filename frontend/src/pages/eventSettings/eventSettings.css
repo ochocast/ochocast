@@ -18,3 +18,19 @@
   display: flex;
   justify-content: space-evenly;
 }
+
+.top-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title-layout h1 {
+  margin-left: 10px;
+}

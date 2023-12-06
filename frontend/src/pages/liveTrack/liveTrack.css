@@ -8,10 +8,18 @@
   padding: 1%;
 }
 
+.live-header-left {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .event-title {
   font-size: 30px;
   font-weight: 700;
   letter-spacing: 1px;
+  margin-bottom: 0px;
+  margin-left: 10px;
 }
 
 .close-button {

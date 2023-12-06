@@ -37,7 +37,7 @@ const EventBox: FC<EventBoxProps> = ({
 
   return (
     <div className="event-box">
-      <div className='img-div'>
+      <div className="img-div">
         <img
           className="event-image"
           src={require('../../assets/' + imageURL)}

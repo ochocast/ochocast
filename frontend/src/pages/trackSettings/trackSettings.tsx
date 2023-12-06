@@ -19,6 +19,7 @@ import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track, User } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
+import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 
 interface TrackSettingsProps {}
 
@@ -215,8 +216,11 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         />
       </div>
       <form onSubmit={handleSubmit} className="track-settings">
-        <div className="title-layout">
-          <h1>{trackId ? name : 'Nouvelle Piste'}</h1>
+        <div className="top-layout">
+          <div className="title-layout">
+            <NavigateBackButton />
+            <h1>{trackId ? name : 'Nouvelle Piste'}</h1>
+          </div>
           {trackId ? (
             <Button className="start-live" type="button" onClick={toggle}>
               Commencer le live
