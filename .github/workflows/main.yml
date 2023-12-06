@@ -16,6 +16,7 @@ jobs:
       REACT_APP_AUTHORIZATION_ENDPOINT: ${{ vars.AUTHORIZATION_ENDPOINT }}
       REACT_APP_CLIENT_ID: ${{ vars.CLIENT_ID }}
       REACT_APP_REDIRECT_URI: ${{ vars.REDIRECT_URI }}
+      REACT_APP_STREAM_URL: ${{ vars.STREAM_URL }}
     
     steps:
     - uses: actions/checkout@v4
