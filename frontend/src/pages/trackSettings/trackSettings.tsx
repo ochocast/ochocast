@@ -13,6 +13,7 @@ import {
   updateTrack,
   getEvent,
   getUsers,
+  deleteTrack,
 } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
@@ -61,6 +62,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   };
 
   const [message, setMessage] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
 
   const navigate = useNavigate();
 
@@ -69,6 +71,10 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
     setisOpen(!isOpen);
+  };
+  const [isDeleteModalOpen, setisDeleteModalOpen] = useState(false);
+  const toggleDeleteModal = () => {
+    setisDeleteModalOpen(!isDeleteModalOpen);
   };
 
   useEffect(() => {
@@ -109,6 +115,24 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     }
   }, [trackId]);
 
+  const handleDelete = async () => {
+    if (trackId) {
+      try {
+        const res = await deleteTrack(trackId);
+        if (res.status === 200) {
+          tracks.splice(tracks.findIndex((track) => track.id === trackId));
+          const url = '/events/' + eventId + '/event-settings';
+          navigate(url);
+        }
+      } catch (error) {
+        console.log(error);
+        setMessage(
+          "La piste n'a pas pu être supprimée, une erreur est survenue",
+        );
+      }
+    }
+  };
+
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     let error = false;
@@ -144,9 +168,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         try {
           const res = await updateTrack(trackId, trackBody);
           setButtonDisabled(true);
-          const trackIndex = tracks.findIndex(
-            (track) => track.id === Number(trackId),
-          );
+          const trackIndex = tracks.findIndex((track) => track.id === trackId);
           tracks[trackIndex] = res.data;
         } catch (error) {
           console.log(error);
@@ -246,13 +268,45 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             title="Moderateurs"
           />
         </div>
-        <Button
-          className="submit-button"
-          type="submit"
-          disabled={isButtonDisabled}
-        >
-          {trackId ? <div>Sauvegarder</div> : <div>Créer</div>}
-        </Button>
+        <div className="controlsContainer">
+          <Button
+            className="submit-button"
+            type="submit"
+            disabled={isButtonDisabled}
+          >
+            {trackId ? <div>Sauvegarder</div> : <div>Créer</div>}
+          </Button>
+          {trackId ? (
+            <Button
+              className="delete-button"
+              type="button"
+              onClick={toggleDeleteModal}
+            >
+              Supprimer la piste
+            </Button>
+          ) : null}
+        </div>
+        <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
+          <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
+          <div className="confirmation-buttons">
+            <Button type="button" onClick={handleDelete}>
+              Supprimer
+            </Button>
+            <Button
+              tcolor="#0E2356"
+              bcolor="#D9D9D9"
+              onClick={() => {
+                toggleDeleteModal();
+                setModalMessage('');
+              }}
+            >
+              Annuler
+            </Button>
+          </div>
+          <div className="message">
+            {modalMessage ? <p>{modalMessage}</p> : null}
+          </div>
+        </Modal>
         <div className="message">{message ? <p>{message}</p> : null}</div>
       </form>
     </div>

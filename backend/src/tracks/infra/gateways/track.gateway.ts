@@ -39,4 +39,10 @@ export class TrackGateway implements ITrackGateway {
       ...trackDetails,
     });
   }
+
+  async deleteTrack(id: string): Promise<TrackObject> {
+    const track = await this.tracksRepository.findOneBy({ id: id });
+
+    return await this.tracksRepository.remove(track);
+  }
 }

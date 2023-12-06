@@ -34,3 +34,4 @@ export const getTracks = () => api.get('/tracks');
 export const createTrack = (track) => api.post('/tracks', track);
 export const updateTrack = (trackId, track) =>
   api.put('/tracks/' + trackId, track);
+export const deleteTrack = (trackId) => api.delete('/tracks/' + trackId);

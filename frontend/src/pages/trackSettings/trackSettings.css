@@ -3,6 +3,14 @@
   flex-direction: row;
   justify-content: space-between;
   height: 30vh;
+  min-height: 200px;
+  padding-top: 10px;
+}
+
+.controlsContainer {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: space-between;
   padding-top: 10px;
 }
 
@@ -44,10 +52,6 @@
 .track-settings hr {
   width: 100%;
   border: 3px solid #d9d9d9;
-}
-
-.submit-button {
-  align-self: flex-end;
 }
 
 .title-layout {

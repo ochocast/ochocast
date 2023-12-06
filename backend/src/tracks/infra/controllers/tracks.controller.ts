@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpException,
   HttpStatus,
@@ -17,6 +18,7 @@ import { GetTracksUsecase } from '../../domain/usecases/getTracks.usecase';
 import { isUUID } from 'class-validator';
 import { UpdateTrackUsecase } from '../../domain/usecases/updateTrack.usecase';
 import { TrackObject } from '../../domain/track';
+import { DeleteTracksUsecase } from '../../domain/usecases/deleteTracks.usecase';
 
 @Controller('tracks')
 export class TracksController {
@@ -24,6 +26,7 @@ export class TracksController {
     private createNewTrackUsecase: CreateNewTrackUsecase,
     private getTracksUsecase: GetTracksUsecase,
     private updateTrackUsecase: UpdateTrackUsecase,
+    private deleteTracksUsecase: DeleteTracksUsecase,
   ) {}
 
   @Post()
@@ -49,5 +52,14 @@ export class TracksController {
 
     track.id = id;
     return this.updateTrackUsecase.execute(track);
+  }
+
+  @Delete(':id')
+  async deleteTrack(@Param('id') id: string): Promise<TrackObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.deleteTracksUsecase.execute(id);
   }
 }

@@ -17,7 +17,7 @@ export default interface Event {
 }
 
 export interface Track {
-  id: number;
+  id: string;
   name: string;
   description: string;
   keywords: string;
@@ -29,7 +29,7 @@ export interface Track {
 }
 
 export interface User {
-  id: number;
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
