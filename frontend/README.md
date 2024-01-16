@@ -36,7 +36,39 @@ This structure helps maintain a clear separation between different sections of y
 * Utils :
 Typically contains interfaces, utility functions or helper modules that provide commonly used functionality throughout the application. The purpose of the folder is to centralize and organize functions that don’t belong to a specific component or module.  For example, a date formatting function and/or interface.
 
+## UX / UI design
 
+The frontend application design must respect the Octo’s design system. 
+
+You can find the figma link to the website design here:
+https://www.figma.com/file/0GxoYfFFf8THTYIxzYfHHD/Maquette-OctoCast?type=design&node-id=0-1&mode=design&t=eiEISBBvrEIffH9R-0
+
+Then, on the navigation panel on the left, you can click on “Assets” and find Octo’s design system.
+
+## How to call an endpoint in your frontend page
+
+If you need to call an endpoint from the backend, you will have to use the file api.js.
+
+For example, to get a specific event you will need to add the function that will call the endpoint “/events?id=”xx”’ in your api.js.
+ export const getEvent = (eventId) => api.get(`/events?id=${eventId}`); 
+
+Now you can call this function in your frontend file in a try catch :
+
+```js
+try {
+  const res = await getEvent(eventId);
+  if (res.status === 200) {
+  // TODO
+  }
+} catch (error) {
+  console.error("Failed to fetch event: ${error}");
+}
+```
+
+Depending on your need you can use :
+api.get/put/post/delete...
+
+For more information :https://www.npmjs.com/package/apisauce
 
 ### `npm run build`
 
