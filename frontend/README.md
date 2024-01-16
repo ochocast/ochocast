@@ -1,10 +1,21 @@
-# Getting Started with Create React App
+## Description
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+The frontend of the streaming platform.
 
-## Available Scripts
+The frontend of an application refers to the user interface (UI) and user experience (UX) components that users interact with directly. It's the part of the software that runs on the client side, meaning it's executed in the user's web browser or device.
 
-In the project directory, you can run:
+## Installation and requirements
+
+Once you have set up the database and the keycloak, you must not forget to set up the environment variables in a .env file.
+You can copy the file “/frontend/.env.example” into a new “.env” file in the frontend folder.
+
+Now you can proceed to run the frontend and the backend (you can run both at once from the root of the project).
+
+From the folder “frontend”, if you have not yet installed the necesssary dependencies, run:
+
+### `npm install`
+
+Then you can run:
 
 ### `npm start`
 
