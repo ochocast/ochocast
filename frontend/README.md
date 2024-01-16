@@ -112,6 +112,17 @@ Create a typedoc documentation folder for backend in backend/docs
 declare function startApplication(app: FooApplication, options: FooOptions): Promise<boolean>
 
 ```
+## Adding a new view to the application
+
+To add a new view, you must add it’s route in App.tsx inside the “<Routes/>” element.
+First create the folder and the component of the page in “/frontend/src/pages” where you will have the tsx and css files. 
+
+```html
+<Route
+path="/theUrlPath"
+element={<ProtectedRoute Element={NameOfComponent} />}
+/>
+```
 
 ## Learn More
 
