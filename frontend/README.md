@@ -19,16 +19,24 @@ Then you can run:
 
 ### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Frontend structure
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+In “/frontend/src/”, you will find several folders with different purposes.
 
-### `npm test`
+* Assets :
+This folder contains every static file such as images, icons, media, and other ressources that are not expected to change during the execution of the application. These are essential for the interface and design of the application.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+* Components :
+In this folder, you can find differents layouts and elements that are used in different pages of the application. They are reusable, can adapt to the different properties and most of the time separated in small elements.
+
+* Pages :
+Pages are also components. However, they are not to be reused and represent entire views of the application. Each file or subfolder within the “pages” directory typically corresponds to a specific route in your application.
+This structure helps maintain a clear separation between different sections of your user interface.
+
+* Utils :
+Typically contains interfaces, utility functions or helper modules that provide commonly used functionality throughout the application. The purpose of the folder is to centralize and organize functions that don’t belong to a specific component or module.  For example, a date formatting function and/or interface.
+
+
 
 ### `npm run build`
 
