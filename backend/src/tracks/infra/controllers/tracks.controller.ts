@@ -19,7 +19,9 @@ import { isUUID } from 'class-validator';
 import { UpdateTrackUsecase } from '../../domain/usecases/updateTrack.usecase';
 import { TrackObject } from '../../domain/track';
 import { DeleteTracksUsecase } from '../../domain/usecases/deleteTracks.usecase';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Tracks')
 @Controller('tracks')
 export class TracksController {
   constructor(
@@ -37,6 +39,16 @@ export class TracksController {
 
   // Standard GET route with query parameters
   @Get()
+  @ApiOperation({
+    description:
+      'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    required: false,
+    description: 'Filter tracks by id',
+  })
   findTracks(@Query() filter: any): Promise<TrackObject[]> {
     return this.getTracksUsecase.execute(filter);
   }

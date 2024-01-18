@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "postinstall": "concurrently \"cd backend && npm ci\" \"cd frontend && npm ci\"",
-    "set-up:dbf": "cd database && docker compose up -d",
+    "set-up:db": "cd database && docker compose up -d",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && npm run start:dev",
     "start:frontend": "cd frontend && npm run start",

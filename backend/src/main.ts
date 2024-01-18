@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,6 +11,21 @@ async function bootstrap() {
       ],
     },
   });
+
+  // Swagger configuration
+  const config = new DocumentBuilder()
+    .setTitle('OctoCast API')
+    .setDescription(
+      'Be wary, all routes are prefixed by /api and are protected by Keycloak. You need to be authenticated to use them.',
+    )
+    .setVersion('1.0')
+    .addTag('Events')
+    .addTag('Tracks')
+    .addTag('Users')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('docs', app, document);
+
   app.setGlobalPrefix('api');
   await app.listen(process.env.PORT);
 }

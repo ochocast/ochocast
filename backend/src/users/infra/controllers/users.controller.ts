@@ -13,7 +13,9 @@ import { LoginUserUseCase } from 'src/users/domain/usecases/loginUser.usecase';
 import { GetUsersUsecase } from '../../domain/usecases/getUsers.usecase';
 import { UserObject } from '../../domain/user';
 import { AuthenticatedUser } from 'nest-keycloak-connect';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(

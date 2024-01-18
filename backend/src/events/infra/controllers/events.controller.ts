@@ -19,7 +19,9 @@ import { GetEventsUsecase } from '../../domain/usecases/getEvents.usecase';
 import { UpdateEventUsecase } from '../../domain/usecases/updateEvent.usecase';
 import { DeleteEventUsecase } from 'src/events/domain/usecases/deleteEvent.usecase';
 import { isUUID } from 'class-validator';
+import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Events')
 @Controller('events')
 export class EventsController {
   constructor(
@@ -37,6 +39,16 @@ export class EventsController {
 
   // Standard GET route with query parameters
   @Get()
+  @ApiOperation({
+    description:
+      'This request accepts query parameters in order to filter the results. Only the filter by id will expand the creator and tracks fields.',
+  })
+  @ApiParam({
+    name: 'id',
+    type: 'string',
+    required: false,
+    description: 'Filter events by id',
+  })
   findEvents(@Query() filter: any): Promise<EventObject[]> {
     return this.getEventsUsecase.execute(filter);
   }
