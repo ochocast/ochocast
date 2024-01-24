@@ -235,7 +235,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             <Button
               className="octocast-start-button"
               type="button"
-              onClick={() => navigate('/tracks/' + trackId)}
+              onClick={() => navigate('/tracks/' + trackId + '/streaming')}
             >
               Lancer le live depuis OCTOCast
             </Button>

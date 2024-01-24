@@ -15,6 +15,7 @@ import { useAuth } from 'react-oidc-context';
 import { User } from 'oidc-client-ts';
 import { api, loginUser } from './utils/api';
 import LiveTrack from './pages/liveTrack/liveTrack';
+import StreamTrack from './pages/streamingTrack/streamTrack';
 
 function App() {
   const auth = useAuth();
@@ -75,6 +76,8 @@ function App() {
           path="/tracks/:trackId"
           element={<ProtectedRoute Element={LiveTrack} />}
         />
+        <Route path="/tracks/:trackId/streaming"
+        element={<ProtectedRoute Element={StreamTrack} />}/>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
