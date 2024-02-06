@@ -7,6 +7,7 @@ interface CheckBoxListProps {
   category: User[];
   setCategory: (speakers: User[]) => void;
   title: string;
+  disabled: boolean;
 }
 
 export const CheckBoxList: FC<CheckBoxListProps> = ({
@@ -14,6 +15,7 @@ export const CheckBoxList: FC<CheckBoxListProps> = ({
   category = [],
   setCategory,
   title = '',
+  disabled = false,
 }) => {
   const [searchedQuery, setSearchedQuery] = React.useState('');
 
@@ -39,6 +41,7 @@ export const CheckBoxList: FC<CheckBoxListProps> = ({
             <input
               className="checkBox"
               type="checkbox"
+              disabled={disabled}
               checked={category.includes(user)}
               onChange={(e) => {
                 if (e.target.checked) {

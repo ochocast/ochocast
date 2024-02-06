@@ -62,14 +62,14 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     setButtonDisabled(false);
   };
 
-  const [message, setMessage] = useState('');
   const [modalMessage, setModalMessage] = useState('');
-
+  const [closed, setClosed] = useState(false);
+  const [keywords, setKeyWords] = useState<string[]>([]);
+  const [message, setMessage] = useState('');
   const navigate = useNavigate();
-
   const [tracks, setTracks] = useState<Track[]>([]);
-
   const [isOpen, setisOpen] = useState(false);
+
   const toggle = () => {
     setisOpen(!isOpen);
   };
@@ -99,6 +99,8 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           const trck = await getTrackById(trackId);
           setDescription(trck.description);
           setName(trck.name);
+          setClosed(trck.closed);
+          setKeyWords(trck.keywords);
           //setSpeakers(trck.speakers);
           //setModerators(trck.moderators);
         } catch (error) {
@@ -111,6 +113,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     } else {
       setDescription('');
       setName('');
+      setClosed(false);
       //setSpeakers([]);
       //setModerators([]);
     }
@@ -159,8 +162,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
       const trackBody = {
         name: name,
         description: description,
-        keywords: [],
-        streamkey: '',
+        keywords: keywords,
         closed: false,
         event: eventId,
       };
@@ -222,7 +224,12 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             <h1>{trackId ? name : 'Nouvelle Piste'}</h1>
           </div>
           {trackId ? (
-            <Button className="start-live" type="button" onClick={toggle}>
+            <Button
+              className="start-live"
+              type="button"
+              onClick={toggle}
+              disabled={closed}
+            >
               Commencer le live
             </Button>
           ) : null}
@@ -248,6 +255,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           value={name}
           name="name"
           error={errorName}
+          disabled={closed}
           onChange={handleNameChange}
         />
         <TextArea
@@ -256,6 +264,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           value={description}
           name="description"
           error={errorDescription}
+          disabled={closed}
           onChange={handleDescriptionChange}
         />
         <div className="checkBoxListContainer">
@@ -264,19 +273,21 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             category={speakers}
             setCategory={setSpeakers}
             title="Orateurs"
+            disabled={closed}
           />
           <CheckBoxList
             allUsers={allUsers}
             category={moderators}
             setCategory={setModerators}
             title="Moderateurs"
+            disabled={closed}
           />
         </div>
         <div className="controlsContainer">
           <Button
             className="submit-button"
             type="submit"
-            disabled={isButtonDisabled}
+            disabled={isButtonDisabled || closed}
           >
             {trackId ? <div>Sauvegarder</div> : <div>Créer</div>}
           </Button>
