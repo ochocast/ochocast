@@ -161,6 +161,7 @@ jobs:
           #labels: # optional
           # Push is a shorthand for --output=type=registry
           push: true
+          tags: latest
   
   build-and-push-webSocketServer:
     name: build-and-push-webSocketServer
@@ -188,3 +189,4 @@ jobs:
           #labels: # optional
           # Push is a shorthand for --output=type=registry
           push: true
+          tags: latest
