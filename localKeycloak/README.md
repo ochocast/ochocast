@@ -51,4 +51,4 @@ To create a user, follow these steps:
 2. Click on the "Users" tab and then click on the "Add User" button.
 3. Enter the user's details (e.g. username, Email, first, last name).
 4. Click on the "Save" button to save your changes.
-5. Click on the "Credentials" tab of the client, modify the password
+5. Click on the "Credentials" tab of the client, modify the password.
