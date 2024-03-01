@@ -161,7 +161,7 @@ jobs:
           #labels: # optional
           # Push is a shorthand for --output=type=registry
           push: true
-          tags: latest
+          tags: ${{ vars.SCW_CONTAINER_RTMP }}
   
   build-and-push-webSocketServer:
     name: build-and-push-webSocketServer
@@ -189,4 +189,4 @@ jobs:
           #labels: # optional
           # Push is a shorthand for --output=type=registry
           push: true
-          tags: latest
+          tags: ${{ vars.SCW_CONTAINER_WEBSOCKET }}
