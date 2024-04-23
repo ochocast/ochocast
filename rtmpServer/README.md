@@ -72,3 +72,6 @@ The provided demo players assume the stream-key is called `test`.
 
 ## Copyright
 Released under MIT license.
+
+## deploy
+rtmp recovery link: `rg.fr-par.scw.cloud/rtmp-server-images/octocast_rtmp_server:latest`

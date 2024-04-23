@@ -38,7 +38,7 @@ Typically contains interfaces, utility functions or helper modules that provide 
 
 ## UX / UI design
 
-The frontend application design must respect the Octo’s design system. 
+The frontend application design must respect the Octo’s design system.
 
 You can find the figma link to the website design here:
 https://www.figma.com/file/0GxoYfFFf8THTYIxzYfHHD/Maquette-OctoCast?type=design&node-id=0-1&mode=design&t=eiEISBBvrEIffH9R-0
@@ -73,7 +73,7 @@ For more information :https://www.npmjs.com/package/apisauce
 ## Adding a new view to the application
 
 To add a new view, you must add it’s route in App.tsx inside the “<Routes/>” element.
-First create the folder and the component of the page in “/frontend/src/pages” where you will have the tsx and css files. 
+First create the folder and the component of the page in “/frontend/src/pages” where you will have the tsx and css files.
 
 ```html
 <Route
@@ -87,3 +87,19 @@ element={<ProtectedRoute Element={NameOfComponent} />}
 You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
 To learn React, check out the [React documentation](https://reactjs.org/).
+
+# Deployement
+First ensure that you correctly [deployed the localkeycloack](../localKeycloak/README.md) before deploying the backend.
+## To deploy in local:
+```
+cd ./frontend
+cp .env.example .env
+npm install
+npm run start
+```
+
+## To deploy in public:
+
+Here is the docker recovery link.
+
+just clone it and run it.

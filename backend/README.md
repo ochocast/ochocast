@@ -45,3 +45,23 @@ Create a typedoc documentation folder for frontend in frontend/docs
  */
 declare function startApplication(app: FooApplication, options: FooOptions): Promise<boolean>
 ```
+
+# Deployement
+First ensure that you correctly [deployed the localkeycloack](../localKeycloak/README.md) before deploying the backend.
+## To deploy in local:
+```
+cd ./backend
+cp .env.example .env
+```
+Copy paste the secret of the "nest-back" client keycloak inside the `AUTH_SECRET` environement variable.
+```
+npm install
+npm run start:dev
+```
+
+
+## To deploy in public:
+
+Here is the docker recovery link: `rg.fr-par.scw.cloud/backend-images/octocast-backend:latest`.
+
+just clone it and run it.

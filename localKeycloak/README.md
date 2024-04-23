@@ -6,6 +6,8 @@ To get started, run the following command to start the Docker container:
 docker-compose up -d
 ```
 
+The deployent is the same in local and in public.
+
 Once the container is running, you can connect to Keycloak by visiting http://localhost:8080 in your web browser.
 
 ## Creating a Realm
@@ -23,7 +25,7 @@ To configure the Octocast client, follow these steps:
 1. In the Keycloak admin console, select your new realm from the dropdown menu.
 2. Click on the "Clients" tab and then click on the "Create" button.
 3. Give your new client the name octocast.
-4. Under "Valid Redirect URIs", add `http://localhost:3000/*`.
+4. Under "Valid Redirect URIs", add `http://localhost:3000/events/` and `http://localhost:3000/*` (order matters).
 5. Under "Root URL", add `http://localhost:3000`.
 6. Under "Home Origins", add `http://localhost:3000`.
 7. Under "Web Origins", add `http://localhost:3000`.

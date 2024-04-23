@@ -35,3 +35,29 @@ The documentation command `npm run doc` will generate documentation for `/fronte
 declare function startApplication(app: FooApplication, options: FooOptions): Promise<boolean>
 
 ```
+
+# Recurrents issues on project setup
+
+### Fronted
+
+Nothing happen when you start the front-end and click on the login button of Keycloak ?
+
+This issue is link with your `.env` file. 
+Verify that you correctly create the `.env` file.
+
+### Backend Link problem with the db
+
+#### 1. Verify that you don't have postgresql system service that overwrite the docker db.
+  
+  Change the bind port of your machine in the [docker compose file](./database/docker-compose.yml).
+  And change the port of the [.env file](./backend/.env) to the same one.
+  
+  If it's works with this new ip, this is probably the same issue.
+
+  We uninstall the postgresql system service :
+  On mac with `launchctl`.
+  On Linux with `systemctl`.
+
+#### 2. Problem with pseudo bash like git-bash
+
+  The bash can have some problem with character encoding and failed the db connecting because of the wrong username.
