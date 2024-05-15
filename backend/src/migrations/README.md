@@ -1,23 +1,23 @@
-# Pour faire des migrations 
+# Migrations tutorial
 
-## 1 - modifier le code d'une entity (par exemple user_entity)
+## 1 - modify the fields of an entity (here we take user_entity as an example)
 
-exemple ajouter un champ 
+for example, add a field
     @Column({
     nullable: true
     })
     description: string;
 
-## 2 - generer une migration
+## 2 - generate a migration
 
-(dans ./backend/ )
+(in ./backend/ )
 npm run migration:generate
 
-Dans le dossier migration, une nouvelle migration devrait avoir ete cree, verifier que la migration correspond au besoin
+A new migration was created, check that the migration fits what you changed
 
-## 3 - Executer la migration
+## 3 - Run the migration
 
-(dans ./backend/ )
+(in ./backend/ )
 
 npm run migration:run
 
