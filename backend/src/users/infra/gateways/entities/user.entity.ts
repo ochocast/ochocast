@@ -18,6 +18,11 @@ export class UserEntity {
   @Column()
   role: string;
 
+  @Column({
+    nullable: true
+  })
+  description: string;
+
   @OneToMany(() => EventEntity, (event) => event.creator, { cascade: true })
   events: EventEntity[];
 
