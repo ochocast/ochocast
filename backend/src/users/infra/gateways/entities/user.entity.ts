@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
 import { EventEntity } from '../../../../events/infra/gateways/entities/event.entity';
+import { CommentEntity } from '../../../../comments/infra/gateways/entities/comment.entity';
 
 @Entity()
 export class UserEntity {
@@ -25,6 +26,9 @@ export class UserEntity {
 
   @OneToMany(() => EventEntity, (event) => event.creator, { cascade: true })
   events: EventEntity[];
+
+  @OneToMany(() => CommentEntity, (comment) => comment.creator, { cascade: true })
+  comments: CommentEntity[];
 
   @Column()
   createdAt: Date;
