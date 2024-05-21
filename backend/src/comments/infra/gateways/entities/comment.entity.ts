@@ -7,7 +7,7 @@ export class CommentEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => UserEntity, (user) => user.comments, { cascade: true })
+  @ManyToOne(() => UserEntity, (user) => user.comments)
   creator: UserEntity;
 
   @Column()
