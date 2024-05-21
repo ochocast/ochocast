@@ -1,3 +1,4 @@
+import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { EventObject } from '../../events/domain/event';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -33,6 +34,18 @@ export class UserObject {
   role: string;
 
   @ApiProperty({
+    example: 'I am very kind and respectful',
+    description: 'The description of a user.',
+  })
+  description: string;
+
+  @ApiProperty({
+    example: '[12342141, 129827487, 1239273892]',
+    description: 'The comments that the user wrote.',
+  })
+  comments: CommentEntity[];
+
+  @ApiProperty({
     example: [EventObject],
     description: 'The events owned by the user.',
   })
@@ -44,6 +57,10 @@ export class UserObject {
   })
   createdAt: Date;
 
+
+ 
+
+
   constructor(
     id: string,
     firstName: string,
@@ -51,6 +68,8 @@ export class UserObject {
     email: string,
     role: string,
     events: EventObject[],
+    comments: CommentEntity[],
+    description: string,
     createdAt: Date,
   ) {
     this.id = id;
@@ -58,7 +77,9 @@ export class UserObject {
     this.lastName = lastName;
     this.email = email;
     this.role = role;
+    this.comments = comments;
     this.events = events;
+    this.description = description;
     this.createdAt = createdAt;
   }
 }
