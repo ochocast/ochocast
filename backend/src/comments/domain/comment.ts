@@ -40,23 +40,18 @@ export class CommentObject {
 
   constructor(
     id: string,
-    name: string,
-    description: string,
-    keywords: string[],
-    streamKey: string,
-    closed: boolean = false,
-    event: string,
+    content: string,
+    creator: string,
+    video: string,
     createdAt: Date,
     updatedAt: Date,
   ) {
     this.id = id;
-    this.name = name;
-    this.description = description;
-    this.keywords = keywords;
-    this.streamKey = streamKey;
-    this.closed = closed;
-    this.event = event;
+    this.creator = creator;
+    this.content = content;
+    this.video = video;
     this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
   }
 }
 

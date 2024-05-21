@@ -18,5 +18,8 @@
     "concurrently": "^8.2.1",
     "react-player": "^2.13.0",
     "typedoc": "^0.25.2"
+  },
+  "devDependencies": {
+    "typeorm": "^0.3.20"
   }
 }
