@@ -40,9 +40,9 @@ export class CommentObject {
 
   constructor(
     id: string,
-    content: string,
     creator: UserEntity,
     video: string,
+    content: string,
     createdAt: Date,
     updatedAt: Date,
   ) {
