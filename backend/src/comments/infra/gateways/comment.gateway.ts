@@ -3,6 +3,7 @@ import { CommentObject } from '../../domain/comment';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CommentEntity } from './entities/comment.entity';
+import { UserEntity } from './../../../users/infra/gateways/entities/user.entity';
 
 export class CommentGateway implements ICommentGateway {
   constructor(

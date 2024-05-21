@@ -8,7 +8,7 @@ export class CommentEntity {
   id: string;
 
   @ManyToOne(() => UserEntity, (user) => user.comments, { cascade: true })
-  creator: UserEntity[];
+  creator: UserEntity;
 
   @Column()
   video: string;

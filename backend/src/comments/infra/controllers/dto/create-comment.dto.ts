@@ -7,4 +7,7 @@ export class CreateCommentDto {
 
   @IsNotEmpty()
   content: string;
+
+  @IsNotEmpty()
+  video: string;
 }

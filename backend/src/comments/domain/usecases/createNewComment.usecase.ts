@@ -1,0 +1,26 @@
+import { CreateCommentDto } from '../../infra/controllers/dto/create-comment.dto';
+import { ICommentGateway } from '../gateways/comments.gateway';
+import { CommentObject } from '../comment';
+import { v4 as uuid } from 'uuid';
+import { Inject } from '@nestjs/common';
+
+export class CreateNewCommentUsecase {
+  constructor(
+    @Inject('CommentGateway')
+    private commentGateway: ICommentGateway,
+  ) {}
+
+  async execute(commentToCreate: CreateCommentDto): Promise<CommentObject> {
+    const comment = new CommentObject(
+      uuid(),
+      commentToCreate.creator,
+      commentToCreate.video,
+      commentToCreate.content,
+      new Date(),
+      new Date(),
+    );
+
+    await this.commentGateway.createNewComment(comment);
+    return comment;
+  }
+}

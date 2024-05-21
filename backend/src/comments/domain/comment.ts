@@ -18,7 +18,7 @@ export class CommentObject {
     example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
     description: 'The unique identifier of the creator.',
   })
-  creator: string;
+  creator: UserEntity;
 
   @ApiProperty({
     example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
@@ -41,7 +41,7 @@ export class CommentObject {
   constructor(
     id: string,
     content: string,
-    creator: string,
+    creator: UserEntity,
     video: string,
     createdAt: Date,
     updatedAt: Date,
@@ -70,5 +70,3 @@ export class CommentObject {
 //     public createdAt: Date,
 //   ) {}
 // }
-
-// HERE : ON EST ICI - WORK IN PROGRESS !!! 
