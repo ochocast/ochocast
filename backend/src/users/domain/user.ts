@@ -58,9 +58,6 @@ export class UserObject {
   createdAt: Date;
 
 
- 
-
-
   constructor(
     id: string,
     firstName: string,

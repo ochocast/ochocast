@@ -18,6 +18,8 @@ export class CreateNewUserUsecase {
       userToCreate.email,
       userToCreate.role,
       [],
+      [],
+      userToCreate.description,
       new Date(),
     );
 
