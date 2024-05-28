@@ -1,7 +1,7 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, ManyToMany } from 'typeorm';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 import internal from 'stream';
-import { TagEntity } from 'src/tag/infra/gateways/entities/tag.entity';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 
 @Entity()
@@ -13,16 +13,16 @@ export class VideoEntity {
   media_id: string
 
   @Column()
-  description: string
-  
-  //@ManyToMany(() => TagEntity)
-  //tags: TagEntity[]
-
-  @Column()
   title: string
 
-  //@ManyToOne(() => UserEntity, (user) => user.videos)
-  //creator: UserEntity;
+  @Column()
+  description: string
+  
+  @ManyToMany(() => TagEntity)
+  tags: TagEntity[]
+
+  @ManyToOne(() => UserEntity, (user) => user.videos)
+  creator: UserEntity;
 
   @Column()
   createdAt: Date;
@@ -39,8 +39,8 @@ export class VideoEntity {
   @Column()
   views: number
 
-  //@OneToMany(() => CommentEntity, (comment) => comment.video)
-  //comments: CommentEntity[];
+  @OneToMany(() => CommentEntity, (comment) => comment.video)
+  comments: CommentEntity[];
 
 
   constructor(video: Partial<VideoEntity>) {

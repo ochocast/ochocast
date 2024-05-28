@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TagEntity } from 'src/tag/infra/gateways/entities/tag.entity';
+import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 export class VideoObject {
@@ -65,29 +66,44 @@ export class VideoObject {
   })
   external_speakers: string[];
 
+  @ApiProperty({
+    example: '2',
+    description: 'Number of views on the video.',
+  })
+  views: number;
+
+  @ApiProperty({
+    example: '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
+    description: 'The comments on the video.',
+  })
+  comments: CommentEntity[];
 
   constructor(
     id: string,
     media_id: string,
+    title: string,
     description: string,
     tags: TagEntity[],
-    title: string,
     creator: UserEntity,
     createdAt: Date,
     updatedAt: Date,
     internal_speakers: string[],
     external_speakers: string[],
+    views: number,
+    comments: CommentEntity[],
   ) {
     this.id = id;
     this.media_id = media_id;
+    this.title = title;
     this.creator = creator;
     this.description = description;
     this.tags = tags;
-    this.title = title;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.internal_speakers = internal_speakers;
     this.external_speakers = external_speakers;
+    this.views = views;
+    this.comments = comments;
   }
 }
 

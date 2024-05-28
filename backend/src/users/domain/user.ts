@@ -1,6 +1,7 @@
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { EventObject } from '../../events/domain/event';
 import { ApiProperty } from '@nestjs/swagger';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
 export class UserObject {
   @ApiProperty({
@@ -46,6 +47,12 @@ export class UserObject {
   comments: CommentEntity[];
 
   @ApiProperty({
+    example: '[12342141, 129827487, 1239273892]',
+    description: 'The videos that the user published.',
+  })
+  videos: VideoEntity[];
+
+  @ApiProperty({
     example: [EventObject],
     description: 'The events owned by the user.',
   })
@@ -66,6 +73,7 @@ export class UserObject {
     role: string,
     events: EventObject[],
     comments: CommentEntity[],
+    videos: VideoEntity[],
     description: string,
     createdAt: Date,
   ) {
@@ -75,6 +83,7 @@ export class UserObject {
     this.email = email;
     this.role = role;
     this.comments = comments;
+    this.videos = videos;
     this.events = events;
     this.description = description;
     this.createdAt = createdAt;

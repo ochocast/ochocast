@@ -1,6 +1,6 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
-//import { VideoEntity } from '../../../../events/infra/gateways/entities/event.entity';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
 @Entity()
 export class CommentEntity {
@@ -11,7 +11,7 @@ export class CommentEntity {
   creator: UserEntity;
 
   @Column()
-  video: string;
+  video: VideoEntity;
 
   @Column()
   content: string;

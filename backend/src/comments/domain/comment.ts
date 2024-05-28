@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
 export class CommentObject {
   @ApiProperty({
@@ -24,7 +25,7 @@ export class CommentObject {
     example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
     description: 'The unique identifier of the video.',
   })
-  video: string;
+  video: VideoEntity;
 
   @ApiProperty({
     example: '2021-10-31T00:00:00.000Z',
@@ -41,15 +42,15 @@ export class CommentObject {
   constructor(
     id: string,
     creator: UserEntity,
-    video: string,
+    video: VideoEntity,
     content: string,
     createdAt: Date,
     updatedAt: Date,
   ) {
     this.id = id;
     this.creator = creator;
-    this.content = content;
     this.video = video;
+    this.content = content;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
   }
