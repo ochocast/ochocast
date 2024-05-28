@@ -12,7 +12,7 @@ export class TagEntity {
   @ManyToMany(() => EventEntity, (event) => event.tags, {
     onDelete: 'CASCADE',
   })
-  video: string;
+  videos: string[];
 
   @Column()
   createdAt: Date;

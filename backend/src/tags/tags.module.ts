@@ -5,8 +5,7 @@ import { TagEntity } from './infra/gateways/entities/tag.entity';
 import { TagGateway } from './infra/gateways/tag.gateway';
 import { CreateNewTagUsecase } from './domain/usecases/createNewTag.usecase';
 import { GetTagsUsecase } from './domain/usecases/getTags.usecase';
-import { UpdateTagUsecase } from './domain/usecases/updateTag.usecase';
-import { DeleteTagsUsecase } from './domain/usecases/deleteTags.usecase';
+import { DeleteTagUsecase } from './domain/usecases/deleteTag.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([TagEntity])],
@@ -18,8 +17,7 @@ import { DeleteTagsUsecase } from './domain/usecases/deleteTags.usecase';
     },
     CreateNewTagUsecase,
     GetTagsUsecase,
-    UpdateTagUsecase,
-    DeleteTagsUsecase,
+    DeleteTagUsecase,
   ],
 })
 export class TagsModule {}
