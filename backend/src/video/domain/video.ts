@@ -1,0 +1,108 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { TagEntity } from 'src/tag/infra/gateways/entities/tag.entity';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+
+export class VideoObject {
+  @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The unique identifier of the video.',
+  })
+  id: string;
+
+  @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The id of the media on MinIO.',
+  })
+  media_id: string;
+
+
+  @ApiProperty({
+    example: 'A spooky description',
+    description: 'The description of the video.',
+  })
+  description: string;
+  
+  @ApiProperty({
+    example: '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
+    description: 'The list of identifiers of the tags of the video.',
+  })
+  tags: TagEntity[];
+
+  @ApiProperty({
+    example: 'Very good video',
+    description: 'The title of the video.',
+  })
+  title: string;
+
+  @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The unique identifier of the creator.',
+  })
+  creator: UserEntity;
+
+  @ApiProperty({
+    example: '2021-10-31T00:00:00.000Z',
+    description: 'The date the comment was created.',
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    example: '2021-10-31T00:00:00.000Z',
+    description: 'The date the comment was updated.',
+  })
+  updatedAt: Date;
+
+  @ApiProperty({
+    example: '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
+    description: 'The list of identifiers of internal speakers that appear in the video.',
+  })
+  internal_speakers: string[];
+
+
+  @ApiProperty({
+    example: '["Bill Gates", "Elon Musk"]',
+    description: 'The list of names of external speakers that appear in the video.',
+  })
+  external_speakers: string[];
+
+
+  constructor(
+    id: string,
+    media_id: string,
+    description: string,
+    tags: TagEntity[],
+    title: string,
+    creator: UserEntity,
+    createdAt: Date,
+    updatedAt: Date,
+    internal_speakers: string[],
+    external_speakers: string[],
+  ) {
+    this.id = id;
+    this.media_id = media_id;
+    this.creator = creator;
+    this.description = description;
+    this.tags = tags;
+    this.title = title;
+    this.createdAt = createdAt;
+    this.updatedAt = updatedAt;
+    this.internal_speakers = internal_speakers;
+    this.external_speakers = external_speakers;
+  }
+}
+
+// This file can be reworked with the constructor shorthand syntax as soon as the following issue is fixed:
+// https://github.com/nestjs/swagger/issues/2056#issuecomment-1442301176
+
+// export class CommentObject {
+//   constructor(
+//     public id: string,
+//     public name: string,
+//     public description: string,
+//     public keywords: string[],
+//     public streamKey: string,
+//     public closed: boolean = false,
+//     public event: string,
+//     public createdAt: Date,
+//   ) {}
+// }
