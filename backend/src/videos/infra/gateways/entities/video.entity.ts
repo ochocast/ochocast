@@ -31,10 +31,10 @@ export class VideoEntity {
   updatedAt: Date;
 
   @Column()
-  internal_speakers: string
+  internal_speakers: string[]
 
   @Column()
-  external_speakers: string
+  external_speakers: string[]
 
   @Column()
   views: number

@@ -16,9 +16,9 @@ import {
   import { CreateNewTagUsecase } from '../../domain/usecases/createNewTag.usecase';
   import { GetTagsUsecase } from '../../domain/usecases/getTags.usecase';
   import { isUUID } from 'class-validator';
-  import { UpdateTagUsecase } from '../../domain/usecases/updateTag.usecase';
+  // import { UpdateTagUsecase } from '../../domain/usecases/updateTag.usecase';
   import { TagObject } from '../../domain/tag';
-  import { DeleteTagsUsecase } from '../../domain/usecases/deleteTag.usecase';
+  import { DeleteTagUsecase } from '../../domain/usecases/deleteTag.usecase';
   import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
   
   @ApiTags('Tags')
@@ -27,7 +27,7 @@ import {
     constructor(
       private createNewTagUsecase: CreateNewTagUsecase,
       private getTagsUsecase: GetTagsUsecase,
-      private deleteTagsUsecase: DeleteTagsUsecase,
+      private deleteTagsUsecase: DeleteTagUsecase,
     ) {}
   
     @Post()
