@@ -10,7 +10,7 @@ export class CommentEntity {
   @ManyToOne(() => UserEntity, (user) => user.comments)
   creator: UserEntity;
 
-  @Column()
+  @ManyToOne(() => VideoEntity, (video) => video.comments)
   video: VideoEntity;
 
   @Column()

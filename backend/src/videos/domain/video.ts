@@ -57,14 +57,14 @@ export class VideoObject {
     example: '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
     description: 'The list of identifiers of internal speakers that appear in the video.',
   })
-  internal_speakers: string[];
+  internal_speakers: string;
 
 
   @ApiProperty({
     example: '["Bill Gates", "Elon Musk"]',
     description: 'The list of names of external speakers that appear in the video.',
   })
-  external_speakers: string[];
+  external_speakers: string;
 
   @ApiProperty({
     example: '2',
@@ -87,8 +87,8 @@ export class VideoObject {
     creator: UserEntity,
     createdAt: Date,
     updatedAt: Date,
-    internal_speakers: string[],
-    external_speakers: string[],
+    internal_speakers: string,
+    external_speakers: string,
     views: number,
     comments: CommentEntity[],
   ) {

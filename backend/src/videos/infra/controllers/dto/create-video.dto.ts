@@ -20,10 +20,10 @@ export class CreateVideoDto {
   creator: UserEntity;
 
   @IsNotEmpty()
-  internal_speakers: string[];
+  internal_speakers: string;
 
   @IsNotEmpty()
-  external_speakers: string[];
+  external_speakers: string;
 
   @IsNotEmpty()
   comments: CommentEntity[];
