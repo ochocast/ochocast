@@ -1,0 +1,8 @@
+.tagbase {
+  width: fit-content;
+  height: fit-content;
+  padding: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

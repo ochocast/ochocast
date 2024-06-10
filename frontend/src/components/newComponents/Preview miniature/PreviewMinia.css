@@ -1,0 +1,16 @@
+.VueDate {
+    font-size: 10px;
+    text-align: left;
+}
+.Creator {
+    font-size: 14px;
+    text-align: left;
+}
+.Titre {
+    font-size: 1em;
+    text-align: left;
+}
+
+.Miniature {
+    aspect-ratio: 16/9;
+}

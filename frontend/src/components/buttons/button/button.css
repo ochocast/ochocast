@@ -1,7 +1,7 @@
 Button {
   margin-top: 15px;
   width: fit-content;
-  padding-left: 2%;
-  padding-right: 2%;
+  height: fit-content;
+  padding: 1em;
   border: 0;
 }
