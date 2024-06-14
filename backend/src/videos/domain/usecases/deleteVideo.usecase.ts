@@ -1,7 +1,8 @@
-import { Inject } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
 
+@Injectable()
 export class DeleteVideoUsecase {
   constructor(
     @Inject('VideoGateway')

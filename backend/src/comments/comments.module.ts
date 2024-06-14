@@ -5,6 +5,7 @@ import { CommentEntity } from './infra/gateways/entities/comment.entity';
 import { CommentGateway } from './infra/gateways/comment.gateway';
 import { CreateNewCommentUsecase } from './domain/usecases/createNewcomment.usecase';
 import { GetCommentsUsecase } from './domain/usecases/getComments.usecase';
+import { DeleteCommentsUsecase } from './domain/usecases/deleteComment.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([CommentEntity])],
@@ -16,6 +17,7 @@ import { GetCommentsUsecase } from './domain/usecases/getComments.usecase';
     },
     CreateNewCommentUsecase,
     GetCommentsUsecase,
+    DeleteCommentsUsecase,
   ],
 })
 export class CommentsModule {}

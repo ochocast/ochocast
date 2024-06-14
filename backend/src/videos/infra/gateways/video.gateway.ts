@@ -27,7 +27,7 @@ export class VideoGateway implements IVideoGateway {
     });
   }
 
-  async updateVideo(videoDetails: VideoObject): Promise<VideoObject> {
+  /*async updateVideo(videoDetails: VideoObject): Promise<VideoObject> {
     const video = await this.videosRepository.findOne({
       where: {
         id: videoDetails.id,
@@ -38,7 +38,7 @@ export class VideoGateway implements IVideoGateway {
       ...video,
       ...videoDetails,
     });
-  }
+  }*/
 
   async deleteVideo(videoId: string): Promise<VideoObject> {
     const video = await this.videosRepository.findOneBy({ id: videoId });

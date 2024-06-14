@@ -27,7 +27,7 @@ import {
     constructor(
       private createNewVideoUsecase: CreateNewVideoUsecase,
       private getVideosUsecase: GetVideosUsecase,
-      private deleteVideosUsecase: DeleteVideoUsecase,
+      private deleteVideoUsecase: DeleteVideoUsecase,
     ) {}
   
     @Post()
@@ -58,7 +58,7 @@ import {
         throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
       }
   
-      return await this.deleteVideosUsecase.execute(id);
+      return await this.deleteVideoUsecase.execute(id);
     }
   }
   

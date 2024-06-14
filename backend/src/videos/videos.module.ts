@@ -16,9 +16,9 @@ import { DeleteVideoUsecase } from './domain/usecases/DeleteVideo.usecase';
       useClass: VideoGateway,
     },
     CreateNewVideoUsecase,
-    DeleteVideoUsecase,
-    UpdateVideoUsecase,
+    //UpdateVideoUsecase,
     GetVideosUsecase,
+    DeleteVideoUsecase
   ],
 })
 export class VideosModule {}

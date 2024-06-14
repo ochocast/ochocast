@@ -17,7 +17,7 @@ import {
   import { CreateNewCommentUsecase } from '../../domain/usecases/createNewComment.usecase';
   import { GetCommentsUsecase } from '../../domain/usecases/getComments.usecase';
   //import { UpdateCommentUsecase } from '../../domain/usecases/updateComment.usecase';
-  import { DeleteCommentUsecase } from 'src/comments/domain/usecases/deleteComment.usecase';
+  import { DeleteCommentsUsecase } from 'src/comments/domain/usecases/deleteComment.usecase';
   import { isUUID } from 'class-validator';
   import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
   
@@ -28,7 +28,7 @@ import {
       private createNewCommentUsecase: CreateNewCommentUsecase,
       private getCommentsUsecase: GetCommentsUsecase,
       //private updateCommentUsecase: UpdateCommentUsecase,
-      private deleteCommentUsecase: DeleteCommentUsecase,
+      private deleteCommentUsecase: DeleteCommentsUsecase,
     ) {}
   
     @Post()

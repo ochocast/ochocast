@@ -22,6 +22,9 @@ async function bootstrap() {
     .addTag('Events')
     .addTag('Tracks')
     .addTag('Users')
+    .addTag('Videos')
+    .addTag('Comments')
+    .addTag('Tags')
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);

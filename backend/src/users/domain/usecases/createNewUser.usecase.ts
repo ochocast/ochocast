@@ -19,11 +19,13 @@ export class CreateNewUserUsecase {
       userToCreate.role,
       [],
       [],
+      [],
       userToCreate.description,
-      new Date(),
+      new Date()
     );
 
     await this.userGateway.createNewUser(user);
     return user;
   }
 }
+// TODO : updqted at 
