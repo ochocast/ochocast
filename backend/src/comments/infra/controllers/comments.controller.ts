@@ -7,7 +7,6 @@ import {
     HttpStatus,
     Param,
     Post,
-    Put,
     Query,
     UsePipes,
     ValidationPipe,
@@ -16,8 +15,7 @@ import {
   import { CommentObject } from '../../domain/comment';
   import { CreateNewCommentUsecase } from '../../domain/usecases/createNewComment.usecase';
   import { GetCommentsUsecase } from '../../domain/usecases/getComments.usecase';
-  //import { UpdateCommentUsecase } from '../../domain/usecases/updateComment.usecase';
-  import { DeleteCommentsUsecase } from 'src/comments/domain/usecases/deleteComment.usecase';
+  import { DeleteCommentUsecase } from 'src/comments/domain/usecases/deleteComment.usecase';
   import { isUUID } from 'class-validator';
   import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
   
@@ -27,8 +25,7 @@ import {
     constructor(
       private createNewCommentUsecase: CreateNewCommentUsecase,
       private getCommentsUsecase: GetCommentsUsecase,
-      //private updateCommentUsecase: UpdateCommentUsecase,
-      private deleteCommentUsecase: DeleteCommentsUsecase,
+      private deleteCommentUsecase: DeleteCommentUsecase,
     ) {}
   
     @Post()
@@ -52,19 +49,6 @@ import {
     findComments(@Query() filter: any): Promise<CommentObject[]> {
       return this.getCommentsUsecase.execute(filter);
     }
-  
-    /*@Put(':id')
-    async updateComment(
-      @Param('id') id: string,
-      @Body() comment: CommentObject,
-    ): Promise<CommentObject> {
-      if (!isUUID(id)) {
-        throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
-      }
-  
-      comment.id = id;
-      return this.updateCommentUsecase.execute(comment);
-    }*/
   
     @Delete(':id')
     async deleteComment(@Param('id') id: string): Promise<CommentObject> {

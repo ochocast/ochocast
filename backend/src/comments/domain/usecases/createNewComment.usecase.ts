@@ -1,9 +1,10 @@
+import { Injectable, Inject } from '@nestjs/common';
 import { CreateCommentDto } from '../../infra/controllers/dto/create-comment.dto';
 import { ICommentGateway } from '../gateways/comments.gateway';
 import { CommentObject } from '../comment';
 import { v4 as uuid } from 'uuid';
-import { Inject } from '@nestjs/common';
 
+@Injectable()
 export class CreateNewCommentUsecase {
   constructor(
     @Inject('CommentGateway')

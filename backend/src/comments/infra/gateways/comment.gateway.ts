@@ -1,9 +1,8 @@
-import { ICommentGateway } from '../../domain/gateways/comments.gateway';
-import { CommentObject } from '../../domain/comment';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ICommentGateway } from '../../domain/gateways/comments.gateway';
+import { CommentObject } from '../../domain/comment';
 import { CommentEntity } from './entities/comment.entity';
-import { UserEntity } from './../../../users/infra/gateways/entities/user.entity';
 
 export class CommentGateway implements ICommentGateway {
   constructor(
@@ -27,20 +26,7 @@ export class CommentGateway implements ICommentGateway {
       relations: ['creator'],
     });
   }
-
-  /*async updateComment(commentDetails: CommentObject): Promise<CommentObject> {
-    const comment = await this.commentsRepository.findOne({
-      where: {
-        id: commentDetails.id,
-      },
-    });
-
-    return await this.commentsRepository.save({
-      ...comment,
-      ...commentDetails,
-    });
-  }*/
-
+  
   async deleteComment(commentId: string): Promise<CommentObject> {
     const comment = await this.commentsRepository.findOneBy({ id: commentId });
 

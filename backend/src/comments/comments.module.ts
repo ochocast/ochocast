@@ -3,9 +3,9 @@ import { CommentsController } from './infra/controllers/comments.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CommentEntity } from './infra/gateways/entities/comment.entity';
 import { CommentGateway } from './infra/gateways/comment.gateway';
-import { CreateNewCommentUsecase } from './domain/usecases/createNewcomment.usecase';
+import { CreateNewCommentUsecase } from './domain/usecases/createNewComment.usecase';
 import { GetCommentsUsecase } from './domain/usecases/getComments.usecase';
-import { DeleteCommentsUsecase } from './domain/usecases/deleteComment.usecase';
+import { DeleteCommentUsecase } from './domain/usecases/deleteComment.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([CommentEntity])],
@@ -17,7 +17,7 @@ import { DeleteCommentsUsecase } from './domain/usecases/deleteComment.usecase';
     },
     CreateNewCommentUsecase,
     GetCommentsUsecase,
-    DeleteCommentsUsecase,
+    DeleteCommentUsecase,
   ],
 })
 export class CommentsModule {}
