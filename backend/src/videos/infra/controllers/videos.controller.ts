@@ -7,7 +7,6 @@ import {
     HttpStatus,
     Param,
     Post,
-    Put,
     Query,
     UsePipes,
     ValidationPipe,
@@ -16,7 +15,6 @@ import {
   import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
   import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
   import { isUUID } from 'class-validator';
-  // import { UpdateVideoUsecase } from '../../domain/usecases/updateVideo.usecase';
   import { VideoObject } from '../../domain/video';
   import { DeleteVideoUsecase } from '../../domain/usecases/deleteVideo.usecase';
   import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';

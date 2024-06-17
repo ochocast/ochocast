@@ -31,7 +31,7 @@ import { VideosModule } from './videos/videos.module';
     TracksModule,
     TagsModule,
     VideosModule,
-    CommentsModule
+    CommentsModule,
   ],
 })
 export class AppModule {}

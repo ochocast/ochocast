@@ -1,6 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, ManyToMany } from 'typeorm';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
-import internal from 'stream';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 
@@ -41,7 +40,6 @@ export class VideoEntity {
 
   @OneToMany(() => CommentEntity, (comment) => comment.video)
   comments: CommentEntity[];
-
 
   constructor(video: Partial<VideoEntity>) {
     Object.assign(this, video);

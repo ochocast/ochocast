@@ -5,7 +5,7 @@ import { VideoEntity } from './infra/gateways/entities/video.entity';
 import { VideoGateway } from './infra/gateways/video.gateway';
 import { CreateNewVideoUsecase } from './domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from './domain/usecases/getVideos.usecase';
-import { DeleteVideoUsecase } from './domain/usecases/DeleteVideo.usecase';
+import { DeleteVideoUsecase } from './domain/usecases/deleteVideo.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([VideoEntity])],
@@ -16,9 +16,8 @@ import { DeleteVideoUsecase } from './domain/usecases/DeleteVideo.usecase';
       useClass: VideoGateway,
     },
     CreateNewVideoUsecase,
-    //UpdateVideoUsecase,
     GetVideosUsecase,
-    DeleteVideoUsecase
+    DeleteVideoUsecase,
   ],
 })
 export class VideosModule {}
