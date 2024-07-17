@@ -3,14 +3,19 @@ import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
 import { v4 as uuid } from 'uuid';
 import { Inject } from '@nestjs/common';
+import { S3Client } from "@aws-sdk/client-s3";
+import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
+import { Upload } from "@aws-sdk/lib-storage";
 
 export class CreateNewVideoUsecase {
   constructor(
     @Inject('VideoGateway')
     private videoGateway: IVideoGateway,
+    @Inject('s3Client')
+    private  s3Client: S3Client,
   ) {}
 
-  async execute(videoToCreate: CreateVideoDto): Promise<VideoObject> {
+  async execute(videoToCreate: CreateVideoDto, file: Express.Multer.File): Promise<VideoObject> {
     const video = new VideoObject(
       uuid(),
       videoToCreate.media_id,
@@ -23,8 +28,22 @@ export class CreateNewVideoUsecase {
       videoToCreate.internal_speakers,
       videoToCreate.external_speakers,
       0,
-      videoToCreate.comments,
+      [new CommentEntity(null)],
     );
+
+
+    //Use S3 Client to push File in S3 Buckets
+    const upload = new Upload({
+      client: this.s3Client,
+      params: {
+          Bucket: process.env.STOCK_MEDIA_BUCKET,
+          Key: video.media_id,
+          Body: file.buffer,
+          ContentType: file.mimetype
+      }
+    });
+    upload.done();
+
 
     await this.videoGateway.createNewVideo(video);
     return video;

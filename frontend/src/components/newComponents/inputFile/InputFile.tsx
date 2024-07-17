@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
-
 import './InputFile.css';
+import { createVideo } from '../../../utils/api';
+import { v4 as uuidv4 } from 'uuid';
 
 interface InputFileProps {
   placeholder?: string;
@@ -11,13 +12,9 @@ const InputFile: FC<InputFileProps> = ({
 }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files;
-
     if (file === null) {
       return;
     }
-
-    console.log(e);
-    console.log(e.target.value);
 
     if (file?.length === 1) {
       const fileArea = e.target.closest('.file-area');
@@ -25,6 +22,20 @@ const InputFile: FC<InputFileProps> = ({
         const fileDummyDefault = fileArea.querySelector('.file-dummy .success');
         if (fileDummyDefault) {
           fileDummyDefault.innerHTML = file[0].name; // Set the innerHTML to the name of the selected file
+
+          const form = new FormData();
+          form.append("file", file[0]);
+          form.append('media_id', file[0].name);
+          form.append('title', 'Your Video Title');
+          form.append('description', 'Your Video Description');
+  
+          // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
+          form.append('tags', JSON.stringify([{ id: uuidv4(), name: 'Tag1' }]));
+          form.append('creator',"68f14a48-198a-4457-b09a-63690a10e2f9");
+          form.append('internal_speakers', 'Internal Speaker Names');
+          form.append('external_speakers', 'External Speaker Names');
+          form.append('comments', JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]));
+          createVideo(form);
         }
       }
     }

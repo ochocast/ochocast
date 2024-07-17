@@ -21,7 +21,7 @@ export class VideoEntity {
   tags: TagEntity[]
 
   @ManyToOne(() => UserEntity, (user) => user.videos)
-  creator: UserEntity;
+  creator: string;
 
   @Column()
   createdAt: Date;

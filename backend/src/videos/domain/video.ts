@@ -39,7 +39,7 @@ export class VideoObject {
     example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
     description: 'The unique identifier of the creator.',
   })
-  creator: UserEntity;
+  creator: string;
 
   @ApiProperty({
     example: '2021-10-31T00:00:00.000Z',
@@ -84,7 +84,7 @@ export class VideoObject {
     title: string,
     description: string,
     tags: TagEntity[],
-    creator: UserEntity,
+    creator: string,
     createdAt: Date,
     updatedAt: Date,
     internal_speakers: string,

@@ -4,6 +4,7 @@ import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 export class CreateVideoDto {
+
   @IsNotEmpty()
   media_id: string;
 
@@ -15,7 +16,7 @@ export class CreateVideoDto {
   tags: TagEntity[];
   
   @IsNotEmpty()
-  creator: UserEntity;
+  creator: string;
 
   internal_speakers: string;
 

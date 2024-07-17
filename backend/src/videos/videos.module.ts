@@ -6,9 +6,13 @@ import { VideoGateway } from './infra/gateways/video.gateway';
 import { CreateNewVideoUsecase } from './domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from './domain/usecases/getVideos.usecase';
 import { DeleteVideoUsecase } from './domain/usecases/deleteVideo.usecase';
+import { S3Module } from 'src/s3.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VideoEntity])],
+  imports: [
+    TypeOrmModule.forFeature([VideoEntity]),
+    S3Module,
+    ],
   controllers: [VideosController],
   providers: [
     {

@@ -8,9 +8,13 @@ import {
     Param,
     Post,
     Query,
+    UploadedFile, 
+    UseInterceptors,
     UsePipes,
     ValidationPipe,
   } from '@nestjs/common';
+  import { FileInterceptor } from '@nestjs/platform-express';
+  import { Express } from 'express';
   import { CreateVideoDto } from './dto/create-video.dto';
   import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
   import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
@@ -27,11 +31,15 @@ import {
       private getVideosUsecase: GetVideosUsecase,
       private deleteVideoUsecase: DeleteVideoUsecase,
     ) {}
-  
+
     @Post()
+    @UseInterceptors(FileInterceptor('file'))
     @UsePipes(new ValidationPipe())
-    async postVideo(@Body() video: CreateVideoDto): Promise<VideoObject> {
-      return await this.createNewVideoUsecase.execute(video);
+    async postVideo(
+      @UploadedFile() file: Express.Multer.File,
+      @Body() video: CreateVideoDto
+    ): Promise<VideoObject> {
+      return await this.createNewVideoUsecase.execute(video, file);
     }
   
     // Standard GET route with query parameters

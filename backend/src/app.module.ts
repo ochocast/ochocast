@@ -9,6 +9,7 @@ import { KeycloakModule } from './keycloak.module';
 import { CommentsModule } from './comments/comments.module';
 import { TagsModule } from './tags/tags.module';
 import { VideosModule } from './videos/videos.module';
+import { S3Module } from './s3.module';
 
 
 @Module({
@@ -32,6 +33,7 @@ import { VideosModule } from './videos/videos.module';
     TagsModule,
     VideosModule,
     CommentsModule,
+    S3Module,
   ],
 })
 export class AppModule {}
