@@ -10,21 +10,16 @@ export class CreateVideoDto {
   @IsNotEmpty()
   title: string;
 
-  @IsNotEmpty()
   description: string;
 
-  @IsNotEmpty()
   tags: TagEntity[];
   
   @IsNotEmpty()
   creator: UserEntity;
 
-  @IsNotEmpty()
   internal_speakers: string;
 
-  @IsNotEmpty()
   external_speakers: string;
 
-  @IsNotEmpty()
   comments: CommentEntity[];
 }
