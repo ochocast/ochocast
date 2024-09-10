@@ -6,7 +6,9 @@ import { VideoGateway } from './infra/gateways/video.gateway';
 import { CreateNewVideoUsecase } from './domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from './domain/usecases/getVideos.usecase';
 import { DeleteVideoUsecase } from './domain/usecases/deleteVideo.usecase';
+import { GetMediaUsecase } from './domain/usecases/getMedia.usecase';
 import { S3Module } from 'src/s3.module';
+
 
 @Module({
   imports: [
@@ -22,6 +24,7 @@ import { S3Module } from 'src/s3.module';
     CreateNewVideoUsecase,
     GetVideosUsecase,
     DeleteVideoUsecase,
+    GetMediaUsecase,
   ],
 })
 export class VideosModule {}

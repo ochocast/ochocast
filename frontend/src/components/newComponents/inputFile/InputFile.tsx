@@ -31,7 +31,7 @@ const InputFile: FC<InputFileProps> = ({
   
           // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
           form.append('tags', JSON.stringify([{ id: uuidv4(), name: 'Tag1' }]));
-          form.append('creator',"68f14a48-198a-4457-b09a-63690a10e2f9");
+          form.append('creator',"6dae12fd-c709-4b03-b92a-0b899ba7038e");
           form.append('internal_speakers', 'Internal Speaker Names');
           form.append('external_speakers', 'External Speaker Names');
           form.append('comments', JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]));

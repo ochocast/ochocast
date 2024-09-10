@@ -1,9 +1,8 @@
-import './video.css';
+import './videoSettings.css';
 
 import { FC } from 'react';
 import React from 'react';
 
-import { useParams } from 'react-router-dom';
 import Card from '../../components/newComponents/Card/Card';
 
 import Button from '../../components/buttons/button/button';
@@ -15,12 +14,9 @@ import Lock_Open from '../../assets/Opened_PNG.png';
 import Lock_Close from '../../assets/Locked_PNG.png';
 import PreviewMinia from '../../components/newComponents/Preview miniature/PrewiewMinia';
 
-interface VideoProps {}
+interface VideoSettingsProps {}
 
-const TrackSettings: FC<VideoProps> = () => {
-  const { eventId, trackId } = useParams();
-  console.log(eventId, trackId);
-
+const VideoSettings: FC<VideoSettingsProps> = () => {
   return (
     <div className="mainvideo">
       <div className="container">
@@ -217,4 +213,4 @@ const TrackSettings: FC<VideoProps> = () => {
   );
 };
 
-export default TrackSettings;
+export default VideoSettings;

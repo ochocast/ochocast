@@ -3,9 +3,11 @@ import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
 import { v4 as uuid } from 'uuid';
 import { Inject } from '@nestjs/common';
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { Upload } from "@aws-sdk/lib-storage";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+
 
 export class CreateNewVideoUsecase {
   constructor(
@@ -44,7 +46,7 @@ export class CreateNewVideoUsecase {
     });
     upload.done();
 
-
+    
     await this.videoGateway.createNewVideo(video);
     return video;
   }

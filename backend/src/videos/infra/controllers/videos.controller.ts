@@ -22,6 +22,7 @@ import {
   import { VideoObject } from '../../domain/video';
   import { DeleteVideoUsecase } from '../../domain/usecases/deleteVideo.usecase';
   import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+  import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
   
   @ApiTags('Videos')
   @Controller('videos')
@@ -30,6 +31,7 @@ import {
       private createNewVideoUsecase: CreateNewVideoUsecase,
       private getVideosUsecase: GetVideosUsecase,
       private deleteVideoUsecase: DeleteVideoUsecase,
+      private getMediaUseCase: GetMediaUsecase,
     ) {}
 
     @Post()
@@ -48,13 +50,8 @@ import {
       description:
         'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
     })
-    @ApiParam({
-      name: 'id',
-      type: 'string',
-      required: false,
-      description: 'Filter videos by id',
-    })
     findVideos(@Query() filter: any): Promise<VideoObject[]> {
+      console.log("passed by");
       return this.getVideosUsecase.execute(filter);
     }
   
@@ -65,6 +62,11 @@ import {
       }
   
       return await this.deleteVideoUsecase.execute(id);
+    }
+
+    @Get('/media/:id')
+    async getMedia(@Param('id') id: string): Promise<string>{
+      return await this.getMediaUseCase.execute(id);
     }
   }
   
