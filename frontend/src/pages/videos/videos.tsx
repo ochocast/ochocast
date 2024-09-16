@@ -24,7 +24,7 @@ const Videos: FC<VideosProps> = () => {
   return (
     <div className="videos">
       <div className='content'>
-        {(videos?.length != 0) ?
+        {(videos && videos.length != 0) ?
         <VideosList
             title="Vidéos Publiées"
             videos={videos}
