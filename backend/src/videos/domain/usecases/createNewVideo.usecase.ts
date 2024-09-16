@@ -31,6 +31,7 @@ export class CreateNewVideoUsecase {
       videoToCreate.external_speakers,
       0,
       [new CommentEntity(null)],
+      false
     );
 
 

@@ -30,6 +30,7 @@ export class VideoGateway implements IVideoGateway {
   async deleteVideo(videoId: string): Promise<VideoObject> {
     const video = await this.videosRepository.findOneBy({ id: videoId });
 
-    return await this.videosRepository.remove(video);
+    video.archived = true;
+    return await this.videosRepository.save(video);
   }
 }
