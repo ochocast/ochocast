@@ -35,3 +35,9 @@ export const createTrack = (track) => api.post('/tracks', track);
 export const updateTrack = (trackId, track) =>
   api.put('/tracks/' + trackId, track);
 export const deleteTrack = (trackId) => api.delete('/tracks/' + trackId);
+
+// Videos
+export const createVideo = (formData) => api.post('/videos/', formData);
+export const getVideo = (video_id) => api.get(`/videos?id=${video_id}`);
+export const getVideos = () => api.get(`/videos`);
+export const getMedia = (video_id) => api.get(`/videos/media/${video_id}`);

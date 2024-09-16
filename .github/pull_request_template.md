@@ -9,7 +9,7 @@
 - [ ] I updated the documentation
 
 - [ ] I followed name convention of the pull request
-      feat/fix/chore: oct-XX-name
+      [OCT-XX] feat/fix/chore: description
     
 - [ ] I have resolved all merge conflicts with the main branch
 

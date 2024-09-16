@@ -1,7 +1,7 @@
 .Header {
   display: flex;
   top: 0;
-  background-color: #0e2356;
+  background-color: var(--theme-color-600);
   height: 100px;
   width: 100%;
   align-items: center;
@@ -23,5 +23,6 @@
   align-items: center;
   column-gap: 10px;
   position: absolute;
-  right: 5%; /* Adjust the right value as needed */
+  right: 5%;
+  /* Adjust the right value as needed */
 }

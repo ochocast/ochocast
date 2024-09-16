@@ -11,11 +11,16 @@ import ProtectedRoute from './utils/ProtectedRoutes';
 import LoadingPage from './pages/Loading/Loading';
 import TrackSettings from './pages/trackSettings/trackSettings';
 import EventSettings from './pages/eventSettings/eventSettings';
+
+import VideoSettings from './pages/videoSettings/videoSettings';
+
 import { useAuth } from 'react-oidc-context';
 import { User } from 'oidc-client-ts';
 import { api, loginUser } from './utils/api';
 import LiveTrack from './pages/liveTrack/liveTrack';
 import StreamTrack from './pages/streamingTrack/streamTrack';
+import VideoMedia from './pages/videoMedia/videoMedia';
+import Videos from './pages/videos/videos';
 
 function App() {
   const auth = useAuth();
@@ -77,7 +82,13 @@ function App() {
           element={<ProtectedRoute Element={LiveTrack} />}
         />
         <Route path="/tracks/:trackId/streaming"
-        element={<ProtectedRoute Element={StreamTrack} />}/>
+          element={<ProtectedRoute Element={StreamTrack} />} />
+        <Route path="/video/video-settings" element={<ProtectedRoute Element={VideoSettings} />} />
+        <Route
+          path="/video/:videoId"
+          element={<ProtectedRoute Element={VideoMedia} />}
+        />
+        <Route path="/videos" element={<ProtectedRoute Element={Videos} />}/>
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

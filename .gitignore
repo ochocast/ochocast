@@ -17,3 +17,5 @@ backend/docs
 docs
 
 .env
+
+localMinio/run_env/

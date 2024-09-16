@@ -1,3 +1,29 @@
+:root {
+  --theme-color-50: #edfcf4;
+  --theme-color-100: #d4f7e4;
+  --theme-color-200: #adedce;
+  --theme-color-300: #77deb1;
+  --theme-color-400: #40c791;
+  --theme-color-500: #1dac78;
+  --theme-color-600: #108b61;
+  --theme-color-700: #0d6f50;
+  --theme-color-800: #0d5840;
+  --theme-color-900: #0b4936;
+  --theme-color-950: #05291f;
+
+  /* --secondary-bg-color: #808080; */
+
+  /* #798c89 */
+}
+
+.primary {
+  background-color: var(--theme-color-700);
+}
+
+.secondary {
+  background-color: var(--theme-color-500);
+}
+
 body,
 input,
 textarea,

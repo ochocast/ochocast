@@ -6,6 +6,11 @@ import { EventsModule } from './events/events.module';
 import { UsersModule } from './users/users.module';
 import { TracksModule } from './tracks/tracks.module';
 import { KeycloakModule } from './keycloak.module';
+import { CommentsModule } from './comments/comments.module';
+import { TagsModule } from './tags/tags.module';
+import { VideosModule } from './videos/videos.module';
+import { S3Module } from './s3.module';
+
 
 @Module({
   imports: [
@@ -25,6 +30,10 @@ import { KeycloakModule } from './keycloak.module';
     EventsModule,
     UsersModule,
     TracksModule,
+    TagsModule,
+    VideosModule,
+    CommentsModule,
+    S3Module,
   ],
 })
 export class AppModule {}

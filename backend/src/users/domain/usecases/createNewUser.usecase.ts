@@ -18,10 +18,14 @@ export class CreateNewUserUsecase {
       userToCreate.email,
       userToCreate.role,
       [],
-      new Date(),
+      [],
+      [],
+      userToCreate.description,
+      new Date()
     );
 
     await this.userGateway.createNewUser(user);
     return user;
   }
 }
+// TODO : updqted at 

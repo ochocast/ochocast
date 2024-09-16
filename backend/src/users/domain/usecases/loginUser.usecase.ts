@@ -17,7 +17,10 @@ export class LoginUserUseCase {
       keycloak_user.email,
       'user',
       [],
-      new Date(),
+      [],
+      [],
+      keycloak_user.description,
+      new Date()
     );
     return await this.userGateway.loginUser(user);
   }
