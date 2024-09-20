@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import './Header.css';
+import Button from  "../buttons/button/button";
 
 import octoLogo from '../../assets/logo_1ligne_crop.png';
 
@@ -16,12 +17,20 @@ const Header: FC<HeaderProps> = () => {
 
   return (
     <div className="Header">
+      <div className='Logo-div'>
       <img
         className="Logo"
         src={octoLogo}
         alt="Logo"
         onClick={() => navigate('/events')}
       />
+      </div>
+      <div className='Navigate'>
+        <Button onClick={() => navigate('/events')}>Events</Button>
+        <Button onClick={() => navigate('/videos')}>Videos</Button>
+      </div>
+
+      
       <HeaderUserButton username={username} />
       <Outlet />
     </div>

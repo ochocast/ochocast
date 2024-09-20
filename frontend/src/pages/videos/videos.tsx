@@ -5,12 +5,15 @@ import { FC } from 'react';
 import { getVideos } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
 import VideosList from '../../components/newComponents/VideosList/VideosList';
+import Button from '../../components/buttons/button/button';
+import { useNavigate } from 'react-router-dom';
 
 interface VideosProps{}
 
 const Videos: FC<VideosProps> = () => {
   const [videos, setVideo] = useState<Video[]>();
   const userString = localStorage.getItem('backendUser');
+  const navigate = useNavigate();
 
   const getMe = async () => {
     const videos_response = await getVideos();
@@ -23,6 +26,9 @@ const Videos: FC<VideosProps> = () => {
 
   return (
     <div className="videos">
+      <div className="button-event-creation">
+        <Button onClick={() => navigate('/video/video-settings')}>Uploader une vidéo</Button>
+      </div>
       <div className='content'>
         {(videos && videos.length != 0) ?
         <VideosList
