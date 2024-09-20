@@ -17,16 +17,15 @@ const VideoMedia: FC<VideoMediaProps> = () => {
   const [url, setUrl] = useState<string>();
   const [video, setVideo] = useState<Video>();
 
-  const getMe = async () => {
-    const video_response = await getVideo(videoId);
-    const url_response = await getMedia(videoId);
-    if (url_response != undefined)
-      setUrl(url_response.data);
-    if(video_response != undefined)
-      setVideo(video_response.data[0]);
-  };
-
   useEffect(() => {
+    const getMe = async () => {
+      const video_response = await getVideo(videoId);
+      const url_response = await getMedia(videoId);
+      if (url_response != undefined)
+        setUrl(url_response.data);
+      if(video_response != undefined)
+        setVideo(video_response.data[0]);
+    };
     getMe();
   }, [videoId]);
 
