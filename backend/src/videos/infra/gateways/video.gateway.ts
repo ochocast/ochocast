@@ -32,5 +32,6 @@ export class VideoGateway implements IVideoGateway {
 
     video.archived = true;
     return await this.videosRepository.save(video);
+
   }
 }

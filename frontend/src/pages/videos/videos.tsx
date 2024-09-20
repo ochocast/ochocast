@@ -8,12 +8,14 @@ import VideosList from '../../components/newComponents/VideosList/VideosList';
 import Button from '../../components/buttons/button/button';
 import { useNavigate } from 'react-router-dom';
 
+
 interface VideosProps{}
 
 const Videos: FC<VideosProps> = () => {
   const [videos, setVideo] = useState<Video[]>();
   const userString = localStorage.getItem('backendUser');
   const navigate = useNavigate();
+
 
   const getMe = async () => {
     const videos_response = await getVideos();
