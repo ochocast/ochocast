@@ -41,6 +41,9 @@ export class VideoEntity {
   @OneToMany(() => CommentEntity, (comment) => comment.video)
   comments: CommentEntity[];
 
+  @Column()
+  archived: boolean
+
   constructor(video: Partial<VideoEntity>) {
     Object.assign(this, video);
   }

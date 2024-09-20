@@ -78,6 +78,12 @@ export class VideoObject {
   })
   comments: CommentEntity[];
 
+  @ApiProperty({
+    example: '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
+    description: 'The comments on the video.',
+  })
+  archived: boolean;
+
   constructor(
     id: string,
     media_id: string,
@@ -91,6 +97,7 @@ export class VideoObject {
     external_speakers: string,
     views: number,
     comments: CommentEntity[],
+    archived: boolean
   ) {
     this.id = id;
     this.media_id = media_id;
@@ -104,6 +111,7 @@ export class VideoObject {
     this.external_speakers = external_speakers;
     this.views = views;
     this.comments = comments;
+    this.archived = archived;
   }
 }
 

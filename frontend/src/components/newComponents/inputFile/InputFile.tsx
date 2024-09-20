@@ -28,10 +28,12 @@ const InputFile: FC<InputFileProps> = ({
           form.append('media_id', file[0].name);
           form.append('title', 'Your Video Title');
           form.append('description', 'Your Video Description');
-  
+          const blob = localStorage.getItem('backendUser');
           // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
           form.append('tags', JSON.stringify([{ id: uuidv4(), name: 'Tag1' }]));
-          form.append('creator',"6dae12fd-c709-4b03-b92a-0b899ba7038e");
+          if(blob != null && blob != undefined){
+            form.append('creator', JSON.parse(blob).id);
+          }
           form.append('internal_speakers', 'Internal Speaker Names');
           form.append('external_speakers', 'External Speaker Names');
           form.append('comments', JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]));

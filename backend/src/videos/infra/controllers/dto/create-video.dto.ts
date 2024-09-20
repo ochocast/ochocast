@@ -23,4 +23,6 @@ export class CreateVideoDto {
   external_speakers: string;
 
   comments: CommentEntity[];
+  
+  archived: boolean;
 }

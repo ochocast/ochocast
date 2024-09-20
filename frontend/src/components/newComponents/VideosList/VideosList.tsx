@@ -48,7 +48,7 @@ const VideosList: FC<VideosListProps> = ({
           ></img>
         </div>
         <div className="video-container">
-          {videos.slice(index, index + 3).map((video, index) => (
+          {videos && videos?.slice(index, index + 3).map((video, index) => (
             <VideoBox
               key={index}
               Id={video.id}
