@@ -2,7 +2,7 @@ import './App.css';
 import { Routes, Route, useNavigate } from 'react-router-dom';
 import React from 'react';
 
-import Header from './components/Header/Header';
+import Header from './components/ReworkComponents/Header/Header';
 import LoginPage from './pages/Login/Login';
 import EventsPage from './pages/events/events';
 import TracksPage from './pages/tracks/tracks';
@@ -81,14 +81,19 @@ function App() {
           path="/tracks/:trackId"
           element={<ProtectedRoute Element={LiveTrack} />}
         />
-        <Route path="/tracks/:trackId/streaming"
-          element={<ProtectedRoute Element={StreamTrack} />} />
-        <Route path="/video/video-settings" element={<ProtectedRoute Element={VideoSettings} />} />
+        <Route
+          path="/tracks/:trackId/streaming"
+          element={<ProtectedRoute Element={StreamTrack} />}
+        />
+        <Route
+          path="/video/video-settings"
+          element={<ProtectedRoute Element={VideoSettings} />}
+        />
         <Route
           path="/video/:videoId"
           element={<ProtectedRoute Element={VideoMedia} />}
         />
-        <Route path="/videos" element={<ProtectedRoute Element={Videos} />}/>
+        <Route path="/videos" element={<ProtectedRoute Element={Videos} />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>
