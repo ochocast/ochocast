@@ -9,7 +9,7 @@ WORKDIR /websocketserver
 
 COPY package*.json ./
 
-RUN npm ci
+RUN npm install
 
 COPY server.js .
 
