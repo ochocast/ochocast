@@ -14,7 +14,8 @@ import Lock_Open from '../../assets/Opened_PNG.png';
 import Lock_Close from '../../assets/Locked_PNG.png';
 import PreviewMinia from '../../components/newComponents/Preview miniature/PrewiewMinia';
 import { v4 as uuidv4 } from 'uuid';
-import { createVideo } from '../../utils/api';
+import { createVideo, getVideoByTitle } from '../../utils/api';
+import { Tag_video } from '../../utils/VideoProperties';
 
 
 interface VideoSettingsProps {}
@@ -47,6 +48,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   };
 
+  /*
   const [support, setSupport] = useState<File>();
   const handleSupportChange = (e: ChangeEvent<HTMLInputElement>) => {
     if(e.target.files != null && e.target.files != undefined)
@@ -60,10 +62,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       if(miniature_tmp != undefined)
         setMiniature(miniature_tmp);
     }
-  };
+  };*/
 
-
+  const [tags, setTags] = useState<Tag_video[]>([]); //je crois c'est pas ca
   const publishVideo = async () => {
+    setTags([{ id: uuidv4(), name: 'Tag1' }]);
+    const list_by_title = (await getVideoByTitle(title)).data;
+    if (media == undefined || title == '' || tags.length == 0 || list_by_title.length != 0){
+      alert("Les conditions de publications ne sont pas remplies");
+      return;
+    }
+    //search title in DB
     const form = new FormData();
     if(media != undefined){
       form.append('file', media);
@@ -77,7 +86,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
     
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
-    form.append('tags', JSON.stringify([{ id: uuidv4(), name: 'Tag1' }]));
+    form.append('tags', JSON.stringify(tags));
 
     form.append('internal_speakers', 'Internal Speaker Names');
     form.append('external_speakers', 'External Speaker Names');

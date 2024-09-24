@@ -20,3 +20,8 @@ export interface User {
   createdAt: Date;
   description: string;
 }
+
+export interface Tag_video{
+  id: string;
+  name: string;
+}
