@@ -42,3 +42,4 @@ export const getVideo = (video_id) => api.get(`/videos?id=${video_id}`);
 export const deleteVideo = (video_id) => api.post(`/videos?id=${video_id}`);
 export const getVideos = () => api.get(`/videos`);
 export const getMedia = (video_id) => api.get(`/videos/media/${video_id}`);
+export const getVideoByTitle = (video_title) => api.get(`/videos?title=${video_title}`);
