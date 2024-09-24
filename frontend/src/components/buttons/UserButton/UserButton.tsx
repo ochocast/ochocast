@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
-import './HeaderUserButton.css';
+import './UserButton.css';
 
-import userIcon from '../../../../assets/UserIcon.png';
+import userIcon from '../../../assets/UserIcon.png';
 
 export interface HeaderUserButtonProps {
   username: string;

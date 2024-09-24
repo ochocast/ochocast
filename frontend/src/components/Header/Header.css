@@ -9,7 +9,10 @@
 }
 
 .Logo {
-  max-height: 40%;
+  max-height: 60px;
+  max-width: 250px;
+  height: auto;
+  width: auto;
   padding-left: 3%;
   align-items: flex-start;
   cursor: pointer;
@@ -21,23 +24,24 @@
   position: absolute;
   right: 5%;
   /* Adjust the right value as needed */
+
 }
 
 .Navigate {
-  flex: 0.33;
+  flex:0.33;
   justify-content: center;
   align-items: center;
   display: flex;
   gap: 25px;
 }
 
-.Logo-div {
+.Logo-div{
   display: flex;
-  flex: 0.33;
+  flex:0.33;
 }
 
 button {
-  background-color: #add8e6; /* Bleu clair */
+  background-color: #ADD8E6; /* Bleu clair */
   border: none;
   padding: 15px 30px;
   border-radius: 10px; /* Coins arrondis */
@@ -49,5 +53,5 @@ button {
 
 /* Effet au survol */
 button:hover {
-  background-color: #87ceeb; /* Bleu un peu plus foncé au survol */
+  background-color: #87CEEB; /* Bleu un peu plus foncé au survol */
 }

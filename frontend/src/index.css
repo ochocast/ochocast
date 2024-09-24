@@ -11,18 +11,6 @@
   --theme-color-900: #0b4936;
   --theme-color-950: #05291f;
 
-  --second-color-50: #f2f7fb;
-  --second-color-100: #e7f0f8;
-  --second-color-200: #d3e2f2;
-  --second-color-300: #b9cfe8;
-  --second-color-400: #9cb6dd;
-  --second-color-500: #839dd1;
-  --second-color-600: #6a7fc1;
-  --second-color-700: #6374ae;
-  --second-color-800: #4a5989;
-  --second-color-900: #414e6e;
-  --second-color-950: #262c40;
-
   /* --secondary-bg-color: #808080; */
 
   /* #798c89 */
@@ -47,48 +35,4 @@ button {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
-}
-
-html {
-  overflow: hidden;
-}
-
-/* Mobile S */
-@media (min-width: 320px) {
-  body {
-    background-color: goldenrod;
-    font-size: xx-small;
-  }
-}
-/* Mobile L / Tablette */
-@media (min-width: 640px) {
-  body {
-    background-color: red;
-  }
-}
-/* Tablette */
-@media (min-width: 768px) {
-  body {
-    background-color: blue;
-  }
-}
-/* Mobile S */
-@media (min-width: 1024px) {
-  body {
-    background-color: blueviolet;
-  }
-}
-
-/* Laptop */
-@media (min-width: 1280px) {
-  body {
-    background-color: green;
-  }
-}
-
-/* > Laptop L (1440)*/
-@media (min-width: 1536px) {
-  body {
-    background-color: yellow;
-  }
 }

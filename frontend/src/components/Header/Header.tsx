@@ -3,9 +3,9 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import './Header.css';
 import Button from  "../buttons/button/button";
 
-import octoLogo from '../../../assets/ochoIcon.svg';
+import octoLogo from '../../assets/logo_1ligne_crop.png';
 
-import HeaderUserButton from '../Button/HeaderUserButton/HeaderUserButton';
+import HeaderUserButton from '../buttons/UserButton/UserButton';
 import { useAuth } from 'react-oidc-context';
 
 export interface HeaderProps {}
