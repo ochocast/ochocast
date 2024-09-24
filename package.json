@@ -2,7 +2,7 @@
   "name": "octocast-webapp",
   "version": "1.0.0",
   "scripts": {
-    "postinstall": "concurrently \"cd backend && npm ci\" \"cd frontend && npm ci\"",
+    "postinstall": "concurrently \"cd backend && npm install\" \"cd frontend && npm install\"",
     "set-up:db": "cd database && docker compose up -d",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && npm run start:dev",
@@ -15,8 +15,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/express-serve-static-core": "^4.19.5",
-    "@types/multer": "^1.4.11",
     "concurrently": "^8.2.1",
     "react-player": "^2.13.0",
     "typedoc": "^0.25.2",
