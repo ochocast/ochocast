@@ -17,4 +17,4 @@ docs
 
 .env
 
-localMinio/run_env/
+localMinio/run_env/*
