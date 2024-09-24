@@ -1,13 +1,18 @@
-import React, { FC } from 'react';
+import React, { FC, ChangeEvent } from 'react';
 import './Toggle.css';
 
-export interface ToggleProps { }
+export interface ToggleProps {
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+}
 
-const Toggle: FC<ToggleProps> = () => {
+const Toggle: FC<ToggleProps> = ({
+  onChange,
+  
+}) => {
   return (
     <div>
       <label className="switch">
-        <input type="checkbox" />
+        <input type="checkbox" onChange={onChange}/>
         <span className="slider round"></span>
       </label>
     </div>

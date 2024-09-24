@@ -18,9 +18,10 @@ export class CreateNewVideoUsecase {
   ) {}
 
   async execute(videoToCreate: CreateVideoDto, file: Express.Multer.File): Promise<VideoObject> {
+    const media_id = Date.now() + "." +  videoToCreate.media_id;
     const video = new VideoObject(
       uuid(),
-      videoToCreate.media_id,
+      media_id,
       videoToCreate.title,
       videoToCreate.description,
       videoToCreate.tags,
