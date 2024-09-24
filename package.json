@@ -15,8 +15,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@types/express-serve-static-core": "^4.19.5",
-    "@types/multer": "^1.4.11",
     "concurrently": "^8.2.1",
     "react-player": "^2.13.0",
     "typedoc": "^0.25.2",
