@@ -8,6 +8,7 @@ import VideosList from '../../components/newComponents/VideosList/VideosList';
 import SearchBar from '../../components/newComponents/SearchBar/SearchBar';
 import Button from '../../components/buttons/button/button';
 import { useNavigate } from 'react-router-dom';
+import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
 
 
 interface VideosProps {}
@@ -18,14 +19,17 @@ const Videos: FC<VideosProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const navigate = useNavigate();
 
+  const [isloading, setisLoading] = useState(false);
 
   const getMe = async () => {
+    setisLoading(true);
     try {
       const videos_response = await getVideos();
       setVideo(videos_response.data || []);
     } catch (error) {
       console.error('Error fetching videos:', error);
     }
+    setisLoading(false);
   };
 
   useEffect(() => {
@@ -42,6 +46,10 @@ const Videos: FC<VideosProps> = () => {
     video.title.toLowerCase().includes(searchTerm.toLowerCase()),
   );
   console.log('Filtered Videos:', filteredVideos);
+
+  if (isloading){
+    return LoadingCircle();
+  }
 
   return (
     <div className="videos">
