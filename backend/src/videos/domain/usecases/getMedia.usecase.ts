@@ -20,7 +20,7 @@ export class GetMediaUsecase {
       Key: videos[0].media_id,
     });
     
-    // Générer une URL signée valable pour une durée limitée (par exemple 1 heure)
+    // Générer une URL signée valable pour une durée limitée (Durée en secondes)
     const url = await getSignedUrl( this.s3Client , command, { expiresIn: 3600 });
     
     return url;

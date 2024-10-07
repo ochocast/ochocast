@@ -29,7 +29,7 @@ const Button: FC<ButtonProps> = ({
   disabled,
 }) => (
   <button
-    className={className}
+    className={className + ' oldButton'}
     onClick={onClick}
     type={type}
     disabled={disabled}

@@ -17,15 +17,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { createVideo, getVideoByTitle } from '../../utils/api';
 import { Tag_video } from '../../utils/VideoProperties';
 
-
 interface VideoSettingsProps {}
 
 const VideoSettings: FC<VideoSettingsProps> = () => {
   const navigate = useNavigate();
 
-
   const [title, setTitle] = useState('');
-  const handleTitleChange= (e: ChangeEvent<HTMLInputElement>) => {
+  const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
   };
 
@@ -34,17 +32,16 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setPrivacy(!privacy);
   };
 
-  const[description, setDescription] = useState('');
+  const [description, setDescription] = useState('');
   const handleDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setDescription(e.target.value);
   };
 
   const [media, setMedia] = useState<File>();
   const handleMediaChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if(e.target.files != null && e.target.files != undefined){
+    if (e.target.files != null && e.target.files != undefined) {
       const media_tmp = e.target.files[0];
-      if(media_tmp != undefined)
-        setMedia(media_tmp);
+      if (media_tmp != undefined) setMedia(media_tmp);
     }
   };
 
@@ -68,30 +65,37 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const publishVideo = async () => {
     setTags([{ id: uuidv4(), name: 'Tag1' }]);
     const list_by_title = (await getVideoByTitle(title)).data;
-    if (media == undefined || title == '' || tags.length == 0 || list_by_title.length != 0){
-      alert("Les conditions de publications ne sont pas remplies");
+    if (
+      media == undefined ||
+      title == '' ||
+      tags.length == 0 ||
+      list_by_title.length != 0
+    ) {
+      alert('Les conditions de publications ne sont pas remplies');
       return;
     }
     //search title in DB
     const form = new FormData();
-    if(media != undefined){
+    if (media != undefined) {
       form.append('file', media);
       form.append('media_id', media.name);
     }
     form.append('title', title);
     form.append('description', description);
     const backendUser = localStorage.getItem('backendUser');
-    if(backendUser != null && backendUser != undefined){
+    if (backendUser != null && backendUser != undefined) {
       form.append('creator', JSON.parse(backendUser).id);
     }
-    
+
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
 
     form.append('internal_speakers', 'Internal Speaker Names');
     form.append('external_speakers', 'External Speaker Names');
-    form.append('comments', JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]));
-
+    form.append(
+      'comments',
+      JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]),
+    );
 
     await createVideo(form);
     navigate('/videos');
@@ -119,7 +123,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 justifyContent: 'center',
               }}
             >
-              <input placeholder="Title" onChange={handleTitleChange}/>
+              <input placeholder="Title" onChange={handleTitleChange} />
             </Card>
             <img className="Closed Lock" src={Lock_Close} alt="Closed Lock" />
             <Toggle onChange={handlePrivacyChange} />
@@ -127,7 +131,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'row' }}>
             <Card>
-              <InputFile placeholder="Glissez ou choisissez votre Média" onChange={handleMediaChange}/>
+              <InputFile
+                placeholder="Glissez ou choisissez votre Média"
+                onChange={handleMediaChange}
+              />
             </Card>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row' }}>
@@ -268,11 +275,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </Card>
           </div>
           <Card bcolor="#EDEDED">
-            <textarea placeholder="Description" style={{ resize: 'none' }} onChange={handleDescriptionChange}/>
+            <textarea
+              placeholder="Description"
+              style={{ resize: 'none' }}
+              onChange={handleDescriptionChange}
+            />
           </Card>
           <div className="buttonContainer">
             <Button>Enregistrer en Brouillon</Button>
-            <Button  onClick={publishVideo} >Publier la vidéo</Button>
+            <Button onClick={publishVideo}>Publier la vidéo</Button>
           </div>
         </Card>
       </div>
