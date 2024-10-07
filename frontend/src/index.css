@@ -11,6 +11,9 @@
   --theme-color-900: #0b4936;
   --theme-color-950: #05291f;
 
+  --theme-color-white: #ffffff;
+  --theme-color-black: #000000;
+  --theme-color-gray: #cccccc;
   /* --secondary-bg-color: #808080; */
 
   /* #798c89 */
@@ -35,4 +38,53 @@ button {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+html {
+  overflow: hidden;
+}
+
+/* Mobile S */
+@media (min-width: 320px) {
+  body {
+    background-color: goldenrod;
+    font-size: small;
+  }
+}
+/* Mobile L / Tablette */
+@media (min-width: 640px) {
+  body {
+    background-color: red;
+    font-size: small;
+  }
+}
+/* Tablette */
+@media (min-width: 768px) {
+  body {
+    background-color: blue;
+    font-size: small;
+  }
+}
+/* Mobile S */
+@media (min-width: 1024px) {
+  body {
+    background-color: blueviolet;
+    font-size: medium;
+  }
+}
+
+/* Laptop */
+@media (min-width: 1280px) {
+  body {
+    background-color: green;
+    font-size: large;
+  }
+}
+
+/* > Laptop L (1440)*/
+@media (min-width: 1536px) {
+  body {
+    background-color: yellow;
+    font-size: large;
+  }
 }

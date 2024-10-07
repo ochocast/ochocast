@@ -1,0 +1,31 @@
+.Header {
+  display: flex;
+  justify-content: space-between;
+  top: 0;
+  background-color: var(--theme-color-700);
+  height: 100px;
+  width: 100%;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.Logo-div {
+  padding-left: 2%;
+}
+
+.Logo {
+  cursor: pointer;
+  width: 16em;
+  height: auto;
+  max-height: 4rem;
+}
+
+.NavBadge {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-right: 2%;
+  text-align: center;
+}

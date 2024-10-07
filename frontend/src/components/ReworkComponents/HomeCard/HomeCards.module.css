@@ -1,0 +1,45 @@
+h1 {
+  margin-bottom: 0px;
+}
+
+.streamingParent {
+  align-self: stretch;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-content: center;
+}
+.homeCardsChild {
+  align-self: stretch;
+  position: relative;
+  border-radius: 20px;
+  max-width: 100%;
+  overflow: hidden;
+  height: 17px;
+  flex-shrink: 0;
+
+  background-color: var(--theme-color-700);
+}
+.theContentLorem {
+  align-self: stretch;
+  position: relative;
+  line-height: 23px;
+  font-weight: 500;
+}
+.homeCards {
+  width: 100%;
+  position: relative;
+  box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-950);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 3rem 2rem;
+  gap: 2rem;
+  color: var(--theme-color-950);
+}
