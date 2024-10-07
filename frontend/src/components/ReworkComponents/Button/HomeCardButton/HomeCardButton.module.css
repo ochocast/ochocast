@@ -1,0 +1,21 @@
+.homeCardButton {
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 0.5rem 1rem;
+}
+
+.disabled {
+  background-color: var(--theme-color-disabled);
+  border: 1px solid var(--theme-color-950);
+}
+
+.active {
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-950);
+}
+
+.colored {
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
+  border: none;
+}

@@ -1,0 +1,12 @@
+.navItem1 {
+  flex: 1;
+}
+.navItem {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+.navItems {
+  display: flex;
+  gap: 1rem;
+  color: #fff;
+}

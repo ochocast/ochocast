@@ -1,0 +1,36 @@
+.userBadge {
+  background-color: var(--theme-color-white);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 4em;
+  max-height: 42px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  gap: 11px;
+}
+
+.userBadge .userBadge-name {
+  color: var(--theme-color-black);
+}
+
+.userBadge .userBadge-picture {
+  width: 1.5em;
+  max-height: 42px;
+  cursor: pointer;
+}
+
+/* Mobile S */
+@media (min-width: 320px) {
+  .userBadge .userBadge-name {
+    display: none;
+  }
+}
+
+/* Mobile L / Tablette */
+@media (min-width: 640px) {
+  .userBadge .userBadge-name {
+    display: flex;
+  }
+}

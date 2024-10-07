@@ -18,6 +18,16 @@ const VideoMedia: FC<VideoMediaProps> = () => {
   const [url, setUrl] = useState<string>('');
   const [video, setVideo] = useState<Video>();
   const [isLoading, setIsLoading] =  useState(false);
+  // Durée d'expiration en secondes, doit etre equivalent a la durée mise en backend
+  const linkExpirationTime = 3600;
+  const renewalThreshold = 300;
+
+  const renewSignedUrl = async () => {
+    const url_response = await getMedia(videoId);
+    if (url_response != undefined)
+      setUrl(url_response.data);
+  };
+
 
   useEffect(() => {
     const getMe = async () => {
@@ -32,6 +42,9 @@ const VideoMedia: FC<VideoMediaProps> = () => {
     };
     getMe();
   }, [videoId]);
+
+  setTimeout(renewSignedUrl, (linkExpirationTime - renewalThreshold) * 1000);
+
 
   if (isLoading){
     return LoadingCircle();

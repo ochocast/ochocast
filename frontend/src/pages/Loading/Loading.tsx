@@ -10,7 +10,7 @@ function LoadingPage() {
     if (!auth.isLoading) {
       if (auth.isAuthenticated) {
         console.log('Authenticated');
-        navigate('/events');
+        navigate('/home');
       } else {
         console.log('Not authenticated');
         navigate('/');
