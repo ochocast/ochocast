@@ -1,16 +1,17 @@
 export interface Video {
-    id: string;
-    media_id: string;
-    title: string;
-    description: string;
-    creator: User;
-    createdAt: Date;
-    updatedAt: Date;
-    internal_speakers: string;
-    external_speakers: string;
-    views: number;
-  }
-  
+  id: string;
+  media_id: string;
+  miniature_id: string;
+  title: string;
+  description: string;
+  creator: User;
+  createdAt: Date;
+  updatedAt: Date;
+  internal_speakers: string;
+  external_speakers: string;
+  views: number;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -21,7 +22,7 @@ export interface User {
   description: string;
 }
 
-export interface Tag_video{
+export interface Tag_video {
   id: string;
   name: string;
 }

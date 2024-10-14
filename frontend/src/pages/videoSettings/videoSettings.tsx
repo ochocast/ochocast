@@ -48,18 +48,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   /*
   const [support, setSupport] = useState<File>();
   const handleSupportChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if(e.target.files != null && e.target.files != undefined)
+    if (e.target.files != null && e.target.files != undefined)
       setSupport(e.target.files[0]);
-  };
+  };*/
 
   const [miniature, setMiniature] = useState<File>();
   const handleMiniatureChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if(e.target.files != null && e.target.files != undefined){
+    if (e.target.files != null && e.target.files != undefined) {
       const miniature_tmp = e.target.files[0];
-      if(miniature_tmp != undefined)
-        setMiniature(miniature_tmp);
+      if (miniature_tmp != undefined) setMiniature(miniature_tmp);
     }
-  };*/
+  };
 
   const [tags, setTags] = useState<Tag_video[]>([]); //je crois c'est pas ca
   const publishVideo = async () => {
@@ -79,6 +78,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (media != undefined) {
       form.append('file', media);
       form.append('media_id', media.name);
+    }
+    if (miniature != undefined) {
+      form.append('miniature', miniature);
+      form.append('miniature_id', miniature.name);
     }
     form.append('title', title);
     form.append('description', description);
@@ -134,6 +137,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               <InputFile
                 placeholder="Glissez ou choisissez votre Média"
                 onChange={handleMediaChange}
+              />
+              <InputFile
+                placeholder="Glissez ou choisissez votre Miniature"
+                onChange={handleMiniatureChange}
               />
             </Card>
           </div>
