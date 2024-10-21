@@ -1,6 +1,6 @@
 import './videoSettings.css';
 
-import { useState, ChangeEvent, FC } from 'react';
+import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../components/newComponents/Card/Card';
@@ -14,13 +14,15 @@ import Lock_Open from '../../assets/Opened_PNG.png';
 import Lock_Close from '../../assets/Locked_PNG.png';
 import PreviewMinia from '../../components/newComponents/Preview miniature/PrewiewMinia';
 import { v4 as uuidv4 } from 'uuid';
-import { createVideo, getVideoByTitle } from '../../utils/api';
-import { Tag_video } from '../../utils/VideoProperties';
+import { createVideo, getVideoByTitle, getUsers, getTags } from '../../utils/api';
+import { Tag_video, User} from '../../utils/VideoProperties';
+import CompletionBar from '../../components/newComponents/CompletionBar/CompletionBar';
 
 interface VideoSettingsProps {}
 
 const VideoSettings: FC<VideoSettingsProps> = () => {
   const navigate = useNavigate();
+  const userId = localStorage.getItem('backendUser');
 
   const [title, setTitle] = useState('');
   const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -60,9 +62,54 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   };
 
+  const [user_list, setUserList] = useState<User[]>([]);
+  const [intern_speakers, setIntern_Speakers] = useState<User[]>([]);
+  const [intern_tags, setIntern_tags] = useState<string[]>([]);
+  const intern_filter = () => {
+    const list: string[] = [];
+    user_list.forEach(obj => {
+      if (!intern_speakers.includes(obj)) {
+        list.push(obj.firstName + " " + obj.lastName);
+      }
+    });
+    return list;
+  };
+  const selectIntern = (str: string) => {
+    const user = user_list.find(obj => {
+      return obj.firstName + " " + obj.lastName === str;
+    });
+    if(user != undefined){
+      setIntern_Speakers([...intern_speakers, user]);
+      setIntern_tags([...intern_tags, str]);
+    }
+  };
+
+  const [tag_list, setTagList] = useState<Tag_video[]>([]);
   const [tags, setTags] = useState<Tag_video[]>([]); //je crois c'est pas ca
+  const [tags_tags, setTags_tags] = useState<string[]>([]);
+  const tag_filter = () =>{
+    const list: string[] = [];
+    tag_list.forEach(obj => {
+      if(!tags.includes(obj))
+        list.push(obj.name);
+    });
+    return list;
+  };
+  const selectTag = (str: string) => {
+    const tag = tag_list.find(obj =>{
+      return obj.name === str;
+    });
+    if (tag != undefined){
+      setTags([...tags, tag]);
+      setTags_tags([...intern_tags, str]);
+    }
+  };
+
+
+
+
   const publishVideo = async () => {
-    setTags([{ id: uuidv4(), name: 'Tag1' }]);
+    setTags([...tags, { id: uuidv4(), name: 'Tag1' }]);
     const list_by_title = (await getVideoByTitle(title)).data;
     if (
       media == undefined ||
@@ -92,8 +139,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
-
-    form.append('internal_speakers', 'Internal Speaker Names');
+    form.append('internal_speakers', JSON.stringify(intern_tags));
     form.append('external_speakers', 'External Speaker Names');
     form.append(
       'comments',
@@ -103,6 +149,22 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     await createVideo(form);
     navigate('/videos');
   };
+
+
+  useEffect(()=>{
+    const get_users_list = async () => {
+      const response = await getUsers();
+      if(response != null && response.data != undefined)
+        setUserList([...response.data]);
+    };
+    const get_tags_list = async () => {
+      const response = await getTags();
+      if(response != null && response.data != undefined)
+        setTagList([...response.data]);
+    };
+    get_users_list();
+    get_tags_list();
+  },[userId]);
 
   return (
     <div className="mainvideo">
@@ -146,73 +208,37 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'row' }}>
             <Card style={{ flexDirection: 'column', height: 'auto' }}>
-              <div style={{ display: 'flex' }}>
-                <input
-                  placeholder="Tags"
-                  style={{
-                    marginBottom: '10px',
-                    width: '100%',
-                  }}
+                <CompletionBar
+                  name="Tags"
+                  filter={tag_filter}
+                  select={selectTag}
                 />
-              </div>
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'row',
+                  flexDirection: 'row',       
                   flexWrap: 'wrap',
                   justifyContent: 'center',
                   gap: '10px',
                 }}
               >
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
+                {tags_tags.map((tag, index) => (
+                    <Tag
+                    className= {tag}
+                    style={{ flex: '25%' }}
+                    tsize="10px"
+                    marginTop="0px"
+                    key={index}
+                    >{tag}</Tag>
+                ))}
               </div>
             </Card>
             <Card style={{ flexDirection: 'column', height: 'auto' }}>
-              <div style={{ display: 'flex' }}>
-                <input
-                  placeholder="Intern"
-                  style={{ marginBottom: '10px', width: '100%' }}
+                <CompletionBar
+                name="Intern"
+                filter={intern_filter}
+                select={selectIntern}
                 />
-              </div>
               <div
                 style={{
                   display: 'flex',
@@ -221,47 +247,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                   justifyContent: 'center',
                   gap: '10px',
                 }}
+                id="intern-container"
               >
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
+                {intern_tags.map((tag, index) => (
+                    <Tag
+                    className= {tag}
+                    style={{ flex: '25%' }}
+                    tsize="10px"
+                    marginTop="0px"
+                    key={index}
+                    >{tag}</Tag>
+                ))}
               </div>
             </Card>
             <Card style={{ flexDirection: 'column', height: 'auto' }}>
