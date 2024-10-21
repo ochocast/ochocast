@@ -1,13 +1,13 @@
   import React, { FC } from 'react';
-  import './NavBar.css';
+  import './CompletionBar.css';
 
-  export interface NavBarProps {
+  export interface CompletionBarProps {
     name: string;
     filter: () => string[];
     select: (str: string) => void;
   }
 
-  const NavBar: FC<NavBarProps> = ({
+  const CompletionBar: FC<CompletionBarProps> = ({
     filter,
     select,
     name,
@@ -53,4 +53,4 @@
     );
   };
 
-  export default NavBar;
+  export default CompletionBar;
