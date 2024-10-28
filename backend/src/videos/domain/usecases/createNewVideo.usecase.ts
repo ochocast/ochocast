@@ -48,8 +48,9 @@ export class CreateNewVideoUsecase {
     });
     console.log("AVANT DONE")
 
-    const what = await upload.done();
-    console.log("APRES DONE", what.toString())
+    // const what = 
+    upload.done();
+    //console.log("APRES DONE", what.toString())
     
 
     
