@@ -25,6 +25,7 @@ import { DeleteVideoUsecase } from '../../domain/usecases/deleteVideo.usecase';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
 
 @ApiTags('Videos')
 @Controller('videos')
@@ -34,6 +35,7 @@ export class VideosController {
     private getVideosUsecase: GetVideosUsecase,
     private deleteVideoUsecase: DeleteVideoUsecase,
     private getMediaUseCase: GetMediaUsecase,
+    private getMiniatureUseCase: GetMiniatureUsecase,
   ) {}
 
   /*@Post()
@@ -86,5 +88,10 @@ export class VideosController {
   @Get('/media/:id')
   async getMedia(@Param('id') id: string): Promise<string> {
     return await this.getMediaUseCase.execute(id);
+  }
+
+  @Get('/miniature/:id')
+  async getMiniature(@Param('id') id: string): Promise<string> {
+    return await this.getMiniatureUseCase.execute(id);
   }
 }

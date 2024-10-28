@@ -8,13 +8,10 @@ import { GetVideosUsecase } from './domain/usecases/getVideos.usecase';
 import { DeleteVideoUsecase } from './domain/usecases/deleteVideo.usecase';
 import { GetMediaUsecase } from './domain/usecases/getMedia.usecase';
 import { S3Module } from 'src/s3.module';
-
+import { GetMiniatureUsecase } from './domain/usecases/getMiniature.usecase';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([VideoEntity]),
-    S3Module,
-    ],
+  imports: [TypeOrmModule.forFeature([VideoEntity]), S3Module],
   controllers: [VideosController],
   providers: [
     {
@@ -25,6 +22,7 @@ import { S3Module } from 'src/s3.module';
     GetVideosUsecase,
     DeleteVideoUsecase,
     GetMediaUsecase,
+    GetMiniatureUsecase,
   ],
 })
 export class VideosModule {}

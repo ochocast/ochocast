@@ -1,8 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import  { User } from "../../../utils/VideoProperties";
-import { FC } from 'react';
+import { User } from '../../../utils/VideoProperties';
+import { FC, useEffect, useState } from 'react';
 import './VideoBox.css';
 import React from 'react';
+import { getMiniature } from '../../../utils/api';
+import miniatureLogo from '../../../assets/logo_2lignes_crop.png';
 
 // Changera probablement a la propriete video contenant toutes les informations necessaires
 interface VideoBoxProps {
@@ -27,41 +29,52 @@ const VideoBox: FC<VideoBoxProps> = ({
   /*updatedAt,
   internal_speakers,
   external_speakers,
-  views,*/
-  imageURL,
+  views,
+  imageURL,*/
 }) => {
-  const dateDisplay = new Date(createdAt); // to be able to getDay..
+  const [miniatureURL, setMiniatureUrl] = useState<string>('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchMiniatureUrl = async () => {
+      if (Id) {
+        try {
+          const url = await getMiniature(Id);
+          setMiniatureUrl(url?.data || miniatureLogo);
+        } catch (error) {
+          console.error('Error fetching miniature URL', error);
+        }
+      }
+    };
+
+    fetchMiniatureUrl();
+  }, [Id]);
+
+  const dateDisplay = new Date(createdAt); // to be able to getDay..
 
   return (
     <div className="video-box">
       <div className="img-div">
         <img
           className="video-image"
-          src={require('../../../assets/' + imageURL)}
+          src={miniatureURL}
           alt="img"
           onClick={() => navigate(`/video/${Id}`)}
         ></img>
       </div>
       <div className="video-wrapper">
-        <div
-          className="video-title"
-          onClick={() => navigate(`/video/${Id}`)}
-        >
+        <div className="video-title" onClick={() => navigate(`/video/${Id}`)}>
           {title}
         </div>
-        <div
-          className="video-description"
-        >
-          {description}
-        </div>
+        <div className="video-description">{description}</div>
         <div className="video-date">{`Date de publication: ${dateDisplay.getDay()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>
       </div>
       <div className="video-wrapper">
         <div className="video-info">{`Publié par : ${
-          (creator?.firstName ? creator.firstName : 'Swann') + (creator?.lastName ? creator?.lastName : 'Brunet')
+          (creator?.firstName ? creator.firstName : 'Swann') +
+          (creator?.lastName ? creator?.lastName : 'Brunet')
         }`}</div>
       </div>
     </div>
