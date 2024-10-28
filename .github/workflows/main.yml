@@ -145,10 +145,10 @@ jobs:
             PG_PASSWORD=${{secrets.PG_PASSWORD}},
             PG_HOST=${{secrets.PG_HOST}},
             PG_PORT=${{secrets.PG_PORT}},
-            STOCK_SERVER_URL=${{secrets.STOCK_SERVER_URL}}
-            STOCK_CLIENT_ID=${{secrets.STOCK_CLIENT_ID}}
-            STOCK_SECRET=${{secrets.STOCK_SECRET}}
-            STOCK_MEDIA_BUCKET=${{secrets.STOCK_MEDIA_BUCKET}}
+            STOCK_SERVER_URL=${{secrets.STOCK_SERVER_URL}},
+            STOCK_CLIENT_ID=${{secrets.STOCK_CLIENT_ID}},
+            STOCK_SECRET=${{secrets.STOCK_SECRET}},
+            STOCK_MEDIA_BUCKET=${{secrets.STOCK_MEDIA_BUCKET}},
             STOCK_REGION=${{secrets.STOCK_REGION}}
           # List of secrets in the form of KEY=VALUE, separated by commas. The value can't contains commas nor equal signs
           # scw_secrets:
