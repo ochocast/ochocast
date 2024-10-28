@@ -10,6 +10,6 @@ COPY . .
 
 RUN npm run build
 
-EXPOSE 80/tcp
+EXPOSE 3001/tcp
 
 CMD npm run migration:run && node dist/main.js
