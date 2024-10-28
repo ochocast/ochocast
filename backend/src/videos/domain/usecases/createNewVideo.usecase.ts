@@ -41,7 +41,7 @@ export class CreateNewVideoUsecase {
     const upload = new Upload({
       client: this.s3Client,
       params: {
-          Bucket: 'prod-media', //process.env.STOCK_MEDIA_BUCKET,
+          Bucket: process.env.STOCK_MEDIA_BUCKET,
           Key: video.media_id,
           Body: file.buffer,
           ContentType: file.mimetype
