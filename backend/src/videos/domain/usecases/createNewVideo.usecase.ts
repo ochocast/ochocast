@@ -35,7 +35,7 @@ export class CreateNewVideoUsecase {
       [new CommentEntity(null)],
       false
     );
-
+    console.log(video);
     console.log("AVANT UPLOAD")
     //Use S3 Client to push File in S3 Buckets
     const upload = new Upload({
