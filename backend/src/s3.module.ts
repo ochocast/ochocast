@@ -4,7 +4,7 @@ import { S3Client } from "@aws-sdk/client-s3";
 
 // Configuration du client S3 pour Scaleway
 const s3Client = new S3Client({
-  region: process.env.STOCK_REGION, // Utilise la région Scaleway
+  region: process.env.STOCK_REGION || "fr-par", // Utilise la région Scaleway
   endpoint: process.env.STOCK_SERVER_URL, // Endpoint Scaleway
   credentials: {
     accessKeyId: process.env.STOCK_CLIENT_ID, // Clé d'accès depuis les variables d'environnement
