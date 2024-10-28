@@ -35,18 +35,22 @@ export class CreateNewVideoUsecase {
       false
     );
 
-
+    // console.log("AVANT UPLOAD")
     //Use S3 Client to push File in S3 Buckets
     const upload = new Upload({
       client: this.s3Client,
       params: {
-          Bucket: process.env.STOCK_MEDIA_BUCKET,
+          Bucket: 'prod-media', //process.env.STOCK_MEDIA_BUCKET,
           Key: video.media_id,
           Body: file.buffer,
           ContentType: file.mimetype
       }
     });
-    upload.done();
+    // console.log("AVANT DONE")
+
+    const what = await upload.done();
+    // console.log("APRES DONE", what)
+    
 
     
     await this.videoGateway.createNewVideo(video);

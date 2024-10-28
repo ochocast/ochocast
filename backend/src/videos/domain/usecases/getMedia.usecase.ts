@@ -16,7 +16,7 @@ export class GetMediaUsecase {
     const videos =  await this.videoGateway.getVideos({id: id});
 
     const command = new GetObjectCommand({
-      Bucket: process.env.STOCK_MEDIA_BUCKET,
+      Bucket: 'prod-media', //process.env.STOCK_MEDIA_BUCKET,
       Key: videos[0].media_id,
     });
     
