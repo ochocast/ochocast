@@ -88,11 +88,6 @@ jobs:
           registry: ${{ secrets.SCW_REGISTRY }}
           username: ${{ secrets.SCW_REG_USER }}
           password: ${{ secrets.SCW_SECRET_KEY }}
-          STOCK_SERVER_URL: ${{secrets.STOCK_SERVER_URL}}
-          STOCK_CLIENT_ID: ${{secrets.STOCK_CLIENT_ID}}
-          STOCK_SECRET: ${{secrets.STOCK_SECRET}}
-          STOCK_MEDIA_BUCKET: ${{secrets.STOCK_MEDIA_BUCKET}}
-          STOCK_REGION: ${{secrets.STOCK_REGION}}
       - name: Build and push Docker images
         # You may pin to the exact commit or the version.
         # uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09
@@ -121,11 +116,6 @@ jobs:
           scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
           scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
           scw_registry: ${{ secrets.SCW_CONTAINER }}
-          STOCK_SERVER_URL: ${{secrets.STOCK_SERVER_URL}}
-          STOCK_CLIENT_ID: ${{secrets.STOCK_CLIENT_ID}}
-          STOCK_SECRET: ${{secrets.STOCK_SECRET}}
-          STOCK_MEDIA_BUCKET: ${{secrets.STOCK_MEDIA_BUCKET}}
-          STOCK_REGION: ${{secrets.STOCK_REGION}}
       - name: deploy-new-serverless
         uses: philibea/scaleway-containers-deploy@v1.1.0
         with:
@@ -145,7 +135,10 @@ jobs:
           # This will add ALIAS on your root zone. Actually CNAME is used for all `¨scw_dns_prefix.scw_dns` of your dns
           #root_zone: # optional, default is false
           # List of environnment variables in the form of KEY=VALUE, separated by commas
-          scw_environment_variables: NODE_ENV=production,${{ secrets.BACK_SERVERLESS_SECRETS }}
+          scw_environment_variables: NODE_ENV=production,${{secrets.BACK_SERVERLESS_SECRETS}},PG_USERNAME=${{secrets.PG_USERNAME}},PG_PASSWORD=${{secrets.PG_PASSWORD}},PG_HOST=${{secrets.PG_HOST}},PG_PORT=${{secrets.PG_PORT}}
+
+          # scw_environment_variables: NODE_ENV=production,${{ secrets.BACK_SERVERLESS_SECRETS }}
+          
           # List of secrets in the form of KEY=VALUE, separated by commas. The value can't contains commas nor equal signs
           # scw_secrets:
   
