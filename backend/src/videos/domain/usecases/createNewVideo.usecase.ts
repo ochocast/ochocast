@@ -18,7 +18,6 @@ export class CreateNewVideoUsecase {
   ) {}
 
   async execute(videoToCreate: CreateVideoDto, file: Express.Multer.File): Promise<VideoObject> {
-    console.log("AVANT CREATION DE VIDEO");
     const media_id = Date.now() + "." +  videoToCreate.media_id;
     const video = new VideoObject(
       uuid(),
@@ -35,8 +34,8 @@ export class CreateNewVideoUsecase {
       [new CommentEntity(null)],
       false
     );
-    console.log(video);
-    console.log("AVANT UPLOAD")
+
+
     //Use S3 Client to push File in S3 Buckets
     const upload = new Upload({
       client: this.s3Client,
@@ -47,12 +46,7 @@ export class CreateNewVideoUsecase {
           ContentType: file.mimetype
       }
     });
-    console.log("AVANT DONE")
-
-    // const what = 
     upload.done();
-    //console.log("APRES DONE", what.toString())
-    
 
     
     await this.videoGateway.createNewVideo(video);
