@@ -14,8 +14,13 @@ import Lock_Open from '../../assets/Opened_PNG.png';
 import Lock_Close from '../../assets/Locked_PNG.png';
 import PreviewMinia from '../../components/newComponents/Preview miniature/PrewiewMinia';
 import { v4 as uuidv4 } from 'uuid';
-import { createVideo, getVideoByTitle, getUsers, getTags } from '../../utils/api';
-import { Tag_video, User} from '../../utils/VideoProperties';
+import {
+  createVideo,
+  getVideoByTitle,
+  getUsers,
+  getTags,
+} from '../../utils/api';
+import { Tag_video, User } from '../../utils/VideoProperties';
 import CompletionBar from '../../components/newComponents/CompletionBar/CompletionBar';
 
 interface VideoSettingsProps {}
@@ -67,18 +72,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [intern_tags, setIntern_tags] = useState<string[]>([]);
   const intern_filter = () => {
     const list: string[] = [];
-    user_list.forEach(obj => {
+    user_list.forEach((obj) => {
       if (!intern_speakers.includes(obj)) {
-        list.push(obj.firstName + " " + obj.lastName);
+        list.push(obj.firstName + ' ' + obj.lastName);
       }
     });
     return list;
   };
   const selectIntern = (str: string) => {
-    const user = user_list.find(obj => {
-      return obj.firstName + " " + obj.lastName === str;
+    const user = user_list.find((obj) => {
+      return obj.firstName + ' ' + obj.lastName === str;
     });
-    if(user != undefined){
+    if (user != undefined) {
       setIntern_Speakers([...intern_speakers, user]);
       setIntern_tags([...intern_tags, str]);
     }
@@ -87,26 +92,22 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [tag_list, setTagList] = useState<Tag_video[]>([]);
   const [tags, setTags] = useState<Tag_video[]>([]); //je crois c'est pas ca
   const [tags_tags, setTags_tags] = useState<string[]>([]);
-  const tag_filter = () =>{
+  const tag_filter = () => {
     const list: string[] = [];
-    tag_list.forEach(obj => {
-      if(!tags.includes(obj))
-        list.push(obj.name);
+    tag_list.forEach((obj) => {
+      if (!tags.includes(obj)) list.push(obj.name);
     });
     return list;
   };
   const selectTag = (str: string) => {
-    const tag = tag_list.find(obj =>{
+    const tag = tag_list.find((obj) => {
       return obj.name === str;
     });
-    if (tag != undefined){
+    if (tag != undefined) {
       setTags([...tags, tag]);
       setTags_tags([...intern_tags, str]);
     }
   };
-
-
-
 
   const publishVideo = async () => {
     setTags([...tags, { id: uuidv4(), name: 'Tag1' }]);
@@ -150,21 +151,20 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     navigate('/videos');
   };
 
-
-  useEffect(()=>{
+  useEffect(() => {
     const get_users_list = async () => {
       const response = await getUsers();
-      if(response != null && response.data != undefined)
+      if (response != null && response.data != undefined)
         setUserList([...response.data]);
     };
     const get_tags_list = async () => {
       const response = await getTags();
-      if(response != null && response.data != undefined)
+      if (response.status === 200 && response.data != undefined)
         setTagList([...response.data]);
     };
     get_users_list();
     get_tags_list();
-  },[userId]);
+  }, [userId]);
 
   return (
     <div className="mainvideo">
@@ -208,37 +208,39 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'row' }}>
             <Card style={{ flexDirection: 'column', height: 'auto' }}>
-                <CompletionBar
-                  name="Tags"
-                  filter={tag_filter}
-                  select={selectTag}
-                />
+              <CompletionBar
+                name="Tags"
+                filter={tag_filter}
+                select={selectTag}
+              />
               <div
                 style={{
                   display: 'flex',
-                  flexDirection: 'row',       
+                  flexDirection: 'row',
                   flexWrap: 'wrap',
                   justifyContent: 'center',
                   gap: '10px',
                 }}
               >
                 {tags_tags.map((tag, index) => (
-                    <Tag
-                    className= {tag}
+                  <Tag
+                    className={tag}
                     style={{ flex: '25%' }}
                     tsize="10px"
                     marginTop="0px"
                     key={index}
-                    >{tag}</Tag>
+                  >
+                    {tag}
+                  </Tag>
                 ))}
               </div>
             </Card>
             <Card style={{ flexDirection: 'column', height: 'auto' }}>
-                <CompletionBar
+              <CompletionBar
                 name="Intern"
                 filter={intern_filter}
                 select={selectIntern}
-                />
+              />
               <div
                 style={{
                   display: 'flex',
@@ -250,13 +252,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 id="intern-container"
               >
                 {intern_tags.map((tag, index) => (
-                    <Tag
-                    className= {tag}
+                  <Tag
+                    className={tag}
                     style={{ flex: '25%' }}
                     tsize="10px"
                     marginTop="0px"
                     key={index}
-                    >{tag}</Tag>
+                  >
+                    {tag}
+                  </Tag>
                 ))}
               </div>
             </Card>
