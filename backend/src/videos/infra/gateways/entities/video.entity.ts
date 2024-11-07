@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany, ManyToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  OneToMany,
+  ManyToMany,
+} from 'typeorm';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
@@ -9,16 +16,19 @@ export class VideoEntity {
   id: string;
 
   @Column()
-  media_id: string
+  media_id: string;
 
   @Column()
-  title: string
+  miniature_id: string;
 
   @Column()
-  description: string
-  
+  title: string;
+
+  @Column()
+  description: string;
+
   @ManyToMany(() => TagEntity)
-  tags: TagEntity[]
+  tags: TagEntity[];
 
   @ManyToOne(() => UserEntity, (user) => user.videos)
   creator: string;
@@ -30,19 +40,19 @@ export class VideoEntity {
   updatedAt: Date;
 
   @Column()
-  internal_speakers: string
+  internal_speakers: string;
 
   @Column()
-  external_speakers: string
+  external_speakers: string;
 
   @Column()
-  views: number
+  views: number;
 
   @OneToMany(() => CommentEntity, (comment) => comment.video)
   comments: CommentEntity[];
 
   @Column()
-  archived: boolean
+  archived: boolean;
 
   constructor(video: Partial<VideoEntity>) {
     Object.assign(this, video);

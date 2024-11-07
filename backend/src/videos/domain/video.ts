@@ -16,15 +16,21 @@ export class VideoObject {
   })
   media_id: string;
 
+  @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The id of the miniature on MinIO.',
+  })
+  miniature_id: string;
 
   @ApiProperty({
     example: 'A spooky description',
     description: 'The description of the video.',
   })
   description: string;
-  
+
   @ApiProperty({
-    example: '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
+    example:
+      '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
     description: 'The list of identifiers of the tags of the video.',
   })
   tags: TagEntity[];
@@ -54,15 +60,17 @@ export class VideoObject {
   updatedAt: Date;
 
   @ApiProperty({
-    example: '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
-    description: 'The list of identifiers of internal speakers that appear in the video.',
+    example:
+      '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
+    description:
+      'The list of identifiers of internal speakers that appear in the video.',
   })
   internal_speakers: string;
 
-
   @ApiProperty({
     example: '["Bill Gates", "Elon Musk"]',
-    description: 'The list of names of external speakers that appear in the video.',
+    description:
+      'The list of names of external speakers that appear in the video.',
   })
   external_speakers: string;
 
@@ -73,13 +81,15 @@ export class VideoObject {
   views: number;
 
   @ApiProperty({
-    example: '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
+    example:
+      '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
     description: 'The comments on the video.',
   })
   comments: CommentEntity[];
 
   @ApiProperty({
-    example: '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
+    example:
+      '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
     description: 'The comments on the video.',
   })
   archived: boolean;
@@ -87,6 +97,7 @@ export class VideoObject {
   constructor(
     id: string,
     media_id: string,
+    miniature_id: string,
     title: string,
     description: string,
     tags: TagEntity[],
@@ -97,10 +108,11 @@ export class VideoObject {
     external_speakers: string,
     views: number,
     comments: CommentEntity[],
-    archived: boolean
+    archived: boolean,
   ) {
     this.id = id;
     this.media_id = media_id;
+    this.miniature_id = miniature_id;
     this.title = title;
     this.creator = creator;
     this.description = description;

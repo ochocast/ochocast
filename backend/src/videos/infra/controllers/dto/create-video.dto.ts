@@ -4,9 +4,10 @@ import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 export class CreateVideoDto {
-
   @IsNotEmpty()
   media_id: string;
+
+  miniature_id: string;
 
   @IsNotEmpty()
   title: string;
@@ -14,7 +15,7 @@ export class CreateVideoDto {
   description: string;
 
   tags: TagEntity[];
-  
+
   @IsNotEmpty()
   creator: string;
 
@@ -23,6 +24,6 @@ export class CreateVideoDto {
   external_speakers: string;
 
   comments: CommentEntity[];
-  
+
   archived: boolean;
 }

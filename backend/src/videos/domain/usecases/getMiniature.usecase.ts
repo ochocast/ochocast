@@ -3,7 +3,7 @@ import { IVideoGateway } from '../gateways/videos.gateway';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 
-export class GetMediaUsecase {
+export class GetMiniatureUsecase {
   constructor(
     @Inject('VideoGateway')
     private videoGateway: IVideoGateway,
@@ -15,12 +15,14 @@ export class GetMediaUsecase {
     const videos = await this.videoGateway.getVideos({ id: id });
 
     const command = new GetObjectCommand({
-      Bucket: 'prod-media', //process.env.STOCK_MEDIA_BUCKET,
-      Key: videos[0].media_id,
+      Bucket: process.env.STOCK_MINIATURE_BUCKET,
+      Key: videos[0].miniature_id,
     });
 
-    // Générer une URL signée valable pour une durée limitée (par exemple 1 heure)
+    // Generate a signed URL valid for 1 hour
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+    console.log(url);
+
     return url;
   }
 }
