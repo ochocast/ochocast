@@ -15,12 +15,13 @@ export class GetMediaUsecase {
     const videos = await this.videoGateway.getVideos({ id: id });
 
     const command = new GetObjectCommand({
-      Bucket: 'prod-media', //process.env.STOCK_MEDIA_BUCKET,
+      Bucket: process.env.STOCK_MEDIA_BUCKET,
       Key: videos[0].media_id,
     });
 
     // Générer une URL signée valable pour une durée limitée (par exemple 1 heure)
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+    console.log(url);
     return url;
   }
 }

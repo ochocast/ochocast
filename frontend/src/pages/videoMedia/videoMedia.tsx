@@ -136,6 +136,7 @@ const VideoMedia: FC<VideoMediaProps> = () => {
       </div>
     );
   else return NotFoundPage();
+
 };
 
 export default VideoMedia;

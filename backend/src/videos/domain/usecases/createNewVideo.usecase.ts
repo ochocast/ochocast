@@ -40,6 +40,8 @@ export class CreateNewVideoUsecase {
       false,
     );
 
+    console.log("AVANT UPLOAD")
+
     //Use S3 Client to push File in S3 Buckets
     const upload = new Upload({
       client: this.s3Client,
@@ -50,6 +52,7 @@ export class CreateNewVideoUsecase {
         ContentType: file.mimetype,
       },
     });
+
     const video_result = await upload.done();
 
     // Miniature file upload in S3
