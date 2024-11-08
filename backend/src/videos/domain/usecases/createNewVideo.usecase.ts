@@ -68,7 +68,7 @@ export class CreateNewVideoUsecase {
     }
 
     console.log(video_result);
-    
+
     await this.videoGateway.createNewVideo(video);
     return video;
   }
