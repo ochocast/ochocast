@@ -83,7 +83,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     const user = user_list.find((obj) => {
       return obj.firstName + ' ' + obj.lastName === str;
     });
-    if (user != undefined) {
+    if (user) {
       setIntern_Speakers([...intern_speakers, user]);
       setIntern_tags([...intern_tags, str]);
     }
@@ -103,7 +103,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     const tag = tag_list.find((obj) => {
       return obj.name === str;
     });
-    if (tag != undefined) {
+    if (tag !== undefined) {
       setTags([...tags, tag]);
       setTags_tags([...intern_tags, str]);
     }
@@ -154,12 +154,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   useEffect(() => {
     const get_users_list = async () => {
       const response = await getUsers();
-      if (response != null && response.data != undefined)
+      if (response != null && response.status === 200)
         setUserList([...response.data]);
     };
     const get_tags_list = async () => {
       const response = await getTags();
-      if (response.status === 200 && response.data != undefined)
+      if (response != null && response.status === 200)
         setTagList([...response.data]);
     };
     get_users_list();

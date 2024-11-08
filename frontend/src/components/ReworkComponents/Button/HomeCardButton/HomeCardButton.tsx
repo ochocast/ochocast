@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React from 'react';
 import styles from './HomeCardButton.module.css';
 
 export interface HomeCardButtonProps {
@@ -13,7 +13,7 @@ export enum ButtonState {
   colored = 'colored',
 }
 
-const HomeCardButton: FC<HomeCardButtonProps> = (props) => (
+const HomeCardButton = (props: HomeCardButtonProps) => (
   <div>
     {props.State === ButtonState.disabled ? (
       <button

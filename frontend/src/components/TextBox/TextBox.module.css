@@ -1,4 +1,4 @@
-.input-wrapper {
+.inputWrapper {
   margin-top: 20px;
 }
 
@@ -11,7 +11,7 @@ label {
   align-self: self-start;
 }
 
-input {
+.old-input {
   font-size: 16px;
   font-weight: 400;
   /* width: 240px; */

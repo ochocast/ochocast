@@ -1,0 +1,34 @@
+.textButton {
+  position: relative;
+  line-height: 1.5rem;
+  font-weight: 600;
+}
+.icons {
+  width: 0.4rem;
+}
+
+.base {
+  border-radius: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.6rem;
+  gap: 0.6rem;
+  width: fit-content;
+  height: fit-content;
+  color: var(--theme-color-800);
+}
+
+.default {
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-black);
+}
+.disable {
+  background-color: var(--theme-color-gray);
+  border: 1px solid var(--theme-color-black);
+}
+.colored {
+  background-color: var(--theme-color-500);
+  color: #fff;
+}

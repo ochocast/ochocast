@@ -1,43 +1,61 @@
 import React, { useEffect } from 'react';
-import { useState}  from 'react';
-import './videoMedia.css';
+import { useState } from 'react';
+import styles from './videoMedia.module.css';
 import { default as _ReactPlayer } from 'react-player/lazy';
 import { ReactPlayerProps } from 'react-player/types/lib';
 import { FC } from 'react';
-import { getMedia, getVideo} from '../../utils/api';
+import { getMedia, getVideo } from '../../utils/api';
 import { useParams } from 'react-router-dom';
 import { Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
+import Tag from '../../components/ReworkComponents/Tag/Tag';
+import ProfilDescription, {
+  ProfilDescriptionState,
+} from '../../components/ReworkComponents/ProfilDescription/ProfilDescription';
+import Card from '../../components/ReworkComponents/Cards/Card';
+import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+import Commentary from '../../components/ReworkComponents/Commentary/Commentary';
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
-interface VideoMediaProps{}
+interface VideoMediaProps {}
+
+const commentaryList = [
+  "Superbe video, j'ai adoré, merci pour le partage",
+  "J'ai adoré la créativité de la réalisation !",
+  'Le contenu est clair et intéressant !',
+  "Superbe video, j'ai adoré, merci pour le partage",
+  "J'ai adoré la créativité de la réalisation !",
+  'Le contenu est clair et intéressant !',
+  "Superbe video, j'ai adoré, merci pour le partage",
+  "J'ai adoré la créativité de la réalisation !",
+  'Le contenu est clair et intéressant !',
+  "Superbe video, j'ai adoré, merci pour le partage",
+  "J'ai adoré la créativité de la réalisation !",
+  'Le contenu est clair et intéressant !',
+];
 
 const VideoMedia: FC<VideoMediaProps> = () => {
-  const { videoId }= useParams();
+  const { videoId } = useParams();
   const [url, setUrl] = useState<string>('');
   const [video, setVideo] = useState<Video>();
-  const [isLoading, setIsLoading] =  useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   // Durée d'expiration en secondes, doit etre equivalent a la durée mise en backend
   const linkExpirationTime = 3600;
   const renewalThreshold = 300;
 
   const renewSignedUrl = async () => {
     const url_response = await getMedia(videoId);
-    if (url_response != undefined)
-      setUrl(url_response.data);
+    if (url_response != undefined) setUrl(url_response.data);
   };
-
 
   useEffect(() => {
     const getMe = async () => {
       setIsLoading(true);
       const video_response = await getVideo(videoId);
       const url_response = await getMedia(videoId);
-      if (url_response != undefined)
-        setUrl(url_response.data);
-      if(video_response != undefined)
-        setVideo(video_response.data[0]);
+      if (url_response != undefined) setUrl(url_response.data);
+      if (video_response != undefined) setVideo(video_response.data[0]);
       setIsLoading(false);
     };
     getMe();
@@ -45,36 +63,79 @@ const VideoMedia: FC<VideoMediaProps> = () => {
 
   setTimeout(renewSignedUrl, (linkExpirationTime - renewalThreshold) * 1000);
 
-
-  if (isLoading){
+  if (isLoading) {
     return LoadingCircle();
   }
 
-  if(video != undefined)
+  if (video != undefined)
     return (
-    <div className="player-wrapper">
-    <div className="video-details">
-      <h2 className="video-title">{video?.title}</h2>
-      <p className="video-description">{video?.description}</p>
-    </div>
+      <div className={styles.containerGlobal}>
+        <h2 className={styles.video_title}>{video?.title}</h2>
+        <h4 className={styles.tagList}>
+          Tag :
+          <Tag content="Devops" />
+          <Tag content="Docker" />
+        </h4>
 
-    <div className="player">
-      <ReactPlayer
-        url={url}
-        playing={false}
-        controls={true}
-        width="100%"
-        height="100%"
-        config={{
-          file: {
-          },
-        }}
-      />
-    </div>
-    </div>
+        <div className={styles.containerPlayer}>
+          <div className={styles.videoPlayer}>
+            <ReactPlayer
+              url={url}
+              playing={false}
+              controls={true}
+              width="100%"
+              height="100%"
+              config={{
+                file: {},
+              }}
+            />
+          </div>
+          <div className={styles.containerPlayerRight}>
+            <div>
+              <h3 className={styles.video_title}>Description :</h3>
+              <p className={styles.video_description}>{video?.description}</p>
+            </div>
+            <div className={styles.profilDescription}>
+              <ProfilDescription
+                name="Aloice Raver"
+                email="aloice.raver@octo.com"
+                description="LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium"
+                image="/persona.png"
+                state={ProfilDescriptionState.standard}
+              />
+            </div>
+          </div>
+        </div>
+        <div className={styles.containerOther}>
+          <div>
+            <Card>
+              <div className={styles.miniatureList}>
+                <PreviewMiniture
+                  title="Deploy an application with Docker"
+                  views={24}
+                  createBy="James Cristal"
+                  date="25/05/2023"
+                  tags={['Docker', 'Devops', 'Linux']}
+                />
+                <PreviewMiniture
+                  title="FullStack dev"
+                  views={42}
+                  createBy="Ulice Raver"
+                  date="03/12/2021"
+                  tags={['Versionning', 'OPS', 'FullStack']}
+                />
+              </div>
+            </Card>
+          </div>
+          <div className={styles.commentaryList}>
+            {commentaryList.map((content, index) => (
+              <Commentary key={index} content={content} />
+            ))}
+          </div>
+        </div>
+      </div>
     );
-  else
-    return NotFoundPage();
+  else return NotFoundPage();
 };
 
-export default VideoMedia;  
+export default VideoMedia;

@@ -28,18 +28,9 @@ h1 {
   line-height: 23px;
   font-weight: 500;
 }
-.homeCards {
-  width: 100%;
-  position: relative;
-  box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.25);
-  border-radius: 20px;
-  background-color: var(--theme-color-white);
-  border: 1px solid var(--theme-color-950);
-  box-sizing: border-box;
+
+.container {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding: 3rem 2rem;
   gap: 2rem;
-  color: var(--theme-color-950);
 }
