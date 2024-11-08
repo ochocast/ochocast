@@ -53,7 +53,6 @@ export class CreateNewVideoUsecase {
       },
     });
 
-    console.log("AVANT UPLOAD 2")
     const video_result = await upload.done();
 
     // Miniature file upload in S3

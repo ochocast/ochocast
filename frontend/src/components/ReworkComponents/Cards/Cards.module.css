@@ -1,0 +1,14 @@
+.Cards {
+  width: 100%;
+  position: relative;
+  box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-950);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  color: var(--theme-color-950);
+  padding: 1rem 1rem;
+}

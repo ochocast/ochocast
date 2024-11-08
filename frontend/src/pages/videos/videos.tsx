@@ -5,10 +5,12 @@ import { FC } from 'react';
 import { getVideos } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
 import VideosList from '../../components/newComponents/VideosList/VideosList';
-import SearchBar from '../../components/newComponents/SearchBar/SearchBar';
-import Button from '../../components/buttons/button/button';
 import { useNavigate } from 'react-router-dom';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
+import SearchBar from '../../components/ReworkComponents/SearchBar/SearchBar';
+import Button, {
+  ButtonState,
+} from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
 
 
 interface VideosProps {}
@@ -47,14 +49,18 @@ const Videos: FC<VideosProps> = () => {
   );
   console.log('Filtered Videos:', filteredVideos);
 
-  if (isloading){
+  if (isloading) {
     return LoadingCircle();
   }
 
   return (
     <div className="videos">
       <div className="button-event-creation">
-        <Button onClick={() => navigate('/video/video-settings')}>Uploader une vidéo</Button>
+        <Button
+          Title="Uploader une vidéo"
+          State={ButtonState.colored}
+          onClickFunction={() => navigate('/video/video-settings')}
+        />
       </div>
       <div className="content">
         <SearchBar onSearch={handleSearch} />

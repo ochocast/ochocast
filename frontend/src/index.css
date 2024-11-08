@@ -41,31 +41,31 @@ code {
 }
 
 html {
-  overflow: hidden;
+  overflow: scroll;
 }
 
-/* Mobile S */
+/* Mobile S 
 @media (min-width: 320px) {
   body {
     background-color: goldenrod;
     font-size: small;
   }
 }
-/* Mobile L / Tablette */
+/* Mobile L / Tablette 
 @media (min-width: 640px) {
   body {
     background-color: red;
     font-size: small;
   }
 }
-/* Tablette */
+/* Tablette 
 @media (min-width: 768px) {
   body {
     background-color: blue;
     font-size: small;
   }
 }
-/* Mobile S */
+/* Mobile S 
 @media (min-width: 1024px) {
   body {
     background-color: blueviolet;
@@ -73,7 +73,7 @@ html {
   }
 }
 
-/* Laptop */
+/* Laptop 
 @media (min-width: 1280px) {
   body {
     background-color: green;
@@ -81,10 +81,11 @@ html {
   }
 }
 
-/* > Laptop L (1440)*/
+/* > Laptop L (1440)
 @media (min-width: 1536px) {
   body {
     background-color: yellow;
     font-size: large;
   }
 }
+*/

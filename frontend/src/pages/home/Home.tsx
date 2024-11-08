@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 
-import HomeCards from '../../components/ReworkComponents/HomeCard/HomeCard';
+import HomeCards from '../../components/ReworkComponents/Cards/CardHome/CardHome';
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
 

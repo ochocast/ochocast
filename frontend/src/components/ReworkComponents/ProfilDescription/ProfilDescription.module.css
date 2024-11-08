@@ -1,0 +1,64 @@
+.image {
+  width: 6rem;
+  height: auto;
+  position: relative;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.imageSmall {
+  width: 3rem;
+  height: auto;
+  position: relative;
+  border-radius: 50%;
+  align-self: center;
+}
+
+.name {
+  margin: 0;
+  width: max-content;
+}
+
+.email {
+  margin: 0;
+}
+
+.profilContainerCol {
+  min-width: 9rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.profilContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.titlesCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.descriptionTitle {
+  padding-top: 0.3rem;
+  text-decoration-line: underline;
+}
+
+.descriptionClamp {
+  display: -webkit-inline-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}

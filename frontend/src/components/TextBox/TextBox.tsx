@@ -1,5 +1,5 @@
 import React, { ChangeEvent, FC } from 'react';
-import './TextBox.css';
+import style from './TextBox.module.css';
 
 export interface TextBoxProps {
   type: 'text' | 'number' | 'email' | 'password';
@@ -23,7 +23,7 @@ const TextBox: FC<TextBoxProps> = ({
   onChange,
 }) => {
   return (
-    <div className="input-wrapper">
+    <div className={style.inputWrapper}>
       <label htmlFor={label}>{label}</label>
       <input
         type={type}
@@ -34,7 +34,7 @@ const TextBox: FC<TextBoxProps> = ({
         onChange={onChange}
         disabled={disabled}
       />
-      {error && <p className="error">Le champ ne peut pas être vide!</p>}
+      {error && <p className={style.error}>Le champ ne peut pas être vide!</p>}
     </div>
   );
 };
