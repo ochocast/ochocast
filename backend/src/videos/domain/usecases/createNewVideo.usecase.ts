@@ -50,7 +50,7 @@ export class CreateNewVideoUsecase {
         ContentType: file.mimetype,
       },
     });
-    await upload.done();
+    const video_result = await upload.done();
 
     // Miniature file upload in S3
     if (miniatureFile) {
@@ -63,9 +63,12 @@ export class CreateNewVideoUsecase {
           ContentType: miniatureFile.mimetype,
         },
       });
-      await miniatureUpload.done();
+      const miniature_result = await miniatureUpload.done();
+      console.log(miniature_result);
     }
 
+    console.log(video_result);
+    
     await this.videoGateway.createNewVideo(video);
     return video;
   }
