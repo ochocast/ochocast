@@ -50,7 +50,8 @@ const VideoMedia: FC<VideoMediaProps> = () => {
     return LoadingCircle();
   }
 
-  if(video != undefined)
+  if(video != undefined) {
+    console.log("found the video !");
     return (
     <div className="player-wrapper">
     <div className="video-details">
@@ -73,8 +74,11 @@ const VideoMedia: FC<VideoMediaProps> = () => {
     </div>
     </div>
     );
-  else
+  }
+  else {
+    console.log("video requested is undefined");
     return NotFoundPage();
+  }
 };
 
 export default VideoMedia;  
