@@ -22,8 +22,8 @@ export class TagGateway implements ITagGateway {
     return this.tagsRepository.find({
       where: {
         ...filter,
-      },
-      relations: ['event'],
+      }//,
+      //relations: ['event'],
     });
   }
 
