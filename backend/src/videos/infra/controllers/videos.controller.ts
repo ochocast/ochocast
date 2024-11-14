@@ -8,14 +8,11 @@ import {
   Param,
   Post,
   Query,
-  UploadedFile,
   UploadedFiles,
   UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { Express } from 'express';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
@@ -26,6 +23,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
+import logger from '../../../../../frontend/src/utils/logger';
 
 @ApiTags('Videos')
 @Controller('videos')
@@ -72,7 +70,7 @@ export class VideosController {
       'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
   })
   findVideos(@Query() filter: any): Promise<VideoObject[]> {
-    console.log('passed by');
+    logger.info('passed by');
     return this.getVideosUsecase.execute(filter);
   }
 

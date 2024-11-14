@@ -7,11 +7,11 @@ import { Video } from '../../utils/VideoProperties';
 import VideosList from '../../components/newComponents/VideosList/VideosList';
 import { useNavigate } from 'react-router-dom';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
+import logger from '../../utils/logger';
 import SearchBar from '../../components/ReworkComponents/SearchBar/SearchBar';
 import Button, {
   ButtonState,
 } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
-
 
 interface VideosProps {}
 
@@ -28,8 +28,9 @@ const Videos: FC<VideosProps> = () => {
     try {
       const videos_response = await getVideos();
       setVideo(videos_response.data || []);
+      logger.info('Videos successfully fetched');
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      logger.error('Error fetching videos:', error);
     }
     setisLoading(false);
   };
@@ -39,7 +40,7 @@ const Videos: FC<VideosProps> = () => {
   }, [userString]);
 
   const handleSearch = (term: string) => {
-    console.log('Search term:', term);
+    logger.info(`Search term: ${term}`);
     setSearchTerm(term);
   };
 
@@ -47,7 +48,7 @@ const Videos: FC<VideosProps> = () => {
   const filteredVideos = videos.filter((video) =>
     video.title.toLowerCase().includes(searchTerm.toLowerCase()),
   );
-  console.log('Filtered Videos:', filteredVideos);
+  logger.info(`Filtered Videos: ${JSON.stringify(filteredVideos)}`);
 
   if (isloading) {
     return LoadingCircle();
