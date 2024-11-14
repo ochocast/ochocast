@@ -19,6 +19,7 @@ import {
   getVideoByTitle,
   getUsers,
   getTags,
+  createTag,
 } from '../../utils/api';
 import { Tag_video, User } from '../../utils/VideoProperties';
 import CompletionBar from '../../components/newComponents/CompletionBar/CompletionBar';
@@ -90,7 +91,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   };
 
   const [tag_list, setTagList] = useState<Tag_video[]>([]);
-  const [tags, setTags] = useState<Tag_video[]>([]); //je crois c'est pas ca
+  const [tags, setTags] = useState<Tag_video[]>([]);
   const [tags_tags, setTags_tags] = useState<string[]>([]);
   const tag_filter = () => {
     const list: string[] = [];
@@ -108,6 +109,14 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       setTags_tags([...intern_tags, str]);
     }
   };
+  const addTag = async (str: string) => {
+    await createTag({"name": str});
+    const response = await getTags();
+    if (response != null && response.status === 200)
+      setTagList([...response.data]);
+    else
+      setTagList([]);
+  }
 
   const publishVideo = async () => {
     setTags([...tags, { id: uuidv4(), name: 'Tag1' }]);
@@ -156,11 +165,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       const response = await getUsers();
       if (response != null && response.status === 200)
         setUserList([...response.data]);
+      else
+        setUserList([]);
     };
     const get_tags_list = async () => {
       const response = await getTags();
       if (response != null && response.status === 200)
         setTagList([...response.data]);
+      else
+        setTagList([]);
     };
     get_users_list();
     get_tags_list();
@@ -212,6 +225,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 name="Tags"
                 filter={tag_filter}
                 select={selectTag}
+                add={addTag}
               />
               <div
                 style={{
