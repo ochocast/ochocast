@@ -7,6 +7,7 @@ import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingC
 import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
 import Card from '../../components/ReworkComponents/Cards/Card';
 import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+import logger from '../../utils/logger';
 
 interface VideosProps {}
 

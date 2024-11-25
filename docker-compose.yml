@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  auth:
+    extends:
+      file: ./localKeycloak/docker-compose.yml
+      service: auth
+
+  minio:
+    extends:
+      file: ./localMinio/docker-compose.yml
+      service: minio
+
+  postgres:
+    extends:
+      file: ./database/docker-compose.yml
+      service: postgres

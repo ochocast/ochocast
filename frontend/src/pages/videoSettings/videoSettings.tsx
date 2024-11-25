@@ -110,13 +110,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   };
   const addTag = async (str: string) => {
-    await createTag({"name": str});
+    await createTag({ name: str });
     const response = await getTags();
     if (response != null && response.status === 200)
       setTagList([...response.data]);
-    else
-      setTagList([]);
-  }
+    else setTagList([]);
+  };
 
   const publishVideo = async () => {
     setTags([...tags, { id: uuidv4(), name: 'Tag1' }]);
@@ -165,15 +164,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       const response = await getUsers();
       if (response != null && response.status === 200)
         setUserList([...response.data]);
-      else
-        setUserList([]);
+      else setUserList([]);
     };
     const get_tags_list = async () => {
       const response = await getTags();
       if (response != null && response.status === 200)
         setTagList([...response.data]);
-      else
-        setTagList([]);
+      else setTagList([]);
     };
     get_users_list();
     get_tags_list();
