@@ -12,6 +12,7 @@ export interface TagProps {
   content: string;
   type?: TagType;
   editable?: boolean;
+  delete?: (str: string) => void;
 }
 
 // Helper function to map enum to class names
@@ -27,6 +28,12 @@ const getTagTypeClass = (type: TagType): string => {
 };
 
 const Tag: FC<TagProps> = (props) => {
+
+  const handleClick = () => {
+    if(props.editable && props.delete !== undefined)
+      props.delete(props.content);
+  };
+
   return (
     <div
       className={`${styles.base} ${getTagTypeClass(
@@ -37,7 +44,7 @@ const Tag: FC<TagProps> = (props) => {
         <span>{props.content}</span>
       </div>
       {props.editable ? (
-        <img className={styles.icons} alt="" src="/cross.svg" />
+        <img className={styles.icons} alt="" src="/cross.svg" onClick={handleClick}/>
       ) : null}
     </div>
   );

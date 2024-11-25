@@ -111,17 +111,19 @@ const VideoMedia: FC<VideoMediaProps> = () => {
             <Card>
               <div className={styles.miniatureList}>
                 <PreviewMiniture
+                  Id="1"
                   title="Deploy an application with Docker"
                   views={24}
                   createBy="James Cristal"
-                  date="25/05/2023"
+                  createdAt="25/05/2023"
                   tags={['Docker', 'Devops', 'Linux']}
                 />
                 <PreviewMiniture
+                  Id="2"
                   title="FullStack dev"
                   views={42}
                   createBy="Ulice Raver"
-                  date="03/12/2021"
+                  createdAt="03/12/2021"
                   tags={['Versionning', 'OPS', 'FullStack']}
                 />
               </div>
@@ -136,7 +138,6 @@ const VideoMedia: FC<VideoMediaProps> = () => {
       </div>
     );
   else return NotFoundPage();
-
 };
 
 export default VideoMedia;

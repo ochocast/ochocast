@@ -7,9 +7,10 @@ export interface Video {
   creator: User;
   createdAt: Date;
   updatedAt: Date;
-  internal_speakers: string;
+  internal_speakers: User[];
   external_speakers: string;
   views: number;
+  tags: Tag_video[];
 }
 
 export interface User {
