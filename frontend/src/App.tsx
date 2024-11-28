@@ -22,6 +22,7 @@ import StreamTrack from './pages/streamingTrack/streamTrack';
 import VideoMedia from './pages/videoMedia/videoMedia';
 import Videos from './pages/videos/videos';
 import HomePage from './pages/home/Home';
+import Profile from './pages/profile/profile';
 
 function App() {
   const auth = useAuth();
@@ -96,6 +97,7 @@ function App() {
           element={<ProtectedRoute Element={VideoMedia} />}
         />
         <Route path="/videos" element={<ProtectedRoute Element={Videos} />} />
+        <Route path="/profile" element={<ProtectedRoute Element={Profile} />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </div>

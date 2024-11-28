@@ -16,6 +16,8 @@
   "license": "ISC",
   "dependencies": {
     "concurrently": "^8.2.1",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
     "react-player": "^2.13.0",
     "typedoc": "^0.25.2",
     "uuid": "^10.0.0"

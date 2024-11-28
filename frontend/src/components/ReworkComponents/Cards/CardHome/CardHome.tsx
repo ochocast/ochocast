@@ -18,7 +18,7 @@ const CardHome = (props: CardHomeProps) => {
     <Card>
       <div className={styles.container}>
         <div className={styles.streamingParent}>
-          <h1 className={styles.streaming}>{props.Title}</h1>
+          <h1 className={styles.title}>{props.Title}</h1>
           <HomeCardButton
             Title={props.ButtonTitle}
             State={props.ButtonState}

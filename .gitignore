@@ -17,4 +17,6 @@ docs
 
 .env
 
+package-lock.json
+
 localMinio/run_env/*

@@ -6,6 +6,14 @@
   align-self: center;
 }
 
+.imageLarge {
+  width: 12rem;
+  height: auto;
+  position: relative;
+  border-radius: 50%;
+  align-self: center;
+}
+
 .imageSmall {
   width: 3rem;
   height: auto;

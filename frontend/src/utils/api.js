@@ -47,3 +47,4 @@ export const getMiniature = (video_id) =>
 export const getVideoByTitle = (video_title) =>
   api.get(`/videos?title=${video_title}`);
 export const getTags = () => api.get('/tags');
+export const createTag = (data) => api.post('/tags', data);

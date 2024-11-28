@@ -1,74 +1,128 @@
-import React, { useEffect } from 'react';
-import { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './videos.css';
 import { FC } from 'react';
-import { getVideos } from '../../utils/api';
-import { Video } from '../../utils/VideoProperties';
-import VideosList from '../../components/newComponents/VideosList/VideosList';
-import { useNavigate } from 'react-router-dom';
+import { getTags, getUsers, getVideos } from '../../utils/api';
+import { Tag_video, User, Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
-import SearchBar from '../../components/ReworkComponents/SearchBar/SearchBar';
-import Button, {
-  ButtonState,
-} from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
-
+import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
+import Card from '../../components/ReworkComponents/Cards/Card';
+import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+import logger from '../../utils/logger';
 
 interface VideosProps {}
 
 const Videos: FC<VideosProps> = () => {
   const [videos, setVideo] = useState<Video[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [tags_list, setTagList] = useState<Tag_video[]>([]);
+  const [user_list, setUserList] = useState<User[]>([]);
   const userString = localStorage.getItem('backendUser');
-  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  // const [users, setUsers] = useState<string[]>([]);
 
-  const [isloading, setisLoading] = useState(false);
-
+  // Simuler un appel API pour récupérer des vidéos
   const getMe = async () => {
-    setisLoading(true);
+    setIsLoading(true);
     try {
-      const videos_response = await getVideos();
-      setVideo(videos_response.data || []);
+      const videosResponse = await getVideos();
+      setVideo(videosResponse.data || []);
+      const tagResponse = await getTags();
+      setTagList(tagResponse.data);
+      const userResponse = await getUsers();
+      setUserList(userResponse.data);
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      logger.error('Error fetching videos:', error);
     }
-    setisLoading(false);
+    setIsLoading(false);
   };
 
   useEffect(() => {
     getMe();
   }, [userString]);
 
-  const handleSearch = (term: string) => {
-    console.log('Search term:', term);
-    setSearchTerm(term);
+  const filteredVideos = videos.filter((video) => {
+    const videoTagsList = video.tags?.map((tag) => tag.name);
+    //let videoUsersList: string[] = [];
+    //console.log(video.internal_speakers);
+    /*if (video.internal_speakers != undefined) {
+      videoUsersList = video.internal_speakers.map((user) => {
+        return user.firstName + ' ' + user.lastName;
+      });
+    }*/
+    const temp_title = video.title.toLowerCase();
+    const matchesKeywords = keywords.every((keyword) =>
+      temp_title.includes(keyword.toLowerCase()),
+    );
+    const matchesTags = tags.every((tag) => videoTagsList.includes(tag));
+    // const matchesUsers = users.every((user) => videoUsersList.includes(user));
+    return matchesKeywords && matchesTags; // && matchesUsers;
+  });
+
+  const handleSearch = (
+    keywords: string[],
+    tags: string[],
+    // users: string[],
+  ) => {
+    setKeywords(keywords);
+    setTags(tags);
+    // setUsers(users);
   };
 
-  // Filtrage des vidéos basé sur le terme de recherche
-  const filteredVideos = videos.filter((video) =>
-    video.title.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
-  console.log('Filtered Videos:', filteredVideos);
-
-  if (isloading) {
-    return LoadingCircle();
+  if (isLoading) {
+    return <LoadingCircle />;
   }
 
   return (
     <div className="videos">
-      <div className="button-event-creation">
-        <Button
-          Title="Uploader une vidéo"
-          State={ButtonState.colored}
-          onClickFunction={() => navigate('/video/video-settings')}
-        />
-      </div>
-      <div className="content">
-        <SearchBar onSearch={handleSearch} />
-        {filteredVideos.length > 0 ? (
-          <VideosList title="Vidéos Publiées" videos={filteredVideos} />
-        ) : (
-          <h1>No Video Found</h1>
-        )}
+      <div className="display">
+        <div className="display1">
+          <SideSearchBar
+            onSearch={handleSearch}
+            tags={tags_list}
+            users={user_list}
+          />
+        </div>
+        <Card>
+          <h1>Last Published</h1>
+          <div className="video_row">
+            {filteredVideos.length > 0 ? (
+              filteredVideos.map((video) => (
+                <PreviewMiniture
+                  key={video.id}
+                  Id={video.id}
+                  title={video.title}
+                  imageSrc={video.miniature_id}
+                  createBy={video.creator.firstName}
+                  views={video.views}
+                  createdAt={video.createdAt.toString()}
+                  tags={video.tags && video.tags?.map((tag) => tag.name)}
+                />
+              ))
+            ) : (
+              <h1>No Video Found</h1>
+            )}
+          </div>
+          <h1 className="titleVideoList">Other</h1>
+          <div className="video_row">
+            {filteredVideos.length > 0 ? (
+              filteredVideos.map((video) => (
+                <PreviewMiniture
+                  key={video.id}
+                  Id={video.id}
+                  title={video.title}
+                  imageSrc={video.miniature_id}
+                  createBy={video.creator.firstName}
+                  views={video.views}
+                  createdAt={video.createdAt.toString()}
+                  tags={video.tags && video.tags?.map((tag) => tag.name)}
+                />
+              ))
+            ) : (
+              <h1>No Video Found</h1>
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import {
 } from '../../utils/api';
 import { createEvent } from '../../utils/api';
 import Event from '../../utils/EventsProperties';
+import logger from '../../utils/logger';
 
 export interface eventsProps {}
 
@@ -26,7 +27,7 @@ const fetchEventsClosed = async () => {
     const res = await getClosedEvents();
     return await res.data;
   } catch (error) {
-    console.error(`Failed to fetch published events: ${error}`);
+    logger.error(`Failed to fetch published events: ${error}`);
   }
 };
 
@@ -72,7 +73,7 @@ const EventsPage: FC<eventsProps> = () => {
         setEventsUnpublished(unpublishedData.data);
         setEventsClosed(closedData);
       } catch (error) {
-        console.error(`Failed to fetch events: ${error}`);
+        logger.error(`Failed to fetch events: ${error}`);
       }
     };
 
@@ -119,7 +120,7 @@ const EventsPage: FC<eventsProps> = () => {
       );
       eventsUnpublished.splice(eventWithIdIndex, 1);
     } catch (error) {
-      console.error(`Failed to update event: ${error}`);
+      logger.error(`Failed to update event: ${error}`);
     }
   };
 
@@ -164,7 +165,7 @@ const EventsPage: FC<eventsProps> = () => {
           eventsUnpublished.push(res.data);
         }
       } catch (error) {
-        console.log(error);
+        logger.error(error);
         setMessage(
           "L'évènement n'a pas pu être créer, une erreur est survenue",
         );

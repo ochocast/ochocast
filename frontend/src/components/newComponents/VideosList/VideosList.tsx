@@ -14,10 +14,7 @@ interface VideosListProps {
   videos?: Video[];
 }
 
-const VideosList: FC<VideosListProps> = ({
-  title,
-  videos = [],
-}) => {
+const VideosList: FC<VideosListProps> = ({ title, videos = [] }) => {
   const [index, setIndex] = useState(0); // index of navigation
   // Navigate between videos when clicking arrows
 
@@ -48,21 +45,24 @@ const VideosList: FC<VideosListProps> = ({
           ></img>
         </div>
         <div className="video-container">
-          {videos && videos?.slice(index, index + 3).map((video, index) => (
-            <VideoBox
-              key={index}
-              Id={video.id}
-              title={video.title}
-              description={video.description}
-              creator={video.creator}
-              createdAt={video.createdAt}
-              updatedAt={video.updatedAt}
-              internal_speakers={video.internal_speakers}
-              external_speakers={video.external_speakers}
-              views={video.views}
-              imageURL="logo_2lignes_crop.png"
-            />
-          ))}
+          {videos &&
+            videos
+              ?.slice(index, index + 3)
+              .map((video, index) => (
+                <VideoBox
+                  key={index}
+                  Id={video.id}
+                  title={video.title}
+                  description={video.description}
+                  creator={video.creator}
+                  createdAt={video.createdAt}
+                  updatedAt={video.updatedAt}
+                  internal_speakers={video.internal_speakers.toString()}
+                  external_speakers={video.external_speakers}
+                  views={video.views}
+                  imageURL="logo_2lignes_crop.png"
+                />
+              ))}
         </div>
         <div className="right-arrow">
           <img

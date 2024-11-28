@@ -20,6 +20,7 @@ import rouageImage from '../../assets/rouage.svg';
 import { Track, User } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import logger from '../../utils/logger';
 
 interface TrackSettingsProps {}
 
@@ -42,7 +43,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           setAllUsers(res.data);
         }
       } catch (error) {
-        console.error(`Failed to fetch users: ${error}`);
+        logger.error(`Failed to fetch users: ${error}`);
       }
     };
     fetchUsers();
@@ -86,7 +87,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           setTracks(res.data[0].tracks);
         }
       } catch (error) {
-        console.error(`Failed to fetch tracks: ${error}`);
+        logger.error(`Failed to fetch tracks: ${error}`);
       }
     };
     fetchTracks();
@@ -104,7 +105,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           //setSpeakers(trck.speakers);
           //setModerators(trck.moderators);
         } catch (error) {
-          console.error(
+          logger.error(
             `Failed to fetch track from track id ${trackId}: ${error}`,
           );
         }
@@ -129,7 +130,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           navigate(url);
         }
       } catch (error) {
-        console.log(error);
+        logger.error(error);
         setMessage(
           "La piste n'a pas pu être supprimée, une erreur est survenue",
         );
@@ -174,7 +175,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           const trackIndex = tracks.findIndex((track) => track.id === trackId);
           tracks[trackIndex] = res.data;
         } catch (error) {
-          console.log(error);
+          logger.error(error);
           setMessage(
             "La piste n'a pas pu être sauvegardé, une erreur est survenue",
           );
@@ -190,7 +191,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             navigate(url);
           }
         } catch (error) {
-          console.log(error);
+          logger.error(error);
           setMessage("La piste n'a pas pu être créer, une erreur est survenue");
         }
       }

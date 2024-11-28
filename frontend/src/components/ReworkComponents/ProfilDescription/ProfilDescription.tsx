@@ -82,7 +82,7 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profilContainer}>
-          <img className={styles.image} alt="" src={imageSrc} />
+          <img className={styles.imageLarge} alt="" src={imageSrc} />
           <div className={styles.description}>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.name}</h2>

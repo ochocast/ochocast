@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
+import logger from '../../utils/logger';
 
 function LoadingPage() {
   const auth = useAuth();
@@ -9,10 +10,10 @@ function LoadingPage() {
   React.useEffect(() => {
     if (!auth.isLoading) {
       if (auth.isAuthenticated) {
-        console.log('Authenticated');
+        logger.info('Authenticated');
         navigate('/home');
       } else {
-        console.log('Not authenticated');
+        logger.info('Not authenticated');
         navigate('/');
       }
     }

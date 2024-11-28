@@ -13,6 +13,7 @@ import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import logger from '../../utils/logger';
 
 interface EventSettingsProps {}
 
@@ -102,7 +103,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           setEndHour(res.data[0].endDate.match(/\d{2}:\d{2}/)?.[0] || '');
         }
       } catch (error) {
-        console.error(`Failed to fetch event: ${error}`);
+        logger.error(`Failed to fetch event: ${error}`);
       }
     };
     fetchEvent();
@@ -137,7 +138,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           setButtonDisabled(true);
         }
       } catch (error) {
-        console.log(error);
+        logger.error(error);
         setMessage(
           "L'évènement n'a pas pu être modifié, une erreur est survenue",
         );

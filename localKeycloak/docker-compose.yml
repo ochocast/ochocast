@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 
 services:
   auth:
@@ -8,8 +8,8 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KEYCLOAK_IMPORT: /opt/keycloak/data/import/
     restart: unless-stopped
     volumes:
-      - ./config:/opt/keycloak/data/import/
-    command:
-      - start-dev
+      - ./config/:/opt/keycloak/data/import/
+    command: start-dev --import-realm
