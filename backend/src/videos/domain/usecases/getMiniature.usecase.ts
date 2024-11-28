@@ -2,7 +2,7 @@ import { Inject } from '@nestjs/common';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import logger from '../../../../../frontend/src/utils/logger';
+import logger from '../../../utils/logger';
 
 export class GetMiniatureUsecase {
   constructor(

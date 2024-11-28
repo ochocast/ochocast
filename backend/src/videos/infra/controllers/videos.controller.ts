@@ -23,7 +23,7 @@ import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
-import logger from '../../../../../frontend/src/utils/logger';
+import logger from '../../../utils/logger';
 
 @ApiTags('Videos')
 @Controller('videos')
