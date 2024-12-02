@@ -17,9 +17,9 @@ export class CreateVideoDto {
   tags: TagEntity[];
 
   @IsNotEmpty()
-  creator: string;
+  creator: UserEntity;
 
-  internal_speakers: string;
+  internal_speakers: UserEntity[];
 
   external_speakers: string;
 

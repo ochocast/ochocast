@@ -2,7 +2,7 @@ import { Inject } from '@nestjs/common';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import logger from '../../../utils/logger';
+// import logger from '@utils/logger';
 
 export class GetMiniatureUsecase {
   constructor(
@@ -23,7 +23,7 @@ export class GetMiniatureUsecase {
     // Generate a signed URL valid for 1 hour
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
     console.log(url);
-    logger.info(`Miniature url: ${url}`);
+    console.log(`Miniature url: ${url}`);
 
     return url;
   }

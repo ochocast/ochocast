@@ -16,9 +16,11 @@ import {
 import { CreateVideoDto } from './dto/create-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
+import { GetVideosAdminUsecase } from '../../domain/usecases/getVideosAdmin.usecase';
 import { isUUID } from 'class-validator';
 import { VideoObject } from '../../domain/video';
 import { DeleteVideoUsecase } from '../../domain/usecases/deleteVideo.usecase';
+import { DeleteVideoAdminUsecase } from '../../domain/usecases/deleteVideoAdmin.usecase';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
@@ -32,8 +34,10 @@ export class VideosController {
     private createNewVideoUsecase: CreateNewVideoUsecase,
     private getVideosUsecase: GetVideosUsecase,
     private deleteVideoUsecase: DeleteVideoUsecase,
+    private deleteVideoAdminUsecase: DeleteVideoAdminUsecase,
     private getMediaUseCase: GetMediaUsecase,
     private getMiniatureUseCase: GetMiniatureUsecase,
+    private getVideosAdminUsecase: GetVideosAdminUsecase,
   ) {}
 
   /*@Post()
@@ -64,14 +68,24 @@ export class VideosController {
   }
 
   // Standard GET route with query parameters
-  @Get()
+  @Get('/all')
   @ApiOperation({
     description:
       'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
   })
   findVideos(@Query() filter: any): Promise<VideoObject[]> {
-    logger.info('passed by');
+    console.log('passed by');
     return this.getVideosUsecase.execute(filter);
+  }
+
+  @Get()
+  @ApiOperation({
+    description:
+      'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
+  })
+  findValidVideos(@Query() filter: any): Promise<VideoObject[]> {
+    console.log('passed by');
+    return this.getVideosAdminUsecase.execute(filter);
   }
 
   @Delete(':id')
@@ -81,6 +95,15 @@ export class VideosController {
     }
 
     return await this.deleteVideoUsecase.execute(id);
+  }
+
+  @Delete('/admin/:id')
+  async deleteVideoAdmin(@Param('id') id: string): Promise<VideoObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.deleteVideoAdminUsecase.execute(id);
   }
 
   @Get('/media/:id')

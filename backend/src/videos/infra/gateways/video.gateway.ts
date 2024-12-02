@@ -27,11 +27,29 @@ export class VideoGateway implements IVideoGateway {
     });
   }
 
+  getVideosAdmin(filter: any): Promise<VideoObject[]> {
+    return this.videosRepository.find({
+      where: {
+        ...filter,
+      },
+      relations: ['creator'],
+    });
+  }
+
   async deleteVideo(videoId: string): Promise<VideoObject> {
     const video = await this.videosRepository.findOneBy({ id: videoId });
 
     video.archived = true;
     return await this.videosRepository.save(video);
 
+  }
+
+  async deleteVideoAdmin(videoId: string): Promise<VideoObject> {
+    const video = await this.videosRepository.findOneBy({ id: videoId });
+
+    console.log("video to delete found !")
+    console.log(video);
+
+    return await this.videosRepository.remove(video);
   }
 }

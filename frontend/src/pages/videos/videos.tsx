@@ -41,7 +41,7 @@ const Videos: FC<VideosProps> = () => {
     getMe();
   }, [userString]);
 
-  const filteredVideos = videos.filter((video) => {
+  const filteredVideos = Array.isArray(videos) ? videos.filter((video) => {
     const videoTagsList = video.tags?.map((tag) => tag.name);
     let videoUsersList: string[] = [];
     console.log(video.internal_speakers);
@@ -57,7 +57,7 @@ const Videos: FC<VideosProps> = () => {
     const matchesTags = tags.every((tag) => videoTagsList.includes(tag));
     const matchesUsers = users.every((user) => videoUsersList.includes(user));
     return matchesKeywords && matchesTags && matchesUsers;
-  });
+  }) : [];
 
   const handleSearch = (
     keywords: string[],
