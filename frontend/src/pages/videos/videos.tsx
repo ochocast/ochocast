@@ -19,7 +19,7 @@ const Videos: FC<VideosProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  // const [users, setUsers] = useState<string[]>([]);
+  const [users, setUsers] = useState<string[]>([]);
 
   // Simuler un appel API pour récupérer des vidéos
   const getMe = async () => {
@@ -43,30 +43,30 @@ const Videos: FC<VideosProps> = () => {
 
   const filteredVideos = videos.filter((video) => {
     const videoTagsList = video.tags?.map((tag) => tag.name);
-    //let videoUsersList: string[] = [];
-    //console.log(video.internal_speakers);
-    /*if (video.internal_speakers != undefined) {
+    let videoUsersList: string[] = [];
+    console.log(video.internal_speakers);
+    if (video.internal_speakers != undefined) {
       videoUsersList = video.internal_speakers.map((user) => {
         return user.firstName + ' ' + user.lastName;
       });
-    }*/
+    }
     const temp_title = video.title.toLowerCase();
     const matchesKeywords = keywords.every((keyword) =>
       temp_title.includes(keyword.toLowerCase()),
     );
     const matchesTags = tags.every((tag) => videoTagsList.includes(tag));
-    // const matchesUsers = users.every((user) => videoUsersList.includes(user));
-    return matchesKeywords && matchesTags; // && matchesUsers;
+    const matchesUsers = users.every((user) => videoUsersList.includes(user));
+    return matchesKeywords && matchesTags && matchesUsers;
   });
 
   const handleSearch = (
     keywords: string[],
     tags: string[],
-    // users: string[],
+    users: string[],
   ) => {
     setKeywords(keywords);
     setTags(tags);
-    // setUsers(users);
+    setUsers(users);
   };
 
   if (isLoading) {
