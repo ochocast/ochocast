@@ -68,7 +68,7 @@ export class VideosController {
   }
 
   // Standard GET route with query parameters
-  @Get('/all')
+  @Get()
   @ApiOperation({
     description:
       'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
@@ -78,7 +78,7 @@ export class VideosController {
     return this.getVideosUsecase.execute(filter);
   }
 
-  @Get()
+  @Get('/all')
   @ApiOperation({
     description:
       'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',

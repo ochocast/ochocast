@@ -9,6 +9,6 @@ export class GetVideosAdminUsecase {
   ) {}
 
   async execute(filter: any): Promise<VideoObject[]> {
-    return await this.videoGateway.getVideos(filter);
+    return await this.videoGateway.getVideosAdmin(filter);
   }
 }
