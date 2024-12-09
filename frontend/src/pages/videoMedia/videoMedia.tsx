@@ -56,6 +56,7 @@ const VideoMedia: FC<VideoMediaProps> = () => {
       const url_response = await getMedia(videoId);
       if (url_response != undefined) setUrl(url_response.data);
       if (video_response != undefined) setVideo(video_response.data[0]);
+      console.log(video?.tags);
       setIsLoading(false);
     };
     getMe();
@@ -72,9 +73,7 @@ const VideoMedia: FC<VideoMediaProps> = () => {
       <div className={styles.containerGlobal}>
         <h2 className={styles.video_title}>{video?.title}</h2>
         <h4 className={styles.tagList}>
-          Tag :
-          <Tag content="Devops" />
-          <Tag content="Docker" />
+          {video.tags?.map((tag, index) => ( <Tag content= {tag.name} key={index}/>))}
         </h4>
 
         <div className={styles.containerPlayer}>
@@ -97,9 +96,9 @@ const VideoMedia: FC<VideoMediaProps> = () => {
             </div>
             <div className={styles.profilDescription}>
               <ProfilDescription
-                name="Aloice Raver"
-                email="aloice.raver@octo.com"
-                description="LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium"
+                name={video.creator.firstName + " " + video.creator.lastName}
+                email={video.creator.email}
+                description={video.creator.description}
                 image="/persona.png"
                 state={ProfilDescriptionState.standard}
               />

@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
 export class TagObject {
   @ApiProperty({
@@ -18,7 +19,7 @@ export class TagObject {
     example: '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, a511bcbe27a2-ad1b1aa3-bfe9-d2b3-4041]',
     description: 'The identifiers of the videos.',
   })
-  videos: string[];
+  videos: VideoEntity[];
 
   @ApiProperty({
     example: '2021-10-31T00:00:00.000Z',
@@ -35,7 +36,7 @@ export class TagObject {
   constructor(
     id: string,
     name: string,
-    videos: string[],
+    videos: VideoEntity[],
     createdAt: Date,
     updatedAt: Date,
   ) {

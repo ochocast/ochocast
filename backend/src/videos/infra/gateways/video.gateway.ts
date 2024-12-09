@@ -3,6 +3,7 @@ import { VideoObject } from '../../domain/video';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { VideoEntity } from './entities/video.entity';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Inject } from '@nestjs/common';
 
@@ -13,8 +14,19 @@ export class VideoGateway implements IVideoGateway {
   ) {}
 
   async createNewVideo(videoDetails: VideoObject): Promise<VideoObject> {
+    console.log(videoDetails);
+
+    // Parse les tags s'ils sont au format JSON
+    let tags: TagEntity[] = [];
+    if (typeof videoDetails.tags === 'string') {
+      tags = JSON.parse(videoDetails.tags).map((tag: any) => new TagEntity(tag));
+    } else if (Array.isArray(videoDetails.tags)) {
+      tags = videoDetails.tags.map((tag: any) => new TagEntity(tag));
+    }
+  
     const video: VideoEntity = new VideoEntity({
       ...videoDetails,
+      tags
     });
 
     return await this.videosRepository.save(video);
@@ -26,7 +38,7 @@ export class VideoGateway implements IVideoGateway {
         ...filter,
         archived: false
       },
-      relations: ['creator'],
+      relations: ['creator', 'tags'],
     });
   }
 

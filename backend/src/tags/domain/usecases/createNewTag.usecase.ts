@@ -14,7 +14,7 @@ export class CreateNewTagUsecase {
     const tag = new TagObject(
       uuid(),
       tagToCreate.name,
-      tagToCreate.videos,
+      [],
       new Date(),
       new Date(),
     );

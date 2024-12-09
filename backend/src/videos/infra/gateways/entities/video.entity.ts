@@ -30,8 +30,8 @@ export class VideoEntity {
   @Column()
   description: string;
 
-  @ManyToMany(() => TagEntity)
-  @JoinTable()
+  @ManyToMany(() => TagEntity, (tag) => tag.videos, { cascade: true }) // cascade: true pour créer de nouveaux tags si nécessaire
+  @JoinTable() // Indique que cette entité gère la table de jointure
   tags: TagEntity[];
 
   @ManyToOne(() => UserEntity, (user) => user.videos)
