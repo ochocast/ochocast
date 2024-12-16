@@ -11,6 +11,7 @@ import { S3Module } from 'src/s3.module';
 import { GetMiniatureUsecase } from './domain/usecases/getMiniature.usecase';
 import { DeleteVideoAdminUsecase } from './domain/usecases/deleteVideoAdmin.usecase';
 import { GetVideosAdminUsecase } from './domain/usecases/getVideosAdmin.usecase';
+import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([VideoEntity]), S3Module],
@@ -27,6 +28,7 @@ import { GetVideosAdminUsecase } from './domain/usecases/getVideosAdmin.usecase'
     GetMediaUsecase,
     GetMiniatureUsecase,
     GetVideosAdminUsecase,
+    // GetUsersUsecase,
   ],
 })
 export class VideosModule {}

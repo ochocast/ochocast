@@ -33,6 +33,7 @@ export class VideoGateway implements IVideoGateway {
   }
 
   getVideos(filter: any): Promise<VideoObject[]> {
+    console.log(filter);
     return this.videosRepository.find({
       where: {
         ...filter,
@@ -76,7 +77,6 @@ export class VideoGateway implements IVideoGateway {
       Key: video.miniature_id
     });
     this.s3Client.send(miniatureCommand);
-    // TODO: si la suppression en BDD s'est bien passé, supprimer dans le bucket
 
     return await this.videosRepository.remove(video);
   }

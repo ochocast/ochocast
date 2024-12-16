@@ -21,6 +21,7 @@ import { isUUID } from 'class-validator';
 import { VideoObject } from '../../domain/video';
 import { DeleteVideoUsecase } from '../../domain/usecases/deleteVideo.usecase';
 import { DeleteVideoAdminUsecase } from '../../domain/usecases/deleteVideoAdmin.usecase';
+//import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
@@ -38,6 +39,7 @@ export class VideosController {
     private getMediaUseCase: GetMediaUsecase,
     private getMiniatureUseCase: GetMiniatureUsecase,
     private getVideosAdminUsecase: GetVideosAdminUsecase,
+    //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
   /*@Post()
@@ -114,5 +116,16 @@ export class VideosController {
   @Get('/miniature/:id')
   async getMiniature(@Param('id') id: string): Promise<string> {
     return await this.getMiniatureUseCase.execute(id);
+  }
+
+  @Get(':userId')
+  async getVideosByUser (@Param('userId') id: string): Promise<VideoObject[]> {
+    //const user = await this.getUsersUsecase.execute({id: id});
+
+    console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+    console.log(id);
+    const videos = await this.getVideosUsecase.execute({creator: {id}});
+    console.log(videos);
+    return videos;
   }
 }
