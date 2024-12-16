@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import './profile.css';
 import { FC } from 'react';
-import { getTags, getVideosByUser } from '../../utils/api';
-import { Tag_video, Video } from '../../utils/VideoProperties';
+import { getTags, getUsers, getVideosByUser } from '../../utils/api';
+import { Tag_video, User, Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
 import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
 import Card from '../../components/ReworkComponents/Cards/Card';
@@ -18,23 +18,21 @@ interface ProfileProps {}
 const Profile: FC<ProfileProps> = () => {
   const [videos, setVideo] = useState<Video[]>([]);
   const [tags_list, setTagList] = useState<Tag_video[]>([]);
-  const UserString = localStorage.getItem('backendUser');
+  const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
-  const [users, setUsers] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Simuler un appel API pour récupérer des vidéos
   const getMe = useCallback(async () => {
     setIsLoading(true);
     try {
-      const videosResponse = await getVideosByUser(JSON.parse(UserString!).id);
+      const videosResponse = await getVideosByUser(JSON.parse(userString!).id);
       setVideo(videosResponse.data || []);
       const tagResponse = await getTags();
       setTagList(tagResponse.data);
       const userResponse = await getUsers();
-      setUserList(userResponse.data);
 
       if (userString) {
         const backendUser = JSON.parse(userString);
@@ -46,7 +44,7 @@ const Profile: FC<ProfileProps> = () => {
       console.error('Error fetching videos:', error);
     }
     setIsLoading(false);
-  }, [UserString]);
+  }, [userString]);
 
   useEffect(() => {
     getMe();
@@ -71,14 +69,11 @@ const Profile: FC<ProfileProps> = () => {
     getMe();
   };
 
-  const handleSearch = (
-    keywords: string[],
-    tags: string[],
-  ) => {
+  const handleSearch = (keywords: string[], tags: string[]) => {
     setKeywords(keywords);
     setTags(tags);
   };
-  if(UserString === null){
+  if (userString === null) {
     return <NotFoundPage />;
   }
   if (isLoading) {
@@ -88,11 +83,7 @@ const Profile: FC<ProfileProps> = () => {
     <div className="videos">
       <div className="display">
         <div className="display1">
-          <SideSearchBar
-            onSearch={handleSearch}
-            tags={tags_list}
-            users={[]}
-          />
+          <SideSearchBar onSearch={handleSearch} tags={tags_list} users={[]} />
         </div>
         <div className="RightFlexUpDown">
           <ProfilDescription
