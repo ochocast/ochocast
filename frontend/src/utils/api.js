@@ -14,6 +14,7 @@ export const api = create({
 // Users
 export const loginUser = () => api.get('/users/login');
 export const getUsers = () => api.get('/users');
+export const getProfilePicture = (userId) => api.get(`/picture/${userId}`);
 
 // Events
 export const createEvent = (event) => api.post('/events', event);

@@ -21,6 +21,7 @@ export interface User {
   role: string;
   createdAt: Date;
   description: string;
+  picture_id: string;
 }
 
 export interface Tag_video {

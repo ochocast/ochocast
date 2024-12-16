@@ -16,4 +16,6 @@ export class CreateUserDto {
 
   @IsNotEmpty()
   description: string;
+
+  picture_id: string;
 }

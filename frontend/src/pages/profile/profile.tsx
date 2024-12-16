@@ -22,6 +22,7 @@ const Profile: FC<ProfileProps> = () => {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [users, setUsers] = useState<string[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Simuler un appel API pour récupérer des vidéos
   const getMe = async () => {
@@ -33,6 +34,13 @@ const Profile: FC<ProfileProps> = () => {
       setTagList(tagResponse.data);
       const userResponse = await getUsers();
       setUserList(userResponse.data);
+
+      if (userString) {
+        const backendUser = JSON.parse(userString);
+        const userId = backendUser.id;
+        const user = userResponse.data.find((u: User) => u.id === userId);
+        setCurrentUser(user || null);
+      }
     } catch (error) {
       console.error('Error fetching videos:', error);
     }
@@ -85,10 +93,16 @@ const Profile: FC<ProfileProps> = () => {
         </div>
         <div className="RightFlexUpDown">
           <ProfilDescription
-            name="test"
-            email="asd"
-            description="adsf"
-            image="/persona.png"
+            name={currentUser ? currentUser.firstName : 'Unknown'}
+            email={currentUser ? currentUser.email : 'No email'}
+            description={
+              currentUser ? currentUser.description : 'No description'
+            }
+            image={
+              currentUser
+                ? currentUser.picture_id || '/persona.png'
+                : '/persona.png'
+            }
             state={ProfilDescriptionState.large}
           />
           <Card>

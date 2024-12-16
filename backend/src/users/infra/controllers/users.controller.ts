@@ -2,8 +2,11 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -14,6 +17,8 @@ import { GetUsersUsecase } from '../../domain/usecases/getUsers.usecase';
 import { UserObject } from '../../domain/user';
 import { AuthenticatedUser } from 'nest-keycloak-connect';
 import { ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { GetProfilePictureUsecase } from 'src/users/domain/usecases/getProfilePicture.usecase';
 
 @ApiTags('Users')
 @Controller('users')
@@ -22,13 +27,24 @@ export class UsersController {
     private createNewUserUsecase: CreateNewUserUsecase,
     private getUserUsecase: GetUsersUsecase,
     private loginUserUsecase: LoginUserUseCase,
+    private getProfilePictureUsecase: GetProfilePictureUsecase,
   ) {}
 
   @Post()
+  @UseInterceptors(FileInterceptor('file'))
+  @UsePipes(new ValidationPipe())
+  async postUser(
+    @UploadedFile() file: Express.Multer.File,
+    @Body() user: CreateUserDto,
+  ): Promise<UserObject> {
+    return await this.createNewUserUsecase.execute(user, file);
+  }
+
+  /*@Post()
   @UsePipes(new ValidationPipe())
   async postUser(@Body() user: CreateUserDto): Promise<UserObject> {
     return this.createNewUserUsecase.execute(user);
-  }
+  }*/
 
   @Get()
   find(@Query() filter: any): Promise<UserObject[]> {
@@ -38,5 +54,10 @@ export class UsersController {
   @Get('login')
   login(@AuthenticatedUser() keycloak_user: any): Promise<UserObject> {
     return this.loginUserUsecase.execute(keycloak_user);
+  }
+
+  @Get('/picture/:id')
+  async getProfilePicture(@Param('id') id: string): Promise<string> {
+    return await this.getProfilePictureUsecase.execute(id);
   }
 }
