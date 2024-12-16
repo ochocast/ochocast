@@ -16,6 +16,7 @@ import { deleteVideo } from '../../utils/api';
 interface ProfileProps {}
 
 const Profile: FC<ProfileProps> = () => {
+
   const [videos, setVideo] = useState<Video[]>([]);
   const [tags_list, setTagList] = useState<Tag_video[]>([]);
   const userString = localStorage.getItem('backendUser');
