@@ -53,7 +53,7 @@ First ensure that you correctly [deployed the localkeycloack](../localKeycloak/R
 cd ./backend
 cp .env.example .env
 ```
-Copy paste the secret of the "nest-back" client keycloak inside the `AUTH_SECRET` environement variable.
+Copy paste the secret of the "nest-back" client keycloak inside the `AUTH_SECRET` environement variable. (if the secret is ******** or anything similar, regenerate it before copy pasting it)
 ```
 npm install
 npm run start:dev
