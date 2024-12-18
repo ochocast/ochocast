@@ -20,66 +20,73 @@ const PreviewMinia: FC<PreviewMiniaProps> = ({
   tsize = '1em',
 }) => {
   return (
-    <Card style={{ flexDirection: 'column' }}>
+    <Card style={{ flexDirection: 'column', height: 'fit-content' }}>
       <h1
         style={{
           ...style,
           color: tcolor,
           fontSize: tsize,
-          textAlign: 'center'
-        }} > 
-      Preview de la miniature de la vidéo
+          textAlign: 'center',
+        }}
+      >
+        Preview de la miniature de la vidéo
       </h1>
-      <img className="Miniature"
-        src={Miniature}
-        alt="Miniature"/>
-      <div className='Titre'
-        style={{
-          ...style,
-          color: tcolor,
-        }} > 
-      Title
-      </div>
-      <div className='Creator'
+      <img className="Miniature" src={Miniature} alt="Miniature" />
+      <div
+        className="Titre"
         style={{
           ...style,
           color: tcolor,
         }}
-      > Créer par: Nom Prenom
-      </div>
-      <div className='VueDate'
-        style={{
-          ...style,
-          color: tcolor,
-        }}
-      > nb vue - posté le jj/mm/yyyy
+      >
+        Title
       </div>
       <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: '10px',
-                }}
-              >
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-                <Tag
-                  className="primary"
-                  style={{ flex: '25%' }}
-                  tsize="10px"
-                  marginTop="0px"
-                >
-                  Test Primary
-                </Tag>
-        </div>
+        className="Creator"
+        style={{
+          ...style,
+          color: tcolor,
+        }}
+      >
+        {' '}
+        Créer par: Nom Prenom
+      </div>
+      <div
+        className="VueDate"
+        style={{
+          ...style,
+          color: tcolor,
+        }}
+      >
+        {' '}
+        nb vue - posté le jj/mm/yyyy
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: '10px',
+        }}
+      >
+        <Tag
+          className="primary"
+          style={{ flex: '25%' }}
+          tsize="10px"
+          marginTop="0px"
+        >
+          Test Primary
+        </Tag>
+        <Tag
+          className="primary"
+          style={{ flex: '25%' }}
+          tsize="10px"
+          marginTop="0px"
+        >
+          Test Primary
+        </Tag>
+      </div>
     </Card>
   );
 };

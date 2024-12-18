@@ -15,18 +15,42 @@ const HomePage: FC<HomeProps> = () => {
     <div className="HomeCard">
       <HomeCards
         Title="Streaming"
-        Description="tre"
-        ButtonTitle="Comming soon ..."
+        Description="This will redirect you to the list of available live events."
         ButtonState={ButtonState.disabled}
+        buttonList={[
+          {
+            title: 'Comming soon ...',
+            onClickFunction: () => {},
+          },
+        ]}
       />
-      <HomeCards
-        Title="Vidéo"
-        Description="dfsf"
-        ButtonTitle="Go to the page"
-        onClickFunction={() => {
+      <div
+        className="cardContainer"
+        onClick={() => {
           navigate('/videos');
         }}
-      />
+      >
+        <HomeCards
+          Title="Video"
+          Description="This will redirect you to the list of available videos."
+          buttonList={[
+            {
+              title: 'Search a video',
+              onClickFunction: (e) => {
+                e.stopPropagation();
+                navigate('/videos');
+              },
+            },
+            {
+              title: 'Publish a video',
+              onClickFunction: (e) => {
+                e.stopPropagation();
+                navigate('/video/video-settings');
+              },
+            },
+          ]}
+        />
+      </div>
     </div>
   );
 };

@@ -11,3 +11,8 @@
     flex-direction: row;
   }
 }
+
+.cardContainer {
+  width: 100%;
+  height: auto;
+}
