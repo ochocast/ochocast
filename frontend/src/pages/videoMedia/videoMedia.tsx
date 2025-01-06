@@ -56,7 +56,6 @@ const VideoMedia: FC<VideoMediaProps> = () => {
       const url_response = await getMedia(videoId);
       if (url_response != undefined) setUrl(url_response.data);
       if (video_response != undefined) setVideo(video_response.data[0]);
-      console.log(video?.tags);
       setIsLoading(false);
     };
     getMe();
