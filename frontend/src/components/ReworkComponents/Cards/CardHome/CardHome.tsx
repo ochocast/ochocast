@@ -8,9 +8,13 @@ import Card from '../Card';
 type CardHomeProps = {
   Title: string;
   Description: string;
-  ButtonTitle: string;
   ButtonState?: ButtonState;
-  onClickFunction?: () => void;
+  buttonList?: {
+    title: string;
+    onClickFunction: (
+      e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    ) => void;
+  }[];
 };
 
 const CardHome = (props: CardHomeProps) => {
@@ -19,15 +23,23 @@ const CardHome = (props: CardHomeProps) => {
       <div className={styles.container}>
         <div className={styles.streamingParent}>
           <h1 className={styles.title}>{props.Title}</h1>
-          <HomeCardButton
-            Title={props.ButtonTitle}
-            State={props.ButtonState}
-            onClickFunction={props.onClickFunction}
-          />
         </div>
         <div className={styles.homeCardsChild}></div>
         <div className={styles.theContentLorem}>
           <p>{props.Description}</p>
+        </div>
+        <div className={styles.buttonList}>
+          {props.buttonList &&
+            props.buttonList.map((button, index) => (
+              <HomeCardButton
+                key={index}
+                Title={button.title}
+                onClickFunction={(e) => {
+                  e.stopPropagation();
+                  button.onClickFunction(e);
+                }}
+              />
+            ))}
         </div>
       </div>
     </Card>

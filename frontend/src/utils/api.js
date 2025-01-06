@@ -14,6 +14,7 @@ export const api = create({
 // Users
 export const loginUser = () => api.get('/users/login');
 export const getUsers = () => api.get('/users');
+export const getProfilePicture = (userId) => api.get(`/picture/${userId}`);
 
 // Events
 export const createEvent = (event) => api.post('/events', event);
@@ -39,7 +40,8 @@ export const deleteTrack = (trackId) => api.delete('/tracks/' + trackId);
 // Videos
 export const createVideo = (formData) => api.post('/videos/', formData);
 export const getVideo = (video_id) => api.get(`/videos?id=${video_id}`);
-export const deleteVideo = (video_id) => api.post(`/videos?id=${video_id}`);
+export const deleteVideo = (video_id) => api.delete(`/videos/` + video_id);
+export const deleteVideoAdmin = (video_id) => api.post(`/videos/admin/` + video_id);
 export const getVideos = () => api.get(`/videos`);
 export const getMedia = (video_id) => api.get(`/videos/media/${video_id}`);
 export const getMiniature = (video_id) =>
@@ -48,3 +50,4 @@ export const getVideoByTitle = (video_title) =>
   api.get(`/videos?title=${video_title}`);
 export const getTags = () => api.get('/tags');
 export const createTag = (data) => api.post('/tags', data);
+export const getVideosByUser = (userId) => api.get(`/videos/` + userId);

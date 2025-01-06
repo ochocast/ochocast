@@ -2,6 +2,8 @@ import React from 'react';
 import styles from './ProfilDescription.module.css';
 import Card from '../Cards/Card';
 import CSS from 'csstype';
+import { useAuth } from 'react-oidc-context';
+import HomeCardButton from '../Button/HomeCardButton/HomeCardButton';
 
 type ProfilDescriptionProps = {
   name: string;
@@ -23,7 +25,7 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
     padding: '1rem',
     maxWidth: 'min-content',
   };
-
+  const auth = useAuth();
   const imageSrc = props.image === undefined ? '/persona.png' : props.image;
   // const imageSrc = props.image
   //   ? props.image
@@ -89,6 +91,7 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
               <h5 className={styles.email}>Email: {props.email}</h5>
               <span className={styles.descriptionTitle}>Description :</span>
               <span>{props.description}</span>
+              <HomeCardButton  Title="Déconnexion" onClickFunction={() => auth.signoutRedirect()}/>
             </div>
           </div>
         </div>

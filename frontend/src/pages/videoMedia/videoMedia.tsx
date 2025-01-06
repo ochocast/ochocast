@@ -15,25 +15,25 @@ import ProfilDescription, {
 } from '../../components/ReworkComponents/ProfilDescription/ProfilDescription';
 import Card from '../../components/ReworkComponents/Cards/Card';
 import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
-import Commentary from '../../components/ReworkComponents/Commentary/Commentary';
+// import Commentary from '../../components/ReworkComponents/Commentary/Commentary';
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 interface VideoMediaProps {}
 
-const commentaryList = [
-  "Superbe video, j'ai adoré, merci pour le partage",
-  "J'ai adoré la créativité de la réalisation !",
-  'Le contenu est clair et intéressant !',
-  "Superbe video, j'ai adoré, merci pour le partage",
-  "J'ai adoré la créativité de la réalisation !",
-  'Le contenu est clair et intéressant !',
-  "Superbe video, j'ai adoré, merci pour le partage",
-  "J'ai adoré la créativité de la réalisation !",
-  'Le contenu est clair et intéressant !',
-  "Superbe video, j'ai adoré, merci pour le partage",
-  "J'ai adoré la créativité de la réalisation !",
-  'Le contenu est clair et intéressant !',
-];
+// const commentaryList = [
+//   "Superbe video, j'ai adoré, merci pour le partage",
+//   "J'ai adoré la créativité de la réalisation !",
+//   'Le contenu est clair et intéressant !',
+//   "Superbe video, j'ai adoré, merci pour le partage",
+//   "J'ai adoré la créativité de la réalisation !",
+//   'Le contenu est clair et intéressant !',
+//   "Superbe video, j'ai adoré, merci pour le partage",
+//   "J'ai adoré la créativité de la réalisation !",
+//   'Le contenu est clair et intéressant !',
+//   "Superbe video, j'ai adoré, merci pour le partage",
+//   "J'ai adoré la créativité de la réalisation !",
+//   'Le contenu est clair et intéressant !',
+// ];
 
 const VideoMedia: FC<VideoMediaProps> = () => {
   const { videoId } = useParams();
@@ -56,9 +56,12 @@ const VideoMedia: FC<VideoMediaProps> = () => {
       const url_response = await getMedia(videoId);
       if (url_response != undefined) setUrl(url_response.data);
       if (video_response != undefined) setVideo(video_response.data[0]);
+      console.log(video?.tags);
       setIsLoading(false);
     };
     getMe();
+
+    window.scrollTo(0, 0);
   }, [videoId]);
 
   setTimeout(renewSignedUrl, (linkExpirationTime - renewalThreshold) * 1000);
@@ -71,11 +74,11 @@ const VideoMedia: FC<VideoMediaProps> = () => {
     return (
       <div className={styles.containerGlobal}>
         <h2 className={styles.video_title}>{video?.title}</h2>
-        <h4 className={styles.tagList}>
+        {/* <h4 className={styles.tagList}>
           Tag :
           <Tag content="Devops" />
           <Tag content="Docker" />
-        </h4>
+        </h4> */}
 
         <div className={styles.containerPlayer}>
           <div className={styles.videoPlayer}>
@@ -92,14 +95,21 @@ const VideoMedia: FC<VideoMediaProps> = () => {
           </div>
           <div className={styles.containerPlayerRight}>
             <div>
-              <h3 className={styles.video_title}>Description :</h3>
+              <h3 className={styles.video_title}>
+                <h4 className={styles.tagList}>
+                  Tag :
+                  <Tag content="Devops" />
+                  <Tag content="Docker" />
+                </h4>
+                Description :
+              </h3>
               <p className={styles.video_description}>{video?.description}</p>
             </div>
             <div className={styles.profilDescription}>
               <ProfilDescription
-                name="Aloice Raver"
-                email="aloice.raver@octo.com"
-                description="LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium LoremIpsium"
+                name={video.creator.firstName + ' ' + video.creator.lastName}
+                email={video.creator.email}
+                description={video.creator.description}
                 image="/persona.png"
                 state={ProfilDescriptionState.standard}
               />
@@ -126,14 +136,46 @@ const VideoMedia: FC<VideoMediaProps> = () => {
                   createdAt="03/12/2021"
                   tags={['Versionning', 'OPS', 'FullStack']}
                 />
+                <PreviewMiniture
+                  Id="2"
+                  title="FullStack dev"
+                  views={42}
+                  createBy="Ulice Raver"
+                  createdAt="03/12/2021"
+                  tags={['Versionning', 'OPS', 'FullStack']}
+                />
+                <PreviewMiniture
+                  Id="2"
+                  title="FullStack dev"
+                  views={42}
+                  createBy="Ulice Raver"
+                  createdAt="03/12/2021"
+                  tags={['Versionning', 'OPS', 'FullStack']}
+                />
+                <PreviewMiniture
+                  Id="2"
+                  title="FullStack dev"
+                  views={42}
+                  createBy="Ulice Raver"
+                  createdAt="03/12/2021"
+                  tags={['Versionning', 'OPS', 'FullStack']}
+                />
+                <PreviewMiniture
+                  Id="2"
+                  title="FullStack dev"
+                  views={42}
+                  createBy="Ulice Raver"
+                  createdAt="03/12/2021"
+                  tags={['Versionning', 'OPS', 'FullStack']}
+                />
               </div>
             </Card>
           </div>
-          <div className={styles.commentaryList}>
+          {/* <div className={styles.commentaryList}>
             {commentaryList.map((content, index) => (
               <Commentary key={index} content={content} />
             ))}
-          </div>
+          </div> */}
         </div>
       </div>
     );

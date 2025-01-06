@@ -4,6 +4,8 @@ import Tag from '../Tag/Tag';
 import miniatureLogo from '../../../assets/logo_2lignes_crop.png';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../utils/api';
+import Button from '../../buttons/button/button';
+
 
 export interface PreviewMinitureProps {
   Id: string;
@@ -13,6 +15,7 @@ export interface PreviewMinitureProps {
   views: number;
   createdAt: string;
   tags: string[];
+  onArchived?: (id: string) => void;
 }
 
 const PreviewMiniture = (props: PreviewMinitureProps) => {
@@ -21,6 +24,8 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
     // process.env.DEFAULT_MINIATURE_IMAGE
   );
   const navigate = useNavigate();
+
+
 
   useEffect(() => {
     const fetchMiniatureUrl = async () => {
@@ -70,6 +75,7 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
           {props.tags &&
             props.tags.map((tag) => <Tag key={tag} content={tag} />)}
         </div>
+        {(props.onArchived !== undefined) ? <Button onClick={() => props.onArchived!(props.Id)}>Archiver</Button>: <div />}
       </div>
     </div>
   );

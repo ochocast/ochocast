@@ -6,12 +6,11 @@ import { useNavigate } from 'react-router-dom';
 import Card from '../../components/newComponents/Card/Card';
 
 import Button from '../../components/buttons/button/button';
-import Toggle from '../../components/newComponents/Toggle/Toggle';
+// import Toggle from '../../components/newComponents/Toggle/Toggle';
 import InputFile from '../../components/newComponents/inputFile/InputFile';
-import UserProfile from '../../components/newComponents/User profile/UserProfile';
 import Tag from '../../components/newComponents/Tag/Tag';
-import Lock_Open from '../../assets/Opened_PNG.png';
-import Lock_Close from '../../assets/Locked_PNG.png';
+// import Lock_Open from '../../assets/Opened_PNG.png';
+// import Lock_Close from '../../assets/Locked_PNG.png';
 import PreviewMinia from '../../components/newComponents/Preview miniature/PrewiewMinia';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -23,6 +22,8 @@ import {
 } from '../../utils/api';
 import { Tag_video, User } from '../../utils/VideoProperties';
 import CompletionBar from '../../components/newComponents/CompletionBar/CompletionBar';
+// import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+// import { useAuth } from 'react-oidc-context';
 
 interface VideoSettingsProps {}
 
@@ -30,15 +31,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const navigate = useNavigate();
   const userId = localStorage.getItem('backendUser');
 
+  // const auth = useAuth();
+
   const [title, setTitle] = useState('');
   const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
   };
 
-  const [privacy, setPrivacy] = useState(false);
-  const handlePrivacyChange = () => {
-    setPrivacy(!privacy);
-  };
+  // const [privacy, setPrivacy] = useState(false);
+  // const handlePrivacyChange = () => {
+  //   setPrivacy(!privacy);
+  // };
 
   const [description, setDescription] = useState('');
   const handleDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -179,7 +182,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   return (
     <div className="mainvideo">
       <div className="container">
-        <Card style={{ flexDirection: 'column' }}>
+        <div style={{ flexDirection: 'column' }}>
           <div
             style={{
               display: 'flex',
@@ -200,9 +203,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             >
               <input placeholder="Title" onChange={handleTitleChange} />
             </Card>
-            <img className="Closed Lock" src={Lock_Close} alt="Closed Lock" />
+            {/* <img className="Closed Lock" src={Lock_Close} alt="Closed Lock" />
             <Toggle onChange={handlePrivacyChange} />
-            <img className="Opened Lock" src={Lock_Open} alt="Opened Lock" />
+            <img className="Opened Lock" src={Lock_Open} alt="Opened Lock" /> */}
           </div>
           <div style={{ display: 'flex', flexDirection: 'row' }}>
             <Card>
@@ -292,21 +295,29 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               </div>
             </Card>
           </div>
-          <Card bcolor="#EDEDED">
+          <Card bcolor="#EDEDED" style={{ height: 'fit-content' }}>
             <textarea
               placeholder="Description"
-              style={{ resize: 'none' }}
+              style={{ resize: 'vertical' }}
               onChange={handleDescriptionChange}
             />
           </Card>
           <div className="buttonContainer">
-            <Button>Enregistrer en Brouillon</Button>
+            {/* <Button>Enregistrer en Brouillon</Button> */}
             <Button onClick={publishVideo}>Publier la vidéo</Button>
           </div>
-        </Card>
+        </div>
       </div>
       <div className="generalinfo">
-        <UserProfile></UserProfile>
+        {/* <PreviewMiniture
+          Id="1"
+          title={title}
+          imageSrc={miniature?.name}
+          createBy={auth.user?.profile.given_name || 'Not logged in'}
+          views={0}
+          createdAt={new Date().toString()}
+          tags={tags_tags}
+        /> */}
         <PreviewMinia></PreviewMinia>
       </div>
       {/* 

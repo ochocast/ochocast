@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import logger from '../../../utils/logger';
+// import logger from '../../../utils/logger';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -13,7 +13,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   };
 
   const handleSearch = () => {
-    logger.info('Searching for:', query);
+    console.log('Searching for:', query);
     onSearch(query);
   };
 

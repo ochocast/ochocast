@@ -13,7 +13,7 @@ export interface HeaderProps {}
 
 const Header: FC<HeaderProps> = () => {
   const auth = useAuth();
-  const username = auth.user?.profile.name || 'Not logged in';
+  const username = auth.user?.profile.given_name;
   const navigate = useNavigate();
 
   return (
@@ -28,10 +28,12 @@ const Header: FC<HeaderProps> = () => {
           onClick={() => navigate('/home')}
         />
       </div>
-      <div className="NavBadge">
-        <NavItems />
-        <UserBadge username={username} />
-      </div>
+      {username && (
+        <div className="NavBadge">
+          <NavItems />
+          <UserBadge username={username} />
+        </div>
+      )}
     </div>
   );
 };

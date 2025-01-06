@@ -4,7 +4,9 @@ import styles from './HomeCardButton.module.css';
 export interface HomeCardButtonProps {
   Title: string;
   State?: ButtonState;
-  onClickFunction?: () => void;
+  onClickFunction?: (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ) => void;
 }
 
 export enum ButtonState {
@@ -24,7 +26,13 @@ const HomeCardButton = (props: HomeCardButtonProps) => (
       </button>
     ) : (
       <button
-        onClick={props.onClickFunction}
+        onClick={(e) => {
+          e.stopPropagation();
+          console.log('click');
+          if (props.onClickFunction) {
+            props.onClickFunction(e);
+          }
+        }}
         className={
           props.State === ButtonState.colored
             ? styles.homeCardButton + ' ' + styles.colored

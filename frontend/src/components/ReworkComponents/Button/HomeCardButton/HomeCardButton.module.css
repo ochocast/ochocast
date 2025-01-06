@@ -19,3 +19,27 @@
   color: var(--theme-color-white);
   border: none;
 }
+
+.homeCardButton:hover {
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+
+.homeCardButton:active {
+  animation: flash-white 0.3s ease;
+}
+
+@keyframes flash-white {
+  0% {
+    background-color: var(--theme-color-500);
+  }
+  50% {
+    background-color: var(--theme-color-black);
+  }
+  100% {
+    background-color: var(--theme-color-500);
+  }
+}

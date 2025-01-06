@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, ManyToMany } from 'typeorm';
-import { EventEntity } from '../../../../events/infra/gateways/entities/event.entity';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
 @Entity()
 export class TagEntity {
@@ -9,10 +9,8 @@ export class TagEntity {
   @Column()
   name: string;
 
-  @ManyToMany(() => EventEntity, (event) => event.tags, {
-    onDelete: 'CASCADE',
-  })
-  videos: string[];
+  @ManyToMany(() => VideoEntity, (video) => video.tags)
+  videos: VideoEntity[];
 
   @Column()
   createdAt: Date;

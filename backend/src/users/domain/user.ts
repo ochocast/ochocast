@@ -64,6 +64,11 @@ export class UserObject {
   })
   createdAt: Date;
 
+  @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The id of the profile picture.',
+  })
+  picture_id: string;
 
   constructor(
     id: string,
@@ -76,6 +81,7 @@ export class UserObject {
     videos: VideoEntity[],
     description: string,
     createdAt: Date,
+    picture_id: string,
   ) {
     this.id = id;
     this.firstName = firstName;
@@ -87,6 +93,7 @@ export class UserObject {
     this.events = events;
     this.description = description;
     this.createdAt = createdAt;
+    this.picture_id = picture_id;
   }
 }
 
