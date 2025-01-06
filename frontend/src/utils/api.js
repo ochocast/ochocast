@@ -6,6 +6,7 @@ export const api = create({
   maxContentLength: 10000000,
   maxBodyLength: 10000000,
   headers: {
+    'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json',
     Accept: 'application/json',
   },
