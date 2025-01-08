@@ -37,6 +37,7 @@ function App() {
         try {
           const res = await loginUser();
           console.log('Backend user:', res.data);
+          localStorage.setItem('backendUser', JSON.stringify(res.data));
         } catch (error) {
           console.error(`Failed to fetch user: ${error}`);
         }
