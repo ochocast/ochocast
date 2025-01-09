@@ -1,5 +1,5 @@
 import './App.css';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import React from 'react';
 
 import Header from './components/ReworkComponents/Header/Header';
@@ -15,7 +15,6 @@ import EventSettings from './pages/eventSettings/eventSettings';
 import VideoSettings from './pages/videoSettings/videoSettings';
 
 import { useAuth } from 'react-oidc-context';
-import { User } from 'oidc-client-ts';
 import { api, loginUser } from './utils/api';
 import LiveTrack from './pages/liveTrack/liveTrack';
 import StreamTrack from './pages/streamingTrack/streamTrack';
@@ -26,32 +25,34 @@ import Profile from './pages/profile/profile';
 
 function App() {
   const auth = useAuth();
-  const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = React.useState(false);
-
-  const fetchBackendUser = async () => {
-    try {
-      const res = await loginUser();
-      localStorage.setItem('backendUser', JSON.stringify(await res.data));
-    } catch (error) {
-      console.error(`Failed to fetch user: ${error}`);
-    }
-  };
+  //const navigate = useNavigate();
 
   React.useEffect(() => {
-    const oidcStorage = localStorage.getItem(
-      `oidc.user:${process.env.REACT_APP_AUTHORIZATION_ENDPOINT}:${process.env.REACT_APP_CLIENT_ID}`,
-    );
-    if (oidcStorage && !isAuthenticated) {
-      const user = User.fromStorageString(oidcStorage);
-      if (user && !user.expired) {
-        auth.signinSilent();
-        setIsAuthenticated(true);
-        api.setHeaders({ Authorization: `Bearer ${user.access_token}` });
-        fetchBackendUser();
-      }
+    if (auth.user && !auth.user.expired) {
+      // Utilisation du token pour configurer les headers de l'API
+      api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
+
+      // Récupération des informations utilisateur via le backend
+      const fetchBackendUser = async () => {
+        try {
+          const res = await loginUser();
+          //console.log('Backend user:', res.data);
+          localStorage.setItem('backendUser', JSON.stringify(res.data));
+        } catch (error) {
+          console.error(`Failed to fetch user: ${error}`);
+        }
+      };
+
+      fetchBackendUser();
+    } else if (!auth.isLoading && !auth.user) {
+      // Rediriger l'utilisateur vers la connexion si non authentifié
+      auth.signinRedirect();
     }
-  }, [auth, navigate, isAuthenticated]);
+  }, [auth]);
+
+  if (auth.isLoading) {
+    return <LoadingPage />;
+  }
 
   return (
     <div>
