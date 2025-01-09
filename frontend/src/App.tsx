@@ -1,5 +1,5 @@
 import './App.css';
-import { Routes, Route/*, useNavigate*/ } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import React from 'react';
 
 import Header from './components/ReworkComponents/Header/Header';
@@ -36,7 +36,7 @@ function App() {
       const fetchBackendUser = async () => {
         try {
           const res = await loginUser();
-          console.log('Backend user:', res.data);
+          //console.log('Backend user:', res.data);
           localStorage.setItem('backendUser', JSON.stringify(res.data));
         } catch (error) {
           console.error(`Failed to fetch user: ${error}`);

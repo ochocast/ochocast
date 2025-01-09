@@ -146,7 +146,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     form.append('description', description);
     const backendUser = localStorage.getItem('backendUser');
     if (backendUser != null && backendUser != undefined) {
-      console.log(backendUser);
       form.append('creator', JSON.parse(backendUser).id);
     }
 
