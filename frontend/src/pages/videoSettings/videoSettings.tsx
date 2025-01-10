@@ -84,9 +84,22 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   };*/
 
   const [miniature, setMiniature] = useState<File>();
+  const [miniatureUrl, setMiniatureUrl] = useState<string | null>(null);
   const handleMiniatureChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files != null && e.target.files != undefined) {
       const miniature_tmp = e.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        // Vérifie explicitement que reader.result est bien une chaîne
+        if (typeof reader.result === "string") {
+          setMiniatureUrl(reader.result); // Affecte l'URL de la preview
+        } else {
+          console.error("Le résultat du FileReader n'est pas une chaîne !");
+        }
+      };
+
+      reader.readAsDataURL(miniature_tmp);
       if (miniature_tmp != undefined) setMiniature(miniature_tmp);
     }
   };
@@ -316,7 +329,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   }, [baseVideo]);
 
-
   return (
     <div className="mainvideo">
       <div className="container">
@@ -494,7 +506,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         <PreviewMiniture
           Id="1"
           title={title || 'Title'}
-          imageSrc={miniature?.name}
+          imageSrc={(miniatureUrl !== null) ? miniatureUrl:  '/exemple/image_tuile_event.png'}
           createBy={auth.user?.profile.given_name || 'Not logged in'}
           views={0}
           createdAt={new Date().toString()}

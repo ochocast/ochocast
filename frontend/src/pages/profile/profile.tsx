@@ -128,7 +128,6 @@ const Profile: FC<ProfileProps> = () => {
                 key={video.id}
                 Id={video.id}
                 title={video.title}
-                imageSrc={video.miniature_id}
                 createBy={video.creator.firstName}
                 views={video.views}
                 createdAt={video.createdAt.toString()}
