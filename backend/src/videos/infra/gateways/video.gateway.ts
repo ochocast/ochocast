@@ -6,6 +6,7 @@ import { VideoEntity } from './entities/video.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Inject } from '@nestjs/common';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 export class VideoGateway implements IVideoGateway {
   constructor(
@@ -23,10 +24,18 @@ export class VideoGateway implements IVideoGateway {
     } else if (Array.isArray(videoDetails.tags)) {
       tags = videoDetails.tags.map((tag: any) => new TagEntity(tag));
     }
-  
+    
+    // Parse les internal_speakers s'ils sont au format JSON
+    let internal_speakers: UserEntity[] = [];
+    if (typeof videoDetails.internal_speakers === 'string') {
+      internal_speakers = JSON.parse(videoDetails.internal_speakers).map((user: any) => new UserEntity(user));
+    } else if (Array.isArray(videoDetails.internal_speakers)) {
+      internal_speakers = videoDetails.internal_speakers.map((user: any) => new UserEntity(user));
+    }
     const video: VideoEntity = new VideoEntity({
       ...videoDetails,
-      tags
+      tags,
+      internal_speakers
     });
 
     return await this.videosRepository.save(video);
@@ -39,7 +48,7 @@ export class VideoGateway implements IVideoGateway {
         ...filter,
         archived: false
       },
-      relations: ['creator', 'tags'],
+      relations: ['creator', 'tags', 'internal_speakers'],
     });
   }
 
@@ -57,7 +66,6 @@ export class VideoGateway implements IVideoGateway {
 
     video.archived = true;
     return await this.videosRepository.save(video);
-
   }
 
   async deleteVideoAdmin(videoId: string): Promise<VideoObject> {
@@ -79,5 +87,15 @@ export class VideoGateway implements IVideoGateway {
     this.s3Client.send(miniatureCommand);
 
     return await this.videosRepository.remove(video);
+  }
+
+  async modifyVideo(video: VideoObject): Promise<VideoObject> {
+    const existingVideo = await this.videosRepository.findOneBy({ id: video.id });
+    if (!existingVideo) {
+      throw new Error(`Video with ID ${video.id} not found`);
+    }
+    
+    Object.assign(existingVideo, video);
+    return await this.videosRepository.save(existingVideo);
   }
 }

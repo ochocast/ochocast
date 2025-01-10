@@ -50,4 +50,8 @@ export const getVideoByTitle = (video_title) =>
   api.get(`/videos?title=${video_title}`);
 export const getTags = () => api.get('/tags');
 export const createTag = (data) => api.post('/tags', data);
+export const modifyVideo = (formData) => api.post('/videos/modify', formData);
 export const getVideosByUser = (userId) => api.get(`/videos/` + userId);
+
+export const findTags = (tag) => api.get(`/tags/find?value=${tag}`);
+export const findUsers = (user) => api.get(`/users/find?value=${user}`);

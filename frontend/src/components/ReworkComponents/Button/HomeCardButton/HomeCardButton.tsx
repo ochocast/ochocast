@@ -20,6 +20,7 @@ const HomeCardButton = (props: HomeCardButtonProps) => (
     {props.State === ButtonState.disabled ? (
       <button
         className={styles.homeCardButton + ' ' + styles.disabled}
+        style={{ cursor: 'not-allowed' }}
         disabled
       >
         {props.Title}

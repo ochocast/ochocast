@@ -4,11 +4,13 @@ import './InputFile.css';
 interface InputFileProps {
   placeholder?: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  disable: boolean;
 }
 
 const InputFile: FC<InputFileProps> = ({
   placeholder = 'Please drop or select some files',
   onChange,
+  disable,
 }) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files;
@@ -19,7 +21,7 @@ const InputFile: FC<InputFileProps> = ({
     if (file?.length === 1) {
       const fileArea = e.target.closest('.file-area');
       if (fileArea) {
-        const fileDummyDefault = fileArea.querySelector('.file-dummy .success');
+        const fileDummyDefault = fileArea.querySelector('.file-dummy .default');
         if (fileDummyDefault) {
           fileDummyDefault.innerHTML = file[0].name; // Set the innerHTML to the name of the selected file
           onChange(e);
@@ -37,9 +39,9 @@ const InputFile: FC<InputFileProps> = ({
         id="images"
         required
         onChange={handleFileSelect}
+        disabled={disable}
       />
       <div className="file-dummy">
-        <div className="success">Great, your files are selected. Keep on.</div>
         <div className="default">{placeholder}</div>
       </div>
     </div>

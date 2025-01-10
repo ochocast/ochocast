@@ -7,6 +7,8 @@
   justify-content: center;
   text-align: left;
   color: var(--theme-color-700);
+  border-radius: 12px;
+  cursor: pointer;
 }
 
 .imageTuileEventIcon {
@@ -46,4 +48,21 @@
   background-color: var(--theme-color-white);
   height: 10.5rem;
   overflow: hidden;
+}
+
+.descriptionNoButton {
+  padding: 1rem;
+  width: 20rem;
+  position: relative;
+  border-radius: 0px 0px 12px 12px;
+  background-color: var(--theme-color-white);
+  overflow: hidden;
+}
+
+.buttonList {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  margin-top: 1rem;
+  gap: 0.5rem;
 }

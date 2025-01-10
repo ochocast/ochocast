@@ -108,8 +108,6 @@ const SideSearchBar = (props: SearchBarProps) => {
             onClick={handleClick_Tags}
             icon={SearchBarIcon.ADD}
             placeholder="Tag ..."
-            filter={tag_filter}
-            select={selectTag}
           />
           <div className={styles.tagLists}>
             {tags_list.map((tag, index) => (
@@ -128,8 +126,6 @@ const SideSearchBar = (props: SearchBarProps) => {
             onClick={handleClick_Users}
             icon={SearchBarIcon.ADD}
             placeholder="User ..."
-            filter={user_filter}
-            select={selectUser}
           />
           <div className={styles.tagLists}>
             {users_list.map((user, index) => (

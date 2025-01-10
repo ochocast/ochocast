@@ -59,7 +59,7 @@ function App() {
       <Header />
       <Routes>
         <Route path="/" element={<LoginPage />} />
-        <Route path="/home" element={<ProtectedRoute Element={HomePage} />} />
+        <Route path="/home" element={< HomePage />} />
         <Route
           path="/events"
           element={<ProtectedRoute Element={EventsPage} />}
@@ -91,11 +91,15 @@ function App() {
         />
         <Route
           path="/video/video-settings"
-          element={<ProtectedRoute Element={VideoSettings} />}
+          element={<VideoSettings />}
+        />
+        <Route
+          path="/video/video-settings/:videoId"
+          element={<VideoSettings />}
         />
         <Route
           path="/video/:videoId"
-          element={<ProtectedRoute Element={VideoMedia} />}
+          element={<VideoMedia />}
         />
         <Route path="/videos" element={<ProtectedRoute Element={Videos} />} />
         <Route path="/profile" element={<ProtectedRoute Element={Profile} />} />

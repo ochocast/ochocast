@@ -20,6 +20,7 @@ import {
   import { TagObject } from '../../domain/tag';
   import { DeleteTagUsecase } from '../../domain/usecases/deleteTag.usecase';
   import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+  import { GetListTagsUsecase } from 'src/tags/domain/usecases/getListTags.usecase';
   
   @ApiTags('Tags')
   @Controller('tags')
@@ -28,6 +29,7 @@ import {
       private createNewTagUsecase: CreateNewTagUsecase,
       private getTagsUsecase: GetTagsUsecase,
       private deleteTagsUsecase: DeleteTagUsecase,
+      private getListTagsUsecase: GetListTagsUsecase,
     ) {}
   
     @Post()
@@ -51,7 +53,12 @@ import {
     findTags(@Query() filter: any): Promise<TagObject[]> {
       return this.getTagsUsecase.execute(filter);
     }
-  
+
+    @Get('/find')
+    findListTags(@Query() filter: any): Promise<TagObject[]> {
+      return this.getListTagsUsecase.execute(filter);
+    }
+
     @Delete(':id')
     async deleteTag(@Param('id') id: string): Promise<TagObject> {
       if (!isUUID(id)) {

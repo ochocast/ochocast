@@ -42,6 +42,9 @@ export class UserEntity {
   @OneToMany(() => VideoEntity, (video) => video.creator, { cascade: true })
   videos: VideoEntity[];
 
+  @ManyToMany(() => VideoEntity, (video) => video.internal_speakers)
+  videosAsSpeaker: VideoEntity[];
+
   @Column()
   createdAt: Date;
 

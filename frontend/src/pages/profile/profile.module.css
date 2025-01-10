@@ -59,7 +59,8 @@ Button {
 
 .display {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
   gap: 2.5rem;
 }
@@ -72,6 +73,7 @@ Button {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 1.25rem;
   width: 100%;
 }

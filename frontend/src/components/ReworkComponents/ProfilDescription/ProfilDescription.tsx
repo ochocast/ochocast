@@ -91,7 +91,12 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
               <h5 className={styles.email}>Email: {props.email}</h5>
               <span className={styles.descriptionTitle}>Description :</span>
               <span>{props.description}</span>
-              <HomeCardButton  Title="Déconnexion" onClickFunction={() => auth.signoutRedirect()}/>
+            </div>
+            <div className={styles.logout}>
+              <HomeCardButton
+                Title="Déconnexion"
+                onClickFunction={() => auth.signoutRedirect()}
+              />
             </div>
           </div>
         </div>

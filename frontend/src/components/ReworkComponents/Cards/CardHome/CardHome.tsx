@@ -38,6 +38,7 @@ const CardHome = (props: CardHomeProps) => {
                   e.stopPropagation();
                   button.onClickFunction(e);
                 }}
+                State={props.ButtonState}
               />
             ))}
         </div>
