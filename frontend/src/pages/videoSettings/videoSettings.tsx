@@ -4,7 +4,7 @@ import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import Card from '../../components/newComponents/Card/Card';
+import Card from '../../components/ReworkComponents/Cards/Card';
 import { useParams } from 'react-router-dom';
 // import Button from '../../components/buttons/button/button';
 
@@ -89,10 +89,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (e.target.files != null && e.target.files != undefined) {
       const miniature_tmp = e.target.files[0];
       const reader = new FileReader();
-      
+
       reader.onload = () => {
         // Vérifie explicitement que reader.result est bien une chaîne
-        if (typeof reader.result === "string") {
+        if (typeof reader.result === 'string') {
           setMiniatureUrl(reader.result); // Affecte l'URL de la preview
         } else {
           console.error("Le résultat du FileReader n'est pas une chaîne !");
@@ -190,27 +190,25 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]),
     );
-    if(videoId && baseVideo !== undefined){
-      if(baseVideo.createdAt !== undefined){
+    if (videoId && baseVideo !== undefined) {
+      if (baseVideo.createdAt !== undefined) {
         form.append('createdAt', JSON.stringify(baseVideo.createdAt));
       }
-      if(baseVideo.views !== undefined){
+      if (baseVideo.views !== undefined) {
         form.append('views', JSON.stringify(baseVideo.views));
       }
-      if(baseVideo.updatedAt !== undefined){
+      if (baseVideo.updatedAt !== undefined) {
         form.append('updatedAt', JSON.stringify(baseVideo.updatedAt));
       }
-      
+
       await modifyVideo(form);
-    }
-    else{
+    } else {
       await createVideo(form);
     }
     navigate('/videos');
   };
 
-  const updateVideo = async () => {
-  };
+  const updateVideo = async () => {};
 
   const [extern_User_List, setExternUserList] = useState('');
   const handleExternUserChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -270,20 +268,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   }, [userId, videoId]);*/
 
-
   useEffect(() => {
     const get_users_list = async () => {
       const response = await getUsers();
       if (response?.status === 200) setUserList([...response.data]);
       else setUserList([]);
     };
-  
+
     const get_tags_list = async () => {
       const response = await getTags();
       if (response?.status === 200) setTagList([...response.data]);
       else setTagList([]);
     };
-  
+
     const get_video = async () => {
       const response = await getVideo(videoId);
       if (response) {
@@ -291,39 +288,37 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         console.log(response.data[0]); // Vérifie les données reçues
       }
     };
-  
+
     get_users_list();
     get_tags_list();
-  
+
     if (videoId !== undefined) {
       get_video();
     }
   }, [videoId]);
 
-
   useEffect(() => {
     const set_video = () => {
       if (baseVideo?.title !== undefined) setTitle(baseVideo.title);
-      if (baseVideo?.description !== undefined) setDescription(baseVideo.description);
+      if (baseVideo?.description !== undefined)
+        setDescription(baseVideo.description);
       if (baseVideo?.external_speakers !== undefined)
         setExternUserList(baseVideo.external_speakers);
       if (baseVideo?.tags !== undefined) {
         setTags(baseVideo.tags);
-        setTags_tags(
-          baseVideo.tags.flatMap((tag) => tag.name)
-        );
+        setTags_tags(baseVideo.tags.flatMap((tag) => tag.name));
       }
       if (baseVideo?.internal_speakers !== undefined) {
         console.log(baseVideo);
         setIntern_Speakers(baseVideo.internal_speakers);
         setIntern_tags(
           baseVideo.internal_speakers.flatMap(
-            (user) => `${user.firstName} ${user.lastName}`
-          )
+            (user) => `${user.firstName} ${user.lastName}`,
+          ),
         );
       }
     };
-  
+
     if (baseVideo) {
       set_video();
     }
@@ -351,7 +346,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             }}
           >
             <Card
-              style={{
+              styleAddon={{
                 height: '3rem',
                 width: '100%',
                 alignItems: 'center',
@@ -360,7 +355,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               }}
             >
               <input
-                placeholder={(title ==="") ?  "Title" : title}
+                placeholder={title === '' ? 'Title' : title}
                 onChange={handleTitleChange}
                 style={{
                   border: 'none',
@@ -378,7 +373,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
             <Card>
               <InputFile
-                placeholder={(baseVideo?.media_id !== undefined) ? baseVideo.media_id : "Glissez ou choisissez votre Média"}
+                placeholder={
+                  baseVideo?.media_id !== undefined
+                    ? baseVideo.media_id
+                    : 'Glissez ou choisissez votre Média'
+                }
                 onChange={handleMediaChange}
                 disable={baseVideo?.media_id !== undefined}
               />
@@ -393,14 +392,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </Card> */}
             <Card>
               <InputFile
-                placeholder={(baseVideo?.miniature_id !== undefined) ? baseVideo.miniature_id : "Glissez ou choisissez votre Miniature"}
+                placeholder={
+                  baseVideo?.miniature_id !== undefined
+                    ? baseVideo.miniature_id
+                    : 'Glissez ou choisissez votre Miniature'
+                }
                 onChange={handleMiniatureChange}
                 disable={baseVideo?.miniature_id !== undefined}
               />
             </Card>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
-            <Card style={{ flexDirection: 'column', height: 'auto' }}>
+            <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
               <CompletionBar
                 name="Tags"
                 filter={tag_filter}
@@ -430,7 +433,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               </div>
             </Card>
             <Card
-              style={{
+              styleAddon={{
                 flexDirection: 'column',
                 height: 'auto',
               }}
@@ -463,7 +466,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 ))}
               </div>
             </Card>
-            <Card style={{ flexDirection: 'column', height: 'auto' }}>
+            <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
               <div>Externe</div>
               <div
                 style={{
@@ -476,7 +479,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                   height: '100%',
                 }}
               >
-                <textarea style={{ resize: 'none' }} value={extern_User_List} onChange={handleExternUserChange}/>
+                <textarea
+                  style={{ resize: 'none' }}
+                  value={extern_User_List}
+                  onChange={handleExternUserChange}
+                />
               </div>
             </Card>
           </div>
@@ -487,18 +494,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           />
           <div className="buttonContainer">
             <HomeCardButton Title="Archiver la video"></HomeCardButton>
-            {(videoId !== undefined) ?
+            {videoId !== undefined ? (
               <HomeCardButton
-              onClickFunction={updateVideo}
-              Title="Modifier la vidéo"
-              State={ButtonState.colored}
-              ></HomeCardButton> :
-              <HomeCardButton
-              onClickFunction={publishVideo}
-              Title="Publier la vidéo"
-              State={ButtonState.colored}
+                onClickFunction={updateVideo}
+                Title="Modifier la vidéo"
+                State={ButtonState.colored}
               ></HomeCardButton>
-            }
+            ) : (
+              <HomeCardButton
+                onClickFunction={publishVideo}
+                Title="Publier la vidéo"
+                State={ButtonState.colored}
+              ></HomeCardButton>
+            )}
           </div>
         </div>
       </div>
@@ -506,7 +514,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         <PreviewMiniture
           Id="1"
           title={title || 'Title'}
-          imageSrc={(miniatureUrl !== null) ? miniatureUrl:  '/exemple/image_tuile_event.png'}
+          imageSrc={
+            miniatureUrl !== null
+              ? miniatureUrl
+              : '/exemple/image_tuile_event.png'
+          }
           createBy={auth.user?.profile.given_name || 'Not logged in'}
           views={0}
           createdAt={new Date().toString()}

@@ -21,11 +21,11 @@ const NavItems = () => {
       </div>
       <div className={styles.navItem}>
         <a className={styles.navItem1} onClick={() => navigate('/videos')}>
-          Videos
+          Vidéos
         </a>
       </div>
       <HomeCardButton
-        Title="Publish Video"
+        Title="Publier une vidéo"
         onClickFunction={() => navigate('/video/video-settings')}
       />
     </div>
