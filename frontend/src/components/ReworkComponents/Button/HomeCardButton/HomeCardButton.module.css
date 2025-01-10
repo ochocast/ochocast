@@ -5,7 +5,7 @@
 }
 
 .disabled {
-  background-color: var(--theme-color-disabled);
+  background-color: var(--theme-color-gray);
   border: 1px solid var(--theme-color-950);
 }
 
@@ -20,13 +20,19 @@
   border: none;
 }
 
-.homeCardButton:hover {
+.homeCardButton:hover.active {
   background-color: var(--theme-color-500);
   color: var(--theme-color-white);
   cursor: pointer;
   transition: background-color 0.3s ease;
 }
 
+.homeCardButton:hover.colored {
+  background-color: var(--theme-color-300);
+  color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
 
 .homeCardButton:active {
   animation: flash-white 0.3s ease;

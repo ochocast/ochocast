@@ -45,24 +45,23 @@ const VideosList: FC<VideosListProps> = ({ title, videos = [] }) => {
           ></img>
         </div>
         <div className="video-container">
-          {videos &&
-            videos
-              ?.slice(index, index + 3)
-              .map((video, index) => (
-                <VideoBox
-                  key={index}
-                  Id={video.id}
-                  title={video.title}
-                  description={video.description}
-                  creator={video.creator}
-                  createdAt={video.createdAt}
-                  updatedAt={video.updatedAt}
-                  internal_speakers={video.internal_speakers.toString()}
-                  external_speakers={video.external_speakers}
-                  views={video.views}
-                  imageURL="logo_2lignes_crop.png"
-                />
-              ))}
+          {videos && videos?.slice(index, index + 3).map((video, index) => (
+            <VideoBox
+              key={index}
+              Id={video.id}
+              title={video.title}
+              description={video.description}
+              creator={video.creator}
+              createdAt={video.createdAt}
+              updatedAt={video.updatedAt}
+              internal_speakers={video.internal_speakers.flatMap((user)=> {
+                return user.firstName + " " + user.lastName;
+              }).join(", ")}
+              external_speakers={video.external_speakers}
+              views={video.views}
+              imageURL="logo_2lignes_crop.png"
+            />
+          ))}
         </div>
         <div className="right-arrow">
           <img

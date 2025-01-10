@@ -4,8 +4,9 @@ import Tag from '../Tag/Tag';
 import miniatureLogo from '../../../assets/logo_2lignes_crop.png';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../utils/api';
-import Button from '../../buttons/button/button';
-
+import HomeCardButton, {
+  ButtonState,
+} from '../Button/HomeCardButton/HomeCardButton';
 
 export interface PreviewMinitureProps {
   Id: string;
@@ -24,8 +25,6 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
     // process.env.DEFAULT_MINIATURE_IMAGE
   );
   const navigate = useNavigate();
-
-
 
   useEffect(() => {
     const fetchMiniatureUrl = async () => {
@@ -57,7 +56,13 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
         sizes="(max-width: 20rem) 100vw, 20rem"
         onClick={() => navigate(`/video/${props.Id}`)}
       />
-      <div className={styles.description}>
+      <div
+        className={
+          props.onArchived !== undefined
+            ? styles.descriptionNoButton
+            : styles.description
+        }
+      >
         <h2
           className={styles.createBy}
           onClick={() => navigate(`/video/${props.Id}`)}
@@ -75,7 +80,23 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
           {props.tags &&
             props.tags.map((tag) => <Tag key={tag} content={tag} />)}
         </div>
-        {(props.onArchived !== undefined) ? <Button onClick={() => props.onArchived!(props.Id)}>Archiver</Button>: <div />}
+        {props.onArchived !== undefined ? (
+          <div className={styles.buttonList}>
+            <HomeCardButton
+              State={ButtonState.active}
+              Title="Archiver"
+              onClickFunction={() => props.onArchived!(props.Id)}
+            />
+
+            <HomeCardButton
+              State={ButtonState.colored}
+              Title="Edit"
+              onClickFunction={() => navigate(`/video/video-settings/${props.Id}`)}
+            />
+          </div>
+        ) : (
+          <div />
+        )}
       </div>
     </div>
   );

@@ -37,25 +37,33 @@
   height: 1.375rem;
 }
 
-.suggestions-list {
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
-  position: absolute;
-  width: 100%;
-  background-color: white;
-  border: 1px solid #ccc;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 1000;
-  display: none; /* La liste est cachée par défaut */
-}
 
-.suggestions-list li {
-  padding: 10px;
+
+.suggestions_list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
   cursor: pointer;
+  font-size: 16px;
+  color: #333;
+  font-family: Arial, sans-serif;
+  border: 5px solid black;
+  background-color: white;
 }
 
-.suggestions-list li:hover {
-  background-color: #f0f0f0;
+.suggestions_list li img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.suggestions_list li:hover {
+  background-color: #e6f7e6;
+  color: #1a771a;
+}
+
+.suggestions_list li:active {
+  background-color: #d4f0d4;
 }

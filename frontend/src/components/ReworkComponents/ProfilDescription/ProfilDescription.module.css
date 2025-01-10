@@ -70,3 +70,9 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+
+.description {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}

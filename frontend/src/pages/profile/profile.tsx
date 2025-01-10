@@ -1,24 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import './profile.css';
+import style from './profile.module.css';
+
 import { FC } from 'react';
-import { getTags, getUsers, getVideosByUser } from '../../utils/api';
-import { Tag_video, User, Video } from '../../utils/VideoProperties';
+import {
+  // getTags,
+  getUsers,
+  getVideosByUser,
+} from '../../utils/api';
+import {
+  // Tag_video,
+  User,
+  Video,
+} from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
-import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
-import Card from '../../components/ReworkComponents/Cards/Card';
 import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 import ProfilDescription, {
   ProfilDescriptionState,
 } from '../../components/ReworkComponents/ProfilDescription/ProfilDescription';
 import NotFoundPage from '../notFound/notFound';
 import { deleteVideo } from '../../utils/api';
+import SearchBar, {
+  SearchBarIcon,
+} from '../../components/ReworkComponents/SearchBar/SearchBar';
 
 interface ProfileProps {}
 
 const Profile: FC<ProfileProps> = () => {
-
   const [videos, setVideo] = useState<Video[]>([]);
-  const [tags_list, setTagList] = useState<Tag_video[]>([]);
+  // const [tags_list, setTagList] = useState<Tag_video[]>([]);
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const [keywords, setKeywords] = useState<string[]>([]);
@@ -31,8 +40,8 @@ const Profile: FC<ProfileProps> = () => {
     try {
       const videosResponse = await getVideosByUser(JSON.parse(userString!).id);
       setVideo(videosResponse.data || []);
-      const tagResponse = await getTags();
-      setTagList(tagResponse.data);
+      // const tagResponse = await getTags();
+      // setTagList(tagResponse.data);
       const userResponse = await getUsers();
 
       if (userString) {
@@ -81,47 +90,55 @@ const Profile: FC<ProfileProps> = () => {
     return <LoadingCircle />;
   }
   return (
-    <div className="videos">
-      <div className="display">
-        <div className="display1">
-          <SideSearchBar onSearch={handleSearch} tags={tags_list} users={[]} />
-        </div>
-        <div className="RightFlexUpDown">
-          <ProfilDescription
-            name={currentUser ? currentUser.firstName : 'Unknown'}
-            email={currentUser ? currentUser.email : 'No email'}
-            description={
-              currentUser ? currentUser.description : 'No description'
-            }
-            image={
-              currentUser
-                ? currentUser.picture_id || '/persona.png'
-                : '/persona.png'
-            }
-            state={ProfilDescriptionState.large}
+    <div className={style.videos}>
+      <div className={style.display}>
+        <ProfilDescription
+          name={currentUser ? currentUser.firstName : 'Unknown'}
+          email={currentUser ? currentUser.email : 'No email'}
+          description={currentUser ? currentUser.description : 'No description'}
+          image={
+            currentUser
+              ? currentUser.picture_id || '/persona.png'
+              : '/persona.png'
+          }
+          state={ProfilDescriptionState.large}
+        />
+
+        <div className={style.display1}>
+          <SearchBar
+            onClick={(query) => {
+              handleSearch([query], []);
+            }}
+            needInput={true}
+            placeholder="Exemple: DevOps"
+            icon={SearchBarIcon.SEARCH}
           />
-          <Card>
-            <h1>Last Published</h1>
-            <div className="video_row">
-              {filteredVideos.length > 0 ? (
-                filteredVideos.map((video) => (
-                  <PreviewMiniture
-                    key={video.id}
-                    Id={video.id}
-                    title={video.title}
-                    imageSrc={video.miniature_id}
-                    createBy={video.creator.firstName}
-                    views={video.views}
-                    createdAt={video.createdAt.toString()}
-                    tags={video.tags && video.tags?.map((tag) => tag.name)}
-                    onArchived={ArchivedVideo}
-                  />
-                ))
-              ) : (
-                <h1>No Video Found</h1>
-              )}
-            </div>
-          </Card>
+
+          {/* <SideSearchBar
+            onSearch={handleSearch}
+            tags={tags_list}
+            users={user_list}
+          /> */}
+        </div>
+
+        <div className={style.video_row}>
+          {filteredVideos.length > 0 ? (
+            filteredVideos.map((video) => (
+              <PreviewMiniture
+                key={video.id}
+                Id={video.id}
+                title={video.title}
+                imageSrc={video.miniature_id}
+                createBy={video.creator.firstName}
+                views={video.views}
+                createdAt={video.createdAt.toString()}
+                tags={video.tags && video.tags?.map((tag) => tag.name)}
+                onArchived={ArchivedVideo}
+              />
+            ))
+          ) : (
+            <h1>No Video Found</h1>
+          )}
         </div>
       </div>
     </div>

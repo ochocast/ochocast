@@ -19,6 +19,7 @@ import { AuthenticatedUser } from 'nest-keycloak-connect';
 import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GetProfilePictureUsecase } from 'src/users/domain/usecases/getProfilePicture.usecase';
+import { GetListUsersUsecase } from 'src/users/domain/usecases/getListUsers.usecase';
 
 @ApiTags('Users')
 @Controller('users')
@@ -28,6 +29,7 @@ export class UsersController {
     private getUserUsecase: GetUsersUsecase,
     private loginUserUsecase: LoginUserUseCase,
     private getProfilePictureUsecase: GetProfilePictureUsecase,
+    private getListUserUsecase: GetListUsersUsecase,
   ) {}
 
   @Post()
@@ -59,5 +61,10 @@ export class UsersController {
   @Get('/picture/:id')
   async getProfilePicture(@Param('id') id: string): Promise<string> {
     return await this.getProfilePictureUsecase.execute(id);
+  }
+
+  @Get('/find')
+  find_many(@Query() filter: any): Promise<UserObject[]> {
+    return this.getListUserUsecase.execute(filter);
   }
 }

@@ -19,10 +19,6 @@
     border: 2px dashed rgba(255, 255, 255, 0.2);
     text-align: center;
     transition: background 0.3s ease-in-out;
-
-    .success {
-      display: none;
-    }
   }
 
   &:hover .file-dummy {
@@ -37,13 +33,5 @@
   input[type=file]:valid+.file-dummy {
     border-color: rgba(0, 255, 0, 0.4);
     background-color: rgba(0, 255, 0, 0.3);
-
-    .success {
-      display: inline-block;
-    }
-
-    .default {
-      display: none;
-    }
   }
 }

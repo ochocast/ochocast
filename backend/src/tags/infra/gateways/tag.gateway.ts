@@ -1,7 +1,7 @@
 import { ITagGateway } from '../../domain/gateways/tags.gateway';
 import { TagObject } from '../../domain/tag';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Like } from 'typeorm';
 import { TagEntity } from './entities/tag.entity';
 
 export class TagGateway implements ITagGateway {
@@ -24,6 +24,15 @@ export class TagGateway implements ITagGateway {
         ...filter,
       }//,
       //relations: ['event'],
+    });
+  }
+
+  getListTags(filter: any): Promise<TagObject[]> {
+    const where: any = {};
+    where.name = Like(`%${filter.value}%`);
+
+    return this.tagsRepository.find({
+      where
     });
   }
 

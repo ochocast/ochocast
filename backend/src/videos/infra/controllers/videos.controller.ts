@@ -14,6 +14,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { CreateVideoDto } from './dto/create-video.dto';
+import { ModifyVideoDto } from './dto/modify-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
 import { GetVideosAdminUsecase } from '../../domain/usecases/getVideosAdmin.usecase';
@@ -27,7 +28,7 @@ import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
 import logger from '../../../utils/logger';
-
+import { ModifyVideoUsecase } from 'src/videos/domain/usecases/modifyVideo.usecase';
 @ApiTags('Videos')
 @Controller('videos')
 export class VideosController {
@@ -39,6 +40,7 @@ export class VideosController {
     private getMediaUseCase: GetMediaUsecase,
     private getMiniatureUseCase: GetMiniatureUsecase,
     private getVideosAdminUsecase: GetVideosAdminUsecase,
+    private modifyVideoUseCase: ModifyVideoUsecase,
     //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
@@ -88,6 +90,11 @@ export class VideosController {
   findValidVideos(@Query() filter: any): Promise<VideoObject[]> {
     console.log('passed by');
     return this.getVideosAdminUsecase.execute(filter);
+  }
+  
+  @Post('/modify')
+  async modifyVideo(@Body() video: ModifyVideoDto & {media_id: string; miniature_id: string}){
+    return this.modifyVideoUseCase.execute(video);
   }
 
   @Delete(':id')

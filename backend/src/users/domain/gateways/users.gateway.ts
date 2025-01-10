@@ -4,4 +4,5 @@ export interface IUserGateway {
   createNewUser: (user: UserObject) => Promise<UserObject>;
   getUsers: (filter: any) => Promise<UserObject[]>;
   loginUser: (keycloak_user: any) => Promise<UserObject>;
+  getListUsers: (filter: any)  => Promise<UserObject[]>;
 }
