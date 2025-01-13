@@ -4,6 +4,7 @@ import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
+
 import Card from '../../components/ReworkComponents/Cards/Card';
 import { useParams } from 'react-router-dom';
 // import Button from '../../components/buttons/button/button';
@@ -318,7 +319,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         );
       }
     };
-
     if (baseVideo) {
       set_video();
     }
@@ -346,7 +346,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             }}
           >
             <Card
-              styleAddon={{
+              style={{
                 height: '3rem',
                 width: '100%',
                 alignItems: 'center',
@@ -403,7 +403,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </Card>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
-            <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
+            <Card style={{ flexDirection: 'column', height: 'auto' }}>
               <CompletionBar
                 name="Tags"
                 filter={tag_filter}
@@ -433,7 +433,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               </div>
             </Card>
             <Card
-              styleAddon={{
+              style={{
                 flexDirection: 'column',
                 height: 'auto',
               }}
