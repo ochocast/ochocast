@@ -78,7 +78,7 @@ const SideSearchBar = (props: SearchBarProps) => {
     <Card styleAddon={{ height: '100%' }}>
       <div className={styles.property1withcreatevideo}>
         <HomeCardButton
-          Title="Crée une vidéo"
+          Title="Créer une vidéo"
           onClickFunction={() => navigate('/video/video-settings')}
         />
         {/* <div className={styles.button}>
@@ -89,7 +89,7 @@ const SideSearchBar = (props: SearchBarProps) => {
           <SearchBar
             onClick={handleClick_Keywords}
             icon={SearchBarIcon.ADD}
-            placeholder="Title Keyword ..."
+            placeholder="Mot-clé du titre..."
           />
           <div className={styles.tagLists}>
             {keywords_list.map((keyword, index) => (
@@ -107,7 +107,7 @@ const SideSearchBar = (props: SearchBarProps) => {
           <SearchBar
             onClick={handleClick_Tags}
             icon={SearchBarIcon.ADD}
-            placeholder="Tag ..."
+            placeholder="Tag..."
           />
           <div className={styles.tagLists}>
             {tags_list.map((tag, index) => (
@@ -125,7 +125,7 @@ const SideSearchBar = (props: SearchBarProps) => {
           <SearchBar
             onClick={handleClick_Users}
             icon={SearchBarIcon.ADD}
-            placeholder="User ..."
+            placeholder="User..."
           />
           <div className={styles.tagLists}>
             {users_list.map((user, index) => (

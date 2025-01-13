@@ -4,7 +4,6 @@ import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-
 import Card from '../../components/ReworkComponents/Cards/Card';
 import { useParams } from 'react-router-dom';
 // import Button from '../../components/buttons/button/button';
@@ -189,7 +188,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     form.append('external_speakers', extern_User_List);
     form.append(
       'comments',
-      JSON.stringify([{ id: uuidv4(), content: 'Great video!' }]),
+      JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
     );
     if (videoId && baseVideo !== undefined) {
       if (baseVideo.createdAt !== undefined) {
@@ -205,17 +204,22 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       await modifyVideo(form);
     } else {
       createVideo(form)
-      .then((response) => {
-        if (response.status === 202 || response.status === 201 || response.status === 204 || response.status === 200 ) {
-          alert('Vidéo uploadée avec succès !');
-        } else {
-          alert(`Échec de l'upload : ${response}`);
-        }
-      })
-      .catch((error) => {
-        console.error('Erreur lors de l\'upload de la vidéo :', error);
-        alert('Une erreur est survenue lors de l\'upload de la vidéo.');
-      });
+        .then((response) => {
+          if (
+            response.status === 202 ||
+            response.status === 201 ||
+            response.status === 204 ||
+            response.status === 200
+          ) {
+            alert('Vidéo téléchargée avec succès !');
+          } else {
+            alert(`Échec du téléchargement : ${response}`);
+          }
+        })
+        .catch((error) => {
+          console.error('Erreur lors du chargement de la vidéo :', error);
+          alert('Une erreur est survenue lors du chargement de la vidéo.');
+        });
     }
     navigate('/videos');
   };
@@ -366,7 +370,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               }}
             >
               <input
-                placeholder={title === '' ? 'Title' : title}
+                placeholder={title === '' ? 'Titre' : title}
                 onChange={handleTitleChange}
                 style={{
                   border: 'none',
@@ -387,7 +391,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 placeholder={
                   baseVideo?.media_id !== undefined
                     ? baseVideo.media_id
-                    : 'Glissez ou choisissez votre Média'
+                    : 'Glissez ou choisissez votre média'
                 }
                 onChange={handleMediaChange}
                 disable={baseVideo?.media_id !== undefined}
@@ -406,7 +410,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 placeholder={
                   baseVideo?.miniature_id !== undefined
                     ? baseVideo.miniature_id
-                    : 'Glissez ou choisissez votre Miniature'
+                    : 'Glissez ou choisissez votre miniature'
                 }
                 onChange={handleMiniatureChange}
                 disable={baseVideo?.miniature_id !== undefined}
@@ -450,7 +454,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               }}
             >
               <CompletionBar
-                name="Interne"
+                name="Intervenant interne"
                 filter={intern_filter}
                 select={selectIntern}
               />
@@ -478,7 +482,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               </div>
             </Card>
             <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
-              <div>Externe</div>
+              <div>Intervenant externe</div>
               <div
                 style={{
                   display: 'flex',
@@ -524,13 +528,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       <div className="generalinfo">
         <PreviewMiniture
           Id="1"
-          title={title || 'Title'}
+          title={title || 'Titre'}
           imageSrc={
             miniatureUrl !== null
               ? miniatureUrl
               : '/exemple/image_tuile_event.png'
           }
-          createBy={auth.user?.profile.given_name || 'Not logged in'}
+          createBy={auth.user?.profile.given_name || 'Non connecté'}
           views={0}
           createdAt={new Date().toString()}
           tags={tags_tags}

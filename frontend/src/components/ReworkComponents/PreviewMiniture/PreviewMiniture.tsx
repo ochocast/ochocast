@@ -52,7 +52,7 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
       <img
         className={styles.imageTuileEventIcon}
         alt=""
-        src={(props.imageSrc === undefined) ? miniatureURL : props.imageSrc}
+        src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
         sizes="(max-width: 20rem) 100vw, 20rem"
         onClick={() => navigate(`/video/${props.Id}`)}
       />
@@ -90,8 +90,10 @@ const PreviewMiniture = (props: PreviewMinitureProps) => {
 
             <HomeCardButton
               State={ButtonState.colored}
-              Title="Edit"
-              onClickFunction={() => navigate(`/video/video-settings/${props.Id}`)}
+              Title="Modifier"
+              onClickFunction={() =>
+                navigate(`/video/video-settings/${props.Id}`)
+              }
             />
           </div>
         ) : (
