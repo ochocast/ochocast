@@ -204,7 +204,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
       await modifyVideo(form);
     } else {
-      await createVideo(form);
+      createVideo(form)
+      .then((response) => {
+        if (response.status === 202 || response.status === 201 || response.status === 204 || response.status === 200 ) {
+          alert('Vidéo uploadée avec succès !');
+        } else {
+          alert(`Échec de l'upload : ${response}`);
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors de l\'upload de la vidéo :', error);
+        alert('Une erreur est survenue lors de l\'upload de la vidéo.');
+      });
     }
     navigate('/videos');
   };
