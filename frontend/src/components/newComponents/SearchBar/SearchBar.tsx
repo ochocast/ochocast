@@ -13,7 +13,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   };
 
   const handleSearch = () => {
-    console.log('Searching for:', query);
+    console.log('Rechercher pour:', query);
     onSearch(query);
   };
 
@@ -23,7 +23,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
         type="text"
         value={query}
         onChange={handleInputChange}
-        placeholder="Recherche une vidéo ici..."
+        placeholder="Rechercher une vidéo ici..."
       />
       <button onClick={handleSearch}>Search</button>
     </div>

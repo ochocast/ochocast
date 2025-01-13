@@ -39,7 +39,7 @@ const PreviewMinia: FC<PreviewMiniaProps> = ({
           color: tcolor,
         }}
       >
-        Title
+        Titre
       </div>
       <div
         className="Creator"

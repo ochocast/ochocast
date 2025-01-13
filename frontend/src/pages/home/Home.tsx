@@ -19,7 +19,7 @@ const HomePage: FC<HomeProps> = () => {
         ButtonState={ButtonState.disabled}
         buttonList={[
           {
-            title: 'Prochainement ...',
+            title: 'Prochainement...',
             onClickFunction: () => {},
           },
         ]}

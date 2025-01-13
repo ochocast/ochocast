@@ -97,8 +97,8 @@ const VideoMedia: FC<VideoMediaProps> = () => {
               <h3 className={styles.video_title}>
                 <h4 className={styles.tagList}>
                   Tag :
-                  <Tag content="Devops" />
-                  <Tag content="Docker" />
+                  {video.tags &&
+                  video.tags.map((tag, id) => <Tag key={id} content={tag.name} />)}
                 </h4>
                 Description :
               </h3>

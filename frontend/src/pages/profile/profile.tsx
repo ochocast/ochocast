@@ -93,9 +93,13 @@ const Profile: FC<ProfileProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <ProfilDescription
-          name={currentUser ? currentUser.firstName : 'Unknown'}
-          email={currentUser ? currentUser.email : 'No email'}
-          description={currentUser ? currentUser.description : 'No description'}
+          name={currentUser ? currentUser.firstName : 'Inconnu'}
+          email={
+            currentUser ? currentUser.email : 'Adresse mail non renseignée'
+          }
+          description={
+            currentUser ? currentUser.description : 'Aucune description'
+          }
           image={
             currentUser
               ? currentUser.picture_id || '/persona.png'
@@ -136,7 +140,7 @@ const Profile: FC<ProfileProps> = () => {
               />
             ))
           ) : (
-            <h1>No Video Found</h1>
+            <h1>Aucune vidéo trouvée</h1>
           )}
         </div>
       </div>

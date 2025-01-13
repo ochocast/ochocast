@@ -5,9 +5,9 @@ import './notFound.css';
 const NotFoundPage = () => {
   return (
     <div className="notFound">
-      <h1>404 - Page Not Found</h1>
-      <p>Sorry, the page you are looking for does not exist.</p>
-      <Link to="/">Go to Home</Link>
+      <h1>404 - Page introuvable</h1>
+      <p>Désolé, la page que vous recherchez n&apos;existe pas.</p>
+      <Link to="/">Retour à l&apos;accueil</Link>
     </div>
   );
 };
