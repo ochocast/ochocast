@@ -8,7 +8,7 @@ interface InputFileProps {
 }
 
 const InputFile: FC<InputFileProps> = ({
-  placeholder = 'Please drop or select some files',
+  placeholder = 'Glissez ou sélectionnez des fichiers',
   onChange,
   disable,
 }) => {

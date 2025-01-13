@@ -123,7 +123,7 @@ const Videos: FC<VideosProps> = () => {
               />
             ))
           ) : (
-            <h1>No Video Found</h1>
+            <h1>Aucune vidéo trouvée</h1>
           )}
         </div>
       </div>

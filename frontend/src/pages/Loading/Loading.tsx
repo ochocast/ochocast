@@ -22,7 +22,7 @@ function LoadingPage() {
 
   return (
     <div>
-      <h1>Signing you in/out...</h1>
+      <h1>Connexion/Déconnexion en cours...</h1>
     </div>
   );
 }
