@@ -154,17 +154,30 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   };
 
   const publishVideo = async () => {
-    setTags([...tags, { id: uuidv4(), name: 'Tag1' }]);
+    const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi'];                //maybe move this somewhere else ?
+    const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];            //maybe move this somewhere else ?
     const list_by_title = (await getVideoByTitle(title)).data;
-    if (
-      media == undefined ||
-      title == '' ||
-      tags.length == 0 ||
-      list_by_title.length != 0
-    ) {
-      alert('Les conditions de publications ne sont pas remplies');
+
+    let err = "";
+    // conditions publication
+    if (media == undefined)
+      err += "- Fichier vidéo non renseigné\n";
+    else if ( media?.name.split('.').pop() != undefined &&                     //could be moved to handleMediaChange
+      !accepted_media_formats.includes(media?.name.split('.').pop() as string))
+      err += "- Format de vidéo non supporté\n";
+    if (title=="")
+      err += "- Titre non renseigné\n";
+    if (tags.length == 0)
+      err += "- Minimum 1 tag est requis\n";
+    if (list_by_title.length > 0)
+      err += "- Une vidéo du même titre existe déjà :/\n";
+    if (!accepted_minature_formats.includes(miniature?.name.split('.').pop() as string))
+      err += "- Format de miniature non supporté\n";
+    if (err != "") {
+      alert('Une ou plusieurs conditions ne sont pas remplies : \n' + err);
       return;
     }
+
     //search title in DB
     const form = new FormData();
     if (media != undefined) {
