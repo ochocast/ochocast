@@ -346,7 +346,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             }}
           >
             <Card
-              style={{
+              styleAddon={{
                 height: '3rem',
                 width: '100%',
                 alignItems: 'center',
@@ -403,7 +403,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </Card>
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
-            <Card style={{ flexDirection: 'column', height: 'auto' }}>
+            <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
               <CompletionBar
                 name="Tags"
                 filter={tag_filter}
@@ -433,7 +433,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               </div>
             </Card>
             <Card
-              style={{
+              styleAddon={{
                 flexDirection: 'column',
                 height: 'auto',
               }}
