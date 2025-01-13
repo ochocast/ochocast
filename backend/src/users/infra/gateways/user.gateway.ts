@@ -1,7 +1,7 @@
 import { IUserGateway } from '../../domain/gateways/users.gateway';
 import { UserObject } from '../../domain/user';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
 
 export class UserGateway implements IUserGateway {
@@ -29,8 +29,8 @@ export class UserGateway implements IUserGateway {
 
   getListUsers(filter: any): Promise<UserObject[]> {
     const where: any = {};
-    where.firstName = Like(`%${filter.value}%`);
-    where.lastName = Like(`%${filter.value}%`);
+    where.firstName = ILike(`%${filter.value}%`);
+    where.lastName = ILike(`%${filter.value}%`);
 
     return this.usersRepository.find({
       where,
