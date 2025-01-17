@@ -115,7 +115,7 @@ const SearchBar = ({
     } else {
       suggestionsList.style.display = 'none';
     }
-  }, [tag_suggestions, user_suggestions]);
+  }, [tag_suggestions, user_suggestions, onClick]);
 
   return (
     <>
