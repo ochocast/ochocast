@@ -20,14 +20,12 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   createVideo,
   getVideoByTitle,
-  getUsers,
-  getTags,
   createTag,
   getVideo,
   modifyVideo,
+  findTag,
 } from '../../utils/api';
 import { Tag_video, User } from '../../utils/VideoProperties';
-import CompletionBar from '../../components/newComponents/CompletionBar/CompletionBar';
 
 import { Video } from '../../utils/VideoProperties';
 
@@ -36,7 +34,7 @@ import { useAuth } from 'react-oidc-context';
 import HomeCardButton, {
   ButtonState,
 } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
-
+import SuggestionBar, { SuggestionType, Suggestion } from '../../components/ReworkComponents/SuggestionBar/SuggestionBar';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
@@ -104,53 +102,35 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   };
 
-  const [user_list, setUserList] = useState<User[]>([]);
-  const [intern_speakers, setIntern_Speakers] = useState<User[]>([]);
-  const [intern_tags, setIntern_tags] = useState<string[]>([]);
-  const intern_filter = () => {
-    const list: string[] = [];
-    user_list.forEach((obj) => {
-      if (!intern_speakers.includes(obj)) {
-        list.push(obj.firstName + ' ' + obj.lastName);
-      }
-    });
-    return list;
-  };
-  const selectIntern = (str: string) => {
-    const user = user_list.find((obj) => {
-      return obj.firstName + ' ' + obj.lastName === str;
-    });
-    if (user) {
-      setIntern_Speakers([...intern_speakers, user]);
-      setIntern_tags([...intern_tags, str]);
-    }
+  const [intern_list, setInternList] = useState<User[]>([]);
+  const selectIntern = (userChoosen: Suggestion) => {
+    setInternList([...intern_list, userChoosen as User ]);
   };
 
-  const [tag_list, setTagList] = useState<Tag_video[]>([]);
   const [tags, setTags] = useState<Tag_video[]>([]);
-  const [tags_tags, setTags_tags] = useState<string[]>([]);
-  const tag_filter = () => {
-    const list: string[] = [];
-    tag_list.forEach((obj) => {
-      if (!tags.includes(obj)) list.push(obj.name);
-    });
-    return list;
+  const selectTag = (tagChoosen: Suggestion) => {
+    setTags([...tags, tagChoosen as Tag_video]);
   };
-  const selectTag = (str: string) => {
-    const tag = tag_list.find((obj) => {
-      return obj.name === str;
+  const addTag = (query: string) => {
+    createTag({name: query})
+    .then( async (response) => { 
+      if (
+        response.status === 202 ||
+        response.status === 201 ||
+        response.status === 204 ||
+        response.status === 200
+      ) {
+        alert('Tag crée avec succès !');
+        const response = await findTag(query);
+        setTags([...tags, response.data[0]]);
+      } else {
+        alert(`Échec du téléchargement : ${response}`);
+      }
+    })
+    .catch((error) => {
+      console.error('Erreur lors du chargement de la vidéo :', error);
+      alert('Une erreur est survenue lors du chargement de la vidéo.');
     });
-    if (tag !== undefined) {
-      setTags([...tags, tag]);
-      setTags_tags([...intern_tags, str]);
-    }
-  };
-  const addTag = async (str: string) => {
-    await createTag({ name: str });
-    const response = await getTags();
-    if (response != null && response.status === 200)
-      setTagList([...response.data]);
-    else setTagList([]);
   };
 
   const publishVideo = async () => {
@@ -197,7 +177,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
-    form.append('internal_speakers', JSON.stringify(intern_speakers));
+    form.append('internal_speakers', JSON.stringify(intern_list));
     form.append('external_speakers', extern_User_List);
     form.append(
       'comments',
@@ -237,7 +217,80 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     navigate('/videos');
   };
 
-  const updateVideo = async () => {};
+  const updateVideo = async () => {
+    const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi'];                //maybe move this somewhere else ?
+    const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];            //maybe move this somewhere else ?
+    const list_by_title = (await getVideoByTitle(title)).data;
+
+    let err = "";
+    // conditions publication
+    if (baseVideo?.media_id === undefined && media == undefined)
+      err += "- Fichier vidéo non renseigné\n";
+    else if (baseVideo?.media_id === undefined && media?.name.split('.').pop() != undefined &&                     //could be moved to handleMediaChange
+      !accepted_media_formats.includes(media?.name.split('.').pop() as string))
+      err += "- Format de vidéo non supporté\n";
+    if (title=="")
+      err += "- Titre non renseigné\n";
+    if (tags.length == 0)
+      err += "- Minimum 1 tag est requis\n";
+    if (title !== baseVideo?.title  && list_by_title.length > 0)
+      err += "- Une vidéo du même titre existe déjà :/\n";
+    if (baseVideo?.miniature_id === undefined && !accepted_minature_formats.includes(miniature?.name.split('.').pop() as string))
+      err += "- Format de miniature non supporté\n";
+    if (err != "") {
+      alert('Une ou plusieurs conditions ne sont pas remplies : \n' + err);
+      return;
+    }
+
+    //search title in DB
+    const form = new FormData();
+    if (media != undefined) {
+      form.append('file', media);
+      form.append('media_id', media.name);
+    }
+    if (miniature != undefined) {
+      form.append('miniature', miniature);
+      form.append('miniature_id', miniature.name);
+    }
+    form.append('title', title);
+    form.append('description', description);
+    const backendUser = localStorage.getItem('backendUser');
+    if (backendUser != null && backendUser != undefined) {
+      form.append('creator', JSON.parse(backendUser).id);
+    }
+
+    // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
+    form.append('tags', JSON.stringify(tags));
+    form.append('internal_speakers', JSON.stringify(intern_list));
+    form.append('external_speakers', extern_User_List);
+    form.append(
+      'comments',
+      JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
+    );
+
+
+    form.append('createdAt', JSON.stringify(baseVideo?.createdAt));
+    form.append('views', JSON.stringify((baseVideo?.views !== undefined)? baseVideo?.views : 0));
+    form.append('updatedAt', JSON.stringify((baseVideo?.updatedAt !== undefined)? baseVideo?.updatedAt : null));
+
+    await modifyVideo(form).then((response) => {
+      if (
+        response.status === 202 ||
+        response.status === 201 ||
+        response.status === 204 ||
+        response.status === 200
+      ) {
+        alert('Vidéo modifié avec succès !');
+      } else {
+        alert(`Échec du téléchargement : ${response}`);
+      }
+    })
+    .catch((error) => {
+      console.error('Erreur lors du chargement de la vidéo :', error);
+      alert('Une erreur est survenue lors du chargement de la vidéo.');
+    });
+    navigate('/videos');
+  };
 
   const [extern_User_List, setExternUserList] = useState('');
   const handleExternUserChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
@@ -298,18 +351,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   }, [userId, videoId]);*/
 
   useEffect(() => {
-    const get_users_list = async () => {
-      const response = await getUsers();
-      if (response?.status === 200) setUserList([...response.data]);
-      else setUserList([]);
-    };
-
-    const get_tags_list = async () => {
-      const response = await getTags();
-      if (response?.status === 200) setTagList([...response.data]);
-      else setTagList([]);
-    };
-
     const get_video = async () => {
       const response = await getVideo(videoId);
       if (response) {
@@ -317,9 +358,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         console.log(response.data[0]); // Vérifie les données reçues
       }
     };
-
-    get_users_list();
-    get_tags_list();
 
     if (videoId !== undefined) {
       get_video();
@@ -335,16 +373,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         setExternUserList(baseVideo.external_speakers);
       if (baseVideo?.tags !== undefined) {
         setTags(baseVideo.tags);
-        setTags_tags(baseVideo.tags.flatMap((tag) => tag.name));
       }
       if (baseVideo?.internal_speakers !== undefined) {
-        console.log(baseVideo);
-        setIntern_Speakers(baseVideo.internal_speakers);
-        setIntern_tags(
-          baseVideo.internal_speakers.flatMap(
-            (user) => `${user.firstName} ${user.lastName}`,
-          ),
-        );
+        setInternList(baseVideo.internal_speakers);
       }
     };
     if (baseVideo) {
@@ -432,11 +463,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           </div>
           <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
             <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
-              <CompletionBar
-                name="Tags"
-                filter={tag_filter}
-                select={selectTag}
-                add={addTag}
+              <SuggestionBar
+                onClick={selectTag}
+                placeholder="Tags"
+                type={SuggestionType.TAG}
+                name="suggestionTag"
+                onAdd={addTag}
               />
               <div
                 style={{
@@ -447,15 +479,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                   gap: '10px',
                 }}
               >
-                {tags_tags.map((tag, index) => (
+                {tags.map((tag, index) => (
                   <Tag
-                    className={tag}
+                    className={tag.name}
                     style={{ flex: '25%' }}
                     tsize="10px"
                     marginTop="0px"
                     key={index}
                   >
-                    {tag}
+                    {tag.name}
                   </Tag>
                 ))}
               </div>
@@ -466,10 +498,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 height: 'auto',
               }}
             >
-              <CompletionBar
-                name="Intervenant interne"
-                filter={intern_filter}
-                select={selectIntern}
+              <SuggestionBar
+                onClick={selectIntern}
+                placeholder="User"
+                type={SuggestionType.USER}
+                name="suggestionUser"
               />
               <div
                 style={{
@@ -481,15 +514,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 }}
                 id="intern-container"
               >
-                {intern_tags.map((tag, index) => (
+                {intern_list.map((user, index) => (
                   <Tag
-                    className={tag}
+                    className={user.firstName + " " + user.lastName}
                     style={{ flex: '25%' }}
                     tsize="10px"
                     marginTop="0px"
                     key={index}
                   >
-                    {tag}
+                    {user.firstName + " " + user.lastName}
                   </Tag>
                 ))}
               </div>
@@ -516,7 +549,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </Card>
           </div>
           <textarea
-            placeholder="Description"
+            placeholder={description === '' ? 'Description' : description}
             style={{ resize: 'vertical' }}
             onChange={handleDescriptionChange}
           />
@@ -550,7 +583,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           createBy={auth.user?.profile.given_name || 'Non connecté'}
           views={0}
           createdAt={new Date().toString()}
-          tags={tags_tags}
+          tags={tags.flatMap((tag) => {return tag.name;})}
         />
       </div>
       {/* 
