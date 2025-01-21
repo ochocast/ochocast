@@ -52,7 +52,7 @@ const SuggestionBar = ({
       return;
     }
     const filteredObjects: { name: string;  reference?: Suggestion; isAddable: boolean}[] = [];
-    
+
     if (onAdd !== undefined && suggestions.length === 0 && query !== ""){
       filteredObjects.push({name: query, reference: undefined, isAddable: true});
     }
@@ -67,7 +67,6 @@ const SuggestionBar = ({
         obj = { name: user.firstName + ' ' + user.lastName, reference: user, isAddable: false};
       }
       filteredObjects.push(obj);
-
     return filteredObjects;
     });
 
