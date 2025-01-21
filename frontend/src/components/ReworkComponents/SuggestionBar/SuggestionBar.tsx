@@ -42,18 +42,17 @@ const SuggestionBar = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value !== '')
       findSuggestions(e.target.value);
-    else{
-      const suggestionsList = document.getElementById(`suggestions_list_${name}`) as HTMLUListElement;
-      suggestionsList.style.display = 'none';
-    }
     setQuery(e.target.value);
   };
 
   useEffect(() => {
     const suggestionsList = document.getElementById(`suggestions_list_${name}`) as HTMLUListElement;
-
-    suggestionsList.innerHTML = '';
+    if(query === ""){
+      suggestionsList.style.display = "none";
+      return;
+    }
     const filteredObjects: { name: string;  reference?: Suggestion; isAddable: boolean}[] = [];
+
     if (onAdd !== undefined && suggestions.length === 0 && query !== ""){
       filteredObjects.push({name: query, reference: undefined, isAddable: true});
     }
@@ -68,8 +67,12 @@ const SuggestionBar = ({
         obj = { name: user.firstName + ' ' + user.lastName, reference: user, isAddable: false};
       }
       filteredObjects.push(obj);
+    return filteredObjects;
     });
+
+    suggestionsList.innerHTML = '';
     if(filteredObjects.length === 0){
+      suggestionsList.style.display = 'none';
       return;
     }
     suggestionsList.style.display = 'block';
@@ -100,7 +103,7 @@ const SuggestionBar = ({
         li.appendChild(addButton);
       suggestionsList.appendChild(li);
     });
-  }, [suggestions, onClick]);
+  }, [suggestions, onClick, name , query, onAdd, type]);
 
   return (
     <div className={styles.searchcontainer}>
