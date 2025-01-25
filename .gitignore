@@ -16,10 +16,7 @@ database/postgres-data/
 # documentation
 frontend/docs
 backend/docs
-docs
 
 .env
-
-package-lock.json
 
 localMinio/run_env/*
