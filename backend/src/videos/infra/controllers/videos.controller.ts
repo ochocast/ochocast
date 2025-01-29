@@ -94,6 +94,8 @@ export class VideosController {
   
   @Post('/modify')
   async modifyVideo(@Body() video: ModifyVideoDto & {media_id: string; miniature_id: string}){
+    console.log(video.tags);
+    console.log("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
     return this.modifyVideoUseCase.execute(video);
   }
 
@@ -127,12 +129,7 @@ export class VideosController {
 
   @Get(':userId')
   async getVideosByUser (@Param('userId') id: string): Promise<VideoObject[]> {
-    //const user = await this.getUsersUsecase.execute({id: id});
-
-    console.log("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    console.log(id);
     const videos = await this.getVideosUsecase.execute({creator: {id}});
-    console.log(videos);
     return videos;
   }
 }

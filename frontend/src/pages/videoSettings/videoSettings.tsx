@@ -183,38 +183,24 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
     );
-    if (videoId && baseVideo !== undefined) {
-      if (baseVideo.createdAt !== undefined) {
-        form.append('createdAt', JSON.stringify(baseVideo.createdAt));
-      }
-      if (baseVideo.views !== undefined) {
-        form.append('views', JSON.stringify(baseVideo.views));
-      }
-      if (baseVideo.updatedAt !== undefined) {
-        form.append('updatedAt', JSON.stringify(baseVideo.updatedAt));
-      }
-
-      await modifyVideo(form);
-    } else {
-      createVideo(form)
-        .then((response) => {
-          if (
-            response.status === 202 ||
-            response.status === 201 ||
-            response.status === 204 ||
-            response.status === 200
-          ) {
-            alert('Vidéo téléchargée avec succès !');
-            window.location.reload(); // Actualise la page
-          } else {
-            alert(`Échec du téléchargement : ${response}`);
-          }
-        })
-        .catch((error) => {
-          console.error('Erreur lors du chargement de la vidéo :', error);
-          alert('Une erreur est survenue lors du chargement de la vidéo.');
-        });
-    }
+    createVideo(form)
+      .then((response) => {
+        if (
+          response.status === 202 ||
+          response.status === 201 ||
+          response.status === 204 ||
+          response.status === 200
+        ) {
+          alert('Vidéo téléchargée avec succès !');
+          window.location.reload(); // Actualise la page
+        } else {
+          alert(`Échec du téléchargement : ${response}`);
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement de la vidéo :', error);
+        alert('Une erreur est survenue lors du chargement de la vidéo.');
+      });
     navigate('/videos');
   };
 
@@ -282,7 +268,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       response.status === 200
       ) {
       alert('Vidéo modifiée avec succès !');
-      window.location.reload(); // Actualise la page
+      //window.location.reload(); // Actualise la page
+      navigate('/videos');
       } else {
       alert(`Échec du téléchargement : ${response}`);
       }
@@ -291,7 +278,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       console.error('Erreur lors du chargement de la vidéo :', error);
       alert('Une erreur est survenue lors du chargement de la vidéo.');
     });
-    navigate('/videos');
   };
 
   const [extern_User_List, setExternUserList] = useState('');

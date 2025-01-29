@@ -14,7 +14,6 @@ import ProfilDescription, {
   ProfilDescriptionState,
 } from '../../components/ReworkComponents/ProfilDescription/ProfilDescription';
 import Card from '../../components/ReworkComponents/Cards/Card';
-import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import Commentary from '../../components/ReworkComponents/Commentary/Commentary';
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
@@ -119,54 +118,6 @@ const VideoMedia: FC<VideoMediaProps> = () => {
           <div>
             <Card>
               <div className={styles.miniatureList}>
-                <PreviewMiniture
-                  Id="1"
-                  title="Deploy an application with Docker"
-                  views={24}
-                  createBy="James Cristal"
-                  createdAt="25/05/2023"
-                  tags={['Docker', 'Devops', 'Linux']}
-                />
-                <PreviewMiniture
-                  Id="2"
-                  title="FullStack dev"
-                  views={42}
-                  createBy="Ulice Raver"
-                  createdAt="03/12/2021"
-                  tags={['Versionning', 'OPS', 'FullStack']}
-                />
-                <PreviewMiniture
-                  Id="2"
-                  title="FullStack dev"
-                  views={42}
-                  createBy="Ulice Raver"
-                  createdAt="03/12/2021"
-                  tags={['Versionning', 'OPS', 'FullStack']}
-                />
-                <PreviewMiniture
-                  Id="2"
-                  title="FullStack dev"
-                  views={42}
-                  createBy="Ulice Raver"
-                  createdAt="03/12/2021"
-                  tags={['Versionning', 'OPS', 'FullStack']}
-                />
-                <PreviewMiniture
-                  Id="2"
-                  title="FullStack dev"
-                  views={42}
-                  createBy="Ulice Raver"
-                  createdAt="03/12/2021"
-                  tags={['Versionning', 'OPS', 'FullStack']}
-                />
-                <PreviewMiniture
-                  Id="2"
-                  title="FullStack dev"
-                  views={42}
-                  createBy="Ulice Raver"
-                  createdAt="03/12/2021"
-                  tags={['Versionning', 'OPS', 'FullStack']}
-                />
               </div>
             </Card>
           </div>

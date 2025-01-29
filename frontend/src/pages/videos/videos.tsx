@@ -57,7 +57,6 @@ const Videos: FC<VideosProps> = () => {
     ? videos.filter((video) => {
         const videoTagsList = video.tags?.map((tag) => tag.name);
         let videoUsersList: string[] = [];
-        console.log(video.internal_speakers);
         if (video.internal_speakers != undefined) {
           videoUsersList = video.internal_speakers.map((user) => {
             return user.firstName + ' ' + user.lastName;
