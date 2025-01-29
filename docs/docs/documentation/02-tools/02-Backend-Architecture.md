@@ -40,7 +40,7 @@ Ce dossier contient l'implémentation concrète des interfaces définies dans `d
 ### 3. `tags.module.ts`
 Ce fichier regroupe et exporte les différents éléments liés aux tags sous forme d'un module pour être utilisé dans l'application.
 
-![Exemple de structure en diamant](../../static/img/Hex-Architecture-Tags.png)
+![Exemple de structure en diamant](../../../static/img/Hex-Architecture-Tags.png)
 
 
 ## Exemple: ajout de la modification
