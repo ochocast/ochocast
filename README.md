@@ -38,12 +38,12 @@ declare function startApplication(app: FooApplication, options: FooOptions): Pro
 
 # Recurrents issues on project setup
 
-### Fronted
+### Frontend
 
-Nothing happen when you start the front-end and click on the login button of Keycloak ?
+Nothing happens when you start the front-end and click on the login button of Keycloak ?
 
-This issue is link with your `.env` file. 
-Verify that you correctly create the `.env` file.
+This issue is linked with your `.env` file. 
+Verify that you correctly created the `.env` file.
 
 ### Backend Link problem with the db
 
