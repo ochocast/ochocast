@@ -25,18 +25,21 @@ import Profile from './pages/profile/profile';
 
 function App() {
   const auth = useAuth();
-  //const navigate = useNavigate();
 
   React.useEffect(() => {
-    if (auth.user && !auth.user.expired) {
-      // Utilisation du token pour configurer les headers de l'API
-      api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      api.setHeaders({ Authorization: `Bearer ${token}` });
+    }
 
-      // Récupération des informations utilisateur via le backend
+    if (auth.user && !auth.user.expired) {
+      const accessToken = auth.user.access_token;
+      localStorage.setItem('access_token', accessToken);
+      api.setHeaders({ Authorization: `Bearer ${accessToken}` });
+
       const fetchBackendUser = async () => {
         try {
           const res = await loginUser();
-          //console.log('Backend user:', res.data);
           localStorage.setItem('backendUser', JSON.stringify(res.data));
         } catch (error) {
           console.error(`Failed to fetch user: ${error}`);
@@ -45,7 +48,6 @@ function App() {
 
       fetchBackendUser();
     } else if (!auth.isLoading && !auth.user) {
-      // Rediriger l'utilisateur vers la connexion si non authentifié
       auth.signinRedirect();
     }
   }, [auth]);
