@@ -34,7 +34,10 @@ import { useAuth } from 'react-oidc-context';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
-import SuggestionBar, { SuggestionType, Suggestion } from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
+import SuggestionBar, {
+  SuggestionType,
+  Suggestion,
+} from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
@@ -109,14 +112,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const [tags, setTags] = useState<Tag_video[]>([]);
   const selectTag = (tagChoosen: Suggestion) => {
-    if (isTagVideo(tagChoosen) && tags.some(tag => tag.name === tagChoosen.name)) {
+    if (
+      isTagVideo(tagChoosen) &&
+      tags.some((tag) => tag.name === tagChoosen.name)
+    ) {
       alert('Ce tag a déjà été ajouté.');
       return;
     }
     setTags([...tags, tagChoosen as Tag_video]);
   };
   const isTagVideo = (suggestion: Suggestion): suggestion is Tag_video => {
-    return "id" in suggestion && "name" in suggestion;
+    return 'id' in suggestion && 'name' in suggestion;
   };
   const addTag = (query: string) => {
     createTag({ name: query })
@@ -130,7 +136,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           alert('Tag crée avec succès !');
           const response = await findTag(query);
           const newTag = response.data[0];
-          if (!tags.some(tag => tag.name === newTag.name)) {
+          if (!tags.some((tag) => tag.name === newTag.name)) {
             setTags([...tags, newTag]);
           }
         } else {
@@ -160,8 +166,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
     if (list_by_title.length > 0)
       err += '- Une vidéo du même titre existe déjà :/\n';
-    if (!miniature)
-      err += '- Fichier miniature non renseigné\n';
+    if (!miniature) err += '- Fichier miniature non renseigné\n';
     else if (
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
@@ -238,8 +243,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
       err += '- Une vidéo du même titre existe déjà :/\n';
-    if (!miniature)
-      err += '- Fichier miniature non renseigné\n';
+    if (!miniature) err += '- Fichier miniature non renseigné\n';
     else if (
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
