@@ -268,7 +268,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       response.status === 200
       ) {
       alert('Vidéo modifiée avec succès !');
-      //window.location.reload(); // Actualise la page
       navigate('/videos');
       } else {
       alert(`Échec du téléchargement : ${response}`);
