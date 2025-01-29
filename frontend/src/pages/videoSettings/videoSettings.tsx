@@ -205,6 +205,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             response.status === 200
           ) {
             alert('Vidéo téléchargée avec succès !');
+            window.location.reload(); // Actualise la page
           } else {
             alert(`Échec du téléchargement : ${response}`);
           }
@@ -275,14 +276,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     await modifyVideo(form).then((response) => {
       if (
-        response.status === 202 ||
-        response.status === 201 ||
-        response.status === 204 ||
-        response.status === 200
+      response.status === 202 ||
+      response.status === 201 ||
+      response.status === 204 ||
+      response.status === 200
       ) {
-        alert('Vidéo modifié avec succès !');
+      alert('Vidéo modifiée avec succès !');
+      window.location.reload(); // Actualise la page
       } else {
-        alert(`Échec du téléchargement : ${response}`);
+      alert(`Échec du téléchargement : ${response}`);
       }
     })
     .catch((error) => {

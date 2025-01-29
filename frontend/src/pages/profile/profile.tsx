@@ -75,7 +75,9 @@ const Profile: FC<ProfileProps> = () => {
   });
 
   const ArchivedVideo = (id: string) => {
-    deleteVideo(id);
+    deleteVideo(id).then(() => {
+      window.location.reload();
+    });
     getMe();
   };
 
