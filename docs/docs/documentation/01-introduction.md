@@ -1,58 +1,59 @@
 ---
 slug: /
 ---
-# Introduction to the Ochocast Opensource project
-Ochocast is a multitrack streaming application for events. It is divided into two: video storage and live streaming. 
+# Introduction au projet Open Source Ochocast
+Ochocast est une application de streaming multicanal pour les événements. Elle est divisée en deux parties : le stockage vidéo et le streaming en direct.
 
-The storage part is currently a work in progress and the streaming part is currently left for later.
+La partie stockage est actuellement en cours de développement, tandis que la partie streaming est prévue pour plus tard.
 
-
-This application is the work of Octo and Epita students in the SIGL specialty.
+Cette application est le fruit du travail d'Octo et des étudiants de la spécialité SIGL de l'EPITA.
 
 ## Installation
-Please refer to this [page](./02-installation.md) to make your first steps to contributing to the project
+Veuillez consulter cette [page](./02-installation.md) pour faire vos premiers pas et contribuer au projet.
 
-## Scaleway infrastructure
+## Infrastructure Scaleway
 
 ![](./img/infra_scaleway.png)
 
 ## Frontend
 
-Static website in Object Storage, to serve the front end via the Scaleway CDN (Content Delivery Network).
+OchoCast est un site web statique stocké dans un Object Storage, permettant de servir le front-end via le CDN (Content Delivery Network) de Scaleway.
 
-See more on this [here](./02-tools/01-Front-end.md).
+En savoir plus à ce sujet [ici](./02-tools/01-Front-end.md).
 
 ## Backend
 
-TypeScript Docker application in serverless mode. The last image is stored in the Scaleway registry and overwritten with every deployment.
+OchoCast est une application Docker en TypeScript qui fonctionne en mode serverless. La dernière image est stockée dans le registre Scaleway et est écrasée à chaque déploiement.
 
-See more on this [here](./02-tools/02-Backend-Architecture.md).
+En savoir plus à ce sujet [ici](./02-tools/02-Backend-Architecture.md).
 
-## Database
+## Base de données
 
-Postgresql managed by scaleway, exposed on the Internet and password-protected only (thanks to the impossibility of putting serverless and a managed DB on a private network in Scaleway).
-See more on this [here](./02-tools/03-stockage-s3.md).
+OchoCast utilise une DB PostgreSQL gérée par Scaleway, exposé sur Internet et protégé uniquement par mot de passe (en raison de l'impossibilité de connecter un service serverless et une base de données gérée sur un réseau privé chez Scaleway).
 
-## Stream video & Authentification
+En savoir plus à ce sujet [ici](./02-tools/03-stockage-s3.md).
 
-Standard compute instances required because multiple ports are used (not available in serverless).
+## Streaming vidéo & Authentification
 
-See more about authentification [here](./02-tools/04-Authentification.md).
+Des instances de calcul standard sont nécessaires, car plusieurs ports sont utilisés (ce qui n'est pas possible en mode serverless).
 
-See more about stream video on this ../rtmpServer/README.md for RTMP Server, \
-Or on this ../webSocketServer/README.md for websocket Server.
+En savoir plus sur l'authentification [ici](./02-tools/04-Authentification.md).
+
+En savoir plus sur le streaming vidéo :
+- Consultez le [fichier](./03-tutorial-extras/03-rtmpServer.md) pour le serveur RTMP
+- Consultez le [fichier](./03-tutorial-extras/04-WebSocketServer.md) pour le serveur WebSocket
 
 # Branches
 
 ![](./img/branch_flow.png)
 
-Diagram of our trunk-based gitflow (ideal)
+Diagramme de notre flux Git basé sur le tronc (idéal).
 
-Currently, there are no release branches. The main branch is deployed with each commit.
+Actuellement, il n'y a pas de branches de release. La branche principale est déployée à chaque commit.
 
 ![](./img/current_branch_flow.png)
 
 # CI/CD
 
 ![](./img/CI_CD.png)
-See more on this [here](./02-tools/05-CI-CD.md)
+En savoir plus à ce sujet [ici](./02-tools/05-CI-CD.md).
