@@ -485,11 +485,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 height: 'auto',
               }}
             >
+<<<<<<< HEAD
               <SuggestionBar
                 onClick={selectIntern}
                 placeholder="User"
                 type={SuggestionType.USER}
                 name="suggestionUser"
+=======
+              <CompletionBar
+                name="Intervenant interne"
+                filter={intern_filter}
+                select={selectIntern}
+>>>>>>> 35d787f (style: change english to french frontend)
               />
               <div
                 style={{
