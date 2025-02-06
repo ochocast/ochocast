@@ -34,7 +34,10 @@ import { useAuth } from 'react-oidc-context';
 import HomeCardButton, {
   ButtonState,
 } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
-import SuggestionBar, { SuggestionType, Suggestion } from '../../components/ReworkComponents/SuggestionBar/SuggestionBar';
+import SuggestionBar, {
+  SuggestionType,
+  Suggestion,
+} from '../../components/ReworkComponents/SuggestionBar/SuggestionBar';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
@@ -104,7 +107,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const [intern_list, setInternList] = useState<User[]>([]);
   const selectIntern = (userChoosen: Suggestion) => {
-    setInternList([...intern_list, userChoosen as User ]);
+    setInternList([...intern_list, userChoosen as User]);
   };
 
   const [tags, setTags] = useState<Tag_video[]>([]);
@@ -112,48 +115,51 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setTags([...tags, tagChoosen as Tag_video]);
   };
   const addTag = (query: string) => {
-    createTag({name: query})
-    .then( async (response) => { 
-      if (
-        response.status === 202 ||
-        response.status === 201 ||
-        response.status === 204 ||
-        response.status === 200
-      ) {
-        alert('Tag crée avec succès !');
-        const response = await findTag(query);
-        setTags([...tags, response.data[0]]);
-      } else {
-        alert(`Échec du téléchargement : ${response}`);
-      }
-    })
-    .catch((error) => {
-      console.error('Erreur lors du chargement de la vidéo :', error);
-      alert('Une erreur est survenue lors du chargement de la vidéo.');
-    });
+    createTag({ name: query })
+      .then(async (response) => {
+        if (
+          response.status === 202 ||
+          response.status === 201 ||
+          response.status === 204 ||
+          response.status === 200
+        ) {
+          alert('Tag crée avec succès !');
+          const response = await findTag(query);
+          setTags([...tags, response.data[0]]);
+        } else {
+          alert(`Échec du téléchargement : ${response}`);
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement de la vidéo :', error);
+        alert('Une erreur est survenue lors du chargement de la vidéo.');
+      });
   };
 
   const publishVideo = async () => {
-    const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi'];                //maybe move this somewhere else ?
-    const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];            //maybe move this somewhere else ?
+    const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi']; //maybe move this somewhere else ?
+    const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp']; //maybe move this somewhere else ?
     const list_by_title = (await getVideoByTitle(title)).data;
 
-    let err = "";
+    let err = '';
     // conditions publication
-    if (media == undefined)
-      err += "- Fichier vidéo non renseigné\n";
-    else if ( media?.name.split('.').pop() != undefined &&                     //could be moved to handleMediaChange
-      !accepted_media_formats.includes(media?.name.split('.').pop() as string))
-      err += "- Format de vidéo non supporté\n";
-    if (title=="")
-      err += "- Titre non renseigné\n";
-    if (tags.length == 0)
-      err += "- Minimum 1 tag est requis\n";
+    if (media == undefined) err += '- Fichier vidéo non renseigné\n';
+    else if (
+      media?.name.split('.').pop() != undefined && //could be moved to handleMediaChange
+      !accepted_media_formats.includes(media?.name.split('.').pop() as string)
+    )
+      err += '- Format de vidéo non supporté\n';
+    if (title == '') err += '- Titre non renseigné\n';
+    if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
     if (list_by_title.length > 0)
-      err += "- Une vidéo du même titre existe déjà :/\n";
-    if (!accepted_minature_formats.includes(miniature?.name.split('.').pop() as string))
-      err += "- Format de miniature non supporté\n";
-    if (err != "") {
+      err += '- Une vidéo du même titre existe déjà :/\n';
+    if (
+      !accepted_minature_formats.includes(
+        miniature?.name.split('.').pop() as string,
+      )
+    )
+      err += '- Format de miniature non supporté\n';
+    if (err != '') {
       alert('Une ou plusieurs conditions ne sont pas remplies : \n' + err);
       return;
     }
@@ -205,26 +211,32 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   };
 
   const updateVideo = async () => {
-    const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi'];                //maybe move this somewhere else ?
-    const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];            //maybe move this somewhere else ?
+    const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi']; //maybe move this somewhere else ?
+    const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp']; //maybe move this somewhere else ?
     const list_by_title = (await getVideoByTitle(title)).data;
 
-    let err = "";
+    let err = '';
     // conditions publication
     if (baseVideo?.media_id === undefined && media == undefined)
-      err += "- Fichier vidéo non renseigné\n";
-    else if (baseVideo?.media_id === undefined && media?.name.split('.').pop() != undefined &&                     //could be moved to handleMediaChange
-      !accepted_media_formats.includes(media?.name.split('.').pop() as string))
-      err += "- Format de vidéo non supporté\n";
-    if (title=="")
-      err += "- Titre non renseigné\n";
-    if (tags.length == 0)
-      err += "- Minimum 1 tag est requis\n";
-    if (title !== baseVideo?.title  && list_by_title.length > 0)
-      err += "- Une vidéo du même titre existe déjà :/\n";
-    if (baseVideo?.miniature_id === undefined && !accepted_minature_formats.includes(miniature?.name.split('.').pop() as string))
-      err += "- Format de miniature non supporté\n";
-    if (err != "") {
+      err += '- Fichier vidéo non renseigné\n';
+    else if (
+      baseVideo?.media_id === undefined &&
+      media?.name.split('.').pop() != undefined && //could be moved to handleMediaChange
+      !accepted_media_formats.includes(media?.name.split('.').pop() as string)
+    )
+      err += '- Format de vidéo non supporté\n';
+    if (title == '') err += '- Titre non renseigné\n';
+    if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
+    if (title !== baseVideo?.title && list_by_title.length > 0)
+      err += '- Une vidéo du même titre existe déjà :/\n';
+    if (
+      baseVideo?.miniature_id === undefined &&
+      !accepted_minature_formats.includes(
+        miniature?.name.split('.').pop() as string,
+      )
+    )
+      err += '- Format de miniature non supporté\n';
+    if (err != '') {
       alert('Une ou plusieurs conditions ne sont pas remplies : \n' + err);
       return;
     }
@@ -255,28 +267,36 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
     );
 
-
     form.append('createdAt', JSON.stringify(baseVideo?.createdAt));
-    form.append('views', JSON.stringify((baseVideo?.views !== undefined)? baseVideo?.views : 0));
-    form.append('updatedAt', JSON.stringify((baseVideo?.updatedAt !== undefined)? baseVideo?.updatedAt : null));
+    form.append(
+      'views',
+      JSON.stringify(baseVideo?.views !== undefined ? baseVideo?.views : 0),
+    );
+    form.append(
+      'updatedAt',
+      JSON.stringify(
+        baseVideo?.updatedAt !== undefined ? baseVideo?.updatedAt : null,
+      ),
+    );
 
-    await modifyVideo(form).then((response) => {
-      if (
-      response.status === 202 ||
-      response.status === 201 ||
-      response.status === 204 ||
-      response.status === 200
-      ) {
-      alert('Vidéo modifiée avec succès !');
-      navigate('/videos');
-      } else {
-      alert(`Échec du téléchargement : ${response}`);
-      }
-    })
-    .catch((error) => {
-      console.error('Erreur lors du chargement de la vidéo :', error);
-      alert('Une erreur est survenue lors du chargement de la vidéo.');
-    });
+    await modifyVideo(form)
+      .then((response) => {
+        if (
+          response.status === 202 ||
+          response.status === 201 ||
+          response.status === 204 ||
+          response.status === 200
+        ) {
+          alert('Vidéo modifiée avec succès !');
+          navigate('/videos');
+        } else {
+          alert(`Échec du téléchargement : ${response}`);
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement de la vidéo :', error);
+        alert('Une erreur est survenue lors du chargement de la vidéo.');
+      });
   };
 
   const [extern_User_List, setExternUserList] = useState('');
@@ -485,18 +505,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 height: 'auto',
               }}
             >
-<<<<<<< HEAD
               <SuggestionBar
                 onClick={selectIntern}
                 placeholder="User"
                 type={SuggestionType.USER}
                 name="suggestionUser"
-=======
-              <CompletionBar
-                name="Intervenant interne"
-                filter={intern_filter}
-                select={selectIntern}
->>>>>>> 35d787f (style: change english to french frontend)
               />
               <div
                 style={{
@@ -510,13 +523,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               >
                 {intern_list.map((user, index) => (
                   <Tag
-                    className={user.firstName + " " + user.lastName}
+                    className={user.firstName + ' ' + user.lastName}
                     style={{ flex: '25%' }}
                     tsize="10px"
                     marginTop="0px"
                     key={index}
                   >
-                    {user.firstName + " " + user.lastName}
+                    {user.firstName + ' ' + user.lastName}
                   </Tag>
                 ))}
               </div>
@@ -577,7 +590,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           createBy={auth.user?.profile.given_name || 'Non connecté'}
           views={0}
           createdAt={new Date().toString()}
-          tags={tags.flatMap((tag) => {return tag.name;})}
+          tags={tags.flatMap((tag) => {
+            return tag.name;
+          })}
         />
       </div>
       {/* 
