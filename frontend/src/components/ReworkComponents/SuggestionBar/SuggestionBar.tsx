@@ -33,7 +33,7 @@ const SuggestionBar = ({
   const findSuggestions = async (query_enter: string) => {
     try {
       const response = await ((type === SuggestionType.TAG )? findTags(query_enter) : findUsers(query_enter));
-      setSuggestion(response.data);
+      setSuggestion((response.data === null) ? [] : response.data);
     } catch (error) {
       logger.error('Error fetching users and tags:', error);
     }
