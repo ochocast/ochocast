@@ -1,34 +1,53 @@
-//Create a prtected route component that extends react-router-dom Route and uses react-oidc-context authProvider to check if the user is authenticated. If the user is not authenticated, the component redirects to the login page.
+import React, {useEffect} from 'react';
+import {useAuth} from "react-oidc-context";
+import LoadingPage from "../pages/Loading/Loading";
+import {api, loginUser} from "./api";
 
-import React, { FC } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from 'react-oidc-context';
-
-interface ProtectedRouteProps {
-  /* eslint-disable */
-  Element: React.ComponentType<any>;
+interface ProtectedRoutesProps {
+    children: React.ReactNode;
 }
+export function ProtectedRoutes(props: ProtectedRoutesProps) {
+    const auth = useAuth();
 
-const ProtectedRoute: FC<ProtectedRouteProps> = ({ Element }) => {
-  const auth = useAuth();
-  const [isLoading, setIsLoading] = React.useState(auth.isLoading);
+    useEffect(() => {
+        if(auth.isLoading) {
+            return;
+        }
+        if (auth.user && !auth.user.expired) {
+            // Utilisation du token pour configurer les headers de l'API
+            api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
 
-  React.useEffect(() => {
-    setIsLoading(auth.isLoading);
-  }, [auth]);
+            // Récupération des informations utilisateur via le backend
+            const fetchBackendUser = async () => {
+                try {
+                    const res = await loginUser();
+                    //console.log('Backend user:', res.data);
+                    localStorage.setItem('backendUser', JSON.stringify(res.data));
+                } catch (error) {
+                    console.error(`Failed to fetch user: ${error}`);
+                }
+            };
 
-  if (!isLoading && !auth.isAuthenticated) {
-    return <Navigate to="/" />;
-  }
-  if (!isLoading && auth.isAuthenticated) {
-    return <Element />;
-  }
+            fetchBackendUser();
+        } else {
+            if (auth.user && auth.user.expired) {
+                // Renouveler le token si expiré
+                auth.signinSilent().then(user => {
+                    if (!user) {
+                        // Rediriger l'utilisateur vers la connexion si non authentifié
+                        auth.signinRedirect();
+                    }
+                });
+            } else {
+                // Rediriger l'utilisateur vers la connexion si non authentifié
+                auth.signinRedirect();
+            }
+        }
+    }, [auth]);
 
-  return (
-    <div>
-      <h1>Checking your authorization...</h1>
-    </div>
-  );
-};
+    if(auth.isAuthenticated) {
+        return <>{props.children}</>;
+    }
 
-export default ProtectedRoute;
+    return <LoadingPage />;
+}

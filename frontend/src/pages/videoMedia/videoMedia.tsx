@@ -9,11 +9,12 @@ import { useParams } from 'react-router-dom';
 import { Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
-import Tag from '../../components/ReworkComponents/Tag/Tag';
+import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
 import ProfilDescription, {
   ProfilDescriptionState,
-} from '../../components/ReworkComponents/ProfilDescription/ProfilDescription';
-import Card from '../../components/ReworkComponents/Cards/Card';
+} from '../../components/ReworkComponents/profil/ProfilDescription/ProfilDescription';
+import Card from '../../components/ReworkComponents/generic/Cards/Card';
+// import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 // import Commentary from '../../components/ReworkComponents/Commentary/Commentary';
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 

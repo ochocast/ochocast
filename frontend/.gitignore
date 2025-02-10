@@ -26,3 +26,5 @@ yarn-error.log*
 # doc
 /backend/docs
 /frontend/docs
+
+*storybook.log

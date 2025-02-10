@@ -1,10 +1,10 @@
 import React, { FC } from 'react';
 
-import HomeCards from '../../components/ReworkComponents/Cards/CardHome/CardHome';
+import HomeCards from '../../components/ReworkComponents/generic/Cards/CardHome/CardHome';
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
 
-import { ButtonState } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
+import { ButtonType } from '../../components/ReworkComponents/generic/Button/Button';
 
 export interface HomeProps {}
 
@@ -14,9 +14,9 @@ const HomePage: FC<HomeProps> = () => {
   return (
     <div className="HomeCard">
       <HomeCards
-        Title="Streaming"
-        Description="Cliquez ici pour obtenir la liste des événements en direct disponibles."
-        ButtonState={ButtonState.disabled}
+        title="Streaming"
+        description="Cliquez ici pour obtenir la liste des événements en direct disponibles."
+        buttonState={ButtonType.disabled}
         buttonList={[
           {
             title: 'Prochainement...',
@@ -31,8 +31,8 @@ const HomePage: FC<HomeProps> = () => {
         }}
       >
         <HomeCards
-          Title="Vidéos"
-          Description="Cliquez ici pour obtenir la liste des vidéos disponibles."
+          title="Vidéos"
+          description="Cliquez ici pour obtenir la liste des vidéos disponibles."
           buttonList={[
             {
               title: 'Rechercher une vidéo',

@@ -4,7 +4,7 @@ import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import Card from '../../components/ReworkComponents/Cards/Card';
+import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import { useParams } from 'react-router-dom';
 // import Button from '../../components/buttons/button/button';
 
@@ -29,15 +29,12 @@ import { Tag_video, User } from '../../utils/VideoProperties';
 
 import { Video } from '../../utils/VideoProperties';
 
-import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import { useAuth } from 'react-oidc-context';
-import HomeCardButton, {
-  ButtonState,
-} from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
-import SuggestionBar, {
-  SuggestionType,
-  Suggestion,
-} from '../../components/ReworkComponents/SuggestionBar/SuggestionBar';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
+import SuggestionBar, { SuggestionType, Suggestion } from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
@@ -337,7 +334,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         setTags_tags(baseVideo.tags.flatMap((tag)=>{
           return tag.name;
         }));
-      }    
+      }
       if(baseVideo?.internal_speakers !== undefined){
         setIntern_Speakers(baseVideo.internal_speakers);
         setIntern_tags(baseVideo.internal_speakers.flatMap((user) => {
@@ -345,7 +342,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         }));
       }
     };
-    
+
 
 
     get_users_list();
@@ -449,7 +446,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               />
             </Card>
 
-            {/* TODO : as rajouter au moment de l'implementatio du support 
+            {/* TODO : as rajouter au moment de l'implementatio du support
             <Card>
               <InputFile
                 placeholder="Glissez ou choisissez votre Support"
@@ -561,25 +558,25 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             onChange={handleDescriptionChange}
           />
           <div className="buttonContainer">
-            <HomeCardButton Title="Archiver la video"></HomeCardButton>
+            <Button label="Archiver la video"></Button>
             {videoId !== undefined ? (
-              <HomeCardButton
-                onClickFunction={updateVideo}
-                Title="Modifier la vidéo"
-                State={ButtonState.colored}
-              ></HomeCardButton>
+              <Button
+                onClick={updateVideo}
+                label="Modifier la vidéo"
+                type={ButtonType.primary}
+              ></Button>
             ) : (
-              <HomeCardButton
-                onClickFunction={publishVideo}
-                Title="Publier la vidéo"
-                State={ButtonState.colored}
-              ></HomeCardButton>
+              <Button
+                onClick={publishVideo}
+                label="Publier la vidéo"
+                type={ButtonType.primary}
+              ></Button>
             )}
           </div>
         </div>
       </div>
       <div className="generalinfo">
-        <PreviewMiniture
+        <Thumbnail
           Id="1"
           title={title || 'Titre'}
           imageSrc={
@@ -595,7 +592,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           })}
         />
       </div>
-      {/* 
+      {/*
       <Tag className='primary' >Test Primary</Tag>
       <Tag className='secondary' tsize='15px' >Test Secondary</Tag> */}
     </div>

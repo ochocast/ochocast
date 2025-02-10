@@ -13,15 +13,15 @@ import {
   Video,
 } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
-import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import ProfilDescription, {
   ProfilDescriptionState,
-} from '../../components/ReworkComponents/ProfilDescription/ProfilDescription';
+} from '../../components/ReworkComponents/profil/ProfilDescription/ProfilDescription';
 import NotFoundPage from '../notFound/notFound';
 import { deleteVideo } from '../../utils/api';
 import SearchBar, {
   SearchBarIcon,
-} from '../../components/ReworkComponents/SearchBar/SearchBar';
+} from '../../components/ReworkComponents/video/navigation/SearchBar/SearchBar';
 
 interface ProfileProps {}
 
@@ -130,7 +130,7 @@ const Profile: FC<ProfileProps> = () => {
         <div className={style.video_row}>
           {filteredVideos.length > 0 ? (
             filteredVideos.map((video) => (
-              <PreviewMiniture
+              <Thumbnail
                 key={video.id}
                 Id={video.id}
                 title={video.title}

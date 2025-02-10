@@ -1,0 +1,50 @@
+
+.select {
+    :global(.select__control) {
+        border-radius: 25px;
+        min-width: 300px;
+
+    }
+
+    :global(.select__control--menu-is-open) {
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        box-shadow: none;
+        border: solid 1px lightgray;
+        border-bottom: none;
+    }
+
+    :global(.select__menu) {
+        border-radius: 0 0 25px 25px;
+        margin: 0;
+        box-shadow: none;
+        border: solid 1px lightgray;
+        border-top: none;
+
+        ::after {
+            content: "";
+            position: absolute;
+            width: 90%;
+            height: 1px;
+            background-color: lightgray;
+            right: 5%;
+            top: 0; /* Ajuste la hauteur */
+        }
+    }
+
+    :global(.select__menu-list) {
+        background: none;
+    }
+
+    :global(.select__option) {
+        background: none;
+
+        :global(.select__option--is-focused) {
+            background-color: #f5f5f5;
+        }
+
+        :global(.select__option--is-selected) {
+            background-color: #f5f5f5;
+        }
+    }
+}

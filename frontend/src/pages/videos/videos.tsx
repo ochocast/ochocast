@@ -15,11 +15,11 @@ import {
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
 // import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
 // import Card from '../../components/ReworkComponents/Cards/Card';
-import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
+import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import logger from '../../utils/logger';
 import SearchBar, {
   SearchBarIcon,
-} from '../../components/ReworkComponents/SearchBar/SearchBar';
+} from '../../components/ReworkComponents/video/navigation/SearchBar/SearchBar';
 
 interface VideosProps {}
 
@@ -111,7 +111,7 @@ const Videos: FC<VideosProps> = () => {
         <div className={style.video_row}>
           {filteredVideos.length > 0 ? (
             filteredVideos.map((video) => (
-              <PreviewMiniture
+              <Thumbnail
                 key={video.id}
                 Id={video.id}
                 title={video.title}
