@@ -25,7 +25,7 @@ const Header: FC<HeaderProps> = () => {
           alt="Logo"
           // width="200"
           // height="100"
-          onClick={() => navigate('/home')}
+          onClick={() => navigate('/')}
         />
       </div>
 

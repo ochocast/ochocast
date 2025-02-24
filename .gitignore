@@ -20,3 +20,5 @@ backend/docs
 .env
 
 localMinio/run_env/*
+
+package-lock.json
