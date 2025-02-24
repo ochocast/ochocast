@@ -4,7 +4,7 @@ import HomeCards from '../../components/ReworkComponents/generic/Cards/CardHome/
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
 
-import { ButtonType } from '../../components/ReworkComponents/generic/Button/Button';
+//import { ButtonState } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
 
 export interface HomeProps {}
 
@@ -16,11 +16,14 @@ const HomePage: FC<HomeProps> = () => {
       <HomeCards
         title="Streaming"
         description="Cliquez ici pour obtenir la liste des événements en direct disponibles."
-        buttonState={ButtonType.disabled}
+        //buttonState={ButtonState.disabled}
         buttonList={[
           {
-            title: 'Prochainement...',
-            onClickFunction: () => {},
+            title: 'Rechercher un live',
+            onClickFunction: (e) => {
+              e.stopPropagation();
+              navigate('/events');
+            },
           },
         ]}
       />

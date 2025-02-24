@@ -10,12 +10,7 @@ const NavItems = () => {
   return (
     <div className={styles.navItems}>
       <div className={styles.navItem}>
-        <a
-          style={{ cursor: 'not-allowed', color: '#cccccc' }}
-          className={styles.navItem1}
-          onClick={() => {}}
-          // onClick={() => navigate('/events')}
-        >
+        <a className={styles.navItem1} onClick={() => navigate('/events')}>
           Streaming
         </a>
       </div>
