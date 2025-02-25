@@ -11,10 +11,10 @@ function LoadingPage() {
     if (!auth.isLoading) {
       if (auth.isAuthenticated) {
         logger.info('Authenticated');
-        navigate('/home');
+        navigate('/');
       } else {
         logger.info('Not authenticated');
-        navigate('/');
+        navigate('*');
       }
     }
     return;
