@@ -47,14 +47,14 @@ const EventsList: FC<EventsListProps> = ({
     <div className="events-list">
       <div className="title">{title}</div>
       <div className="list">
-        <div className="left-arrow">
+        {eventsShown.length > 3 && <div className="left-arrow">
           <img
             className="arrow"
             src={leftButton}
             alt="Button"
             onClick={() => onArrowClick(false)}
           ></img>
-        </div>
+        </div>}
         <div className="event-container">
           {eventsShown.slice(0, 3).map((event, index) => (
             <EventBox
@@ -70,14 +70,14 @@ const EventsList: FC<EventsListProps> = ({
             />
           ))}
         </div>
-        <div className="right-arrow">
+        {eventsShown.length > 3 && <div className="right-arrow">
           <img
             className="arrow"
             src={rightButton}
             alt="Button"
             onClick={() => onArrowClick(true)}
           ></img>
-        </div>
+        </div>}
       </div>
     </div>
   );
