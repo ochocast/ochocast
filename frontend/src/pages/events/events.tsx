@@ -109,16 +109,9 @@ const EventsPage: FC<eventsProps> = () => {
   const onPublish = async (eventId: string) => {
     try {
       const res = await updateEvent(eventId, { published: true });
-      //add event to published events
-      const published = eventsPublished.slice();
-      published.push(res.data);
-      setEventsPublished(published);
+      setEventsPublished((prevEvents) => [...prevEvents, res.data]);
 
-      //remove event from unpublished events
-      const eventWithIdIndex = eventsUnpublished.findIndex(
-        (event) => event.id === res.data.id,
-      );
-      eventsUnpublished.splice(eventWithIdIndex, 1);
+      setEventsUnpublished([...eventsUnpublished.filter((event) => event.id !== eventId)]);
     } catch (error) {
       logger.error(`Failed to update event: ${error}`);
     }
@@ -135,7 +128,7 @@ const EventsPage: FC<eventsProps> = () => {
       setErrorDescription(true);
       isError = true;
     }
-
+    
     if (!isError) {
       try {
         if (!userString) {
@@ -162,7 +155,7 @@ const EventsPage: FC<eventsProps> = () => {
           setStartHour('');
           setEndHour('');
           setCategoryValue('');
-          eventsUnpublished.push(res.data);
+          setEventsUnpublished((prevEvents) => [...prevEvents, res.data]);
         }
       } catch (error) {
         logger.error(error);
