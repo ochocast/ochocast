@@ -1,8 +1,8 @@
 import React from 'react';
 import styles from './Commentary.module.css';
-import ProfilDescription, {
-  ProfilDescriptionState,
-} from '../../profil/ProfilDescription/ProfilDescription';
+import ProfileDescription, {
+  ProfileDescriptionState,
+} from '../../profil/ProfileDescription/ProfileDescription';
 
 export interface CommentaryProps {
   content: string;
@@ -17,12 +17,12 @@ const Commentary = (props: CommentaryProps) => {
         </div>
         <div className={styles.rponses}>6 réponses</div>
       </div>
-      <ProfilDescription
+      <ProfileDescription
         name="Jean Dupont"
         email=""
         description=""
         image="/persona.png"
-        state={ProfilDescriptionState.tiny}
+        state={ProfileDescriptionState.tiny}
       />
     </div>
   );

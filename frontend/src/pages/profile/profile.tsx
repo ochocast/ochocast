@@ -14,9 +14,9 @@ import {
 } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
-import ProfilDescription, {
-  ProfilDescriptionState,
-} from '../../components/ReworkComponents/profil/ProfilDescription/ProfilDescription';
+import ProfileDescription, {
+  ProfileDescriptionState,
+} from '../../components/ReworkComponents/profil/ProfileDescription/ProfileDescription';
 import NotFoundPage from '../notFound/notFound';
 import { deleteVideo } from '../../utils/api';
 import SearchBar, {
@@ -94,7 +94,7 @@ const Profile: FC<ProfileProps> = () => {
   return (
     <div className={style.videos}>
       <div className={style.display}>
-        <ProfilDescription
+        <ProfileDescription
           name={currentUser ? currentUser.firstName : 'Inconnu'}
           email={
             currentUser ? currentUser.email : 'Adresse mail non renseignée'
@@ -107,7 +107,7 @@ const Profile: FC<ProfileProps> = () => {
               ? currentUser.picture_id || '/persona.png'
               : '/persona.png'
           }
-          state={ProfilDescriptionState.large}
+          state={ProfileDescriptionState.large}
         />
 
         <div className={style.display1}>

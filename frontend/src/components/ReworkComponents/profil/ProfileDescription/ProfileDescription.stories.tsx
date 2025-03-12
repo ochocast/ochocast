@@ -1,10 +1,10 @@
 import type {Meta, StoryObj} from '@storybook/react';
 import '../../../../index.css';
-import ProfilDescription, {ProfilDescriptionState} from "./ProfilDescription";
+import ProfileDescription, {ProfileDescriptionState} from "./ProfileDescription";
 
 const meta = {
     title: 'Profil/Description',
-    component: ProfilDescription,
+    component: ProfileDescription,
     parameters: {
         // Optional parameter to center the component in the Canvas. More info: https://storybook.js.org/docs/configure/story-layout
         layout: 'centered',
@@ -19,9 +19,9 @@ const meta = {
         name: 'John Doe',
         email: 'john.doe@email.com',
         description: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc scelerisque nisi convallis nisl iaculis vehicula. Vivamus non vestibulum dui, sed eleifend augue. Fusce imperdiet dolor eu rhoncus interdum',
-        state: ProfilDescriptionState.large
+        state: ProfileDescriptionState.large
     },
-} satisfies Meta<typeof ProfilDescription>;
+} satisfies Meta<typeof ProfileDescription>;
 
 export default meta;
 
@@ -34,18 +34,18 @@ export const Large: Story = {
 
 export const Tiny: Story = {
     args: {
-        state: ProfilDescriptionState.tiny
+        state: ProfileDescriptionState.tiny
     },
 };
 
 export const Minimal: Story = {
     args: {
-        state: ProfilDescriptionState.minimal
+        state: ProfileDescriptionState.minimal
     },
 };
 
 export const Standard: Story = {
     args: {
-        state: ProfilDescriptionState.standard
+        state: ProfileDescriptionState.standard
     },
 };

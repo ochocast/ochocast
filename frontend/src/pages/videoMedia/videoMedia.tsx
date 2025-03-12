@@ -10,9 +10,9 @@ import { Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
 import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
-import ProfilDescription, {
-  ProfilDescriptionState,
-} from '../../components/ReworkComponents/profil/ProfilDescription/ProfilDescription';
+import ProfileDescription, {
+  ProfileDescriptionState,
+} from '../../components/ReworkComponents/profil/ProfileDescription/ProfileDescription';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
 // import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 // import Commentary from '../../components/ReworkComponents/Commentary/Commentary';
@@ -104,13 +104,13 @@ const VideoMedia: FC<VideoMediaProps> = () => {
               </h3>
               <p className={styles.video_description}>{video?.description}</p>
             </div>
-            <div className={styles.profilDescription}>
-              <ProfilDescription
+            <div className={styles.profileDescription}>
+              <ProfileDescription
                 name={video.creator.firstName + ' ' + video.creator.lastName}
                 email={video.creator.email}
                 description={video.creator.description}
                 image="/persona.png"
-                state={ProfilDescriptionState.standard}
+                state={ProfileDescriptionState.standard}
               />
             </div>
           </div>

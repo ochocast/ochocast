@@ -1,26 +1,26 @@
 import React from 'react';
-import styles from './ProfilDescription.module.css';
+import styles from './ProfileDescription.module.css';
 import Card from '../../generic/Cards/Card';
 import CSS from 'csstype';
 import { useAuth } from 'react-oidc-context';
 import Button from '../../generic/Button/Button';
 
-type ProfilDescriptionProps = {
-  name: string;
-  email: string;
-  description: string;
-  image?: string;
-  state: ProfilDescriptionState;
-};
-
-export enum ProfilDescriptionState {
+export enum ProfileDescriptionState {
   tiny = 'tiny',
   minimal = 'minimal',
   standard = 'standard',
   large = 'large',
 }
 
-const ProfilDescription = (props: ProfilDescriptionProps) => {
+type ProfileDescriptionProps = {
+  name: string;
+  email: string;
+  description: string;
+  image?: string;
+  state: ProfileDescriptionState;
+};
+
+const ProfileDescription = (props: ProfileDescriptionProps) => {
   const tinyPading: CSS.Properties = {
     padding: '1rem',
     maxWidth: 'min-content',
@@ -36,10 +36,10 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
   //   process.env.DEFAULT_PERSONA_IMAGE,
   //   imageSrc,
   // );
-  if (props.state === ProfilDescriptionState.tiny) {
+  if (props.state === ProfileDescriptionState.tiny) {
     return (
       <Card styleAddon={tinyPading}>
-        <div className={styles.profilContainer}>
+        <div className={styles.profileContainer}>
           <img className={styles.imageSmall} alt="" src={imageSrc} />
           <h3 className={styles.name}>{props.name}</h3>
         </div>
@@ -47,10 +47,10 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
     );
   }
 
-  if (props.state === ProfilDescriptionState.minimal) {
+  if (props.state === ProfileDescriptionState.minimal) {
     return (
       <Card>
-        <div className={styles.profilContainerCol}>
+        <div className={styles.profileContainerCol}>
           <img className={styles.image} alt="" src={imageSrc} />
           <div className={styles.titlesCenter}>
             <h2 className={styles.name}>{props.name}</h2>
@@ -60,10 +60,10 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
       </Card>
     );
   }
-  if (props.state === ProfilDescriptionState.standard) {
+  if (props.state === ProfileDescriptionState.standard) {
     return (
       <Card>
-        <div className={styles.profilContainer}>
+        <div className={styles.profileContainer}>
           <img className={styles.image} alt="" src={imageSrc} />
           <div>
             <div className={styles.titles}>
@@ -80,10 +80,10 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
     );
   }
 
-  if (props.state === ProfilDescriptionState.large) {
+  if (props.state === ProfileDescriptionState.large) {
     return (
       <Card>
-        <div className={styles.profilContainer}>
+        <div className={styles.profileContainer}>
           <img className={styles.imageLarge} alt="" src={imageSrc} />
           <div className={styles.description}>
             <div className={styles.titles}>
@@ -107,4 +107,4 @@ const ProfilDescription = (props: ProfilDescriptionProps) => {
   return <div></div>;
 };
 
-export default ProfilDescription;
+export default ProfileDescription;
