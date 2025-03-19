@@ -47,7 +47,7 @@ const EventsList: FC<EventsListProps> = ({
     <div className="events-list">
       <div className="title">{title}</div>
       <div className="list">
-        {eventsShown.length > 3 && <div className="left-arrow">
+        {events.length > 3 && <div className="left-arrow">
           <img
             className="arrow"
             src={leftButton}
@@ -70,7 +70,7 @@ const EventsList: FC<EventsListProps> = ({
             />
           ))}
         </div>
-        {eventsShown.length > 3 && <div className="right-arrow">
+        {events.length > 3 && <div className="right-arrow">
           <img
             className="arrow"
             src={rightButton}

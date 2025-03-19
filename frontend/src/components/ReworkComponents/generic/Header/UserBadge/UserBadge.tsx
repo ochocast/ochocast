@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import profilePicture from './profile-picture.svg';
 import { useNavigate } from 'react-router-dom';
 import './UserBadge.css';
