@@ -1,7 +1,7 @@
 import React, { FC, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
-import TrackBox from '../../components/TrackBox/TrackBox';
+import TrackBox from '../../components/ReworkComponents/live/TrackBox/TrackBox';
 import Event from '../../utils/EventsProperties';
 
 import './tracks.css';

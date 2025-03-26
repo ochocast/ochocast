@@ -1,0 +1,33 @@
+.track_box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid black;
+  border-radius: 20px;
+  padding-inline: 20px;
+}
+
+.button_title_wrapper {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 10px;
+}
+
+.track_title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.line {
+  background-color: #d9d9d9;
+  height: 5px;
+  width: 100%;
+}
+
+.track_content {
+  display: flex;
+  align-self: flex-start;
+  margin-top: 7px;
+}
