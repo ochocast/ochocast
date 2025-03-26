@@ -6,7 +6,7 @@ import TextArea from '../../components/TextArea/TextArea';
 import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
-import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
+import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/DropDownMenuTracks/DropDownMenuTracks';
 import { getEvent, updateEvent, deleteEvent } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
@@ -192,8 +192,9 @@ const EventSettings: FC<EventSettingsProps> = () => {
         </div>
         <DropDownMenuTracks
           tracks={tracks}
-          eventId={eventId}
+          eventId={eventId ?? ""}
           isButtonDisplayed={!eventClosed}
+          isTracksDisplayed={false}
           imageUrl={trackSelectImage}
         />
       </div>

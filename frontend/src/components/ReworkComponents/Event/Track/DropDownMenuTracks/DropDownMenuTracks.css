@@ -1,0 +1,77 @@
+.DropDownMenu {
+  width: 100%;
+}
+
+.DropDownMenuHeader {
+  display: flex;
+  align-content: center;
+}
+
+.dropbtn {
+  margin: 0px;
+  background-color: var(--theme-color-100);
+  color: black;
+  border: none;
+  height: 100%;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+}
+
+.image-list-menu {
+  display: flex;
+  object-fit: fill;
+}
+
+.image-button-track {
+  height: 26px;
+  width: 26px;
+}
+
+.track-button-container {
+  display: flex;
+  width: 100%;
+  margin-top: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.add-track-button-navbar,
+.show-track-button-navbar {
+  border: none;
+  background-color: var(--theme-color-100);
+}
+
+.button-container {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding-left: 20px;
+  margin-left: 18px;
+}
+
+.button-container::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--theme-color-700);
+}
+
+.track-button {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: none;
+  background-color: var(--theme-color-100);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.3s ease;
+}
+
+.track-button:hover {
+  background-color: var(--theme-color-200);
+}

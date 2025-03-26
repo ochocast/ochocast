@@ -5,7 +5,7 @@ import TextArea from '../../components/TextArea/TextArea';
 import './trackSettings.css';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
-import DropDownMenuTracks from '../../components/DropDownMenuTracks/DropDownMenuTracks';
+import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/DropDownMenuTracks/DropDownMenuTracks';
 import { CheckBoxList } from '../../components/checkBoxList/CheckBoxList';
 import {
   createTrack,
@@ -33,6 +33,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [speakers, setSpeakers] = useState<User[]>([]);
   const [moderators, setModerators] = useState<User[]>([]);
+  const [eventClosed, setEventClosed] = useState(false);
 
   //Get all users
   useEffect(() => {
@@ -84,6 +85,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
       try {
         const res = await getEvent(eventId);
         if (res.status === 200) {
+          if (res.data[0].closed) setEventClosed(true);
           setTracks(res.data[0].tracks);
         }
       } catch (error) {
@@ -213,8 +215,9 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         </div>
         <DropDownMenuTracks
           tracks={tracks}
-          eventId={eventId}
-          isButtonDisplayed={true}
+          eventId={eventId ?? ""} 
+          isButtonDisplayed={!eventClosed}
+          isTracksDisplayed={true}
           imageUrl={trackSelectImage}
         />
       </div>

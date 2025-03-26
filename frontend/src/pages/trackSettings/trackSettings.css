@@ -28,7 +28,7 @@
   flex-direction: column;
   width: 30%;
   height: 100vh;
-  background-color: #e3f8fb;
+  background-color: var(--theme-color-100);
   padding: 2%;
   align-items: center;
   gap: 30px;
@@ -89,7 +89,7 @@
   font-size: 32px;
   font-weight: 500;
   letter-spacing: 0.8px;
-  background-color: #e3f8fb;
+  background-color: var(--theme-color-100);
 }
 
 .settings-img-button {
