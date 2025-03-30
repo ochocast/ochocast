@@ -32,7 +32,6 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   //Handle permissions for a track
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [speakers, setSpeakers] = useState<User[]>([]);
-  const [moderators, setModerators] = useState<User[]>([]);
   const [eventClosed, setEventClosed] = useState(false);
 
   //Get all users
@@ -105,7 +104,6 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           setClosed(trck.closed);
           setKeyWords(trck.keywords);
           //setSpeakers(trck.speakers);
-          //setModerators(trck.moderators);
         } catch (error) {
           logger.error(
             `Failed to fetch track from track id ${trackId}: ${error}`,
@@ -118,7 +116,6 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
       setName('');
       setClosed(false);
       //setSpeakers([]);
-      //setModerators([]);
     }
   }, [trackId]);
 
@@ -154,9 +151,9 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
       return;
     }
 
-    if (speakers.length === 0 && moderators.length === 0) {
+    if (speakers.length === 0) {
       setMessage(
-        'Vous devez choisir au moins un orateur et un modérateur pour cette piste',
+        'Vous devez choisir au moins un orateur pour cette piste',
       );
       error = true;
       return;
@@ -277,13 +274,6 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             category={speakers}
             setCategory={setSpeakers}
             title="Orateurs"
-            disabled={closed}
-          />
-          <CheckBoxList
-            allUsers={allUsers}
-            category={moderators}
-            setCategory={setModerators}
-            title="Moderateurs"
             disabled={closed}
           />
         </div>
