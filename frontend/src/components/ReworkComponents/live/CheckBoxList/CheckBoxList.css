@@ -1,0 +1,101 @@
+.checkListContainer {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--theme-color-50);
+  width: 45%;
+  border: #000 1px solid;
+  border-radius: 1.3rem;
+  padding: 10px;
+}
+
+.checkList {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: left;
+  padding: 10px;
+}
+
+.checkBox {
+  width: 1rem;
+  margin-right: 10px;
+}
+
+.topContainer {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+}
+
+.categoryTitle {
+  margin-right: 50px;
+}
+
+.search-bar {
+  outline: none;
+  border: 2px solid var(--theme-color-200);
+  border-radius: 8px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.search-bar:focus {
+  border-color: var(--theme-color-400);
+}
+
+.users-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+}
+
+.users-container + .users-container {
+  margin-top: 16px;
+}
+
+.drop-down-result {
+  position: absolute;
+  width: 100%;
+  max-height: 21.5%;
+  max-width: 11.5%;
+  overflow: auto;
+}
+
+.search-result-user {
+  display: block;
+  width: 100%;
+  background-color: var(--theme-color-200);
+  border: 1px solid var(--theme-color-400);
+}
+
+.search-result-user:hover {
+  background-color: var(--theme-color-100);
+  border-color: var(--theme-color-300);
+}
+
+.user-container {
+  background-color: var(--theme-color-400);
+  padding: 3px;
+  border-radius: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 90%;
+  margin: 5px auto;
+}
+.user-container:hover {
+  background-color: var(--theme-color-200);
+}
+.user-selected-text {
+  flex-grow: 1;
+  text-align: center;
+}
+
+.user-selected-rm-button {
+  cursor: pointer;
+  font-size: 24px;
+  margin-right: 3%;
+}
