@@ -3,7 +3,7 @@ import './events.css';
 
 import Button from '../../components/buttons/button/button';
 import Modal from '../../components/modal/modal';
-import TextBox from '../../components/TextBox/TextBox';
+import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import TextArea from '../../components/TextArea/TextArea';
 import EventsList from '../../components/ReworkComponents/EventsList/EventsList';
 import { Option, SelectBox } from '../../components/SelectBox/SelectBox';

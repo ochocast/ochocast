@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FC } from 'react';
+import React, { ChangeEvent } from 'react';
 import style from './TextBox.module.css';
 
 export interface TextBoxProps {
@@ -12,7 +12,7 @@ export interface TextBoxProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }
 
-const TextBox: FC<TextBoxProps> = ({
+const TextBox = ({
   type,
   label,
   value,
@@ -21,7 +21,7 @@ const TextBox: FC<TextBoxProps> = ({
   error,
   disabled,
   onChange,
-}) => {
+}: TextBoxProps) => {
   return (
     <div className={style.inputWrapper}>
       <label htmlFor={label}>{label}</label>

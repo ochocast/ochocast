@@ -11,9 +11,14 @@
   --theme-color-900: #0b4936;
   --theme-color-950: #05291f;
 
+  --theme-color-2000: #d0d5dd;
+  --theme-color-2050: #667085;
+  --theme-color-2100: #344054;
+
   --theme-color-white: #ffffff;
   --theme-color-black: #000000;
   --theme-color-gray: #cccccc;
+  --theme-color-red: #db4437;
   /* --secondary-bg-color: #808080; */
 
   /* #798c89 */

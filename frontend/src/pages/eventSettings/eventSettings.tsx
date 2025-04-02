@@ -1,7 +1,7 @@
 import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
 import './eventSettings.css';
-import TextBox from '../../components/TextBox/TextBox';
+import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import TextArea from '../../components/TextArea/TextArea';
 import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import Button from '../../components/buttons/button/button';
