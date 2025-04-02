@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FC } from 'react';
+import React, { ChangeEvent } from 'react';
 import './TextArea.css';
 
 export interface TextAreaProps {
@@ -12,7 +12,7 @@ export interface TextAreaProps {
   onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
 }
 
-const TextArea: FC<TextAreaProps> = ({
+const TextArea = ({
   label,
   value,
   name,
@@ -21,7 +21,7 @@ const TextArea: FC<TextAreaProps> = ({
   error,
   disabled,
   onChange,
-}) => {
+}: TextAreaProps) => {
   return (
     <div className="area-wrapper">
       <label htmlFor={label}>{label}</label>
