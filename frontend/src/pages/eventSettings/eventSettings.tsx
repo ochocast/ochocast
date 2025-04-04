@@ -1,9 +1,9 @@
 import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
 import './eventSettings.css';
+import { Option, SelectBox } from '../../components/ReworkComponents/SelectBox/SelectBox';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
-import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/DropDownMenuTracks/DropDownMenuTracks';

@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FC } from 'react';
+import React, { ChangeEvent } from 'react';
 import './SelectBox.css';
 type Option = {
   label: string;
@@ -15,7 +15,7 @@ export interface SelectBoxProps {
   onChange: (e: ChangeEvent<HTMLSelectElement>) => void;
 }
 
-const SelectBox: FC<SelectBoxProps> = ({
+const SelectBox = ({
   title,
   value,
   required,
@@ -23,7 +23,7 @@ const SelectBox: FC<SelectBoxProps> = ({
   className,
   options,
   onChange,
-}) => {
+}: SelectBoxProps) => {
   return (
     <div className="select-wrapper">
       <label htmlFor={title}>{title}</label>

@@ -6,7 +6,7 @@ import Modal from '../../components/modal/modal';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import EventsList from '../../components/ReworkComponents/EventsList/EventsList';
-import { Option, SelectBox } from '../../components/SelectBox/SelectBox';
+import { Option, SelectBox } from '../../components/ReworkComponents/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
 import {
   getPublishedEvents,

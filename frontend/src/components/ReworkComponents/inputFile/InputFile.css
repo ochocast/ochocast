@@ -15,23 +15,23 @@
 
   .file-dummy {
     padding: 2%;
-    background: rgba(255, 255, 255, 0.2);
-    border: 2px dashed rgba(255, 255, 255, 0.2);
+    background: var(--theme-color-3050);
+    border: 2px dashed var(--theme-color-3050);
     text-align: center;
     transition: background 0.3s ease-in-out;
   }
 
   &:hover .file-dummy {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--theme-color-3000);
   }
 
   input[type=file]:focus+.file-dummy {
-    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline: 2px solid var(--theme-color-3100);
     outline: -webkit-focus-ring-color auto 5px;
   }
 
   input[type=file]:valid+.file-dummy {
-    border-color: rgba(0, 255, 0, 0.4);
-    background-color: rgba(0, 255, 0, 0.3);
+    border-color: var(--theme-color-3300);
+    background-color: var(--theme-color-3200);
   }
 }

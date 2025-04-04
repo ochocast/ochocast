@@ -1,4 +1,4 @@
-import React, { FC, ChangeEvent } from 'react';
+import React, { ChangeEvent } from 'react';
 import './InputFile.css';
 
 interface InputFileProps {
@@ -7,11 +7,11 @@ interface InputFileProps {
   disable: boolean;
 }
 
-const InputFile: FC<InputFileProps> = ({
+const InputFile = ({
   placeholder = 'Glissez ou sélectionnez des fichiers',
   onChange,
   disable,
-}) => {
+}: InputFileProps) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files;
     if (file === null) {

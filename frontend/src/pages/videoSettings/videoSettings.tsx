@@ -9,7 +9,7 @@ import { useParams } from 'react-router-dom';
 // import Button from '../../components/buttons/button/button';
 
 // import Toggle from '../../components/newComponents/Toggle/Toggle';
-import InputFile from '../../components/newComponents/inputFile/InputFile';
+import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import Tag from '../../components/newComponents/Tag/Tag';
 // import Lock_Open from '../../assets/Opened_PNG.png';
 // import Lock_Close from '../../assets/Locked_PNG.png';

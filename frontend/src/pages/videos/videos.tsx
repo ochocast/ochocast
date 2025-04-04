@@ -12,7 +12,7 @@ import {
   // User,
   Video,
 } from '../../utils/VideoProperties';
-import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
+import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 // import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
 // import Card from '../../components/ReworkComponents/Cards/Card';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';

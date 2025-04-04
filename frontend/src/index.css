@@ -1,5 +1,6 @@
 :root {
   --theme-color-50: #edfcf4;
+  --theme-color-70:#d0d5dd;
   --theme-color-100: #d4f7e4;
   --theme-color-200: #adedce;
   --theme-color-300: #77deb1;
@@ -10,6 +11,16 @@
   --theme-color-800: #0d5840;
   --theme-color-900: #0b4936;
   --theme-color-950: #05291f;
+  --theme-color-1000:#344054;
+  --theme-color-1050:#101828;
+
+  --theme-color-3000:rgba(255, 255, 255, 0.1);
+  --theme-color-3050:rgba(255, 255, 255, 0.2);
+  --theme-color-3100:rgba(255, 255, 255, 0.5);
+  --theme-color-3200:rgba(0, 255, 0, 0.3);
+  --theme-color-3300:rgba(0, 255, 0, 0.4);
+
+  
 
   --theme-color-2000: #d0d5dd;
   --theme-color-2050: #667085;

@@ -8,7 +8,7 @@ import { getMedia, getVideo } from '../../utils/api';
 import { useParams } from 'react-router-dom';
 import { Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
-import LoadingCircle from '../../components/newComponents/LoadingCircle/LoadingCircle';
+import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
 import ProfileDescription, {
   ProfileDescriptionState,
