@@ -46,7 +46,11 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   }, [props.Id]);
 
   const dateDisplay = new Date(props.createdAt); // to be able to getDay..
-
+  
+  function formatNumber(value: number): string {
+    return value < 10 ? `0${value}` : `${value}`;
+}
+  
   return (
     <div className={styles.previewMiniture}>
       <img
@@ -72,8 +76,8 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         <h3 className={styles.createBy}>Créé par : {props.createBy}</h3>
         <div>
           {props.views} vues &bull; Posté le{' '}
-          {`${dateDisplay.getDay()}/${
-            dateDisplay.getMonth() + 1
+          {`${formatNumber(dateDisplay.getDate())}/${
+            formatNumber(dateDisplay.getMonth() + 1)
           }/${dateDisplay.getFullYear()}`}
         </div>
         <div className={styles.tagList}>
