@@ -109,7 +109,14 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const [tags, setTags] = useState<Tag_video[]>([]);
   const selectTag = (tagChoosen: Suggestion) => {
+    if (isTagVideo(tagChoosen) && tags.some(tag => tag.name === tagChoosen.name)) {
+      alert('Ce tag a déjà été ajouté.');
+      return;
+    }
     setTags([...tags, tagChoosen as Tag_video]);
+  };
+  const isTagVideo = (suggestion: Suggestion): suggestion is Tag_video => {
+    return "id" in suggestion && "name" in suggestion; 
   };
   const addTag = (query: string) => {
     createTag({ name: query })
@@ -122,7 +129,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         ) {
           alert('Tag crée avec succès !');
           const response = await findTag(query);
-          setTags([...tags, response.data[0]]);
+          const newTag = response.data[0];
+          if (!tags.some(tag => tag.name === newTag.name)) {
+            setTags([...tags, newTag]);
+          }
         } else {
           alert(`Échec du téléchargement : ${response}`);
         }
@@ -131,7 +141,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         console.error('Erreur lors du chargement de la vidéo :', error);
         alert('Une erreur est survenue lors du chargement de la vidéo.');
       });
-  };
+  }; 
 
   const publishVideo = async () => {
     const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi']; //maybe move this somewhere else ?
