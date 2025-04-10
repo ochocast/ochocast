@@ -40,6 +40,14 @@ const TracksPage: FC<tracksProps> = () => {
           Les pistes de l&apos;évènement : {event?.name}
         </span>
       </div>
+      <div className="tracks_wrapper">
+        <div className="tracks_description">
+          <div className="tracks_title">
+            Description de l&apos;évènement :
+          </div>
+          {event?.description}
+        </div>
+      </div>
       <div className="tracks_container">
         {event && event.tracks && event.tracks.length ? (
           event.tracks.map((track, index) => (

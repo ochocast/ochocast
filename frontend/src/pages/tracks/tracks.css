@@ -14,7 +14,34 @@
 
 .tracks_page_title {
   font-size: 36px;
-  color: black;
+  color: var(--theme-color-black);
+}
+
+.tracks_wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+  margin-bottom: 40px;
+}
+
+.tracks_title {
+  font-weight: bold;
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.tracks_description {
+  justify-content: center;
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-black);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-height: calc(1.4em * 5);
+  overflow-y: auto;
+  white-space: pre-wrap;
+  width: 60%;
 }
 
 .tracks_container {
@@ -61,11 +88,12 @@
   -webkit-mask: repeating-linear-gradient(
     45deg,
     transparent 0 3px,
-    rgba(0, 0, 0, 0.5) 0 6px
+    var(--theme-color-black) 0 6px
   );
   mask: repeating-linear-gradient(
     45deg,
     transparent 0 3px,
-    rgba(0, 0, 0, 0.5) 0 6px
+    var(--theme-color-black) 0 6px
   );
+  
 }
