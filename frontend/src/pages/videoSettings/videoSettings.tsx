@@ -116,7 +116,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setTags([...tags, tagChoosen as Tag_video]);
   };
   const isTagVideo = (suggestion: Suggestion): suggestion is Tag_video => {
-    return "id" in suggestion && "name" in suggestion; 
+    return "id" in suggestion && "name" in suggestion;
   };
   const addTag = (query: string) => {
     createTag({ name: query })
@@ -141,7 +141,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         console.error('Erreur lors du chargement de la vidéo :', error);
         alert('Une erreur est survenue lors du chargement de la vidéo.');
       });
-  }; 
+  };
 
   const publishVideo = async () => {
     const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi']; //maybe move this somewhere else ?
@@ -160,7 +160,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
     if (list_by_title.length > 0)
       err += '- Une vidéo du même titre existe déjà :/\n';
-    if (
+    if (!miniature)
+      err += '- Fichier miniature non renseigné\n';
+    else if (
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
       )
@@ -236,8 +238,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
       err += '- Une vidéo du même titre existe déjà :/\n';
-    if (
-      baseVideo?.miniature_id === undefined &&
+    if (!miniature)
+      err += '- Fichier miniature non renseigné\n';
+    else if (
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
       )
