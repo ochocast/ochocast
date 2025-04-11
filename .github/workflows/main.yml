@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Download front artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-front
       - name: Install config Scaleway scw CLI
