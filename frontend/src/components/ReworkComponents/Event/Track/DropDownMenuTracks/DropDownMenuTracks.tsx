@@ -53,7 +53,7 @@ const DropDownMenuTracks = (props: DropDownMenuTracksProps) => {
       <button className="dropbtn">Pistes</button>
       <div className="track-button-container">
         {props.isButtonDisplayed && addTrackButton}
-        {showTrackButton}
+        {props.tracks.length > 0 && showTrackButton}
       </div>
     </div>
   );

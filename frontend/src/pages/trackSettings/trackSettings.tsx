@@ -6,7 +6,7 @@ import './trackSettings.css';
 import Button from '../../components/buttons/button/button';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import CheckBoxList from '../../components/ReworkComponents/live/CheckBoxList/CheckBoxList';
+import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
 import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/DropDownMenuTracks/DropDownMenuTracks';
 
 import {

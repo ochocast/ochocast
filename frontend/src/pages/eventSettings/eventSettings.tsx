@@ -1,7 +1,10 @@
 import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
 import './eventSettings.css';
-import { Option, SelectBox } from '../../components/ReworkComponents/SelectBox/SelectBox';
+import {
+  Option,
+  SelectBox,
+} from '../../components/ReworkComponents/SelectBox/SelectBox';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import Button from '../../components/buttons/button/button';
@@ -88,6 +91,8 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   const [tracks, setTracks] = useState<Track[]>([]);
 
+  const [isFetchError, setIsFetchError] = useState(false);
+
   useEffect(() => {
     const fetchEvent = async () => {
       try {
@@ -104,6 +109,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         }
       } catch (error) {
         logger.error(`Failed to fetch event: ${error}`);
+        setIsFetchError(true);
       }
     };
     fetchEvent();
@@ -176,6 +182,14 @@ const EventSettings: FC<EventSettingsProps> = () => {
     }
   };
 
+  if (isFetchError)
+    return (
+      <Button type="button" onClick={() => navigate('/events')}>
+        Evènement indisponible veuillez retourner sur la page de présentation
+        des évènements
+      </Button>
+    );
+
   return (
     <div className="page-event-settings">
       <div className="navigation">
@@ -192,7 +206,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         </div>
         <DropDownMenuTracks
           tracks={tracks}
-          eventId={eventId ?? ""}
+          eventId={eventId ?? ''}
           isButtonDisplayed={!eventClosed}
           isTracksDisplayed={false}
           imageUrl={trackSelectImage}

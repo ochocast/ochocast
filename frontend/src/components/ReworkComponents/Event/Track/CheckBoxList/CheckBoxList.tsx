@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-import { User } from '../../../../utils/EventsProperties';
+import { User } from '../../../../../utils/EventsProperties';
 
 import './CheckBoxList.css';
 

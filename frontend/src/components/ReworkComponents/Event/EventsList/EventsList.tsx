@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import Event from '../../../utils/EventsProperties';
-import { EventStatus } from '../../../utils/EventStatus';
+import Event from '../../../../utils/EventsProperties';
+import { EventStatus } from '../../../../utils/EventStatus';
 
-import leftButton from '../../../assets/gauche.png';
-import rightButton from '../../../assets/droite.png';
+import leftButton from '../../../../assets/gauche.png';
+import rightButton from '../../../../assets/droite.png';
 
-import EventBox from '../../EventBox/EventBox';
+import EventBox from '../EventBox/EventBox';
 
 import './EventsList.css';
 
@@ -14,6 +14,7 @@ interface EventsListProps {
   title: string;
   events: Event[];
   onPublish?: (eventId: string) => void;
+  viewerID?: string;
 }
 
 const EventsList = (props: EventsListProps) => {
@@ -39,15 +40,12 @@ const EventsList = (props: EventsListProps) => {
 
   const events = eventsShown.map((event, index) => (
     <EventBox
-      eventId={event.id}
+      event={event}
       eventStatus={props.eventStatus}
       key={index}
-      name={event.name}
-      date={event.startDate}
       imageURL="logo_2lignes_crop.png"
-      category={event.category}
       onPublish={props.onPublish}
-      creator={event.creator}
+      canEdit={props.eventStatus === EventStatus.NotPublished || props.viewerID === event.creator.id}
     />
   ));
 

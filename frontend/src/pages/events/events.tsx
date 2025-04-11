@@ -1,11 +1,14 @@
 import React, { ChangeEvent, FC, FormEvent, useEffect, useState } from 'react';
 import './events.css';
 
-import Button from '../../components/buttons/button/button';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
 import Modal from '../../components/modal/modal';
+
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
-import EventsList from '../../components/ReworkComponents/EventsList/EventsList';
+import EventsList from '../../components/ReworkComponents/Event/EventsList/EventsList';
 import { Option, SelectBox } from '../../components/ReworkComponents/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
 import {
@@ -111,7 +114,9 @@ const EventsPage: FC<eventsProps> = () => {
       const res = await updateEvent(eventId, { published: true });
       setEventsPublished((prevEvents) => [...prevEvents, res.data]);
 
-      setEventsUnpublished([...eventsUnpublished.filter((event) => event.id !== eventId)]);
+      setEventsUnpublished([
+        ...eventsUnpublished.filter((event) => event.id !== eventId),
+      ]);
     } catch (error) {
       logger.error(`Failed to update event: ${error}`);
     }
@@ -128,7 +133,7 @@ const EventsPage: FC<eventsProps> = () => {
       setErrorDescription(true);
       isError = true;
     }
-    
+
     if (!isError) {
       try {
         if (!userString) {
@@ -169,7 +174,11 @@ const EventsPage: FC<eventsProps> = () => {
   return (
     <div className="events">
       <div className="button-event-creation">
-        <Button onClick={toggle}>Créer un évènement</Button>
+        <Button
+          label="Créer un évènement"
+          type={ButtonType.primary}
+          onClick={toggle}
+        />
       </div>
       <div className="content">
         {eventsPublished && eventsPublished.length >= 1 ? (
@@ -178,6 +187,7 @@ const EventsPage: FC<eventsProps> = () => {
             title="Prochain évènements"
             events={eventsPublished}
             onPublish={onPublish}
+            viewerID={userString ? JSON.parse(userString).id : ''}
           />
         ) : null}
         {eventsUnpublished && eventsUnpublished.length >= 1 ? (
@@ -198,7 +208,7 @@ const EventsPage: FC<eventsProps> = () => {
       </div>
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>Créer un nouvel évènement</h1>
-        <form onSubmit={handleSubmit}>
+        <form className="add-event-form" onSubmit={handleSubmit}>
           <div className="side-by-side">
             <TextBox
               type="text"
@@ -257,9 +267,7 @@ const EventsPage: FC<eventsProps> = () => {
             error={errorDescription}
             onChange={handleDescriptionChange}
           />
-          <Button className="submit-button" type="submit">
-            Créer l&apos;évènement
-          </Button>
+          <Button label="Créer l'évènement" type={ButtonType.primary} />
           <div className="message">{message ? <p>{message}</p> : null}</div>
         </form>
       </Modal>

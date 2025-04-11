@@ -29,7 +29,6 @@ const Button = (props: HomeCardButtonProps) => (
       <button
         onClick={(e) => {
           e.stopPropagation();
-          console.log('click');
           if (props.onClick) {
             props.onClick(e);
           }

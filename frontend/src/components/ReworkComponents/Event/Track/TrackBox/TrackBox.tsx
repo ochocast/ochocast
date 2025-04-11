@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 
 import './TrackBox.css';
 
-import { Track } from '../../../../utils/EventsProperties';
-import Button, { ButtonType } from '../../generic/Button/Button';
+import { Track } from '../../../../../utils/EventsProperties';
+import Button, { ButtonType } from '../../../generic/Button/Button';
 
 interface TrackBoxProps {
   key: number;
