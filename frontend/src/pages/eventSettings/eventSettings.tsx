@@ -1,10 +1,6 @@
 import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
 import './eventSettings.css';
-import {
-  Option,
-  SelectBox,
-} from '../../components/ReworkComponents/SelectBox/SelectBox';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import Button from '../../components/buttons/button/button';
@@ -71,19 +67,6 @@ const EventSettings: FC<EventSettingsProps> = () => {
     setMessage('');
   };
 
-  const [categoryValue, setCategoryValue] = useState('');
-  const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setCategoryValue(event.target.value);
-    setButtonDisabled(false);
-    setMessage('');
-  };
-
-  const categories = ['BBL', 'Conférence'];
-  const options: Option[] = [
-    { label: 'Select...', value: '' },
-    ...categories.map((category) => ({ label: category, value: category })),
-  ];
-
   const [message, setMessage] = useState('');
   const [modalMessage, setModalMessage] = useState('');
 
@@ -102,7 +85,6 @@ const EventSettings: FC<EventSettingsProps> = () => {
           setTracks(res.data[0].tracks);
           setName(res.data[0].name);
           setDescription(res.data[0].description);
-          setCategoryValue(res.data[0].category);
           setDate(res.data[0].startDate.split('T')[0]);
           setStartHour(res.data[0].startDate.match(/\d{2}:\d{2}/)?.[0] || '');
           setEndHour(res.data[0].endDate.match(/\d{2}:\d{2}/)?.[0] || '');
@@ -132,7 +114,6 @@ const EventSettings: FC<EventSettingsProps> = () => {
         const res = await updateEvent(eventId, {
           name: name,
           description: description,
-          category: categoryValue,
           tags: [],
           startDate: date + 'T' + startHour + ':00.000Z',
           endDate: date + 'T' + endHour + ':00.000Z',
@@ -292,14 +273,6 @@ const EventSettings: FC<EventSettingsProps> = () => {
             required
           />
         </div>
-        <SelectBox
-          title="Catégorie"
-          options={options}
-          value={categoryValue}
-          onChange={handleSelectChange}
-          disabled={eventClosed}
-          required={true}
-        />
         <TextArea
           label="Description"
           placeholder="Description de l'évenement"

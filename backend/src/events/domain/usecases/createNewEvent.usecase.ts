@@ -15,7 +15,6 @@ export class CreateNewEventUsecase {
       uuid(),
       eventToCreate.name,
       eventToCreate.description,
-      eventToCreate.category,
       eventToCreate.tags,
       eventToCreate.startDate,
       eventToCreate.endDate,

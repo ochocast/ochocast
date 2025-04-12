@@ -21,12 +21,6 @@ export class EventObject {
   description: string;
 
   @ApiProperty({
-    example: 'halloween',
-    description: 'The category of the event.',
-  })
-  category: string;
-
-  @ApiProperty({
     example: ['spooky', 'halloween'],
     description: 'The tags of the event.',
   })
@@ -90,7 +84,6 @@ export class EventObject {
     id: string,
     name: string,
     description: string,
-    category: string,
     tags: string[],
     startDate: Date,
     endDate: Date,
@@ -105,7 +98,6 @@ export class EventObject {
     this.id = id;
     this.name = name;
     this.description = description;
-    this.category = category;
     this.tags = tags;
     this.startDate = startDate;
     this.endDate = endDate;
@@ -129,7 +121,6 @@ export class EventObject {
 //     public id: string,
 //     public name: string,
 //     public description: string,
-//     public category: string,
 //     public tags: string[],
 //     public startDate: Date,
 //     public endDate: Date,

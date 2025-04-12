@@ -9,7 +9,6 @@ import Modal from '../../components/modal/modal';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import EventsList from '../../components/ReworkComponents/Event/EventsList/EventsList';
-import { Option, SelectBox } from '../../components/ReworkComponents/SelectBox/SelectBox';
 import { EventStatus } from '../../utils/EventStatus';
 import {
   getPublishedEvents,
@@ -22,8 +21,6 @@ import Event from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 
 export interface eventsProps {}
-
-const categories = ['BBL', 'Conférence'];
 
 const fetchEventsClosed = async () => {
   try {
@@ -50,7 +47,6 @@ const EventsPage: FC<eventsProps> = () => {
   const [description, setDescription] = useState('');
   const [errorDescription, setErrorDescription] = useState(false);
 
-  const [categoryValue, setCategoryValue] = useState('');
 
   const [date, setDate] = useState('');
   const [startHour, setStartHour] = useState('');
@@ -82,15 +78,6 @@ const EventsPage: FC<eventsProps> = () => {
 
     fetchEventData();
   }, [userString]);
-
-  const handleSelectChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setCategoryValue(event.target.value);
-  };
-
-  const options: Option[] = [
-    { label: 'Select...', value: '' },
-    ...categories.map((category) => ({ label: category, value: category })),
-  ];
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -143,7 +130,6 @@ const EventsPage: FC<eventsProps> = () => {
         const res = await createEvent({
           name: name,
           description: description,
-          category: categoryValue,
           tags: [],
           startDate: date + 'T' + startHour + ':00.000Z',
           endDate: date + 'T' + endHour + ':00.000Z',
@@ -159,7 +145,6 @@ const EventsPage: FC<eventsProps> = () => {
           setDate('');
           setStartHour('');
           setEndHour('');
-          setCategoryValue('');
           setEventsUnpublished((prevEvents) => [...prevEvents, res.data]);
         }
       } catch (error) {
@@ -251,13 +236,6 @@ const EventsPage: FC<eventsProps> = () => {
                 required
               />
             </div>
-            <SelectBox
-              title="Catégorie"
-              options={options}
-              value={categoryValue}
-              onChange={handleSelectChange}
-              required={true}
-            />
           </div>
           <TextArea
             label="Description de l'évènement"

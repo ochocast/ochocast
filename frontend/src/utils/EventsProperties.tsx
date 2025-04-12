@@ -2,7 +2,6 @@ export default interface Event {
   id: string;
   name: string;
   description: string;
-  category: string;
   tags: string;
   startDate: Date;
   endDate: Date;

@@ -7,8 +7,6 @@ export class CreateEventDto {
   @IsNotEmpty()
   description: string;
 
-  @IsNotEmpty()
-  category: string;
 
   @IsNotEmpty()
   tags: string[];

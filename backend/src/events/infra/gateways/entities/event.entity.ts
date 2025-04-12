@@ -19,9 +19,6 @@ export class EventEntity {
   @Column()
   description: string;
 
-  @Column()
-  category: string;
-
   @Column('text', { array: true })
   tags: string[];
 
