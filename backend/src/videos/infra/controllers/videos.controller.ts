@@ -91,11 +91,11 @@ export class VideosController {
     console.log('passed by');
     return this.getVideosAdminUsecase.execute(filter);
   }
-  
+
   @Post('/modify')
-  async modifyVideo(@Body() video: ModifyVideoDto & {media_id: string; miniature_id: string}){
-    console.log(video.tags);
-    console.log("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+  @UseInterceptors(AnyFilesInterceptor())
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async modifyVideo(@Body() video: ModifyVideoDto) {
     return this.modifyVideoUseCase.execute(video);
   }
 

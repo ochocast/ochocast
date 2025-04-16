@@ -94,7 +94,7 @@ export class VideoGateway implements IVideoGateway {
     if (!existingVideo) {
       throw new Error(`Video with ID ${video.id} not found`);
     }
-    
+
     Object.assign(existingVideo, video);
     return await this.videosRepository.save(existingVideo);
   }

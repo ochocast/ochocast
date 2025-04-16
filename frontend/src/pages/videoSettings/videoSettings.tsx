@@ -257,9 +257,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     //search title in DB
     const form = new FormData();
-    if (media != undefined) {
-      form.append('file', media);
-      form.append('media_id', media.name);
+    if (baseVideo?.media_id != undefined) {
+      form.append('id', baseVideo?.id);
+    }
+    if (baseVideo?.media_id != undefined) {
+      form.append('media_id', baseVideo?.media_id);
     }
     if (miniature != undefined) {
       form.append('miniature', miniature);
@@ -275,7 +277,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
     form.append('internal_speakers', JSON.stringify(intern_list));
-    form.append('external_speakers', extern_User_List);
+    form.append('external_speakers', extern_User_List);    
     form.append(
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),

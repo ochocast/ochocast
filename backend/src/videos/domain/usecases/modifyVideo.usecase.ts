@@ -1,4 +1,3 @@
-
 import { Inject } from '@nestjs/common';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
@@ -11,6 +10,10 @@ export class ModifyVideoUsecase {
 
   async execute(video: ModifyVideoDto): Promise<VideoObject> {
     video.updatedAt = new Date();
+    video.createdAt = new Date(JSON.parse(video.createdAt.toString()));
+    video.comments = JSON.parse(video.comments.toString());
+    video.tags = JSON.parse(video.tags.toString());
+    video.internal_speakers = JSON.parse(video.internal_speakers.toString());
     return await this.videoGateway.modifyVideo(video);
   }
 }
