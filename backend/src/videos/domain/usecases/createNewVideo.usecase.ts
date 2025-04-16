@@ -3,10 +3,16 @@ import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
 import { v4 as uuid } from 'uuid';
 import { Inject } from '@nestjs/common';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client } from '@aws-sdk/client-s3';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { Upload } from '@aws-sdk/lib-storage';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import * as ffmpeg from 'fluent-ffmpeg';
+import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { writeFile, readFile, unlink } from 'node:fs/promises';
+import * as path from 'path';
+import { tmpdir } from 'os';
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 export class CreateNewVideoUsecase {
   constructor(
@@ -40,20 +46,30 @@ export class CreateNewVideoUsecase {
       false,
     );
 
-    //Use S3 Client to push File in S3 Buckets
+    console.log(video.media_id);
+    const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
+    const tempOutputPath = path.join(
+      tmpdir(),
+      `${video.media_id}-transcoded.mp4`,
+    );
+    await writeFile(tempInputPath, file.buffer);
+
+    await transcodeVideo(tempInputPath, tempOutputPath);
+
+    const transcodedBuffer = await readFile(tempOutputPath);
+
     const upload = new Upload({
       client: this.s3Client,
       params: {
         Bucket: process.env.STOCK_MEDIA_BUCKET,
         Key: video.media_id,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: transcodedBuffer,
+        ContentType: 'video/mp4',
       },
     });
 
     const video_result = await upload.done();
 
-    // Miniature file upload in S3
     if (miniatureFile) {
       const miniatureUpload = new Upload({
         client: this.s3Client,
@@ -68,9 +84,32 @@ export class CreateNewVideoUsecase {
       console.log(miniature_result);
     }
 
-    console.log(video_result);
+    await unlink(tempInputPath).catch(() => {});
+    await unlink(tempOutputPath).catch(() => {});
 
+    console.log(video_result);
     await this.videoGateway.createNewVideo(video);
     return video;
   }
+}
+
+async function transcodeVideo(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .videoCodec('libx264')
+      .outputOptions(['-preset fast', '-crf 23', '-movflags +faststart'])
+      .format('mp4')
+      .on('end', () => {
+        console.log('Transcodage terminé');
+        resolve();
+      })
+      .on('error', (err) => {
+        console.error('Erreur lors du transcodage :', err);
+        reject(err);
+      })
+      .save(outputPath);
+  });
 }
