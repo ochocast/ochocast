@@ -243,8 +243,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
       err += '- Une vidéo du même titre existe déjà :/\n';
-    if (!miniature) err += '- Fichier miniature non renseigné\n';
-    else if (
+    if (
+      baseVideo?.miniature_id === undefined &&
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
       )
