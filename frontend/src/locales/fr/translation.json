@@ -1,0 +1,11 @@
+{
+  "welcome": "Bienvenue",
+  "videos": "Vidéos",
+  "streaming": "Streaming",
+  "publishVideo": "Publier une vidéo",
+  "getAvailableLiveEvents": "Cliquez ici pour obtenir la liste des événements en direct disponibles.",
+  "getAvailableVideos": "Cliquez ici pour obtenir la liste des vidéos disponibles.",
+  "searchAnEvent": "Rechercher un événement",
+  "searchAVideo": "Rechercher une vidéo",
+  "publishAVideo": "Publier une vidéo"
+}

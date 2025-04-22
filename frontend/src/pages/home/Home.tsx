@@ -3,6 +3,7 @@ import React, { FC } from 'react';
 import HomeCards from '../../components/ReworkComponents/generic/Cards/CardHome/CardHome';
 import './Home.css';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 //import { ButtonState } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
 
@@ -10,16 +11,17 @@ export interface HomeProps {}
 
 const HomePage: FC<HomeProps> = () => {
   const navigate = useNavigate();
-
+  const { t } = useTranslation();
+  
   return (
     <div className="HomeCard">
       <HomeCards
-        title="Streaming"
-        description="Cliquez ici pour obtenir la liste des événements en direct disponibles."
+        title= {t('streaming')}
+        description={t('getAvailableLiveEvents')}
         //buttonState={ButtonState.disabled}
         buttonList={[
           {
-            title: 'Rechercher un live',
+            title: t('searchAnEvent'),
             onClickFunction: (e) => {
               e.stopPropagation();
               navigate('/events');
@@ -34,18 +36,18 @@ const HomePage: FC<HomeProps> = () => {
         }}
       >
         <HomeCards
-          title="Vidéos"
-          description="Cliquez ici pour obtenir la liste des vidéos disponibles."
+          title= {t('videos')}
+          description={t('getAvailableVideos')}
           buttonList={[
             {
-              title: 'Rechercher une vidéo',
+              title: t('searchAVideo'),
               onClickFunction: (e) => {
                 e.stopPropagation();
                 navigate('/videos');
               },
             },
             {
-              title: 'Publier une vidéo',
+              title: t('publishAVideo'),
               onClickFunction: (e) => {
                 e.stopPropagation();
                 navigate('/video/video-settings');

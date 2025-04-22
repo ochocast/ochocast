@@ -1,0 +1,43 @@
+.selector {
+  position: relative;
+  display: inline-block;
+}
+
+.button {
+  padding: 8px 12px;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 8px;
+  background-color: var(--theme-color-white);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  background: var(--theme-color-white);
+  border: 1px solid var(--theme-color-70);
+  border-radius: 10px;
+  list-style: none;
+  padding: 8px 0;
+  margin: 0;
+  z-index: 10;
+  min-width: 70px;
+}
+
+.item {
+  padding: 6px 16px;
+  cursor: pointer;
+}
+
+.item:hover {
+  background-color: var(--theme-color-50);
+}
+
+.item.active {
+  background-color: var(--theme-color-70);
+  font-weight: bold;
+}

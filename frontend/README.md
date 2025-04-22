@@ -103,3 +103,29 @@ npm run start
 Here is the docker recovery link.
 
 just clone it and run it.
+
+---
+
+## 🌐 How to add a new language to the application
+
+The app uses `react-i18next` for translations.
+
+To add a new language:
+
+1. In `frontend/src/locales/`, create a new folder with the language code (e.g., `es` for Spanish).
+2. Add a `translation.json` file inside:
+
+```
+/src/locales/es/translation.json
+```
+
+3. Fill it with your translations (copy the structure of an other translation file):
+
+```json
+{
+  "home": "Inicio",
+  "logout": "Cerrar sesión"
+}
+```
+
+The app will automaticly detect and integrate the language added.

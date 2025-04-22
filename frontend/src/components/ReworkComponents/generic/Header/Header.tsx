@@ -7,6 +7,7 @@ import octoLogo from '../../../../assets/ochoIconFull.svg';
 import { useAuth } from 'react-oidc-context';
 import { UserBadge } from './UserBadge/UserBadge';
 import NavItems from './NavItems/NavItems';
+import LanguageSwitcher from '../../../Language/LanguageSwitcher';
 
 export interface HeaderProps {}
 
@@ -27,14 +28,15 @@ const Header: FC<HeaderProps> = () => {
           onClick={() => navigate('/')}
         />
       </div>
-
         <div className="NavBadge">
           <NavItems />
             {username && (
           <UserBadge username={username} />
             )}
+            <div className='languageSelector'>
+        <LanguageSwitcher />
+      </div>
         </div>
-
     </div>
   );
 };
