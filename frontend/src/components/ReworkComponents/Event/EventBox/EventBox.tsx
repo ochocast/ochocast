@@ -60,7 +60,10 @@ const EventBox = (props: EventBoxProps) => {
   );
 
   return (
-    <div className="event-box">
+    <div
+      className="event-box"
+      onClick={() => navigate(`/events/${event.id}/tracks`)}
+    >
       <div className="img-div">
         <img
           className="event-image"
@@ -70,12 +73,7 @@ const EventBox = (props: EventBoxProps) => {
         {props.canEdit && editButton}
       </div>
       <div className="event-wrapper">
-        <div
-          className="event-title"
-          onClick={() => navigate(`/events/${event.id}/tracks`)}
-        >
-          {event.name}
-        </div>
+        <div className="event-title">{event.name}</div>
         <div className="event-date">{`Date de début: ${dateDisplay.getDay()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>

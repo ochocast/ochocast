@@ -5,6 +5,7 @@
   width: 333px;
   height: 422px;
   row-gap: 25px;
+  cursor: pointer;
 }
 
 .event-image {
@@ -22,7 +23,6 @@
   font-size: 20px;
   font-weight: 200;
   color: var(--theme-color-600);
-  cursor: pointer;
 }
 
 .event-date {
