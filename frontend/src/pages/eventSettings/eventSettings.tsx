@@ -3,9 +3,11 @@ import React from 'react';
 import './eventSettings.css';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
-import Button from '../../components/buttons/button/button';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
-import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/DropDownMenuTracks/DropDownMenuTracks';
+import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 import { getEvent, updateEvent, deleteEvent } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
@@ -165,10 +167,11 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   if (isFetchError)
     return (
-      <Button type="button" onClick={() => navigate('/events')}>
-        Evènement indisponible veuillez retourner sur la page de présentation
-        des évènements
-      </Button>
+      <Button
+        label="Evènement indisponible veuillez retourner sur la page de présentation
+        des évènements"
+        onClick={() => navigate('/events')}
+      />
     );
 
   return (
@@ -189,7 +192,6 @@ const EventSettings: FC<EventSettingsProps> = () => {
           tracks={tracks}
           eventId={eventId ?? ''}
           isButtonDisplayed={!eventClosed}
-          isTracksDisplayed={false}
           imageUrl={trackSelectImage}
         />
       </div>
@@ -202,27 +204,20 @@ const EventSettings: FC<EventSettingsProps> = () => {
           {eventClosed ? (
             <h2>L&apos;évènement est clôturé</h2>
           ) : (
-            <Button className="close-event" type="button" onClick={toggle}>
-              Clôturer l&apos;évènement
-            </Button>
+            <Button label="Clôturer l'évènement" onClick={toggle} />
           )}
         </div>
         <Modal isOpen={isOpen} toggle={toggle}>
           <h2> Etes-vous sur de vouloir clôturer l&apos;évènement ?</h2>
           <div className="confirmation-buttons">
-            <Button type="button" onClick={closeEvent}>
-              Confirmer
-            </Button>
+            <Button label="Confirmer" onClick={closeEvent} />
             <Button
-              tcolor="#0E2356"
-              bcolor="#D9D9D9"
+              label="Annuler"
               onClick={() => {
                 toggle();
                 setModalMessage('');
               }}
-            >
-              Annuler
-            </Button>
+            />
           </div>
           <div className="message">
             {modalMessage ? <p>{modalMessage}</p> : null}
@@ -285,38 +280,28 @@ const EventSettings: FC<EventSettingsProps> = () => {
         {!eventClosed && (
           <div className="confirmation-buttons">
             <Button
-              bcolor="#FF8165"
-              border="none"
-              type="reset"
+              label="Supprimer l'évènement"
               onClick={() => setisDeleteOpen(true)}
-            >
-              Supprimer l&apos;évènement
-            </Button>
+            />
             <Button
-              className="submit-button"
-              type="submit"
-              disabled={isButtonDisabled}
-            >
-              Sauvegarder
-            </Button>
+              label="Sauvegarder"
+              type={
+                isButtonDisabled ? ButtonType.disabled : ButtonType.secondary
+              }
+            />
           </div>
         )}
         <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
           <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
           <div className="confirmation-buttons">
-            <Button type="button" onClick={deleteEventHandler}>
-              Supprimer
-            </Button>
+            <Button label='Supprimer' onClick={deleteEventHandler}/>
             <Button
-              tcolor="#0E2356"
-              bcolor="#D9D9D9"
+              label='Annuler'
               onClick={() => {
                 toggleDeleteModal();
                 setModalMessage('');
               }}
-            >
-              Annuler
-            </Button>
+            />
           </div>
           <div className="message">
             {modalMessage ? <p>{modalMessage}</p> : null}

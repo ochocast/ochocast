@@ -3,7 +3,7 @@ import './liveTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTrackById, updateTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
-import Button from '../../components/buttons/button/button';
+import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { default as _ReactPlayer } from 'react-player/lazy';
 import { ReactPlayerProps } from 'react-player/types/lib';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
@@ -53,12 +53,9 @@ const LiveTrack = () => {
               <h1 className="event-title">{track.event.name}</h1>
             </div>
             <Button
-              height="40px"
-              className="close-button"
+              label='Clôturer la piste'
               onClick={closeTrack()}
-            >
-              Clôturer la piste
-            </Button>
+            />
           </div>
           <div>
             <ReactPlayer
@@ -91,16 +88,13 @@ const LiveTrack = () => {
             <div className="track-title">
               <h2>{track.name}</h2>
               <Button
-                type="button"
-                className="param-button"
+                label='Paramètres'
                 onClick={() =>
                   navigate(
                     `/events/${track.event.id}/track-settings/${trackId}`,
                   )
                 }
-              >
-                Paramètres
-              </Button>
+              />
             </div>
             <div className="description">{track.description}</div>
           </div>

@@ -1,4 +1,4 @@
-.event-box {
+.box {
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 4px 0 var(--theme-color-gray);
@@ -8,37 +8,40 @@
   cursor: pointer;
 }
 
-.event-image {
+.img {
   height: 50%;
 }
 
-.event-wrapper {
+.eventWrapper {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   margin-inline: 20px;
 }
 
-.event-title {
-  font-size: 20px;
-  font-weight: 200;
+.title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 0px;
+  margin-left: 10px;
   color: var(--theme-color-600);
 }
 
-.event-date {
+.date {
   font-size: 16px;
   font-weight: 600;
   color: var(--theme-color-black);
   opacity: 70%;
 }
 
-.event-info {
+.info {
   font-size: 16px;
   font-weight: 500;
 }
 
 .event-buttons-wrapper,
-.event-subscribe-wrapper {
+.subscribeWrapper {
   align-self: center;
   display: flex;
   flex-direction: row;
@@ -47,11 +50,11 @@
   width: 80%;
 }
 
-.event-button-center-wrapper {
+.centerWrapper {
   align-self: center;
 }
 
-.event-subscriptions-wrapper {
+.subscriptionsWrapper {
   display: flex;
   align-items: center;
   column-gap: 5px;
@@ -65,13 +68,13 @@
   background: var(--theme-color-300);
 }
 
-.event-subscritpions {
+.subscritpions {
   font-size: 14px;
   color: var(--theme-color-black);
   opacity: 70%;
 }
 
-.img-div {
+.imgWrapper {
   position: relative;
   display: flex;
   justify-content: center;
@@ -80,7 +83,7 @@
   height: 43%;
 }
 
-.wrapper-edit-button {
+.editButton {
   position: absolute;
   top: 5%;
   right: 2.5%;

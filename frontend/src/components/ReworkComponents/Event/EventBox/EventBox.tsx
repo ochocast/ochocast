@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { EventStatus } from '../../../../utils/EventStatus';
 
-import './EventBox.css';
+import styles from './EventBox.module.css';
 
 import Button, { ButtonType } from '../../generic/Button/Button';
 import Event from '../../../../utils/EventsProperties';
@@ -22,7 +22,7 @@ const EventBox = (props: EventBoxProps) => {
   const navigate = useNavigate();
 
   const editButton = (
-    <div className="wrapper-edit-button">
+    <div className={styles.editButton}>
       <Button
         label="✏️"
         type={ButtonType.primary}
@@ -32,11 +32,11 @@ const EventBox = (props: EventBoxProps) => {
   );
 
   const buttonsPublished = (
-    <div className="event-subscribe-wrapper">
+    <div className={styles.subscribeWrapper}>
       <Button label="S'inscrire" type={ButtonType.primary} />
-      <div className="event-subscriptions-wrapper">
-        <span className="dot"></span>
-        <span className="event-subscritpions">{`${
+      <div className={styles.subscriptionsWrapper}>
+        <span className={styles.dot}></span>
+        <span className={styles.subscritpions}>{`${
           0 /*event.subscriptions*/
         } inscrits`}</span>
       </div>
@@ -44,7 +44,7 @@ const EventBox = (props: EventBoxProps) => {
   );
 
   const buttonsNotPublished = (
-    <div className="event-button-center-wrapper">
+    <div className={styles.centerWrapper}>
       <Button
         label="Publier"
         type={ButtonType.primary}
@@ -54,32 +54,32 @@ const EventBox = (props: EventBoxProps) => {
   );
 
   const buttonsFinished = (
-    <div className="event-button-center-wrapper">
+    <div className={styles.centerWrapper}>
       <Button label="Statistiques" type={ButtonType.primary} />
     </div>
   );
 
   return (
     <div
-      className="event-box"
+      className={styles.box}
       onClick={() => navigate(`/events/${event.id}/tracks`)}
     >
-      <div className="img-div">
+      <div className={styles.imgWrapper}>
         <img
-          className="event-image"
+          className={styles.img}
           src={require('../../../../assets/' + props.imageURL)}
           alt="img"
         ></img>
         {props.canEdit && editButton}
       </div>
-      <div className="event-wrapper">
-        <div className="event-title">{event.name}</div>
-        <div className="event-date">{`Date de début: ${dateDisplay.getDay()}/${
+      <div className={styles.eventWrapper}>
+        <div className={styles.title}>{event.name}</div>
+        <div className={styles.date}>{`Date de début: ${dateDisplay.getDay()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>
       </div>
-      <div className="event-wrapper">
-        <div className="event-info">{`Créé par : ${
+      <div className={styles.eventWrapper}>
+        <div className={styles.info}>{`Créé par : ${
           event.creator.firstName + ' ' + event.creator.lastName
         }`}</div>
       </div>

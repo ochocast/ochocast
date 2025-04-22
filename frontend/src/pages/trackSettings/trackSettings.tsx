@@ -3,11 +3,13 @@ import React from 'react';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import './trackSettings.css';
-import Button from '../../components/buttons/button/button';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
-import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/DropDownMenuTracks/DropDownMenuTracks';
+import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 
 import {
   createTrack,
@@ -154,9 +156,7 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     }
 
     if (speakers.length === 0) {
-      setMessage(
-        'Vous devez choisir au moins un orateur pour cette piste',
-      );
+      setMessage('Vous devez choisir au moins un orateur pour cette piste');
       error = true;
       return;
     }
@@ -214,9 +214,8 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         </div>
         <DropDownMenuTracks
           tracks={tracks}
-          eventId={eventId ?? ""} 
+          eventId={eventId ?? ''}
           isButtonDisplayed={!eventClosed}
-          isTracksDisplayed={true}
           imageUrl={trackSelectImage}
         />
       </div>
@@ -228,27 +227,21 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           </div>
           {trackId ? (
             <Button
-              className="start-live"
-              type="button"
+              label="Commencer le live"
               onClick={toggle}
-              disabled={closed}
-            >
-              Commencer le live
-            </Button>
+              type={closed ? ButtonType.disabled : ButtonType.secondary}
+            />
           ) : null}
         </div>
         <hr />
         <Modal isOpen={isOpen} toggle={toggle}>
           <h1>Commencer le live</h1>
           <div className="start-live-buttons">
-            <Button type="button"> Lancer le live depuis OBS</Button>
+            <Button label="Lancer le live depuis OBS" />
             <Button
-              className="octocast-start-button"
-              type="button"
+              label="Lancer le live depuis OCHOCast"
               onClick={() => navigate('/tracks/' + trackId + '/streaming')}
-            >
-              Lancer le live depuis OCTOCast
-            </Button>
+            />
           </div>
         </Modal>
         <TextBox
@@ -281,38 +274,27 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         </div>
         <div className="controlsContainer">
           <Button
-            className="submit-button"
-            type="submit"
-            disabled={isButtonDisabled || closed}
-          >
-            {trackId ? <div>Sauvegarder</div> : <div>Créer</div>}
-          </Button>
+          label={trackId ? "Sauvegarder" : "Créer"}
+          type={(isButtonDisabled || closed) ? ButtonType.disabled : ButtonType.secondary}
+          />
           {trackId ? (
             <Button
-              className="delete-button"
-              type="button"
+              label='Supprimer la piste'
               onClick={toggleDeleteModal}
-            >
-              Supprimer la piste
-            </Button>
+            />
           ) : null}
         </div>
         <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
           <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
           <div className="confirmation-buttons">
-            <Button type="button" onClick={handleDelete}>
-              Supprimer
-            </Button>
+            <Button label="Supprimer" onClick={handleDelete}/>
             <Button
-              tcolor="#0E2356"
-              bcolor="#D9D9D9"
+            label='Annuler'
               onClick={() => {
                 toggleDeleteModal();
                 setModalMessage('');
               }}
-            >
-              Annuler
-            </Button>
+            />
           </div>
           <div className="message">
             {modalMessage ? <p>{modalMessage}</p> : null}

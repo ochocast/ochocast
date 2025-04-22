@@ -3,8 +3,8 @@ import './streamTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTrackById, updateTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
-import Button from '../../components/buttons/button/button';
-import LiveStream  from '../../components/livestream/livestream';
+import Button from '../../components/ReworkComponents/generic/Button/Button';
+import LiveStream from '../../components/livestream/livestream';
 
 const StreamTrack = () => {
   const { trackId } = useParams();
@@ -39,33 +39,24 @@ const StreamTrack = () => {
         <>
           <div className="live-header">
             <h1 className="event-title">{track.event.name}</h1>
-            <Button
-              height="40px"
-              className="close-button"
-              onClick={closeTrack()}
-            >
-              Clôturer la piste
-            </Button>
+            <Button label="Clôturer la piste" onClick={closeTrack()} />
           </div>
 
           <div className="live-container">
             <LiveStream streamKey={track.streamKey} />
           </div>
-         
+
           <div className="track-info">
             <div className="track-title">
               <h2>{track.name}</h2>
               <Button
-                type="button"
-                className="param-button"
+                label="Paramètres"
                 onClick={() =>
                   navigate(
                     `/events/${track.event.id}/track-settings/${trackId}`,
                   )
                 }
-              >
-                Paramètres
-              </Button>
+              />
             </div>
             <div className="description">{track.description}</div>
           </div>

@@ -11,7 +11,6 @@ import { TagsModule } from './tags/tags.module';
 import { VideosModule } from './videos/videos.module';
 import { S3Module } from './s3.module';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({

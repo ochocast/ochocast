@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { User } from '../../../../../utils/EventsProperties';
 
-import './CheckBoxList.css';
+import styles from './CheckBoxList.module.css';
 
 interface CheckBoxListProps {
   allUsers: User[];
@@ -22,7 +22,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   });
 
   const searchResult = (
-    <div className="drop-down-result">
+    <div className={styles.result}>
       {filteredUsers.map((user) => (
         <button
           key={user.id}
@@ -32,7 +32,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
             }
             setSearchTerm('');
           }}
-          className="search-result-user"
+          className={styles.searchResult}
         >
           {user.firstName} {user.lastName}
         </button>
@@ -41,17 +41,17 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   );
 
   const selectedUsersComp = (
-    <div className="users-container">
+    <div className={styles.usersContainer}>
       {props.category.length === 0 ? (
         <p>Aucun élément sélectionné</p>
       ) : (
         props.category.map((user) => (
-          <div key={user.id} className="user-container">
-            <span className="user-selected-text">
+          <div key={user.id} className={styles.user}>
+            <span className={styles.userSelected}>
               {user.firstName} {user.lastName}
             </span>
             <span
-              className="user-selected-rm-button"
+              className={styles.userSelectedRmButton}
               onClick={() =>
                 props.setCategory(
                   props.category.filter((cUser) => cUser.id !== user.id),
@@ -67,16 +67,16 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   );
 
   return (
-    <div className="checkListContainer">
-      <div className="topContainer">
-        <h3 className="categoryTitle">{props.title}</h3>
+    <div className={styles.container}>
+      <div className={styles.top}>
+        <h3 className={styles.title}>{props.title}</h3>
         <div>
           <input
             type="text"
             placeholder="Chercher pour ajouter..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-bar"
+            className={styles.searchBar}
           />
           {searchResult}
         </div>

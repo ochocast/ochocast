@@ -1,7 +1,6 @@
 import React, { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './Header.css';
-// import Button from '../../buttons/button/button';
 
 import octoLogo from '../../../../assets/ochoIconFull.svg';
 

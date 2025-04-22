@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import './TrackBox.css';
+import styles from './TrackBox.module.css';
 
 import { Track } from '../../../../../utils/EventsProperties';
 import Button, { ButtonType } from '../../../generic/Button/Button';
@@ -17,18 +17,18 @@ const TrackBox = (props: TrackBoxProps) => {
   const navigate = useNavigate();
 
   return (
-    <div className="track_box">
-      <div className="button_title_wrapper">
-        <span className="track_title">{name}</span>
+    <div className={styles.box}>
+      <div className={styles.wrapper}>
+        <span className={styles.title}>{name}</span>
         <Button
           label={closed ? 'Piste fermée' : 'Regarder la piste'}
           type={closed ? ButtonType.disabled : ButtonType.secondary}
           onClick={() => navigate(`/tracks/${id}`)}
         />
       </div>
-      <div className="line" />
-      <div className="track_content">Orateurs : {speakers.join(', ')}</div>
-      <div className="track_content">{description}</div>
+      <div className={styles.line} />
+      <div className={styles.content}>Orateurs : {speakers.join(', ')}</div>
+      <div className={styles.content}>{description}</div>
     </div>
   );
 };

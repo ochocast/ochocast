@@ -1,4 +1,4 @@
-.track_box {
+.box {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -7,7 +7,7 @@
   padding-inline: 20px;
 }
 
-.button_title_wrapper {
+.wrapper {
   display: flex;
   width: 100%;
   align-items: center;
@@ -15,7 +15,7 @@
   padding-block: 10px;
 }
 
-.track_title {
+.title {
   font-size: 20px;
   font-weight: bold;
 }
@@ -26,7 +26,7 @@
   width: 100%;
 }
 
-.track_content {
+.content {
   display: flex;
   align-self: flex-start;
   margin-top: 7px;

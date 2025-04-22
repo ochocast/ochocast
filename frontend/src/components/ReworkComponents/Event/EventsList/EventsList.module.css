@@ -1,4 +1,4 @@
-.events-list {
+.eventsList {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -19,7 +19,7 @@
   align-items: center;
 }
 
-.event-container {
+.container {
   display: flex;
   flex-direction: row;
   column-gap: 44px;

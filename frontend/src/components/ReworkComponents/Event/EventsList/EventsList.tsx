@@ -7,7 +7,7 @@ import rightButton from '../../../../assets/droite.png';
 
 import EventBox from '../EventBox/EventBox';
 
-import './EventsList.css';
+import styles from './EventsList.module.css';
 
 interface EventsListProps {
   eventStatus: EventStatus;
@@ -32,10 +32,8 @@ const EventsList = (props: EventsListProps) => {
     setIndex(i);
   };
 
-  const buttonGen = (name: string, img: string, onClick: () => void) => (
-    <div className={name}>
-      <img className="arrow" src={img} alt="Button" onClick={onClick}></img>
-    </div>
+  const buttonGen = (img: string, onClick: () => void) => (
+      <img className={styles.arrow} src={img} alt="Button" onClick={onClick}></img>
   );
 
   const events = eventsShown.map((event, index) => (
@@ -50,14 +48,14 @@ const EventsList = (props: EventsListProps) => {
   ));
 
   return (
-    <div className="events-list">
-      <div className="title">{props.title}</div>
-      <div className="list">
+    <div className={styles.eventsList}>
+      <div className={styles.title}>{props.title}</div>
+      <div className={styles.list}>
         {props.events.length > 3 &&
-          buttonGen('left-arrow', leftButton, () => onArrowClick(false))}
-        <div className="event-container">{events}</div>
+          buttonGen(leftButton, () => onArrowClick(false))}
+        <div className={styles.container}>{events}</div>
         {props.events.length > 3 &&
-          buttonGen('right-arrow', rightButton, () => onArrowClick(true))}
+          buttonGen(rightButton, () => onArrowClick(true))}
       </div>
     </div>
   );
