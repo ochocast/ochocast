@@ -44,7 +44,10 @@ export class EventEntity {
   tracks: TrackEntity[];
 
   @ManyToOne(() => UserEntity, (user) => user.events)
-  creator: string;
+  creator: UserEntity;
+
+  @Column()
+  creatorId: string;
 
   @Column()
   createdAt: Date;

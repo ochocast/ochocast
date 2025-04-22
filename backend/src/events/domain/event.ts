@@ -72,7 +72,7 @@ export class EventObject {
     example: 'e43dadbd-1006-4556-8f70-98225d569fa2',
     description: 'The unique identifier of the creator.',
   })
-  creator: string;
+  creatorId: string;
 
   @ApiProperty({
     example: '2021-10-31T00:00:00.000Z',
@@ -92,7 +92,7 @@ export class EventObject {
     closed: boolean = false,
     imageSlug: string,
     tracks: TrackEntity[],
-    creator: string,
+    creatorId: string,
     createdAt: Date,
   ) {
     this.id = id;
@@ -106,7 +106,7 @@ export class EventObject {
     this.closed = closed;
     this.imageSlug = imageSlug;
     this.tracks = tracks;
-    this.creator = creator;
+    this.creatorId = creatorId;
     this.createdAt = createdAt;
   }
 }

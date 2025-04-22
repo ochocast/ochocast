@@ -5,4 +5,5 @@ export interface IEventGateway {
   getEvents: (filter: any) => Promise<EventObject[]>;
   updateEvent: (event: EventObject) => Promise<EventObject>;
   deleteEvent: (eventId: string) => Promise<EventObject>;
+  getEventById(id: string): Promise<EventObject>;
 }

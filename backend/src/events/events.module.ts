@@ -7,14 +7,20 @@ import { CreateNewEventUsecase } from './domain/usecases/createNewEvent.usecase'
 import { GetEventsUsecase } from './domain/usecases/getEvents.usecase';
 import { UpdateEventUsecase } from './domain/usecases/updateEvent.usecase';
 import { DeleteEventUsecase } from './domain/usecases/deleteEvent.usecase';
+import { UserGateway } from 'src/users/infra/gateways/user.gateway';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([EventEntity])],
+  imports: [TypeOrmModule.forFeature([EventEntity, UserEntity])],
   controllers: [EventsController],
   providers: [
     {
       provide: 'EventGateway',
       useClass: EventGateway,
+    },
+    {
+      provide: 'UserGateway',
+      useClass: UserGateway,
     },
     CreateNewEventUsecase,
     GetEventsUsecase,

@@ -3,6 +3,8 @@ import { UserObject } from '../../domain/user';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
+import { toEventEntity } from 'src/common/mapper/event.mapper';
+import { toUserObject } from 'src/common/mapper/user.mapper';
 
 export class UserGateway implements IUserGateway {
   constructor(
@@ -13,6 +15,7 @@ export class UserGateway implements IUserGateway {
   async createNewUser(userDetails: UserObject): Promise<UserObject> {
     const user: UserEntity = new UserEntity({
       ...userDetails,
+      events: userDetails.events?.map(toEventEntity),
     });
 
     return await this.usersRepository.save(user);
@@ -39,16 +42,30 @@ export class UserGateway implements IUserGateway {
   }
 
   async loginUser(keycloak_user: any): Promise<UserObject> {
-    let user = await this.usersRepository.findOne({
+    let user: UserObject | null = null;
+
+    const foundUser = await this.usersRepository.findOne({
       where: {
         email: keycloak_user.email,
       },
       relations: ['events'],
     });
-    if (!user) {
+
+    if (foundUser) {
+      user = toUserObject(foundUser);
+    } else {
       user = await this.createNewUser(keycloak_user);
     }
 
     return user;
+  }
+
+  async getUserByEmail(email: string): Promise<UserObject | null> {
+    const user = await this.usersRepository.findOne({
+      where: { email },
+      relations: ['events'],
+    });
+
+    return user ? toUserObject(user) : null;
   }
 }

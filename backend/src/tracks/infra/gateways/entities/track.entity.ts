@@ -24,10 +24,13 @@ export class TrackEntity {
   @ManyToOne(() => EventEntity, (event) => event.tracks, {
     onDelete: 'CASCADE',
   })
-  event: string;
+  event: EventEntity;
 
   @Column()
   createdAt: Date;
+
+  @Column()
+  eventId: string;
 
   constructor(track: Partial<TrackEntity>) {
     Object.assign(this, track);

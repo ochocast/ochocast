@@ -20,6 +20,7 @@ import { UpdateEventUsecase } from '../../domain/usecases/updateEvent.usecase';
 import { DeleteEventUsecase } from 'src/events/domain/usecases/deleteEvent.usecase';
 import { isUUID } from 'class-validator';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { CurrentUserEmail } from '../../../common/decorators/current-user-email.decorator';
 
 @ApiTags('Events')
 @Controller('events')
@@ -57,13 +58,14 @@ export class EventsController {
   async updateEvent(
     @Param('id') id: string,
     @Body() event: EventObject,
+    @CurrentUserEmail() email: string,
   ): Promise<EventObject> {
     if (!isUUID(id)) {
       throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
     }
 
     event.id = id;
-    return this.updateEventUsecase.execute(event);
+    return this.updateEventUsecase.execute(event, email);
   }
 
   @Delete(':id')

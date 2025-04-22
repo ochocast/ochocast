@@ -41,7 +41,7 @@ export class TrackObject {
     example: '4ea6d8c0-8819-4378-bfee-98bd1bd50be0',
     description: 'The unique identifier of the parent event.',
   })
-  event: string;
+  eventId: string;
 
   @ApiProperty({
     example: '2021-10-31T00:00:00.000Z',
@@ -56,7 +56,7 @@ export class TrackObject {
     keywords: string[],
     streamKey: string,
     closed: boolean = false,
-    event: string,
+    eventId: string,
     createdAt: Date,
   ) {
     this.id = id;
@@ -65,7 +65,7 @@ export class TrackObject {
     this.keywords = keywords;
     this.streamKey = streamKey;
     this.closed = closed;
-    this.event = event;
+    this.eventId = eventId;
     this.createdAt = createdAt;
   }
 }

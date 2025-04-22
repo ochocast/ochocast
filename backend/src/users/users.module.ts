@@ -24,5 +24,6 @@ import { GetListUsersUsecase } from './domain/usecases/getListUsers.usecase';
     GetProfilePictureUsecase,
     GetListUsersUsecase,
   ],
+  exports: ['UserGateway'],
 })
 export class UsersModule {}
