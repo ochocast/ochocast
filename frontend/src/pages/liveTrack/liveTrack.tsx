@@ -7,6 +7,8 @@ import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { default as _ReactPlayer } from 'react-player/lazy';
 import { ReactPlayerProps } from 'react-player/types/lib';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+// import WaitingScreen from '../../components/waitingScreen/waitingScreen';
+
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const LiveTrack = () => {
@@ -43,6 +45,7 @@ const LiveTrack = () => {
       console.error(`Failed to fetch tracks: ${error}`);
     }
   }, [trackId]);
+  
   return (
     <div className="live-page">
       {track ? (
@@ -57,23 +60,29 @@ const LiveTrack = () => {
               onClick={closeTrack()}
             />
           </div>
-          <div>
-            <ReactPlayer
-              width="55%"
-              height="auto"
-              url={url}
-              playing
-              controls
-              config={{
-                file: {
-                  forceHLS: true,
-                  hlsOptions: {
-                    liveSyncDurationCount: 2,
-                    liveMaxLatencyDurationCount: 3,
+          <div className="player-wrapper">
+          {/* {url ? ( */}
+            <div>
+              <ReactPlayer
+                width="100%"
+                height="auto"
+                url={url}
+                playing
+                controls
+                config={{
+                  file: {
+                    forceHLS: true,
+                    hlsOptions: {
+                      liveSyncDurationCount: 2,
+                      liveMaxLatencyDurationCount: 3,
+                    },
                   },
-                },
-              }}
-            />
+                }}
+              />
+            </div>
+          {/* ) : ( */}
+            {/* <WaitingScreen /> */}
+           {/* )} */}
           </div>
           <div>
             <button onClick={() => changeQuality('_low')}>Low</button>
