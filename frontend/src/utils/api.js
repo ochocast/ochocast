@@ -18,19 +18,21 @@ export const getProfilePicture = (userId) => api.get(`/picture/${userId}`);
 
 // Events
 export const createEvent = (event) => api.post('/events', event);
-export const getPublishedEvents = () =>
-  api.get('/events?closed=false&published=true');
-export const getUnpublishedEvents = (userId) =>
-  api.get(`/events?closed=false&published=false&creatorId=${userId}`);
+export const getPublishedEvents = () => api.get('/events?closed=false');
+export const getUnpublishedEvents = () =>
+  api.get(`/events/unpublished?closed=false&published=false`);
 export const getClosedEvents = () => api.get('/events?closed=true');
-export const getEvent = (eventId) => api.get(`/events?id=${eventId}`);
+export const getPrivateEvent = (eventId) =>
+  api.get('/events/private/' + eventId);
+export const getPublicEvent = (eventId) => api.get('/events/' + eventId);
 export const updateEvent = (eventId, event) =>
   api.put('/events/' + eventId, event);
 export const deleteEvent = (eventId) => api.delete('/events/' + eventId);
+export const publishEvent = (eventId) => api.put('/events/publish/' + eventId);
+export const closeEvent = (eventId) => api.put('/events/close/' + eventId);
 
 // Tracks
-export const getTrackById = (trackId) =>
-  api.get('/tracks?id=' + trackId).then((res) => res.data[0]);
+export const getTrackById = (trackId) => api.get('/tracks?id=' + trackId);
 export const getTracks = () => api.get('/tracks');
 export const createTrack = (track) => api.post('/tracks', track);
 export const updateTrack = (trackId, track) =>
@@ -41,7 +43,8 @@ export const deleteTrack = (trackId) => api.delete('/tracks/' + trackId);
 export const createVideo = (formData) => api.post('/videos/', formData);
 export const getVideo = (video_id) => api.get(`/videos?id=${video_id}`);
 export const deleteVideo = (video_id) => api.delete(`/videos/` + video_id);
-export const deleteVideoAdmin = (video_id) => api.post(`/videos/admin/` + video_id);
+export const deleteVideoAdmin = (video_id) =>
+  api.post(`/videos/admin/` + video_id);
 export const getVideos = () => api.get(`/videos`);
 export const getMedia = (video_id) => api.get(`/videos/media/${video_id}`);
 export const getMiniature = (video_id) =>

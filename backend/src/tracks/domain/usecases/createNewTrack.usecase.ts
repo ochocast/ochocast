@@ -3,6 +3,8 @@ import { ITrackGateway } from '../gateways/tracks.gateway';
 import { TrackObject } from '../track';
 import { v4 as uuid } from 'uuid';
 import { Inject } from '@nestjs/common';
+import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
+import { UserObject } from 'src/users/domain/user';
 
 const generateStreamKey = (
   length = 32,
@@ -16,9 +18,16 @@ export class CreateNewTrackUsecase {
   constructor(
     @Inject('TrackGateway')
     private trackGateway: ITrackGateway,
+    @Inject('UserGateway')
+    private userGateWay: IUserGateway,
   ) {}
 
   async execute(trackToCreate: CreateTrackDto): Promise<TrackObject> {
+    const speakers: UserObject[] = [];
+    for (const s of trackToCreate.speakers) {
+      speakers.push(await this.userGateWay.getUserById(s));
+    }
+
     const track = new TrackObject(
       uuid(),
       trackToCreate.name,
@@ -26,11 +35,11 @@ export class CreateNewTrackUsecase {
       trackToCreate.keywords,
       generateStreamKey(),
       false,
-      trackToCreate.event,
+      trackToCreate.eventId,
       new Date(),
+      speakers,
     );
 
-    await this.trackGateway.createNewTrack(track);
-    return track;
+    return this.trackGateway.createNewTrack(track);
   }
 }

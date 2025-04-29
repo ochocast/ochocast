@@ -80,8 +80,8 @@ const EventBox = (props: EventBoxProps) => {
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.info}>{`Créé par : ${
-          event.creator.firstName + ' ' + event.creator.lastName
-        }`}</div>
+          event.creator ?(event.creator.firstName + ' ' + event.creator.lastName)
+         : "Créateur inconnu"}`}</div>
       </div>
       {props.eventStatus === EventStatus.Published && buttonsPublished}
       {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}

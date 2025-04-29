@@ -1,10 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import './streamTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTrackById, updateTrack } from '../../utils/api';
+import { getTrackById, updateTrack, getPublicEvent } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import LiveStream from '../../components/livestream/livestream';
+
+const fetchTrack = async (trackId?: string) => {
+  try {
+    const res = await getTrackById(trackId);
+    const track = await res.data;
+    return track[0];
+  } catch (error) {
+    console.error(`Failed to fetch tracks: ${error}`);
+  }
+};
+
+const fetchEvent = async (eventId?: string) => {
+  try {
+    const res = await getPublicEvent(eventId);
+    return await res.data;
+  } catch (error) {
+    console.error(`Failed to fetch event: ${error}`);
+  }
+};
 
 const StreamTrack = () => {
   const { trackId } = useParams();
@@ -24,13 +43,16 @@ const StreamTrack = () => {
   };
 
   useEffect(() => {
-    try {
-      getTrackById(trackId).then((res) => {
-        setTrack(res);
-      });
-    } catch (error) {
-      console.error(`Failed to fetch tracks: ${error}`);
-    }
+    const fetchTrackData = async () => {
+      const track = await fetchTrack(trackId);
+      if (!track) {
+        console.error('Error while fetching track');
+        return;
+      }
+      track.event = fetchEvent(track.eventId);
+      setTrack(track);
+    };
+    fetchTrackData();
   }, [trackId]);
 
   return (
@@ -38,7 +60,7 @@ const StreamTrack = () => {
       {track ? (
         <>
           <div className="live-header">
-            <h1 className="event-title">{track.event.name}</h1>
+            <h1 className="event-title">{track.event?.name}</h1>
             <Button label="Clôturer la piste" onClick={closeTrack()} />
           </div>
 

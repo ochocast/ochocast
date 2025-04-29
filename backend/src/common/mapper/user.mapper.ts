@@ -1,6 +1,6 @@
 import { UserObject } from 'src/users/domain/user';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
-import { toEventObject } from './event.mapper';
+import { toEventEntity, toEventObject } from './event.mapper';
 
 export function toUserObject(entity: UserEntity): UserObject {
   return {
@@ -17,4 +17,11 @@ export function toUserObject(entity: UserEntity): UserObject {
     videos: [],
     videosAsSpeaker: [],
   };
+}
+
+export function toUserEntity(obj: UserObject): UserEntity {
+  return new UserEntity({
+    ...obj,
+    events: obj.events?.map(toEventEntity) ?? [],
+  });
 }

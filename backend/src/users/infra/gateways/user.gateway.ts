@@ -18,16 +18,18 @@ export class UserGateway implements IUserGateway {
       events: userDetails.events?.map(toEventEntity),
     });
 
-    return await this.usersRepository.save(user);
+    return toUserObject(await this.usersRepository.save(user));
   }
 
   getUsers(filter: any): Promise<UserObject[]> {
-    return this.usersRepository.find({
-      where: {
-        ...filter,
-      },
-      relations: filter.id ? ['events'] : [],
-    });
+    return this.usersRepository
+      .find({
+        where: {
+          ...filter,
+        },
+        relations: filter.id ? ['events'] : [],
+      })
+      .then((entities) => entities.map(toUserObject));
   }
 
   getListUsers(filter: any): Promise<UserObject[]> {
@@ -35,10 +37,12 @@ export class UserGateway implements IUserGateway {
     where.firstName = ILike(`%${filter.value}%`);
     where.lastName = ILike(`%${filter.value}%`);
 
-    return this.usersRepository.find({
-      where,
-      relations: filter.id ? ['events'] : [],
-    });
+    return this.usersRepository
+      .find({
+        where,
+        relations: filter.id ? ['events'] : [],
+      })
+      .then((entities) => entities.map(toUserObject));
   }
 
   async loginUser(keycloak_user: any): Promise<UserObject> {
@@ -63,6 +67,15 @@ export class UserGateway implements IUserGateway {
   async getUserByEmail(email: string): Promise<UserObject | null> {
     const user = await this.usersRepository.findOne({
       where: { email },
+      relations: ['events'],
+    });
+
+    return user ? toUserObject(user) : null;
+  }
+
+  async getUserById(id: string): Promise<UserObject | null> {
+    const user = await this.usersRepository.findOne({
+      where: { id },
       relations: ['events'],
     });
 

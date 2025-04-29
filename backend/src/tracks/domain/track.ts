@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { UserObject } from 'src/users/domain/user';
 
 export class TrackObject {
   @ApiProperty({
@@ -49,6 +50,12 @@ export class TrackObject {
   })
   createdAt: Date;
 
+  @ApiProperty({
+    example: [UserObject],
+    description: 'List of speaker attached to this track.',
+  })
+  speakers: UserObject[];
+
   constructor(
     id: string,
     name: string,
@@ -58,6 +65,7 @@ export class TrackObject {
     closed: boolean = false,
     eventId: string,
     createdAt: Date,
+    speakers: UserObject[],
   ) {
     this.id = id;
     this.name = name;
@@ -67,6 +75,7 @@ export class TrackObject {
     this.closed = closed;
     this.eventId = eventId;
     this.createdAt = createdAt;
+    this.speakers = speakers;
   }
 }
 

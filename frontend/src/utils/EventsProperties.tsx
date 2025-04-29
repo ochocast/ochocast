@@ -10,6 +10,7 @@ export default interface Event {
   closed: boolean;
   imageSlug: string;
   tracks: Track[];
+  creatorId: string;
   creator: User;
   createdAt: Date;
   // eslint-disable-next-line
@@ -35,4 +36,39 @@ export interface User {
   role: string;
   events: Event[];
   createdAt: Date;
+}
+
+export interface PublicEvent {
+  id: string;
+  name: string;
+  description: string;
+  tags: string;
+  startDate: Date;
+  endDate: Date;
+  published: boolean;
+  private: boolean;
+  closed: boolean;
+  imageSlug: string;
+  tracks: PublicTrack[];
+  creatorId: string;
+  canBeEditByUser : boolean;
+  creator: PublicUser;
+}
+
+export interface PublicTrack {
+  id: string;
+  name: string;
+  description: string;
+  keywords: string;
+  streamKey: string;
+  closed: boolean;
+  eventId: string;
+  createdAt: Date;
+  speakers: PublicUser[];
+}
+
+export interface PublicUser {
+  id: string;
+  firstName: string;
+  lastName: string;
 }

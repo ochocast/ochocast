@@ -1,5 +1,6 @@
-import { TrackEntity } from '../../tracks/infra/gateways/entities/track.entity';
+import { TrackObject } from 'src/tracks/domain/track';
 import { ApiProperty } from '@nestjs/swagger';
+import { UserObject } from 'src/users/domain/user';
 
 export class EventObject {
   @ApiProperty({
@@ -63,10 +64,10 @@ export class EventObject {
   imageSlug: string;
 
   @ApiProperty({
-    example: [TrackEntity],
+    example: [TrackObject],
     description: 'The tracks of the event.',
   })
-  tracks: TrackEntity[];
+  tracks: TrackObject[];
 
   @ApiProperty({
     example: 'e43dadbd-1006-4556-8f70-98225d569fa2',
@@ -80,6 +81,20 @@ export class EventObject {
   })
   createdAt: Date;
 
+  @ApiProperty({
+    example: [UserObject],
+    description: 'The creator.',
+  })
+  creator: UserObject | undefined;
+
+  public canBeEditBy(user: UserObject): boolean {
+    return this.creator.email === user.email;
+  }
+
+  public canBeReadBy(user: UserObject): boolean {
+    return this.creator.email === user.email;
+  }
+
   constructor(
     id: string,
     name: string,
@@ -91,9 +106,10 @@ export class EventObject {
     isPrivate: boolean = true,
     closed: boolean = false,
     imageSlug: string,
-    tracks: TrackEntity[],
+    tracks: TrackObject[],
     creatorId: string,
     createdAt: Date,
+    creator: UserObject,
   ) {
     this.id = id;
     this.name = name;
@@ -108,6 +124,7 @@ export class EventObject {
     this.tracks = tracks;
     this.creatorId = creatorId;
     this.createdAt = createdAt;
+    this.creator = creator;
   }
 }
 

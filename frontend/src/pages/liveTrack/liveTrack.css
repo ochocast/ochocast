@@ -45,23 +45,12 @@
   display: flex;
 }
 
-.player-wrapper {
-  width: 100%;
-  margin: 0 auto;
-  justify-content: center;
-  align-items: center;
-}
-
 .track-info {
-  width: 100%;
-  text-align: center;
-  margin-top: 20px;
+  width: 55%;
 }
 
 .description {
-  margin: 0 auto;
   border-radius: 20px;
-  max-width: 80%;
   border: 1px solid var(--primary-primary-01-db, #0e2356);
   background: var(--None-01_W, #fff);
   height: 7vh;
@@ -69,5 +58,4 @@
   padding-left: 2%;
   padding-right: 2%;
   display: flex;
-  justify-content: center;
 }

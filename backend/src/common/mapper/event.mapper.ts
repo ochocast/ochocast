@@ -1,6 +1,8 @@
 import { EventEntity } from '../../events/infra/gateways/entities/event.entity';
 import { EventObject } from '../../events/domain/event';
-import { toTrackEntity } from './track.mapper';
+import { toTrackEntity, toTrackObject } from './track.mapper';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { toUserObject } from './user.mapper';
 
 /**
  * Convertit un EventEntity en EventObject
@@ -8,23 +10,23 @@ import { toTrackEntity } from './track.mapper';
  * @returns L'objet métier EventObject
  */
 export function toEventObject(entity: EventEntity): EventObject {
-  return {
-    id: entity.id,
-    name: entity.name,
-    description: entity.description,
-    startDate: entity.startDate,
-    endDate: entity.endDate,
-    imageSlug: entity.imageSlug,
-    createdAt: entity.createdAt,
-    published: entity.published,
-    isPrivate: entity.isPrivate,
-    closed: entity.closed,
-    tags: entity.tags,
-    creatorId: entity.creator?.id ?? entity.creatorId,
-    tracks: entity.tracks?.map(toTrackEntity) ?? [],
-  };
+  return new EventObject(
+    entity.id,
+    entity.name,
+    entity.description,
+    entity.tags,
+    entity.startDate,
+    entity.endDate,
+    entity.published,
+    entity.isPrivate,
+    entity.closed,
+    entity.imageSlug,
+    entity.tracks?.map(toTrackObject) ?? [],
+    entity.creator?.id ?? entity.creatorId,
+    entity.createdAt,
+    entity.creator ? toUserObject(entity.creator) : undefined,
+  );
 }
-
 /**
  * Convertit un EventObject en EventEntity
  * @param obj L'objet métier EventObject à persister dans la base
@@ -33,5 +35,7 @@ export function toEventObject(entity: EventEntity): EventObject {
 export function toEventEntity(obj: EventObject): EventEntity {
   return new EventEntity({
     ...obj,
+    tracks: obj.tracks?.map(toTrackEntity),
+    creator: { id: obj.creatorId } as UserEntity,
   });
 }

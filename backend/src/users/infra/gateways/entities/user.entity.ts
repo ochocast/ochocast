@@ -8,6 +8,7 @@ import {
 import { EventEntity } from '../../../../events/infra/gateways/entities/event.entity';
 import { CommentEntity } from '../../../../comments/infra/gateways/entities/comment.entity';
 import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
+import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 
 @Entity()
 export class UserEntity {
@@ -50,6 +51,9 @@ export class UserEntity {
 
   @Column({ type: 'varchar', nullable: true })
   picture_id: string;
+
+  @ManyToMany(() => TrackEntity, (track) => track.speakers)
+  speakingTracks: TrackEntity[];
 
   constructor(user: Partial<UserEntity>) {
     Object.assign(this, user);

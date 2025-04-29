@@ -14,7 +14,7 @@ import {
   getPublishedEvents,
   getUnpublishedEvents,
   getClosedEvents,
-  updateEvent,
+  publishEvent,
 } from '../../utils/api';
 import { createEvent } from '../../utils/api';
 import Event from '../../utils/EventsProperties';
@@ -47,7 +47,6 @@ const EventsPage: FC<eventsProps> = () => {
   const [description, setDescription] = useState('');
   const [errorDescription, setErrorDescription] = useState(false);
 
-
   const [date, setDate] = useState('');
   const [startHour, setStartHour] = useState('');
   const [endHour, setEndHour] = useState('');
@@ -59,13 +58,8 @@ const EventsPage: FC<eventsProps> = () => {
   useEffect(() => {
     const fetchEventData = async () => {
       try {
-        if (!userString) {
-          throw new Error('User not found');
-        }
         const publishedData = await getPublishedEvents();
-        const unpublishedData = await getUnpublishedEvents(
-          JSON.parse(userString).id,
-        );
+        const unpublishedData = await getUnpublishedEvents();
         const closedData = await fetchEventsClosed();
 
         setEventsPublished(publishedData.data);
@@ -77,7 +71,7 @@ const EventsPage: FC<eventsProps> = () => {
     };
 
     fetchEventData();
-  }, [userString]);
+  }, []);
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -98,7 +92,7 @@ const EventsPage: FC<eventsProps> = () => {
 
   const onPublish = async (eventId: string) => {
     try {
-      const res = await updateEvent(eventId, { published: true });
+      const res = await publishEvent(eventId);
       setEventsPublished((prevEvents) => [...prevEvents, res.data]);
 
       setEventsUnpublished([
@@ -123,18 +117,11 @@ const EventsPage: FC<eventsProps> = () => {
 
     if (!isError) {
       try {
-        if (!userString) {
-          throw new Error('User not found');
-        }
-        const user = JSON.parse(userString);
         const res = await createEvent({
           name: name,
           description: description,
-          tags: [],
           startDate: date + 'T' + startHour + ':00.000Z',
           endDate: date + 'T' + endHour + ':00.000Z',
-          creator: user.id,
-          isPrivate: true,
           imageSlug: 'imageSlug',
         });
 

@@ -33,7 +33,7 @@ export class TracksController {
 
   @Post()
   @UsePipes(new ValidationPipe())
-  async postTrack(@Body() track: CreateTrackDto): Promise<TrackObject> {
+  async createTrack(@Body() track: CreateTrackDto): Promise<TrackObject> {
     return await this.createNewTrackUsecase.execute(track);
   }
 

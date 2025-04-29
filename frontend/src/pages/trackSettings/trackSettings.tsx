@@ -15,7 +15,7 @@ import {
   createTrack,
   getTrackById,
   updateTrack,
-  getEvent,
+  getPrivateEvent,
   getUsers,
   deleteTrack,
 } from '../../utils/api';
@@ -86,10 +86,10 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
   useEffect(() => {
     const fetchTracks = async () => {
       try {
-        const res = await getEvent(eventId);
+        const res = await getPrivateEvent(eventId);
         if (res.status === 200) {
-          if (res.data[0].closed) setEventClosed(true);
-          setTracks(res.data[0].tracks);
+          if (res.data.closed) setEventClosed(true);
+          setTracks(res.data.tracks);
         }
       } catch (error) {
         logger.error(`Failed to fetch tracks: ${error}`);
@@ -102,12 +102,17 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
     if (trackId) {
       const fetchOneTrack = async () => {
         try {
-          const trck = await getTrackById(trackId);
+          const res = await getTrackById(trackId);
+          const trck = await res.data[0];
           setDescription(trck.description);
           setName(trck.name);
           setClosed(trck.closed);
           setKeyWords(trck.keywords);
-          //setSpeakers(trck.speakers);
+          setSpeakers(
+            allUsers.filter((user) =>
+              trck.speakers.map((e : User) => e.id).includes(user.id),
+            ),
+          );
         } catch (error) {
           logger.error(
             `Failed to fetch track from track id ${trackId}: ${error}`,
@@ -119,9 +124,9 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
       setDescription('');
       setName('');
       setClosed(false);
-      //setSpeakers([]);
+      setSpeakers([]);
     }
-  }, [trackId]);
+  }, [trackId, allUsers]);
 
   const handleDelete = async () => {
     if (trackId) {
@@ -166,7 +171,8 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         description: description,
         keywords: keywords,
         closed: false,
-        event: eventId,
+        eventId: eventId,
+        speakers: speakers.map((s) => s.id),
       };
 
       if (trackId) {
@@ -267,29 +273,33 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
           <CheckBoxList
             allUsers={allUsers}
             category={speakers}
-            setCategory={setSpeakers}
+            setCategory={(speakers) => {
+              setButtonDisabled(false);
+              setSpeakers(speakers);
+            }}
             title="Orateurs"
             disabled={closed}
           />
         </div>
         <div className="controlsContainer">
           <Button
-          label={trackId ? "Sauvegarder" : "Créer"}
-          type={(isButtonDisabled || closed) ? ButtonType.disabled : ButtonType.secondary}
+            label={trackId ? 'Sauvegarder' : 'Créer'}
+            type={
+              isButtonDisabled || closed
+                ? ButtonType.disabled
+                : ButtonType.secondary
+            }
           />
           {trackId ? (
-            <Button
-              label='Supprimer la piste'
-              onClick={toggleDeleteModal}
-            />
+            <Button label="Supprimer la piste" onClick={toggleDeleteModal} />
           ) : null}
         </div>
         <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
           <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
           <div className="confirmation-buttons">
-            <Button label="Supprimer" onClick={handleDelete}/>
+            <Button label="Supprimer" onClick={handleDelete} />
             <Button
-            label='Annuler'
+              label="Annuler"
               onClick={() => {
                 toggleDeleteModal();
                 setModalMessage('');

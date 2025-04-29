@@ -11,5 +11,7 @@ export class CreateTrackDto {
   keywords: string[];
 
   @IsNotEmpty()
-  event: string;
+  eventId: string;
+
+  speakers: string[];
 }

@@ -3,9 +3,8 @@ import { Inject } from '@nestjs/common';
 import { IEventGateway } from '../gateways/events.gateway';
 import { EventObject } from '../event';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
-import { EventDataDto } from 'src/events/infra/controllers/dto/event-data.dto';
 
-export class UpdateEventUsecase {
+export class PublishEventUsecase {
   constructor(
     @Inject('EventGateway')
     private eventGateway: IEventGateway,
@@ -13,11 +12,7 @@ export class UpdateEventUsecase {
     private readonly userGateway: IUserGateway,
   ) {}
 
-  async execute(
-    eventId: string,
-    eventUpdate: EventDataDto,
-    userEmail: string,
-  ): Promise<EventObject> {
+  async execute(eventId: string, userEmail: string): Promise<EventObject> {
     const user = await this.userGateway.getUserByEmail(userEmail);
 
     if (!user) throw new NotFoundException('User not found');
@@ -25,11 +20,7 @@ export class UpdateEventUsecase {
     if (!existingEvent) throw new NotFoundException('Event not found');
     if (!existingEvent.canBeEditBy(user)) throw new UnauthorizedException();
 
-    existingEvent.name = eventUpdate.name;
-    existingEvent.description = eventUpdate.description;
-    existingEvent.startDate = eventUpdate.startDate;
-    existingEvent.endDate = eventUpdate.endDate;
-    existingEvent.imageSlug = eventUpdate.imageSlug;
+    existingEvent.published = true;
 
     return await this.eventGateway.updateEvent(existingEvent);
   }

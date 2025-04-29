@@ -8,7 +8,12 @@ import Button, {
 } from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
 import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
-import { getEvent, updateEvent, deleteEvent } from '../../utils/api';
+import {
+  getPrivateEvent,
+  updateEvent,
+  deleteEvent,
+  closeEvent,
+} from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
@@ -81,15 +86,15 @@ const EventSettings: FC<EventSettingsProps> = () => {
   useEffect(() => {
     const fetchEvent = async () => {
       try {
-        const res = await getEvent(eventId);
+        const res = await getPrivateEvent(eventId);
         if (res.status === 200) {
-          if (res.data[0].closed) setEventClosed(true);
-          setTracks(res.data[0].tracks);
-          setName(res.data[0].name);
-          setDescription(res.data[0].description);
-          setDate(res.data[0].startDate.split('T')[0]);
-          setStartHour(res.data[0].startDate.match(/\d{2}:\d{2}/)?.[0] || '');
-          setEndHour(res.data[0].endDate.match(/\d{2}:\d{2}/)?.[0] || '');
+          if (res.data.closed) setEventClosed(true);
+          setTracks(res.data.tracks);
+          setName(res.data.name);
+          setDescription(res.data.description);
+          setDate(res.data.startDate.split('T')[0]);
+          setStartHour(res.data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
+          setEndHour(res.data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
         }
       } catch (error) {
         logger.error(`Failed to fetch event: ${error}`);
@@ -144,7 +149,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
     }
   };
 
-  const closeEvent = async () => {
+  const handleCloseEvent = async () => {
     for (const track of tracks) {
       if (track.closed === false) {
         setModalMessage(
@@ -154,7 +159,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
       }
     }
     try {
-      const res = await updateEvent(eventId, { closed: true });
+      const res = await closeEvent(eventId);
       if (res.status == 200) {
         setEventClosed(true);
         toggle();
@@ -210,7 +215,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         <Modal isOpen={isOpen} toggle={toggle}>
           <h2> Etes-vous sur de vouloir clôturer l&apos;évènement ?</h2>
           <div className="confirmation-buttons">
-            <Button label="Confirmer" onClick={closeEvent} />
+            <Button label="Confirmer" onClick={handleCloseEvent} />
             <Button
               label="Annuler"
               onClick={() => {
@@ -294,9 +299,9 @@ const EventSettings: FC<EventSettingsProps> = () => {
         <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
           <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
           <div className="confirmation-buttons">
-            <Button label='Supprimer' onClick={deleteEventHandler}/>
+            <Button label="Supprimer" onClick={deleteEventHandler} />
             <Button
-              label='Annuler'
+              label="Annuler"
               onClick={() => {
                 toggleDeleteModal();
                 setModalMessage('');

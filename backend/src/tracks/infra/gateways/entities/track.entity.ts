@@ -1,5 +1,13 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinTable,
+  ManyToMany,
+} from 'typeorm';
 import { EventEntity } from '../../../../events/infra/gateways/entities/event.entity';
+import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 
 @Entity()
 export class TrackEntity {
@@ -31,6 +39,12 @@ export class TrackEntity {
 
   @Column()
   eventId: string;
+
+  @ManyToMany(() => UserEntity, (user) => user.speakingTracks, {
+    eager: false,
+  })
+  @JoinTable()
+  speakers: UserEntity[];
 
   constructor(track: Partial<TrackEntity>) {
     Object.assign(this, track);

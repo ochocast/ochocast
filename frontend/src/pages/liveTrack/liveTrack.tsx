@@ -1,22 +1,41 @@
 import React, { useEffect, useState } from 'react';
 import './liveTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTrackById, updateTrack } from '../../utils/api';
+import { getTrackById, updateTrack, getPublicEvent } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { default as _ReactPlayer } from 'react-player/lazy';
 import { ReactPlayerProps } from 'react-player/types/lib';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
-// import WaitingScreen from '../../components/waitingScreen/waitingScreen';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
+
+const fetchTrack = async (trackId?: string) => {
+  try {
+    const res = await getTrackById(trackId);
+    const track = await res.data;
+    return track[0];
+  } catch (error) {
+    console.error(`Failed to fetch tracks: ${error}`);
+  }
+};
+
+const fetchEvent = async (eventId?: string) => {
+  try {
+    const res = await getPublicEvent(eventId);
+    const event = await res.data;
+    return event;
+  } catch (error) {
+    console.error(`Failed to fetch event: ${error}`);
+  }
+};
 
 const LiveTrack = () => {
   const { trackId } = useParams();
   const [track, setTrack] = useState<Track>();
   const [url, setUrl] = useState<string>();
   const navigate = useNavigate();
-  
+
   if (track?.closed) {
     navigate(`/events/${track?.event.id}/tracks`);
   }
@@ -34,18 +53,22 @@ const LiveTrack = () => {
   };
 
   useEffect(() => {
-    try {
-      getTrackById(trackId).then((res) => {
-        setTrack(res);
-        setUrl(
-          `${process.env.REACT_APP_STREAM_URL}/hls/${res?.streamKey}.m3u8`,
-        );
-      });
-    } catch (error) {
-      console.error(`Failed to fetch tracks: ${error}`);
-    }
+    const fetchTrackData = async () => {
+      const track = await fetchTrack(trackId);
+      if (!track) {
+        console.error('Error while fetching track');
+        return;
+      }
+      track.event = await fetchEvent(track.eventId);
+      setTrack(track);
+      setUrl(
+        `${process.env.REACT_APP_STREAM_URL}/hls/${track?.streamKey}.m3u8`,
+      );
+    };
+
+    fetchTrackData();
   }, [trackId]);
-  
+
   return (
     <div className="live-page">
       {track ? (
@@ -55,34 +78,25 @@ const LiveTrack = () => {
               <NavigateBackButton />
               <h1 className="event-title">{track.event.name}</h1>
             </div>
-            <Button
-              label='Clôturer la piste'
-              onClick={closeTrack()}
-            />
+            <Button label="Clôturer la piste" onClick={closeTrack()} />
           </div>
-          <div className="player-wrapper">
-          {/* {url ? ( */}
-            <div>
-              <ReactPlayer
-                width="100%"
-                height="auto"
-                url={url}
-                playing
-                controls
-                config={{
-                  file: {
-                    forceHLS: true,
-                    hlsOptions: {
-                      liveSyncDurationCount: 2,
-                      liveMaxLatencyDurationCount: 3,
-                    },
+          <div>
+            <ReactPlayer
+              width="55%"
+              height="auto"
+              url={url}
+              playing
+              controls
+              config={{
+                file: {
+                  forceHLS: true,
+                  hlsOptions: {
+                    liveSyncDurationCount: 2,
+                    liveMaxLatencyDurationCount: 3,
                   },
-                }}
-              />
-            </div>
-          {/* ) : ( */}
-            {/* <WaitingScreen /> */}
-           {/* )} */}
+                },
+              }}
+            />
           </div>
           <div>
             <button onClick={() => changeQuality('_low')}>Low</button>
@@ -97,7 +111,7 @@ const LiveTrack = () => {
             <div className="track-title">
               <h2>{track.name}</h2>
               <Button
-                label='Paramètres'
+                label="Paramètres"
                 onClick={() =>
                   navigate(
                     `/events/${track.event.id}/track-settings/${trackId}`,

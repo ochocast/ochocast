@@ -2,17 +2,17 @@ import React, { FC, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import TrackBox from '../../components/ReworkComponents/Event/Track/TrackBox/TrackBox';
-import Event from '../../utils/EventsProperties';
+import { PublicEvent } from '../../utils/EventsProperties';
 
 import './tracks.css';
-import { getEvent } from '../../utils/api';
+import { getPublicEvent } from '../../utils/api';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 
 export interface tracksProps {}
 
 const fetchEvent = async (eventId?: string) => {
   try {
-    const res = await getEvent(eventId);
+    const res = await getPublicEvent(eventId);
     return await res.data;
   } catch (error) {
     console.error(`Failed to fetch event: ${error}`);
@@ -20,13 +20,13 @@ const fetchEvent = async (eventId?: string) => {
 };
 
 const TracksPage: FC<tracksProps> = () => {
-  const [event, setEvent] = useState<Event | undefined>(undefined);
+  const [event, setEvent] = useState<PublicEvent | undefined>(undefined);
   const { eventId } = useParams();
 
   useEffect(() => {
     const fetchEventData = async () => {
       const event = await fetchEvent(eventId);
-      setEvent(event[0]);
+      setEvent(event);
     };
 
     fetchEventData();
@@ -42,9 +42,7 @@ const TracksPage: FC<tracksProps> = () => {
       </div>
       <div className="tracks_wrapper">
         <div className="tracks_description">
-          <div className="tracks_title">
-            Description de l&apos;évènement :
-          </div>
+          <div className="tracks_title">Description de l&apos;évènement :</div>
           {event?.description}
         </div>
       </div>

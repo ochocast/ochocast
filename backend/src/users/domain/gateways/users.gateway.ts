@@ -6,4 +6,5 @@ export interface IUserGateway {
   loginUser: (keycloak_user: any) => Promise<UserObject>;
   getListUsers: (filter: any) => Promise<UserObject[]>;
   getUserByEmail(email: string): Promise<UserObject | null>;
+  getUserById(id: string): Promise<UserObject | null>;
 }

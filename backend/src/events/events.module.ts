@@ -9,6 +9,11 @@ import { UpdateEventUsecase } from './domain/usecases/updateEvent.usecase';
 import { DeleteEventUsecase } from './domain/usecases/deleteEvent.usecase';
 import { UserGateway } from 'src/users/infra/gateways/user.gateway';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { GetEventByIdUsecase } from './domain/usecases/getEventById.usecase';
+import { GetPrivateEventsUsecase } from './domain/usecases/getPrivateEvents.usecase';
+import { PublishEventUsecase } from './domain/usecases/publishEvent.usecase';
+import { CloseEventUsecase } from './domain/usecases/closeEvent.usecase';
+import { GetPrivateEventByIdUsecase } from './domain/usecases/getPrivateEventById.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([EventEntity, UserEntity])],
@@ -26,6 +31,11 @@ import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
     GetEventsUsecase,
     UpdateEventUsecase,
     DeleteEventUsecase,
+    GetEventByIdUsecase,
+    GetPrivateEventsUsecase,
+    PublishEventUsecase,
+    CloseEventUsecase,
+    GetPrivateEventByIdUsecase,
   ],
 })
 export class EventsModule {}

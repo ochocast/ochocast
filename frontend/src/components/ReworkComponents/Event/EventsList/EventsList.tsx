@@ -33,7 +33,12 @@ const EventsList = (props: EventsListProps) => {
   };
 
   const buttonGen = (img: string, onClick: () => void) => (
-      <img className={styles.arrow} src={img} alt="Button" onClick={onClick}></img>
+    <img
+      className={styles.arrow}
+      src={img}
+      alt="Button"
+      onClick={onClick}
+    ></img>
   );
 
   const events = eventsShown.map((event, index) => (
@@ -43,7 +48,10 @@ const EventsList = (props: EventsListProps) => {
       key={index}
       imageURL="logo_2lignes_crop.png"
       onPublish={props.onPublish}
-      canEdit={props.eventStatus === EventStatus.NotPublished || props.viewerID === event.creator.id}
+      canEdit={
+        props.eventStatus === EventStatus.NotPublished ||
+        props.viewerID === event.creator?.id
+      }
     />
   ));
 

@@ -1,6 +1,6 @@
 import { Inject } from '@nestjs/common';
 import { IEventGateway } from '../gateways/events.gateway';
-import { EventObject } from '../event';
+import { PublicEventObject } from '../publicEvent';
 
 export class GetEventsUsecase {
   constructor(
@@ -8,7 +8,12 @@ export class GetEventsUsecase {
     private eventGateway: IEventGateway,
   ) {}
 
-  async execute(filter: any): Promise<EventObject[]> {
-    return await this.eventGateway.getEvents(filter);
+  async execute(
+    filter: any,
+    currentEmail: string,
+  ): Promise<PublicEventObject[]> {
+    filter.published = true;
+    const events = await this.eventGateway.getEvents(filter);
+    return events.map((e) => new PublicEventObject(e, currentEmail));
   }
 }
