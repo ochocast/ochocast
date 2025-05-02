@@ -27,9 +27,13 @@
   "devDependencies": {
     "@types/fluent-ffmpeg": "^2.1.27",
     "@types/react": "^19.0.11",
-    "@typescript-eslint/eslint-plugin": "^8.5.0",
-    "@typescript-eslint/parser": "^8.5.0",
-    "eslint": "^9.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.29.1",
+    "@typescript-eslint/parser": "^8.29.1",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
+    "eslint-plugin-prettier": "^5.2.6",
+    "eslint-plugin-react": "^7.37.5",
+    "prettier": "^3.5.3",
     "typeorm": "^0.3.20"
   }
 }

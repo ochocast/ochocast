@@ -18,7 +18,7 @@ interface EventBoxProps {
 
 const EventBox = (props: EventBoxProps) => {
   const event = props.event;
-  const dateDisplay = new Date(event.startDate); // to be able to getDay
+  const dateDisplay = new Date(event.startDate);
   const navigate = useNavigate();
 
   const editButton = (
@@ -74,7 +74,7 @@ const EventBox = (props: EventBoxProps) => {
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.title}>{event.name}</div>
-        <div className={styles.date}>{`Date de début: ${dateDisplay.getDay()}/${
+        <div className={styles.date}>{`Date de début: ${dateDisplay.getDate()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>
       </div>

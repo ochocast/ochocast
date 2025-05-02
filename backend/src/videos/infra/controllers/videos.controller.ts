@@ -128,8 +128,8 @@ export class VideosController {
   }
 
   @Get(':userId')
-  async getVideosByUser (@Param('userId') id: string): Promise<VideoObject[]> {
-    const videos = await this.getVideosUsecase.execute({creator: {id}});
+  async getVideosByUser(@Param('userId') id: string): Promise<VideoObject[]> {
+    const videos = await this.getVideosUsecase.execute({ creator: { id } });
     return videos;
   }
 }

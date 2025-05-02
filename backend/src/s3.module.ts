@@ -1,6 +1,5 @@
 import { Injectable, Module } from '@nestjs/common';
-import { S3Client } from "@aws-sdk/client-s3";
-
+import { S3Client } from '@aws-sdk/client-s3';
 
 // Configuration du client S3 pour Scaleway
 const s3Client = new S3Client({
@@ -13,7 +12,6 @@ const s3Client = new S3Client({
   forcePathStyle: true, // Obligatoire pour compatibilité avec Scaleway
 });
 
-
 @Module({
   providers: [
     {
@@ -24,4 +22,3 @@ const s3Client = new S3Client({
   exports: ['s3Client'],
 })
 export class S3Module {}
-

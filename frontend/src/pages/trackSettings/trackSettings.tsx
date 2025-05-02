@@ -1,210 +1,69 @@
-import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
+import { FC, ChangeEvent, useState } from 'react';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import './trackSettings.css';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
-import { useNavigate, useParams } from 'react-router-dom';
-
+import { useParams } from 'react-router-dom';
 import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
 import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
+import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import Modal from '../../components/modal/modal';
 
-import {
-  createTrack,
-  getTrackById,
-  updateTrack,
-  getPrivateEvent,
-  getUsers,
-  deleteTrack,
-} from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
-import { Track, User } from '../../utils/EventsProperties';
-import Modal from '../../components/modal/modal';
-import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
-import logger from '../../utils/logger';
 
-interface TrackSettingsProps {}
+import { useTrackSettings } from './useTrackSettings';
+import { User } from '../../utils/EventsProperties';
+import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
 
-const TrackSettings: FC<TrackSettingsProps> = () => {
-  const { eventId, trackId } = useParams();
+const TrackSettings: FC = () => {
+  const { trackId, eventId } = useParams();
+  const {
+    allUsers,
+    event,
+    tracks,
+    track,
+    setTrack,
+    speakers,
+    setSpeakers,
+    message,
+    setMessage,
+    handleSubmit,
+    handleDelete,
+    // loading,
+    navigate,
+  } = useTrackSettings();
+
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-  //Handle permissions for a track
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [speakers, setSpeakers] = useState<User[]>([]);
-  const [eventClosed, setEventClosed] = useState(false);
+  if ( trackId && !track) {
+    return <div className="loading">Chargement de la piste...</div>;
+  }
 
-  //Get all users
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const res = await getUsers();
-        if (res.status === 200) {
-          setAllUsers(res.data);
-        }
-      } catch (error) {
-        logger.error(`Failed to fetch users: ${error}`);
-      }
+  const toggle = () => setIsOpen(!isOpen);
+  const toggleDeleteModal = () => setIsDeleteModalOpen(!isDeleteModalOpen);
+
+  const handleInputChange =
+    (field: keyof typeof track) =>
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setTrack({ ...track, [field]: e.target.value });
+      setButtonDisabled(false);
+      setMessage('');
     };
-    fetchUsers();
-  }, []);
 
-  const [name, setName] = useState('');
-  const [errorName, setErrorName] = useState(false);
-  const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value);
-    setButtonDisabled(false);
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    handleSubmit(e, track, speakers);
   };
 
-  const [description, setDescription] = useState('');
-  const [errorDescription, setErrorDescription] = useState(false);
-  const handleDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    setDescription(e.target.value);
-    setButtonDisabled(false);
-  };
+  const closed = track.closed || event?.closed;
 
-  const [modalMessage, setModalMessage] = useState('');
-  const [closed, setClosed] = useState(false);
-  const [keywords, setKeyWords] = useState<string[]>([]);
-  const [message, setMessage] = useState('');
-  const navigate = useNavigate();
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [isOpen, setisOpen] = useState(false);
-
-  const toggle = () => {
-    setisOpen(!isOpen);
-  };
-  const [isDeleteModalOpen, setisDeleteModalOpen] = useState(false);
-  const toggleDeleteModal = () => {
-    setisDeleteModalOpen(!isDeleteModalOpen);
-  };
-
-  useEffect(() => {
-    const fetchTracks = async () => {
-      try {
-        const res = await getPrivateEvent(eventId);
-        if (res.status === 200) {
-          if (res.data.closed) setEventClosed(true);
-          setTracks(res.data.tracks);
-        }
-      } catch (error) {
-        logger.error(`Failed to fetch tracks: ${error}`);
-      }
-    };
-    fetchTracks();
-  }, [eventId]);
-
-  useEffect(() => {
-    if (trackId) {
-      const fetchOneTrack = async () => {
-        try {
-          const res = await getTrackById(trackId);
-          const trck = await res.data[0];
-          setDescription(trck.description);
-          setName(trck.name);
-          setClosed(trck.closed);
-          setKeyWords(trck.keywords);
-          setSpeakers(
-            allUsers.filter((user) =>
-              trck.speakers.map((e : User) => e.id).includes(user.id),
-            ),
-          );
-        } catch (error) {
-          logger.error(
-            `Failed to fetch track from track id ${trackId}: ${error}`,
-          );
-        }
-      };
-      fetchOneTrack();
-    } else {
-      setDescription('');
-      setName('');
-      setClosed(false);
-      setSpeakers([]);
-    }
-  }, [trackId, allUsers]);
-
-  const handleDelete = async () => {
-    if (trackId) {
-      try {
-        const res = await deleteTrack(trackId);
-        if (res.status === 200) {
-          tracks.splice(tracks.findIndex((track) => track.id === trackId));
-          const url = '/events/' + eventId + '/event-settings';
-          navigate(url);
-        }
-      } catch (error) {
-        logger.error(error);
-        setMessage(
-          "La piste n'a pas pu être supprimée, une erreur est survenue",
-        );
-      }
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    let error = false;
-    if (!name.trim()) {
-      setErrorName(true);
-      error = true;
-      return;
-    }
-    if (!description.trim()) {
-      setErrorDescription(true);
-      error = true;
-      return;
-    }
-
-    if (speakers.length === 0) {
-      setMessage('Vous devez choisir au moins un orateur pour cette piste');
-      error = true;
-      return;
-    }
-    if (!error) {
-      const trackBody = {
-        name: name,
-        description: description,
-        keywords: keywords,
-        closed: false,
-        eventId: eventId,
-        speakers: speakers.map((s) => s.id),
-      };
-
-      if (trackId) {
-        try {
-          const res = await updateTrack(trackId, trackBody);
-          setButtonDisabled(true);
-          const trackIndex = tracks.findIndex((track) => track.id === trackId);
-          tracks[trackIndex] = res.data;
-        } catch (error) {
-          logger.error(error);
-          setMessage(
-            "La piste n'a pas pu être sauvegardé, une erreur est survenue",
-          );
-        }
-      } else {
-        try {
-          const res = await createTrack(trackBody);
-          if (res.status === 201) {
-            setButtonDisabled(true);
-            const resJson = await res.data;
-            const url = '/events/' + eventId + '/track-settings/' + resJson.id;
-            tracks.push(res.data);
-            navigate(url);
-          }
-        } catch (error) {
-          logger.error(error);
-          setMessage("La piste n'a pas pu être créer, une erreur est survenue");
-        }
-      }
-    }
-  };
-  return (
+    return (
     <div className="page-track-settings">
       <div className="navigation">
         <h1>Tableau de bord</h1>
@@ -221,23 +80,23 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
         <DropDownMenuTracks
           tracks={tracks}
           eventId={eventId ?? ''}
-          isButtonDisplayed={!eventClosed}
+          isButtonDisplayed={!closed}
           imageUrl={trackSelectImage}
         />
       </div>
-      <form onSubmit={handleSubmit} className="track-settings">
+      <form onSubmit={handleFormSubmit} className="track-settings">
         <div className="top-layout">
           <div className="title-layout">
             <NavigateBackButton />
-            <h1>{trackId ? name : 'Nouvelle Piste'}</h1>
+            <h1>{trackId ? track.name : 'Nouvelle Piste'}</h1>
           </div>
-          {trackId ? (
+          {trackId && (
             <Button
               label="Commencer le live"
               onClick={toggle}
               type={closed ? ButtonType.disabled : ButtonType.secondary}
             />
-          ) : null}
+          )}
         </div>
         <hr />
         <Modal isOpen={isOpen} toggle={toggle}>
@@ -246,41 +105,104 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
             <Button label="Lancer le live depuis OBS" />
             <Button
               label="Lancer le live depuis OCHOCast"
-              onClick={() => navigate('/tracks/' + trackId + '/streaming')}
+              onClick={() => navigate(`/tracks/${trackId}/streaming`)}
             />
           </div>
         </Modal>
+
         <TextBox
           type="text"
           label="Nom de la piste"
           placeholder="Ma piste"
-          value={name}
+          value={track.name || ''}
           name="name"
-          error={errorName}
+          error={!track.name}
           disabled={closed}
-          onChange={handleNameChange}
+          onChange={handleInputChange('name')}
         />
         <TextArea
           label="Description de la piste"
           placeholder="Description..."
-          value={description}
+          value={track.description || ''}
           name="description"
-          error={errorDescription}
+          error={!track.description}
           disabled={closed}
-          onChange={handleDescriptionChange}
+          onChange={handleInputChange('description')}
         />
-        <div className="checkBoxListContainer">
-          <CheckBoxList
-            allUsers={allUsers}
-            category={speakers}
-            setCategory={(speakers) => {
-              setButtonDisabled(false);
-              setSpeakers(speakers);
-            }}
-            title="Orateurs"
-            disabled={closed}
-          />
+
+        <div className="track-date-speaker-wrapper">
+          <div className="checkBoxListContainer">
+            <CheckBoxList
+              allUsers={allUsers}
+              category={speakers}
+              setCategory={(users: User[]) => {
+                setSpeakers(users);
+                setButtonDisabled(false);
+              }}
+              title="Orateurs"
+              disabled={closed !== undefined && closed}
+            />
+            <div className="track-date-inputs">
+              <div className="input-wrapper">
+                <label>Date de l&apos;évènement</label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formatDateForInput(track.startDate)}
+                  disabled
+                  required
+                />
+              </div>
+              <div className="input-wrapper">
+                <label>Début de la piste</label>
+                <input
+                  type="time"
+                  name="start"
+                  value={formatTimeForInput(track.startDate)}
+                  onChange={(e) => {
+                    const [hours, minutes] = e.target.value
+                      .split(':')
+                      .map(Number);
+                    const current = new Date(track.startDate || new Date());
+                    current.setHours(hours);
+                    current.setMinutes(minutes);
+                    current.setSeconds(0);
+                    current.setMilliseconds(0);
+                    setTrack({ ...track, startDate: current });
+                    setButtonDisabled(false);
+                    setMessage('');
+                  }}
+                  disabled={closed}
+                  required
+                />
+              </div>
+              <div className="input-wrapper">
+                <label>Fin de la piste</label>
+                <input
+                  type="time"
+                  name="end"
+                  value={formatTimeForInput(track.endDate)}
+                  onChange={(e) => {
+                    const [hours, minutes] = e.target.value
+                      .split(':')
+                      .map(Number);
+                    const current = new Date(track.endDate || new Date());
+                    current.setHours(hours);
+                    current.setMinutes(minutes);
+                    current.setSeconds(0);
+                    current.setMilliseconds(0);
+                    setTrack({ ...track, endDate: current });
+                    setButtonDisabled(false);
+                    setMessage('');
+                  }}
+                  disabled={closed}
+                  required
+                />
+              </div>
+            </div>
+          </div>
         </div>
+
         <div className="controlsContainer">
           <Button
             label={trackId ? 'Sauvegarder' : 'Créer'}
@@ -290,27 +212,26 @@ const TrackSettings: FC<TrackSettingsProps> = () => {
                 : ButtonType.secondary
             }
           />
-          {trackId ? (
+          {trackId && (
             <Button label="Supprimer la piste" onClick={toggleDeleteModal} />
-          ) : null}
+          )}
         </div>
+
         <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
-          <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
+          <h2>Êtes-vous sûr de vouloir supprimer la piste ?</h2>
           <div className="confirmation-buttons">
             <Button label="Supprimer" onClick={handleDelete} />
             <Button
               label="Annuler"
               onClick={() => {
                 toggleDeleteModal();
-                setModalMessage('');
+                setMessage('');
               }}
             />
           </div>
-          <div className="message">
-            {modalMessage ? <p>{modalMessage}</p> : null}
-          </div>
         </Modal>
-        <div className="message">{message ? <p>{message}</p> : null}</div>
+
+        <div className="message">{message && <p>{message}</p>}</div>
       </form>
     </div>
   );

@@ -51,6 +51,18 @@ export class TrackObject {
   createdAt: Date;
 
   @ApiProperty({
+    example: '2021-10-31T00:00:00.000Z',
+    description: 'The date the track starts.',
+  })
+  startDate: Date;
+
+  @ApiProperty({
+    example: '2021-10-31T00:00:00.000Z',
+    description: 'The date the track ends.',
+  })
+  endDate: Date;
+
+  @ApiProperty({
     example: [UserObject],
     description: 'List of speaker attached to this track.',
   })
@@ -65,6 +77,8 @@ export class TrackObject {
     closed: boolean = false,
     eventId: string,
     createdAt: Date,
+    startDate: Date,
+    endDate: Date,
     speakers: UserObject[],
   ) {
     this.id = id;
@@ -76,6 +90,8 @@ export class TrackObject {
     this.eventId = eventId;
     this.createdAt = createdAt;
     this.speakers = speakers;
+    this.startDate = startDate;
+    this.endDate = endDate;
   }
 }
 
@@ -92,5 +108,7 @@ export class TrackObject {
 //     public closed: boolean = false,
 //     public event: string,
 //     public createdAt: Date,
+//     public startDate: Date,
+//     public endDate: Date,
 //   ) {}
 // }

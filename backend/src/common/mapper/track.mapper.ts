@@ -12,6 +12,8 @@ export function toTrackObject(entity: TrackEntity): TrackObject {
     streamKey: entity.streamKey,
     closed: entity.closed,
     createdAt: entity.createdAt,
+    startDate: entity.startDate,
+    endDate: entity.endDate,
     eventId: entity.event?.id ?? entity.eventId,
     speakers: entity.speakers.map((e) => toUserObject(e)),
   };

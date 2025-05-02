@@ -117,11 +117,31 @@ const EventsPage: FC<eventsProps> = () => {
 
     if (!isError) {
       try {
+        const [year, month, day] = date.split('-');
+        const [s_hour, s_minute] = startHour.split(':');
+        const [e_hour, e_minute] = endHour.split(':');
+
         const res = await createEvent({
           name: name,
           description: description,
-          startDate: date + 'T' + startHour + ':00.000Z',
-          endDate: date + 'T' + endHour + ':00.000Z',
+          startDate: new Date(
+            Date.UTC(
+              parseInt(year),
+              parseInt(month) - 1, // Les mois vont de 0 à 11
+              parseInt(day),
+              parseInt(s_hour),
+              parseInt(s_minute),
+            ),
+          ).toISOString(),
+          endDate: new Date(
+            Date.UTC(
+              parseInt(year),
+              parseInt(month) - 1,
+              parseInt(day),
+              parseInt(e_hour),
+              parseInt(e_minute),
+            ),
+          ).toISOString(),
           imageSlug: 'imageSlug',
         });
 

@@ -16,7 +16,8 @@ export class TagObject {
   name: string;
 
   @ApiProperty({
-    example: '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, a511bcbe27a2-ad1b1aa3-bfe9-d2b3-4041]',
+    example:
+      '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, a511bcbe27a2-ad1b1aa3-bfe9-d2b3-4041]',
     description: 'The identifiers of the videos.',
   })
   videos: VideoEntity[];

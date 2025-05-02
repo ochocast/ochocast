@@ -22,7 +22,7 @@ export class TagGateway implements ITagGateway {
     return this.tagsRepository.find({
       where: {
         ...filter,
-      }//,
+      }, //,
       //relations: ['event'],
     });
   }
@@ -32,7 +32,7 @@ export class TagGateway implements ITagGateway {
     where.name = ILike(`%${filter.value}%`);
 
     return this.tagsRepository.find({
-      where
+      where,
     });
   }
 

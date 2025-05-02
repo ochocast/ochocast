@@ -7,10 +7,10 @@ async function bootstrap() {
     cors: {
       origin: [
         'http://localhost:3000',
-        'https://prod-frontend.s3-website.fr-par.scw.cloud'
+        'https://prod-frontend.s3-website.fr-par.scw.cloud',
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-      allowedHeaders: 'Content-Type, Authorization'
+      allowedHeaders: 'Content-Type, Authorization',
     },
   });
 

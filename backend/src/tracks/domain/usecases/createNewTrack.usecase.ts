@@ -37,6 +37,8 @@ export class CreateNewTrackUsecase {
       false,
       trackToCreate.eventId,
       new Date(),
+      trackToCreate.startDate,
+      trackToCreate.endDate,
       speakers,
     );
 

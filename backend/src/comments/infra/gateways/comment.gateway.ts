@@ -10,7 +10,9 @@ export class CommentGateway implements ICommentGateway {
     private readonly commentsRepository: Repository<CommentEntity>,
   ) {}
 
-  async createNewComment(commentDetails: CommentObject): Promise<CommentObject> {
+  async createNewComment(
+    commentDetails: CommentObject,
+  ): Promise<CommentObject> {
     const comment: CommentEntity = new CommentEntity({
       ...commentDetails,
     });
@@ -26,7 +28,7 @@ export class CommentGateway implements ICommentGateway {
       relations: ['creator'],
     });
   }
-  
+
   async deleteComment(commentId: string): Promise<CommentObject> {
     const comment = await this.commentsRepository.findOneBy({ id: commentId });
 

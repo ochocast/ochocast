@@ -28,7 +28,7 @@ export class ModifyVideoDto {
   comments: CommentEntity[];
 
   archived: boolean;
-  
+
   createdAt: Date;
 
   updatedAt: Date;

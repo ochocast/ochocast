@@ -26,6 +26,8 @@ export interface Track {
   speakers: string[];
   event: Event;
   createdAt: Date;
+  startDate: Date;
+  endDate: Date;
 }
 
 export interface User {

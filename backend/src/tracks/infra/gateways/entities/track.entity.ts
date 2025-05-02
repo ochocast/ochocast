@@ -37,6 +37,16 @@ export class TrackEntity {
   @Column()
   createdAt: Date;
 
+  @Column({
+    nullable: true,
+  })
+  startDate: Date;
+
+  @Column({
+    nullable: true,
+  })
+  endDate: Date;
+
   @Column()
   eventId: string;
 

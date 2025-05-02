@@ -5,6 +5,7 @@
   height: 30vh;
   min-height: 200px;
   padding-top: 10px;
+  flex: 2;
 }
 
 .controlsContainer {
@@ -99,4 +100,26 @@
 .start-live-buttons {
   display: flex;
   justify-content: space-evenly;
+}
+
+.track-date-speaker-wrapper {
+  display: flex;
+  justify-content: flex-start;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.track-date-inputs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  max-width: 400px;
+  /* margin-left: 5rem; */
+  margin-top: 15px;
+}
+
+.input-wrapper {
+  margin-bottom: 1rem;
 }

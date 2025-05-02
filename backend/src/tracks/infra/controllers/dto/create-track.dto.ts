@@ -10,6 +10,10 @@ export class CreateTrackDto {
   @IsNotEmpty()
   keywords: string[];
 
+  startDate: Date;
+
+  endDate: Date;
+
   @IsNotEmpty()
   eventId: string;
 

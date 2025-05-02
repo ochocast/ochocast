@@ -11,7 +11,8 @@ import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 export class VideoGateway implements IVideoGateway {
   constructor(
     @InjectRepository(VideoEntity)
-    private readonly videosRepository: Repository<VideoEntity>, @Inject('s3Client' ) private s3Client: S3Client
+    private readonly videosRepository: Repository<VideoEntity>,
+    @Inject('s3Client') private s3Client: S3Client,
   ) {}
 
   async createNewVideo(videoDetails: VideoObject): Promise<VideoObject> {
@@ -20,22 +21,28 @@ export class VideoGateway implements IVideoGateway {
     // Parse les tags s'ils sont au format JSON
     let tags: TagEntity[] = [];
     if (typeof videoDetails.tags === 'string') {
-      tags = JSON.parse(videoDetails.tags).map((tag: any) => new TagEntity(tag));
+      tags = JSON.parse(videoDetails.tags).map(
+        (tag: any) => new TagEntity(tag),
+      );
     } else if (Array.isArray(videoDetails.tags)) {
       tags = videoDetails.tags.map((tag: any) => new TagEntity(tag));
     }
-    
+
     // Parse les internal_speakers s'ils sont au format JSON
     let internal_speakers: UserEntity[] = [];
     if (typeof videoDetails.internal_speakers === 'string') {
-      internal_speakers = JSON.parse(videoDetails.internal_speakers).map((user: any) => new UserEntity(user));
+      internal_speakers = JSON.parse(videoDetails.internal_speakers).map(
+        (user: any) => new UserEntity(user),
+      );
     } else if (Array.isArray(videoDetails.internal_speakers)) {
-      internal_speakers = videoDetails.internal_speakers.map((user: any) => new UserEntity(user));
+      internal_speakers = videoDetails.internal_speakers.map(
+        (user: any) => new UserEntity(user),
+      );
     }
     const video: VideoEntity = new VideoEntity({
       ...videoDetails,
       tags,
-      internal_speakers
+      internal_speakers,
     });
 
     return await this.videosRepository.save(video);
@@ -46,7 +53,7 @@ export class VideoGateway implements IVideoGateway {
     return this.videosRepository.find({
       where: {
         ...filter,
-        archived: false
+        archived: false,
       },
       relations: ['creator', 'tags', 'internal_speakers'],
     });
@@ -71,18 +78,18 @@ export class VideoGateway implements IVideoGateway {
   async deleteVideoAdmin(videoId: string): Promise<VideoObject> {
     const video = await this.videosRepository.findOneBy({ id: videoId });
 
-    console.log("video to delete found !")
+    console.log('video to delete found !');
     console.log(video);
-    
+
     const mediaCommand = new DeleteObjectCommand({
       Bucket: process.env.STOCK_MEDIA_BUCKET,
-      Key: video.media_id
+      Key: video.media_id,
     });
     this.s3Client.send(mediaCommand);
 
     const miniatureCommand = new DeleteObjectCommand({
       Bucket: process.env.STOCK_MINIATURE_BUCKET,
-      Key: video.miniature_id
+      Key: video.miniature_id,
     });
     this.s3Client.send(miniatureCommand);
 
@@ -90,7 +97,9 @@ export class VideoGateway implements IVideoGateway {
   }
 
   async modifyVideo(video: VideoObject): Promise<VideoObject> {
-    const existingVideo = await this.videosRepository.findOneBy({ id: video.id });
+    const existingVideo = await this.videosRepository.findOneBy({
+      id: video.id,
+    });
     if (!existingVideo) {
       throw new Error(`Video with ID ${video.id} not found`);
     }
