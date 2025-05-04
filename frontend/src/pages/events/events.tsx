@@ -54,6 +54,23 @@ const EventsPage: FC<eventsProps> = () => {
   const [message, setMessage] = useState('');
   const userString = localStorage.getItem('backendUser');
 
+  const fetchEventData = async (userString: string | null) => {
+    try {
+      if (!userString) {
+        throw new Error('User not found');
+      }
+      const publishedData = await getPublishedEvents();
+      const unpublishedData = await getUnpublishedEvents();
+      const closedData = await fetchEventsClosed();
+
+      setEventsPublished(publishedData.data);
+      setEventsUnpublished(unpublishedData.data);
+      setEventsClosed(closedData);
+    } catch (error) {
+      logger.error(`Failed to fetch events: ${error}`);
+    }
+  };
+
   // use effect called once to fetch published and unpublished events
   useEffect(() => {
     const fetchEventData = async () => {
@@ -98,6 +115,7 @@ const EventsPage: FC<eventsProps> = () => {
       setEventsUnpublished([
         ...eventsUnpublished.filter((event) => event.id !== eventId),
       ]);
+      fetchEventData(userString);
     } catch (error) {
       logger.error(`Failed to update event: ${error}`);
     }
@@ -178,7 +196,6 @@ const EventsPage: FC<eventsProps> = () => {
             eventStatus={EventStatus.Published}
             title="Prochain évènements"
             events={eventsPublished}
-            onPublish={onPublish}
             viewerID={userString ? JSON.parse(userString).id : ''}
           />
         ) : null}
