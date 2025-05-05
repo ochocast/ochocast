@@ -21,7 +21,7 @@ export function toEventObject(entity: EventEntity): EventObject {
     entity.isPrivate,
     entity.closed,
     entity.imageSlug,
-    entity.tracks?.map(toTrackObject) ?? [],
+    entity.tracks?.map((e) => toTrackObject(e)) ?? [],
     entity.creator?.id ?? entity.creatorId,
     entity.createdAt,
     entity.creator ? toUserObject(entity.creator) : undefined,
@@ -35,7 +35,7 @@ export function toEventObject(entity: EventEntity): EventObject {
 export function toEventEntity(obj: EventObject): EventEntity {
   return new EventEntity({
     ...obj,
-    tracks: obj.tracks?.map(toTrackEntity),
+    tracks: obj.tracks?.map((e) => toTrackEntity(e)),
     creator: { id: obj.creatorId } as UserEntity,
   });
 }
