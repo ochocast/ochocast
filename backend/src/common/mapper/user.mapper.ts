@@ -12,7 +12,7 @@ export function toUserObject(entity: UserEntity): UserObject {
     description: entity.description,
     picture_id: entity.picture_id,
     createdAt: entity.createdAt,
-    events: entity.events?.map(toEventObject) ?? [],
+    events: entity.events?.map((e) => toEventObject(e)) ?? [],
     comments: [],
     videos: [],
     videosAsSpeaker: [],
@@ -22,6 +22,6 @@ export function toUserObject(entity: UserEntity): UserObject {
 export function toUserEntity(obj: UserObject): UserEntity {
   return new UserEntity({
     ...obj,
-    events: obj.events?.map(toEventEntity) ?? [],
+    events: obj.events?.map((e) => toEventEntity(e)) ?? [],
   });
 }
