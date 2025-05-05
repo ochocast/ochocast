@@ -1,7 +1,7 @@
 import { TrackEntity } from '../../tracks/infra/gateways/entities/track.entity';
 import { TrackObject } from '../../tracks/domain/track';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
-import { toUserEntity, toUserObject } from './user.mapper';
+import { toUserObject } from './user.mapper';
 
 export function toTrackObject(entity: TrackEntity): TrackObject {
   return new TrackObject(
@@ -15,7 +15,7 @@ export function toTrackObject(entity: TrackEntity): TrackObject {
     entity.createdAt,
     entity.startDate,
     entity.endDate,
-    entity.speakers ? entity.speakers.map(toUserObject) : [],
+    entity.speakers ? entity.speakers.map((e) => toUserObject(e)) : [],
   );
 }
 
@@ -23,6 +23,6 @@ export function toTrackEntity(track: TrackObject): TrackEntity {
   return new TrackEntity({
     ...track,
     event: { id: track.eventId } as EventEntity,
-    speakers: track.speakers?.map(toUserEntity) ?? [],
+    speakers: [], // <!> must be completed after
   });
 }

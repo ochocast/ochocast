@@ -16,6 +16,13 @@ export class TrackGateway implements ITrackGateway {
 
   async createNewTrack(trackDetails: TrackObject): Promise<TrackObject> {
     const track: TrackEntity = toTrackEntity(trackDetails);
+    track.speakers = await Promise.all(
+      trackDetails.speakers.map(async (publicUser) => {
+        const full = await this.userRepository.findOneBy({ id: publicUser.id });
+        if (!full) throw new Error(`User ${publicUser.id} not found`);
+        return full;
+      }),
+    );
 
     if (trackDetails.speakers && trackDetails.speakers.length > 0) {
       const speakerEntities = await this.userRepository.findBy({
@@ -46,10 +53,16 @@ export class TrackGateway implements ITrackGateway {
       relations: ['speakers'],
     });
 
-    const updatedEntity = this.tracksRepository.merge(
-      track,
-      toTrackEntity(trackDetails),
+    const newTrack = toTrackEntity(trackDetails);
+    newTrack.speakers = await Promise.all(
+      trackDetails.speakers.map(async (publicUser) => {
+        const full = await this.userRepository.findOneBy({ id: publicUser.id });
+        if (!full) throw new Error(`User ${publicUser.id} not found`);
+        return full;
+      }),
     );
+
+    const updatedEntity = this.tracksRepository.merge(track, newTrack);
 
     if (trackDetails.speakers && trackDetails.speakers.length > 0) {
       const speakerEntities = await this.userRepository.findBy({
