@@ -155,4 +155,15 @@ describe('GetPrivateEventByIdUsecase', () => {
     ).rejects.toThrow(UnauthorizedException);
     expect(eventGatewayMock.deleteEvent).toHaveBeenCalledTimes(0);
   });
+
+  /*
+      Error case : current user does not exist    
+   */
+
+  it("should throw an error if current user wasn't the creator", async () => {
+    await expect(
+      getPrivateEventByIdUsecase.execute(eventId, 'wrong-user@email.com'),
+    ).rejects.toThrow(NotFoundException);
+    expect(eventGatewayMock.deleteEvent).toHaveBeenCalledTimes(0);
+  });
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './liveTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTrackById, updateTrack, getPublicEvent } from '../../utils/api';
+import { getTrackById, getPublicEvent, closeTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { default as _ReactPlayer } from 'react-player/lazy';
@@ -13,8 +13,7 @@ const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 const fetchTrack = async (trackId?: string) => {
   try {
     const res = await getTrackById(trackId);
-    const track = await res.data;
-    return track[0];
+    return await res.data;
   } catch (error) {
     console.error(`Failed to fetch tracks: ${error}`);
   }
@@ -40,9 +39,9 @@ const LiveTrack = () => {
     navigate(`/events/${track?.event.id}/tracks`);
   }
 
-  const closeTrack = () => {
+  const fetchCloseTrack = () => {
     return () => {
-      updateTrack(trackId, { closed: true }).then(() => {
+      closeTrack(trackId).then(() => {
         navigate(`/events/${track?.event.id}/tracks`);
       });
     };
@@ -78,7 +77,7 @@ const LiveTrack = () => {
               <NavigateBackButton />
               <h1 className="event-title">{track.event.name}</h1>
             </div>
-            <Button label="Clôturer la piste" onClick={closeTrack()} />
+            <Button label="Clôturer la piste" onClick={fetchCloseTrack()} />
           </div>
           <div>
             <ReactPlayer

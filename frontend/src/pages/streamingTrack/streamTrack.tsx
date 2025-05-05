@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './streamTrack.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTrackById, updateTrack, getPublicEvent } from '../../utils/api';
+import { getTrackById, getPublicEvent, closeTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import LiveStream from '../../components/livestream/livestream';
@@ -10,7 +10,7 @@ const fetchTrack = async (trackId?: string) => {
   try {
     const res = await getTrackById(trackId);
     const track = await res.data;
-    return track[0];
+    return track;
   } catch (error) {
     console.error(`Failed to fetch tracks: ${error}`);
   }
@@ -34,9 +34,9 @@ const StreamTrack = () => {
     navigate(`/events/${track?.event.id}/tracks`);
   }
 
-  const closeTrack = () => {
+  const fetchCloseTrack = () => {
     return () => {
-      updateTrack(trackId, { closed: true }).then(() => {
+      closeTrack(trackId).then(() => {
         navigate(`/events/${track?.event.id}/tracks`);
       });
     };
@@ -61,7 +61,7 @@ const StreamTrack = () => {
         <>
           <div className="live-header">
             <h1 className="event-title">{track.event?.name}</h1>
-            <Button label="Clôturer la piste" onClick={closeTrack()} />
+            <Button label="Clôturer la piste" onClick={fetchCloseTrack()} />
           </div>
 
           <div className="live-container">

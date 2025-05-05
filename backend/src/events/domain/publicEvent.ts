@@ -1,4 +1,4 @@
-import { PublicTrackObject } from 'src/tracks/domain/publicTrack';
+import { TrackObject } from 'src/tracks/domain/track';
 import { ApiProperty } from '@nestjs/swagger';
 import { EventObject } from './event';
 import { PublicUserObject } from 'src/users/domain/publicUser';
@@ -65,10 +65,10 @@ export class PublicEventObject {
   imageSlug: string;
 
   @ApiProperty({
-    example: [PublicTrackObject],
+    example: [TrackObject],
     description: 'The tracks of the event.',
   })
-  tracks: PublicTrackObject[];
+  tracks: TrackObject[];
 
   @ApiProperty({
     example: 'e43dadbd-1006-4556-8f70-98225d569fa2',
@@ -99,7 +99,7 @@ export class PublicEventObject {
     this.isPrivate = event.isPrivate;
     this.closed = event.closed;
     this.imageSlug = event.imageSlug;
-    this.tracks = event.tracks.map((e) => new PublicTrackObject(e));
+    this.tracks = event.tracks;
     this.creatorId = event.creatorId;
     this.canBeEditByUser = currentEmail === event.creator.email;
     this.creator = new PublicUserObject(event.creator);

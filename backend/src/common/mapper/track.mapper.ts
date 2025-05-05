@@ -1,23 +1,22 @@
 import { TrackEntity } from '../../tracks/infra/gateways/entities/track.entity';
 import { TrackObject } from '../../tracks/domain/track';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
-import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { toUserEntity, toUserObject } from './user.mapper';
 
 export function toTrackObject(entity: TrackEntity): TrackObject {
-  return {
-    id: entity.id,
-    name: entity.name,
-    description: entity.description,
-    keywords: entity.keywords,
-    streamKey: entity.streamKey,
-    closed: entity.closed,
-    createdAt: entity.createdAt,
-    startDate: entity.startDate,
-    endDate: entity.endDate,
-    eventId: entity.event?.id ?? entity.eventId,
-    speakers: entity.speakers ? entity.speakers.map(toUserObject) : [],
-  };
+  return new TrackObject(
+    entity.id,
+    entity.name,
+    entity.description,
+    entity.keywords,
+    entity.streamKey,
+    entity.closed,
+    entity.eventId,
+    entity.createdAt,
+    entity.startDate,
+    entity.endDate,
+    entity.speakers ? entity.speakers.map(toUserObject) : [],
+  );
 }
 
 export function toTrackEntity(track: TrackObject): TrackEntity {

@@ -135,6 +135,17 @@ describe('DeleteEventUsecase', () => {
   });
 
   /*
+    Error case : current event does not exist  
+   */
+
+  it('should throw an error if current user does not exist', async () => {
+    await expect(
+      deleteEventUsecase.execute('wrong-id', creatorEmail),
+    ).rejects.toThrow(NotFoundException);
+    expect(eventGatewayMock.deleteEvent).toHaveBeenCalledTimes(0);
+  });
+
+  /*
     Error case : current user does not exist  
    */
 

@@ -53,7 +53,7 @@ export class TrackGateway implements ITrackGateway {
 
     if (trackDetails.speakers && trackDetails.speakers.length > 0) {
       const speakerEntities = await this.userRepository.findBy({
-        id: In(trackDetails.speakers),
+        id: In(trackDetails.speakers.map((e) => e.id)),
       });
       updatedEntity.speakers = speakerEntities;
     }

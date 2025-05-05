@@ -32,11 +32,11 @@ export const publishEvent = (eventId) => api.put('/events/publish/' + eventId);
 export const closeEvent = (eventId) => api.put('/events/close/' + eventId);
 
 // Tracks
-export const getTrackById = (trackId) => api.get('/tracks?id=' + trackId);
-export const getTracks = () => api.get('/tracks');
+export const getTrackById = (trackId) => api.get('/tracks/' + trackId);
 export const createTrack = (track) => api.post('/tracks', track);
 export const updateTrack = (trackId, track) =>
   api.put('/tracks/' + trackId, track);
+export const closeTrack = (trackId) => api.put('/tracks/' + trackId + '/close');
 export const deleteTrack = (trackId) => api.delete('/tracks/' + trackId);
 
 // Videos

@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 
 import styles from './TrackBox.module.css';
 
-import { PublicTrack } from '../../../../../utils/EventsProperties';
+import { Track } from '../../../../../utils/EventsProperties';
 import Button, { ButtonType } from '../../../generic/Button/Button';
 
 interface TrackBoxProps {
   key: number;
-  track: PublicTrack;
+  track: Track;
 }
 
 const TrackBox = (props: TrackBoxProps) => {

@@ -23,7 +23,7 @@ export interface Track {
   keywords: string;
   streamKey: string;
   closed: boolean;
-  speakers: string[];
+  speakers: PublicUser[];
   event: Event;
   createdAt: Date;
   startDate: Date;
@@ -51,23 +51,12 @@ export interface PublicEvent {
   private: boolean;
   closed: boolean;
   imageSlug: string;
-  tracks: PublicTrack[];
+  tracks: Track[];
   creatorId: string;
   canBeEditByUser : boolean;
   creator: PublicUser;
 }
 
-export interface PublicTrack {
-  id: string;
-  name: string;
-  description: string;
-  keywords: string;
-  streamKey: string;
-  closed: boolean;
-  eventId: string;
-  createdAt: Date;
-  speakers: PublicUser[];
-}
 
 export interface PublicUser {
   id: string;

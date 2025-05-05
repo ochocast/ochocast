@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PublicUserObject } from 'src/users/domain/publicUser';
 import { UserObject } from 'src/users/domain/user';
 
 export class TrackObject {
@@ -63,10 +64,16 @@ export class TrackObject {
   endDate: Date;
 
   @ApiProperty({
-    example: [UserObject],
+    example: [PublicUserObject],
     description: 'List of speaker attached to this track.',
   })
-  speakers: UserObject[];
+  speakers: PublicUserObject[];
+
+  public canBeEditBy(user: UserObject): boolean {
+    for (const speaker of this.speakers)
+      if (speaker.id === user.id) return true;
+    return false;
+  }
 
   constructor(
     id: string,
@@ -79,7 +86,7 @@ export class TrackObject {
     createdAt: Date,
     startDate: Date,
     endDate: Date,
-    speakers: UserObject[],
+    speakers: PublicUserObject[],
   ) {
     this.id = id;
     this.name = name;

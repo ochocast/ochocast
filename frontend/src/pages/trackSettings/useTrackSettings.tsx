@@ -52,7 +52,7 @@ export const useTrackSettings = () => {
     setLoading(true);
     getTrackById(trackId)
       .then((res) => {
-        const trck = res.data[0];
+        const trck = res.data;
         if (!trck.startDate)
           trck.startDate = event.startDate;
         if (!trck.endDate)
