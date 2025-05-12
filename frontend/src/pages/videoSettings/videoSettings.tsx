@@ -3,7 +3,6 @@ import './videoSettings.css';
 import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import { useParams } from 'react-router-dom';
 
@@ -29,6 +28,7 @@ import { Tag_video, User } from '../../utils/VideoProperties';
 import { Video } from '../../utils/VideoProperties';
 
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
 import Button, {
   ButtonType,
@@ -44,6 +44,7 @@ interface VideoSettingsProps {}
 
 const VideoSettings: FC<VideoSettingsProps> = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const auth = useAuth();
   // const userId = localStorage.getItem('backendUser');
   const { videoId } = useParams();
@@ -108,14 +109,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const selectIntern = (userChoosen: Suggestion) => {
     setInternList([...intern_list, userChoosen as User]);
   };
-
   const [tags, setTags] = useState<Tag_video[]>([]);
   const selectTag = (tagChoosen: Suggestion) => {
     if (
       isTagVideo(tagChoosen) &&
       tags.some((tag) => tag.name === tagChoosen.name)
     ) {
-      alert('Ce tag a déjà été ajouté.');
+      alert(t('tagAlreadyExists') + '.');
       return;
     }
     setTags([...tags, tagChoosen as Tag_video]);
@@ -132,19 +132,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
-          alert('Tag crée avec succès !');
+          alert(t('tagCreated') + ' !');
           const response = await findTag(query);
           const newTag = response.data[0];
           if (!tags.some((tag) => tag.name === newTag.name)) {
             setTags([...tags, newTag]);
           }
         } else {
-          alert(`Échec du téléchargement : ${response}`);
+          alert(t('failedLoading') + ' : ${response}');
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert('Une erreur est survenue lors du chargement de la vidéo.');
+        alert(t('failedLoadingVideo'));
       });
   };
 
@@ -155,25 +155,25 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     let err = '';
     // conditions publication
-    if (media == undefined) err += '- Fichier vidéo non renseigné\n';
+    if (media == undefined) err += '- ' + t('missingVideoFile') + '\n';
     else if (
       media?.name.split('.').pop() != undefined && //could be moved to handleMediaChange
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
     )
-      err += '- Format de vidéo non supporté\n';
-    if (title == '') err += '- Titre non renseigné\n';
-    if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
+      err += '- ' + t('videoFormatError') + '\n';
+    if (title == '') err += '- ' + t('unknownTitle') + '\n';
+    if (tags.length == 0) err += '- ' + t('missingTag') + '\n';
     if (list_by_title.length > 0)
-      err += '- Une vidéo du même titre existe déjà :/\n';
-    if (!miniature) err += '- Fichier miniature non renseigné\n';
+      err += '- ' + t('titleAlreadyExists') + ' :/\n';
+    if (!miniature) err += '- ' + t('miniatureUnknown') + '\n';
     else if (
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
       )
     )
-      err += '- Format de miniature non supporté\n';
+      err += '- ' + t('miniatureFormatError') + '\n';
     if (err != '') {
-      alert('Une ou plusieurs conditions ne sont pas remplies : \n' + err);
+      alert(t('oneOrManyDisrespectedConditions') + ' : \n' + err);
       return;
     }
 
@@ -210,15 +210,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
-          alert('Vidéo téléchargée avec succès !');
+          alert(t('successVideo') + ' !');
           window.location.reload(); // Actualise la page
         } else {
-          alert(`Échec du téléchargement : ${response}`);
+          alert(t('failedLoading') + ' : ${response}');
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert('Une erreur est survenue lors du chargement de la vidéo.');
+        alert(t('failedLoadingVideo'));
       });
     navigate('/videos');
   };
@@ -231,26 +231,26 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     let err = '';
     // conditions publication
     if (baseVideo?.media_id === undefined && media == undefined)
-      err += '- Fichier vidéo non renseigné\n';
+      err += '- ' + t('missingVideoFile') + '\n';
     else if (
       baseVideo?.media_id === undefined &&
       media?.name.split('.').pop() != undefined && //could be moved to handleMediaChange
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
     )
-      err += '- Format de vidéo non supporté\n';
-    if (title == '') err += '- Titre non renseigné\n';
-    if (tags.length == 0) err += '- Minimum 1 tag est requis\n';
+      err += '- ' + t('videoFormatError') + '\n';
+    if (title == '') err += '- ' + t('unknownTitle') + '\n';
+    if (tags.length == 0) err += '- ' + t('missingTag') + '\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
-      err += '- Une vidéo du même titre existe déjà :/\n';
+      err += '- ' + t('titleAlreadyExists') + ' :/\n';
     if (
       baseVideo?.miniature_id === undefined &&
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
       )
     )
-      err += '- Format de miniature non supporté\n';
+      err += '- ' + t('miniatureFormatError') + '\n';
     if (err != '') {
-      alert('Une ou plusieurs conditions ne sont pas remplies : \n' + err);
+      alert(t('oneOrManyDisrespectedConditions') + ' : \n' + err);
       return;
     }
 
@@ -276,7 +276,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
     form.append('internal_speakers', JSON.stringify(intern_list));
-    form.append('external_speakers', extern_User_List);    
+    form.append('external_speakers', extern_User_List);
     form.append(
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
@@ -305,12 +305,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           alert('Vidéo modifiée avec succès !');
           navigate('/videos');
         } else {
-          alert(`Échec du téléchargement : ${response}`);
+          alert(t('failedLoading') + ' : ${response}');
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert('Une erreur est survenue lors du chargement de la vidéo.');
+        alert(t('failedLoadingVideo'));
       });
   };
 
@@ -436,7 +436,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               }}
             >
               <input
-                placeholder={title === '' ? 'Titre' : title}
+                placeholder={title === '' ? t('Titre') : title}
                 onChange={handleTitleChange}
                 style={{
                   border: 'none',
@@ -457,7 +457,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 placeholder={
                   baseVideo?.media_id !== undefined
                     ? baseVideo.media_id
-                    : 'Glissez ou choisissez votre média'
+                    : t('addMedia')
                 }
                 onChange={handleMediaChange}
                 disable={baseVideo?.media_id !== undefined}
@@ -476,7 +476,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 placeholder={
                   baseVideo?.miniature_id !== undefined
                     ? baseVideo.miniature_id
-                    : 'Glissez ou choisissez votre miniature'
+                    : t('addMiniature')
                 }
                 onChange={handleMiniatureChange}
                 disable={baseVideo?.miniature_id !== undefined}
@@ -550,7 +550,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               </div>
             </Card>
             <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
-              <div>Intervenant externe</div>
+              <div>{t('externSpeaker')}</div>
               <div
                 style={{
                   display: 'flex',
@@ -576,17 +576,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             onChange={handleDescriptionChange}
           />
           <div className="buttonContainer">
-            <Button label="Archiver la video"></Button>
+            <Button label={t('archive')}></Button>
             {videoId !== undefined ? (
               <Button
                 onClick={updateVideo}
-                label="Modifier la vidéo"
+                label={t('modify')}
                 type={ButtonType.primary}
               ></Button>
             ) : (
               <Button
                 onClick={publishVideo}
-                label="Publier la vidéo"
+                label={t('publish')}
                 type={ButtonType.primary}
               ></Button>
             )}
@@ -596,7 +596,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       <div className="generalinfo">
         <Thumbnail
           Id="1"
-          title={title || 'Titre'}
+          title={title || t('Titre')}
           imageSrc={
             miniatureUrl !== null
               ? miniatureUrl

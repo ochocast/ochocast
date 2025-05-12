@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import style from './profile.module.css';
+import { useTranslation } from 'react-i18next';
 
 import { FC } from 'react';
 import {
@@ -27,6 +28,7 @@ interface ProfileProps {}
 
 const Profile: FC<ProfileProps> = () => {
   const [videos, setVideo] = useState<Video[]>([]);
+  const { t } = useTranslation();
   // const [tags_list, setTagList] = useState<Tag_video[]>([]);
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
@@ -95,12 +97,10 @@ const Profile: FC<ProfileProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <ProfileDescription
-          name={currentUser ? currentUser.firstName : 'Inconnu'}
-          email={
-            currentUser ? currentUser.email : 'Adresse mail non renseignée'
-          }
+          name={currentUser ? currentUser.firstName : t('unknown')}
+          email={currentUser ? currentUser.email : t('unknownEmail')}
           description={
-            currentUser ? currentUser.description : 'Aucune description'
+            currentUser ? currentUser.description : t('noDescription')
           }
           image={
             currentUser
@@ -116,7 +116,7 @@ const Profile: FC<ProfileProps> = () => {
               handleSearch([query], []);
             }}
             needInput={true}
-            placeholder="Exemple: DevOps"
+            placeholder={t('exemple')}
             icon={SearchBarIcon.SEARCH}
           />
 
@@ -142,7 +142,7 @@ const Profile: FC<ProfileProps> = () => {
               />
             ))
           ) : (
-            <h1>Aucune vidéo trouvée</h1>
+            <h1>{t('noVideoFound')}</h1>
           )}
         </div>
       </div>

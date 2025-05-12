@@ -4,9 +4,8 @@ import Tag from '../../generic/Tag/Tag';
 import miniatureLogo from '../../../../assets/logo_2lignes_crop.png';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
-import Button, {
-  ButtonType,
-} from '../../generic/Button/Button';
+import Button, { ButtonType } from '../../generic/Button/Button';
+import { useTranslation } from 'react-i18next';
 
 export interface PreviewMinitureProps {
   Id: string;
@@ -25,7 +24,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     // process.env.DEFAULT_MINIATURE_IMAGE
   );
   const navigate = useNavigate();
-
+  const { t } = useTranslation();
   useEffect(() => {
     const fetchMiniatureUrl = async () => {
       if (props.Id) {
@@ -46,11 +45,11 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   }, [props.Id]);
 
   const dateDisplay = new Date(props.createdAt); // to be able to getDay..
-  
+
   function formatNumber(value: number): string {
     return value < 10 ? `0${value}` : `${value}`;
-}
-  
+  }
+
   return (
     <div className={styles.previewMiniture}>
       <img
@@ -73,12 +72,15 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         >
           {props.title}
         </h2>
-        <h3 className={styles.createBy}>Créé par : {props.createBy}</h3>
+        <h3 className={styles.createBy}>
+          {' '}
+          {t('createdBy')} : {props.createBy}
+        </h3>
         <div>
-          {props.views} vues &bull; Posté le{' '}
-          {`${formatNumber(dateDisplay.getDate())}/${
-            formatNumber(dateDisplay.getMonth() + 1)
-          }/${dateDisplay.getFullYear()}`}
+          {props.views} {t('vues')} &bull; {t('postedOn')}{' '}
+          {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
+            dateDisplay.getMonth() + 1,
+          )}/${dateDisplay.getFullYear()}`}
         </div>
         <div className={styles.tagList}>
           {props.tags &&
@@ -88,16 +90,14 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           <div className={styles.buttonList}>
             <Button
               type={ButtonType.secondary}
-              label="Archiver"
+              label={t('archiveVideo')}
               onClick={() => props.onArchived!(props.Id)}
             />
 
             <Button
               type={ButtonType.primary}
-              label="Modifier"
-              onClick={() =>
-                navigate(`/video/video-settings/${props.Id}`)
-              }
+              label={t('modifyVideo')}
+              onClick={() => navigate(`/video/video-settings/${props.Id}`)}
             />
           </div>
         ) : (

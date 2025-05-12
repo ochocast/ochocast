@@ -4,6 +4,7 @@ import Card from '../../generic/Cards/Card';
 import CSS from 'csstype';
 import { useAuth } from 'react-oidc-context';
 import Button from '../../generic/Button/Button';
+import { useTranslation } from 'react-i18next';
 
 export enum ProfileDescriptionState {
   tiny = 'tiny',
@@ -26,6 +27,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     maxWidth: 'min-content',
   };
   const auth = useAuth();
+  const { t } = useTranslation();
   const imageSrc = props.image === undefined ? '/persona.png' : props.image;
   // const imageSrc = props.image
   //   ? props.image
@@ -94,7 +96,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
             </div>
             <div className={styles.logout}>
               <Button
-                label="Déconnexion"
+                label={t('disconnection')}
                 onClick={() => auth.signoutRedirect()}
               />
             </div>

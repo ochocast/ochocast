@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import style from './videos.module.css';
+import { useTranslation } from 'react-i18next';
 
 import { FC } from 'react';
 import {
@@ -32,6 +33,7 @@ const Videos: FC<VideosProps> = () => {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [users, setUsers] = useState<string[]>([]);
+  const { t } = useTranslation();
 
   // Simuler un appel API pour récupérer des vidéos
   const getMe = async () => {
@@ -97,7 +99,7 @@ const Videos: FC<VideosProps> = () => {
               handleSearch([query], [], []);
             }}
             needInput={true}
-            placeholder="Exemple: DevOps"
+            placeholder={t('exemple')}
             icon={SearchBarIcon.SEARCH}
           />
 
@@ -122,7 +124,7 @@ const Videos: FC<VideosProps> = () => {
               />
             ))
           ) : (
-            <h1>Aucune vidéo trouvée</h1>
+            <h1>{t('noVideoFound')}</h1>
           )}
         </div>
       </div>
