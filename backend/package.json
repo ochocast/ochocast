@@ -14,7 +14,7 @@
     "start:prod": "node dist/main",
     "lint": "eslint --fix --quiet \"{src,apps,libs,test}/**/*.ts\"",
     "doc": "typedoc --out ./docs ./src --entryPointStrategy expand",
-    "test": "jest",
+    "test:unit": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
@@ -43,6 +43,7 @@
     "pino": "^9.5.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "sharp": "^0.34.1",
     "tsconfig-paths-jest": "^0.0.1",
     "typeorm": "^0.3.17",
     "uuid": "^9.0.1"
@@ -74,7 +75,7 @@
     "ts-loader": "^9.4.3",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typedoc": "^0.25.1",
+    "typedoc": "^0.28.4",
     "typescript": "^5.8.3"
   },
   "jest": {

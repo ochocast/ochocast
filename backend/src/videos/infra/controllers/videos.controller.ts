@@ -46,16 +46,6 @@ export class VideosController {
     //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
-  /*@Post()
-  @UseInterceptors(FileInterceptor('file'))
-  @UsePipes(new ValidationPipe())
-  async postVideo(
-    @UploadedFile() file: Express.Multer.File,
-    @Body() video: CreateVideoDto,
-  ): Promise<VideoObject> {
-    return await this.createNewVideoUsecase.execute(video, file);
-  }*/
-
   @Post()
   @UseInterceptors(AnyFilesInterceptor())
   @UsePipes(new ValidationPipe())
@@ -65,14 +55,13 @@ export class VideosController {
   ): Promise<VideoObject> {
     const videoFile = files.find((file) => file.fieldname === 'file');
     const miniatureFile = files.find((file) => file.fieldname === 'miniature');
-
     return await this.createNewVideoUsecase.execute(
       video,
       videoFile,
       miniatureFile,
     );
   }
-
+  
   // Standard GET route with query parameters
   @Get()
   @ApiOperation({
@@ -130,8 +119,8 @@ export class VideosController {
   }
 
   @Get(':userId')
-  async getVideosByUser(@Param('userId') id: string): Promise<VideoObject[]> {
-    const videos = await this.getVideosUsecase.execute({ creator: { id } });
+  async getVideosByUser (@Param('userId') id: string): Promise<VideoObject[]> {
+    const videos = await this.getVideosUsecase.execute({creator: {id}});
     return videos;
   }
 

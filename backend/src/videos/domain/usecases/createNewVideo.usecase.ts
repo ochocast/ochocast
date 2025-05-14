@@ -11,6 +11,7 @@ import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { writeFile, readFile, unlink } from 'node:fs/promises';
 import * as path from 'path';
 import { tmpdir } from 'os';
+import * as sharp from 'sharp';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
@@ -28,7 +29,7 @@ export class CreateNewVideoUsecase {
     miniatureFile: Express.Multer.File,
   ): Promise<VideoObject> {
     const media_id = Date.now() + '.' + videoToCreate.media_id;
-    const miniature_id = Date.now() + '.miniature' + videoToCreate.miniature_id;
+    const miniature_id = `miniature${Date.now()}.jpg`;
     const video = new VideoObject(
       uuid(),
       media_id,
@@ -46,7 +47,6 @@ export class CreateNewVideoUsecase {
       false,
     );
 
-    console.log(video.media_id);
     const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
     const tempOutputPath = path.join(
       tmpdir(),
@@ -69,25 +69,29 @@ export class CreateNewVideoUsecase {
     });
 
     const video_result = await upload.done();
-
     if (miniatureFile) {
+      const tempMiniaturePath = path.join(tmpdir(),`miniature${video.media_id}.jpg`);
+      await sharp(miniatureFile.buffer)
+        .resize(1280, 720)
+        .jpeg({ quality: 80 })
+        .toFile(tempMiniaturePath);
+
       const miniatureUpload = new Upload({
         client: this.s3Client,
         params: {
           Bucket: process.env.STOCK_MINIATURE_BUCKET,
           Key: video.miniature_id,
-          Body: miniatureFile.buffer,
-          ContentType: miniatureFile.mimetype,
+          Body: await readFile(tempMiniaturePath),
+          ContentType: 'image/jpeg',
         },
       });
       const miniature_result = await miniatureUpload.done();
-      console.log(miniature_result);
+      await unlink(tempMiniaturePath).catch(() => {});
     }
 
     await unlink(tempInputPath).catch(() => {});
     await unlink(tempOutputPath).catch(() => {});
 
-    console.log(video_result);
     await this.videoGateway.createNewVideo(video);
     return video;
   }
@@ -103,7 +107,6 @@ async function transcodeVideo(
       .outputOptions(['-preset fast', '-crf 23', '-movflags +faststart'])
       .format('mp4')
       .on('end', () => {
-        console.log('Transcodage terminé');
         resolve();
       })
       .on('error', (err) => {
