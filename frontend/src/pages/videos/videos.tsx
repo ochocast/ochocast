@@ -21,6 +21,7 @@ import logger from '../../utils/logger';
 import SearchBar, {
   SearchBarIcon,
 } from '../../components/ReworkComponents/video/navigation/SearchBar/SearchBar';
+import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
 
 interface VideosProps {}
 
@@ -94,6 +95,7 @@ const Videos: FC<VideosProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <div className={style.display1}>
+          <div className={style.SearchBar}>
           <SearchBar
             onClick={(query) => {
               handleSearch([query], [], []);
@@ -102,12 +104,15 @@ const Videos: FC<VideosProps> = () => {
             placeholder={t('exemple')}
             icon={SearchBarIcon.SEARCH}
           />
+          </div>
 
           {/* <SideSearchBar
             onSearch={handleSearch}
             tags={tags_list}
             users={user_list}
           /> */}
+          {/* Add Filter Button */}
+          <img className={style.starIconFilterContainer} src={FavorisFilterNotSelected} onClick={() => {}}/>
         </div>
 
         <div className={style.video_row}>

@@ -5,6 +5,7 @@ import miniatureLogo from '../../../../assets/logo_2lignes_crop.png';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
 import Button, { ButtonType } from '../../generic/Button/Button';
+import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
 import { useTranslation } from 'react-i18next';
 
 export interface PreviewMinitureProps {
@@ -104,6 +105,11 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           <div />
         )}
       </div>
+      <img
+        className={styles.starIconContainer}
+        src={FavorisNotSelected}
+        onClick={() => {}}
+      />
     </div>
   );
 };

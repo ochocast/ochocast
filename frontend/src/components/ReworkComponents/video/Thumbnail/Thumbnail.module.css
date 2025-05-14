@@ -11,6 +11,15 @@
   cursor: pointer;
 }
 
+.starIconContainer {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+}
+
 .imageTuileEventIcon {
   width: 100%;
   width: -moz-available;
