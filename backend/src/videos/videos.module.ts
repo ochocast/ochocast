@@ -12,6 +12,7 @@ import { GetMiniatureUsecase } from './domain/usecases/getMiniature.usecase';
 import { DeleteVideoAdminUsecase } from './domain/usecases/deleteVideoAdmin.usecase';
 import { GetVideosAdminUsecase } from './domain/usecases/getVideosAdmin.usecase';
 import { ModifyVideoUsecase } from './domain/usecases/modifyVideo.usecase';
+import { GetVideosSuggestionsUsecase } from './domain/usecases/getVideosSuggestions.usecase';
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
 @Module({
@@ -30,6 +31,7 @@ import { ModifyVideoUsecase } from './domain/usecases/modifyVideo.usecase';
     GetMiniatureUsecase,
     GetVideosAdminUsecase,
     ModifyVideoUsecase,
+    GetVideosSuggestionsUsecase,
     // GetUsersUsecase,
   ],
 })

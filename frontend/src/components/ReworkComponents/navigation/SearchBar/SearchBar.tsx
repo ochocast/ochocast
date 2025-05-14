@@ -1,8 +1,7 @@
 import styles from './SearchBar.module.css';
-import { Tag_video, User} from '../../../../../utils/VideoProperties';
-import { findTags, findUsers } from '../../../../../utils/api';
-import logger from '../../../../../utils/logger';
-import Tag_Logo from '../../../../../assets/Tag_Logo.png';
+import { Tag_video, User } from '../../../../utils/VideoProperties';
+import { findTags, findUsers } from '../../../../utils/api';
+import logger from '../../../../utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
 
 export enum SearchBarIcon {
@@ -34,28 +33,31 @@ const SearchBar = ({
 
   const findSuggestions = async (query_enter: string) => {
     try {
-      const tagResponse = await findTags(query_enter);
-      const userResponse = await findUsers(query_enter);
-      setTag(tagResponse.data);
-      setUser(userResponse.data);
+      if (query_enter !== '') {
+        const tagResponse = await findTags(query_enter);
+        const userResponse = await findUsers(query_enter);
+        setTag(tagResponse.data);
+        setUser(userResponse.data);
+      }
     } catch (error) {
       logger.error('Error fetching users and tags:', error);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.value !== '')
-      findSuggestions(e.target.value);
-    else{
-      const suggestionsList = document.getElementById('suggestions_list') as HTMLUListElement;
-      suggestionsList.style.display = 'none';
+    const value = e.target.value;
+    setQuery(value);
+  
+    if (value !== '') {
+      findSuggestions(value);
+    } else {
+      findSuggestions('');
     }
-    setQuery(e.target.value);
+    onClick(value);
   };
 
   const handleClick = () => {
     if (!needInput || query !== '') onClick(query);
-    setQuery('');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -66,20 +68,10 @@ const SearchBar = ({
 
   useEffect(() => {
     const suggestionsList = document.getElementById('suggestions_list') as HTMLUListElement;
-
-    if (tag_suggestions.length || user_suggestions.length) {
+    if (tag_suggestions.length || user_suggestions) {
       suggestionsList.innerHTML = '';
       const filteredObjects: { name: string; img: string }[] = [];
 
-      tag_suggestions.slice(0, 3).forEach((tag) => {
-        const obj = { name: tag.name, img: Tag_Logo };
-        filteredObjects.push(obj);
-      });
-
-      user_suggestions.slice(0, 3).forEach((usr) => {
-        const obj = { name: usr.firstName + ' ' + usr.lastName, img: 'imgTag' };
-        filteredObjects.push(obj);
-      });
 
       suggestionsList.style.display = 'block';
       suggestionsList.innerHTML = '';

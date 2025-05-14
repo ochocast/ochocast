@@ -1,7 +1,7 @@
 import { IVideoGateway } from '../../domain/gateways/videos.gateway';
 import { VideoObject } from '../../domain/video';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { VideoEntity } from './entities/video.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
@@ -106,5 +106,31 @@ export class VideoGateway implements IVideoGateway {
 
     Object.assign(existingVideo, video);
     return await this.videosRepository.save(existingVideo);
+  }
+
+  async getVideosSuggestions(filter: any): Promise<VideoObject[]> {
+    return this.videosRepository
+      .createQueryBuilder('video')
+      .leftJoinAndSelect('video.tags', 'tag')
+      .leftJoinAndSelect('video.creator', 'creator')
+      .where('video.archived = false')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('video.title ILIKE :filter', { filter: `%${filter}%` })
+            .orWhere('video.description ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
+            .orWhere('tag.name ILIKE :filter', { filter: `%${filter}%` })
+            .orWhere('creator.firstName ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
+            .orWhere('creator.lastName ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
+            .orWhere('creator.email ILIKE :filter', { filter: `%${filter}%` });
+        }),
+      )
+      .take(20)
+      .getMany();
   }
 }

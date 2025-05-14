@@ -29,6 +29,7 @@ import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
 import logger from '../../../utils/logger';
 import { ModifyVideoUsecase } from 'src/videos/domain/usecases/modifyVideo.usecase';
+import { GetVideosSuggestionsUsecase } from 'src/videos/domain/usecases/getVideosSuggestions.usecase';
 @ApiTags('Videos')
 @Controller('videos')
 export class VideosController {
@@ -41,6 +42,7 @@ export class VideosController {
     private getMiniatureUseCase: GetMiniatureUsecase,
     private getVideosAdminUsecase: GetVideosAdminUsecase,
     private modifyVideoUseCase: ModifyVideoUsecase,
+    private getVideosSuggestionsUseCase: GetVideosSuggestionsUsecase,
     //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
@@ -131,5 +133,12 @@ export class VideosController {
   async getVideosByUser(@Param('userId') id: string): Promise<VideoObject[]> {
     const videos = await this.getVideosUsecase.execute({ creator: { id } });
     return videos;
+  }
+
+  @Get('/suggestions/:data')
+  async getVideosSuggestions(
+    @Param('data') data: string,
+  ): Promise<VideoObject[]> {
+    return await this.getVideosSuggestionsUseCase.execute(data);
   }
 }

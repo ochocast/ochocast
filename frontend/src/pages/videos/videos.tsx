@@ -3,37 +3,22 @@ import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
 
 import { FC } from 'react';
-import {
-  // getTags,
-  // getUsers,
-  getVideos,
-} from '../../utils/api';
-import {
-  // Tag_video,
-  // User,
-  Video,
-} from '../../utils/VideoProperties';
+import { getVideos, getSuggestions } from '../../utils/api';
+import { Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
-// import SideSearchBar from '../../components/ReworkComponents/SideSearchBar/SideSearchBar';
-// import Card from '../../components/ReworkComponents/Cards/Card';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import logger from '../../utils/logger';
 import SearchBar, {
   SearchBarIcon,
-} from '../../components/ReworkComponents/video/navigation/SearchBar/SearchBar';
+} from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
 import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
 
 interface VideosProps {}
 
 const Videos: FC<VideosProps> = () => {
   const [videos, setVideo] = useState<Video[]>([]);
-  // const [tags_list, setTagList] = useState<Tag_video[]>([]);
-  // const [user_list, setUserList] = useState<User[]>([]);
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
-  const [keywords, setKeywords] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [users, setUsers] = useState<string[]>([]);
   const { t } = useTranslation();
 
   // Simuler un appel API pour récupérer des vidéos
@@ -42,10 +27,6 @@ const Videos: FC<VideosProps> = () => {
     try {
       const videosResponse = await getVideos();
       setVideo(videosResponse.data || []);
-      // const tagResponse = await getTags();
-      // setTagList(tagResponse.data);
-      // const userResponse = await getUsers();
-      // setUserList(userResponse.data);
     } catch (error) {
       logger.error('Error fetching videos:', error);
     }
@@ -56,35 +37,18 @@ const Videos: FC<VideosProps> = () => {
     getMe();
   }, [userString]);
 
-  const filteredVideos = Array.isArray(videos)
-    ? videos.filter((video) => {
-        const videoTagsList = video.tags?.map((tag) => tag.name);
-        let videoUsersList: string[] = [];
-        if (video.internal_speakers != undefined) {
-          videoUsersList = video.internal_speakers.map((user) => {
-            return user.firstName + ' ' + user.lastName;
-          });
-        }
-        const temp_title = video.title.toLowerCase();
-        const matchesKeywords = keywords.every((keyword) =>
-          temp_title.includes(keyword.toLowerCase()),
-        );
-        const matchesTags = tags.every((tag) => videoTagsList.includes(tag));
-        const matchesUsers = users.every((user) =>
-          videoUsersList.includes(user),
-        );
-        return matchesKeywords && matchesTags && matchesUsers;
-      })
-    : [];
-
-  const handleSearch = (
-    keywords: string[],
-    tags: string[],
-    users: string[],
-  ) => {
-    setKeywords(keywords);
-    setTags(tags);
-    setUsers(users);
+  const handleSearch = async (keywords: string[]) => {
+    try {
+      if (keywords[0] !== '') {
+        const response = await getSuggestions(keywords[0]);
+        setVideo(response.data || []);
+      } else {
+        const videosResponse = await getVideos();
+        setVideo(videosResponse.data || []);
+      }
+    } catch (error) {
+      logger.error('Error fetching suggestions:', error);
+    }
   };
 
   if (isLoading) {
@@ -96,28 +60,25 @@ const Videos: FC<VideosProps> = () => {
       <div className={style.display}>
         <div className={style.display1}>
           <div className={style.SearchBar}>
-          <SearchBar
-            onClick={(query) => {
-              handleSearch([query], [], []);
-            }}
-            needInput={true}
-            placeholder={t('exemple')}
-            icon={SearchBarIcon.SEARCH}
-          />
+            <SearchBar
+              onClick={(query) => {
+                handleSearch([query]);
+              }}
+              needInput={true}
+              placeholder={t('exemple')}
+              icon={SearchBarIcon.SEARCH}
+            />
           </div>
-
-          {/* <SideSearchBar
-            onSearch={handleSearch}
-            tags={tags_list}
-            users={user_list}
-          /> */}
-          {/* Add Filter Button */}
-          <img className={style.starIconFilterContainer} src={FavorisFilterNotSelected} onClick={() => {}}/>
+          <img
+            className={style.starIconFilterContainer}
+            src={FavorisFilterNotSelected}
+            onClick={() => {}}
+          />
         </div>
 
         <div className={style.video_row}>
-          {filteredVideos.length > 0 ? (
-            filteredVideos.map((video) => (
+          {videos.length > 0 ? (
+            videos.map((video) => (
               <Thumbnail
                 key={video.id}
                 Id={video.id}

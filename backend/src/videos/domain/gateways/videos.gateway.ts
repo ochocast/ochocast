@@ -1,6 +1,7 @@
 import { VideoObject } from '../video';
 
 export interface IVideoGateway {
+  getVideosSuggestions(data: string): Promise<VideoObject[]>;
   createNewVideo: (video: VideoObject) => Promise<VideoObject>;
   getVideos: (filter: any) => Promise<VideoObject[]>;
   getVideosAdmin: (filter: any) => Promise<VideoObject[]>;
