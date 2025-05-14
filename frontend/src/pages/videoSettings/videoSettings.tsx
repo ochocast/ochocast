@@ -8,7 +8,8 @@ import { useParams } from 'react-router-dom';
 
 // import Toggle from '../../components/newComponents/Toggle/Toggle';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
-import Tag from '../../components/newComponents/Tag/Tag';
+//import Tag from '../../components/newComponents/Tag/Tag';
+import Tag, {TagType} from '../../components/ReworkComponents/generic/Tag/Tag';
 // import Lock_Open from '../../assets/Opened_PNG.png';
 // import Lock_Close from '../../assets/Locked_PNG.png';
 
@@ -120,6 +121,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
     setTags([...tags, tagChoosen as Tag_video]);
   };
+  const handleDeleteTag = (name: string) => {
+    setTags(tags.filter((tag) => tag.name !== name));
+  };
+  
+  const handleDeleteUser = (fullName: string) => {
+    setInternList(
+      intern_list.filter(
+        (user) => `${user.firstName} ${user.lastName}` !== fullName
+      )
+    );
+  };
+  
   const isTagVideo = (suggestion: Suggestion): suggestion is Tag_video => {
     return 'id' in suggestion && 'name' in suggestion;
   };
@@ -405,6 +418,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   }, [baseVideo]);
 
+
+
   return (
     <div className="mainvideo">
       <div className="container">
@@ -502,15 +517,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 }}
               >
                 {tags.map((tag, index) => (
-                  <Tag
-                    className={tag.name}
-                    style={{ flex: '25%' }}
-                    tsize="10px"
-                    marginTop="0px"
-                    key={index}
-                  >
-                    {tag.name}
-                  </Tag>
+                <Tag
+                  key={index}
+                  content={tag.name}
+                  type={TagType.DEFAULT}
+                  editable={true}
+                  delete={handleDeleteTag}
+                  style={{ flex: '25%' }}
+                  
+                  />
                 ))}
               </div>
             </Card>
@@ -538,14 +553,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               >
                 {intern_list.map((user, index) => (
                   <Tag
-                    className={user.firstName + ' ' + user.lastName}
-                    style={{ flex: '25%' }}
-                    tsize="10px"
-                    marginTop="0px"
-                    key={index}
-                  >
-                    {user.firstName + ' ' + user.lastName}
-                  </Tag>
+                  key={index}
+                  content={`${user.firstName} ${user.lastName}`}
+                  type={TagType.DEFAULT}
+                  editable={true}
+                  delete={handleDeleteUser}
+                  style={{ flex: '25%' }}
+                />
                 ))}
               </div>
             </Card>
