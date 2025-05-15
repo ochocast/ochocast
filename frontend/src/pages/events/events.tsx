@@ -8,6 +8,7 @@ import Modal from '../../components/modal/modal';
 
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
+import SearchBar from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
 import EventsList from '../../components/ReworkComponents/Event/EventsList/EventsList';
 import { EventStatus } from '../../utils/EventStatus';
 import {
@@ -21,6 +22,20 @@ import Event from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 
 export interface eventsProps {}
+
+// Utility function to remove accents from a string
+const removeAccents = (str: string): string =>
+  str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+// Filtering function: searches in both "name" and "description" properties
+const filterEvents = (events: Event[], query: string): Event[] => {
+  const queryNormalized = removeAccents(query.toLowerCase());
+  return events.filter(event => {
+    const nameNormalized = removeAccents(event.name.toLowerCase());
+    const descNormalized = removeAccents(event.description.toLowerCase());
+    return nameNormalized.includes(queryNormalized) || descNormalized.includes(queryNormalized);
+  });
+};
 
 const fetchEventsClosed = async () => {
   try {
@@ -46,6 +61,8 @@ const EventsPage: FC<eventsProps> = () => {
 
   const [description, setDescription] = useState('');
   const [errorDescription, setErrorDescription] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [date, setDate] = useState('');
   const [startHour, setStartHour] = useState('');
@@ -105,6 +122,10 @@ const EventsPage: FC<eventsProps> = () => {
   };
   const handleEndHourChange = (e: ChangeEvent<HTMLInputElement>) => {
     setEndHour(e.target.value);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
   };
 
   const onPublish = async (eventId: string) => {
@@ -181,8 +202,17 @@ const EventsPage: FC<eventsProps> = () => {
     }
   };
 
+  const filteredPublished = searchQuery === '' ? eventsPublished : filterEvents(eventsPublished, searchQuery);
+  const filteredUnpublished = searchQuery === '' ? eventsUnpublished : filterEvents(eventsUnpublished, searchQuery);
+  const filteredClosed = searchQuery === '' ? eventsClosed : filterEvents(eventsClosed, searchQuery);
+
   return (
     <div className="events">
+    <header className="events-header">
+       <div className="search-container">
+         <SearchBar onClick={handleSearch} needInput={true} placeholder="Rechercher un évènement..." />
+       </div>
+     </header>
       <div className="button-event-creation">
         <Button
           label="Créer un évènement"
@@ -191,27 +221,27 @@ const EventsPage: FC<eventsProps> = () => {
         />
       </div>
       <div className="content">
-        {eventsPublished && eventsPublished.length >= 1 ? (
+        {filteredPublished && filteredPublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.Published}
             title="Prochain évènements"
-            events={eventsPublished}
+            events={filteredPublished}
             viewerID={userString ? JSON.parse(userString).id : ''}
           />
         ) : null}
-        {eventsUnpublished && eventsUnpublished.length >= 1 ? (
+        {filteredUnpublished && filteredUnpublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.NotPublished}
             title="Évènements non publiés"
-            events={eventsUnpublished}
+            events={filteredUnpublished}
             onPublish={onPublish}
           />
         ) : null}
-        {eventsClosed && eventsClosed.length >= 1 ? (
+        {filteredClosed && filteredClosed.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.Finished}
             title="Évènements passé"
-            events={eventsClosed}
+            events={filteredClosed}
           />
         ) : null}
       </div>
