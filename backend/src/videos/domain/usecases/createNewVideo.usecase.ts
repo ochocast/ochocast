@@ -28,7 +28,8 @@ export class CreateNewVideoUsecase {
     file: Express.Multer.File,
     miniatureFile: Express.Multer.File,
   ): Promise<VideoObject> {
-    const media_id = Date.now() + '.' + videoToCreate.media_id;
+    const baseName = path.parse(videoToCreate.media_id).name;
+    const media_id = Date.now() + '.' + baseName + '.mp4';
     const miniature_id = `miniature${Date.now()}.jpg`;
     const video = new VideoObject(
       uuid(),
