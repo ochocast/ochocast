@@ -5,6 +5,7 @@ import './Home.css';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
+
 //import { ButtonState } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
 
 export interface HomeProps {}
@@ -12,51 +13,49 @@ export interface HomeProps {}
 const HomePage: FC<HomeProps> = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  
+
   return (
-    <div className="HomeCard">
-      <HomeCards
-        title= {t('streaming')}
-        description={t('getAvailableLiveEvents')}
-        //buttonState={ButtonState.disabled}
-        buttonList={[
-          {
-            title: t('searchAnEvent'),
-            onClickFunction: (e) => {
-              e.stopPropagation();
-              navigate('/events');
-            },
-          },
-        ]}
-      />
-      <div
-        className="cardContainer"
-        onClick={() => {
-          navigate('/videos');
-        }}
-      >
+    <><div className="HomeCard">
         <HomeCards
-          title= {t('videos')}
-          description={t('getAvailableVideos')}
+          title= {t('streaming')}
+          description={t('getAvailableLiveEvents')}
+          //buttonState={ButtonState.disabled}
           buttonList={[
             {
-              title: t('searchAVideo'),
+              title: t('searchAnEvent'),
               onClickFunction: (e) => {
                 e.stopPropagation();
-                navigate('/videos');
+                navigate('/events');
               },
             },
-            {
-              title: t('publishAVideo'),
-              onClickFunction: (e) => {
-                e.stopPropagation();
-                navigate('/video/video-settings');
+          ]} />
+        <div
+          className="cardContainer"
+          onClick={() => {
+            navigate('/videos');
+          } }
+        >
+          <HomeCards
+            title= {t('videos')}
+            description={t('getAvailableVideos')}
+            buttonList={[
+              {
+                title: t('searchAVideo'),
+                onClickFunction: (e) => {
+                  e.stopPropagation();
+                  navigate('/videos');
+                },
               },
-            },
-          ]}
-        />
-      </div>
-    </div>
+              {
+                title: t('publishAVideo'),
+                onClickFunction: (e) => {
+                  e.stopPropagation();
+                  navigate('/video/video-settings');
+                },
+              },
+            ]} />
+        </div>
+      </div></>
   );
 };
 
