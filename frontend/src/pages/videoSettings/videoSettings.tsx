@@ -38,6 +38,7 @@ import SuggestionBar, {
   SuggestionType,
   Suggestion,
 } from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
+import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
@@ -46,6 +47,7 @@ interface VideoSettingsProps {}
 const VideoSettings: FC<VideoSettingsProps> = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
   // const userId = localStorage.getItem('backendUser');
   const { videoId } = useParams();
@@ -215,7 +217,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
     );
-    createVideo(form)
+    setIsLoading(true);
+    await createVideo(form)
       .then((response) => {
         if (
           response.status === 202 ||
@@ -224,7 +227,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 200
         ) {
           alert(t('successVideo') + ' !');
-          window.location.reload(); // Actualise la page
+            setIsLoading(false);
+            navigate('/videos');
         } else {
           alert(t('failedLoading') + ' : ${response}');
         }
@@ -233,7 +237,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         console.error('Erreur lors du chargement de la vidéo :', error);
         alert(t('failedLoadingVideo'));
       });
-    navigate('/videos');
+    setIsLoading(false);
   };
 
   const updateVideo = async () => {
@@ -418,7 +422,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   }, [baseVideo]);
 
-
+  if (isLoading) {
+    return <LoadingCircle />;
+  }
 
   return (
     <div className="mainvideo">
