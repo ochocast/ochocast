@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import Event from '../../../../utils/EventsProperties';
+import { PublicEvent } from '../../../../utils/EventsProperties';
 import { EventStatus } from '../../../../utils/EventStatus';
 
 import leftButton from '../../../../assets/gauche.png';
@@ -12,7 +12,7 @@ import styles from './EventsList.module.css';
 interface EventsListProps {
   eventStatus: EventStatus;
   title: string;
-  events: Event[];
+  events: PublicEvent[];
   onPublish?: (eventId: string) => void;
   viewerID?: string;
 }
@@ -72,10 +72,6 @@ const EventsList = (props: EventsListProps) => {
               key={event.id}
               imageURL="logo_2lignes_crop.png"
               onPublish={props.onPublish}
-              canEdit={
-                props.eventStatus === EventStatus.NotPublished ||
-                props.viewerID === event.creator?.id
-              }
             />
           ))}
         </div>

@@ -18,7 +18,7 @@ import {
   publishEvent,
 } from '../../utils/api';
 import { createEvent } from '../../utils/api';
-import Event from '../../utils/EventsProperties';
+import { PublicEvent } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 
 export interface eventsProps {}
@@ -55,9 +55,9 @@ const EventsPage: FC<eventsProps> = () => {
   const [name, setName] = useState('');
   const [errorName, setErrorName] = useState(false);
 
-  const [eventsPublished, setEventsPublished] = useState<Event[]>([]);
-  const [eventsUnpublished, setEventsUnpublished] = useState<Event[]>([]);
-  const [eventsClosed, setEventsClosed] = useState<Event[]>([]);
+  const [eventsPublished, setEventsPublished] = useState<PublicEvent[]>([]);
+  const [eventsUnpublished, setEventsUnpublished] = useState<PublicEvent[]>([]);
+  const [eventsClosed, setEventsClosed] = useState<PublicEvent[]>([]);
 
   const [description, setDescription] = useState('');
   const [errorDescription, setErrorDescription] = useState(false);

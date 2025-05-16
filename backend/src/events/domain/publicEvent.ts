@@ -2,6 +2,7 @@ import { TrackObject } from 'src/tracks/domain/track';
 import { ApiProperty } from '@nestjs/swagger';
 import { EventObject } from './event';
 import { PublicUserObject } from 'src/users/domain/publicUser';
+import { UserObject } from 'src/users/domain/user';
 
 export class PublicEventObject {
   @ApiProperty({
@@ -88,7 +89,7 @@ export class PublicEventObject {
   })
   creator: PublicUserObject;
 
-  constructor(event: EventObject, currentEmail: string) {
+  constructor(event: EventObject, currentUser: UserObject) {
     this.id = event.id;
     this.name = event.name;
     this.description = event.description;
@@ -101,7 +102,12 @@ export class PublicEventObject {
     this.imageSlug = event.imageSlug;
     this.tracks = event.tracks;
     this.creatorId = event.creatorId;
-    this.canBeEditByUser = currentEmail === event.creator.email;
+    this.canBeEditByUser =
+      currentUser != null &&
+      (currentUser.email === event.creator.email ||
+        event.tracks?.some((track) =>
+          track.speakers?.some((speaker) => speaker.id === currentUser.id),
+        ));
     this.creator = new PublicUserObject(event.creator);
   }
 }

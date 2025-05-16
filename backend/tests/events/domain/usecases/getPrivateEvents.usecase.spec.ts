@@ -5,6 +5,8 @@ import { GetPrivateEventsUsecase } from 'src/events/domain/usecases/getPrivateEv
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { UserObject } from 'src/users/domain/user';
 import { NotFoundException } from '@nestjs/common';
+import { TrackObject } from 'src/tracks/domain/track';
+import { PublicUserObject } from 'src/users/domain/publicUser';
 
 describe('GetPrivateEventsUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -32,6 +34,56 @@ describe('GetPrivateEventsUsecase', () => {
     createdAt: new Date(),
     picture_id: 'picture_id',
   };
+
+  const speakerEmail = 'speaker@test.com';
+
+  const speaker: UserObject = {
+    id: 'speaker-id',
+    firstName: 'Speaker',
+    lastName: 'User',
+    email: speakerEmail,
+    role: '',
+    description: '',
+    comments: [],
+    videos: [],
+    events: [],
+    videosAsSpeaker: [],
+    createdAt: new Date(),
+    picture_id: 'pic',
+  };
+
+  const speakerPublic = new PublicUserObject(speaker);
+
+  const speakerTrack = new TrackObject(
+    'track-id-1',
+    'Track for Speaker',
+    'Description',
+    ['tag'],
+    'stream-key',
+    false,
+    'event-id-speaker',
+    new Date(),
+    new Date(),
+    new Date(),
+    [speakerPublic],
+  );
+
+  const speakerEvent = new EventObject(
+    'event-id-speaker',
+    'Event for Speaker',
+    'Desc',
+    ['tag'],
+    new Date(),
+    new Date(),
+    false, // non publié
+    false,
+    false,
+    'image.jpg',
+    [speakerTrack],
+    'creator-id',
+    new Date(),
+    creator,
+  );
 
   const user: UserObject = {
     id: 'an-other-id',
@@ -98,8 +150,10 @@ describe('GetPrivateEventsUsecase', () => {
     ),
   ];
 
+  eventList.push(speakerEvent);
+
   const publicEventList = eventList.map(
-    (e) => new PublicEventObject(e, creatorEmail),
+    (e) => new PublicEventObject(e, creator),
   );
   eventList.push(
     new EventObject(
@@ -156,15 +210,10 @@ describe('GetPrivateEventsUsecase', () => {
     });
 
     userGatewayMock.getUserByEmail.mockImplementation(async (email: string) => {
-      if (email === creatorEmail) {
-        return creator;
-      }
-      if (email === userEmail) {
-        return user;
-      }
-      if (email === user2Email) {
-        return user2;
-      }
+      if (email === creatorEmail) return creator;
+      if (email === userEmail) return user;
+      if (email === user2Email) return user2;
+      if (email === speakerEmail) return speaker;
       return null;
     });
   });
@@ -180,21 +229,25 @@ describe('GetPrivateEventsUsecase', () => {
   });
 
   /*
-    Expected case : all of our event
+    Expected case : all of our not published event
    */
 
-  it('should return a list of events from the eventGateway', async () => {
+  it('should return a list of not published events from the eventGateway', async () => {
     const result = await getPrivateEventsUsecase.execute(
       { published: false },
       creatorEmail,
     );
-    expect(result).toEqual([new PublicEventObject(eventList[0], creatorEmail)]);
+    expect(result).toEqual([
+      new PublicEventObject(eventList[0], creator),
+      new PublicEventObject(eventList[2], creator),
+    ]);
     expect(eventGatewayMock.getEvents).toHaveBeenCalledTimes(1);
   });
 
   /*
     Expected case : no event find
    */
+
   it('should return a list of events from the eventGateway', async () => {
     const result = await getPrivateEventsUsecase.execute(
       { published: false },
@@ -202,6 +255,25 @@ describe('GetPrivateEventsUsecase', () => {
     );
     expect(result).toEqual([]);
     expect(eventGatewayMock.getEvents).toHaveBeenCalledTimes(1);
+  });
+
+  /*
+    Expected case : editable private events for a speaker 
+   */
+
+  it('should return editable private events for a speaker (not creator)', async () => {
+    const result = await getPrivateEventsUsecase.execute(
+      { published: false },
+      speakerEmail,
+    );
+
+    // On s’attend à ce que l’événement de l’orateur soit retourné
+    expect(result).toEqual([new PublicEventObject(eventList[2], speaker)]);
+    expect(result[0].canBeEditByUser).toEqual(true);
+
+    // const speakerEventResult = result.find((e) => e.id === 'event-id-speaker');
+    // expect(speakerEventResult).toBeDefined();
+    // expect(speakerEventResult.canBeEditByUser).toBe(true);
   });
 
   /*

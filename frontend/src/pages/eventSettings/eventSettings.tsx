@@ -83,6 +83,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   const [isFetchError, setIsFetchError] = useState(false);
 
+  const [creatorId, setCreatorId] = useState('');
+  const userString = localStorage.getItem('backendUser');
+  const userId = userString ? JSON.parse(userString).id : '';
+
   useEffect(() => {
     const fetchEvent = async () => {
       try {
@@ -95,6 +99,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           setDate(res.data.startDate.split('T')[0]);
           setStartHour(res.data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
           setEndHour(res.data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
+          setCreatorId(res.data.creator.id);
         }
       } catch (error) {
         logger.error(`Failed to fetch event: ${error}`);
@@ -179,6 +184,187 @@ const EventSettings: FC<EventSettingsProps> = () => {
       />
     );
 
+  const forms = (
+    <form onSubmit={handleSubmit} className="event-settings">
+      <div className="top-layout">
+        <div className="title-layout">
+          <NavigateBackButton />
+          <h1>Modifier l&apos;évènement</h1>
+        </div>
+        {eventClosed ? (
+          <h2>L&apos;évènement est clôturé</h2>
+        ) : (
+          <Button label="Clôturer l'évènement" onClick={toggle} />
+        )}
+      </div>
+      <Modal isOpen={isOpen} toggle={toggle}>
+        <h2> Etes-vous sur de vouloir clôturer l&apos;évènement ?</h2>
+        <div className="confirmation-buttons">
+          <Button label="Confirmer" onClick={handleCloseEvent} />
+          <Button
+            label="Annuler"
+            onClick={() => {
+              toggle();
+              setModalMessage('');
+            }}
+          />
+        </div>
+        <div className="message">
+          {modalMessage ? <p>{modalMessage}</p> : null}
+        </div>
+      </Modal>
+      <TextBox
+        type="text"
+        label="Nom"
+        placeholder="Nom de l'évènement"
+        name={name}
+        value={name}
+        error={errorName}
+        disabled={eventClosed}
+        onChange={handleNameChange}
+      />
+      <div className="input-wrapper">
+        <label>Date de l&apos;évènement</label>
+        <input
+          type="date"
+          name="date"
+          value={date}
+          min={new Date().toISOString().split('T')[0]}
+          onChange={handleDateChange}
+          disabled={eventClosed}
+          required
+        />
+      </div>
+      <div className="input-wrapper">
+        <label>Début de l&apos;évènement</label>
+        <input
+          type="time"
+          name="time"
+          value={startHour}
+          onChange={handleStartHourChange}
+          disabled={eventClosed}
+          required
+        />
+      </div>
+      <div className="input-wrapper">
+        <label>Fin de l&apos;évènement</label>
+        <input
+          type="time"
+          name="time"
+          min={startHour}
+          value={endHour}
+          onChange={handleEndHourChange}
+          disabled={eventClosed}
+          required
+        />
+      </div>
+      <TextArea
+        label="Description"
+        placeholder="Description de l'évenement"
+        value={description}
+        name="description"
+        error={errorDescription}
+        disabled={eventClosed}
+        onChange={handleDescriptionChange}
+      />
+      {!eventClosed && (
+        <div className="confirmation-buttons">
+          <Button
+            label="Supprimer l'évènement"
+            onClick={() => setisDeleteOpen(true)}
+          />
+          <Button
+            label="Sauvegarder"
+            type={isButtonDisabled ? ButtonType.disabled : ButtonType.secondary}
+          />
+        </div>
+      )}
+      <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
+        <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
+        <div className="confirmation-buttons">
+          <Button label="Supprimer" onClick={deleteEventHandler} />
+          <Button
+            label="Annuler"
+            onClick={() => {
+              toggleDeleteModal();
+              setModalMessage('');
+            }}
+          />
+        </div>
+        <div className="message">
+          {modalMessage ? <p>{modalMessage}</p> : null}
+        </div>
+      </Modal>
+      <div className="message">{message ? <p>{message}</p> : null}</div>
+    </form>
+  );
+
+  const dataInfo = (
+    <div className="event-settings">
+      <div className="top-layout">
+        <div className="title-layout">
+          <NavigateBackButton />
+          <h1>Modifier l&apos;évènement</h1>
+        </div>
+        {eventClosed && <h2>L&apos;évènement est clôturé</h2>}
+      </div>
+      <TextBox
+        type="text"
+        label="Nom"
+        placeholder="Nom de l'évènement"
+        name={name}
+        value={name}
+        error={errorName}
+        disabled={true}
+        onChange={handleNameChange}
+      />
+      <div className="input-wrapper">
+        <label>Date de l&apos;évènement</label>
+        <input
+          type="date"
+          name="date"
+          value={date}
+          min={new Date().toISOString().split('T')[0]}
+          onChange={handleDateChange}
+          disabled={true}
+          required
+        />
+      </div>
+      <div className="input-wrapper">
+        <label>Début de l&apos;évènement</label>
+        <input
+          type="time"
+          name="time"
+          value={startHour}
+          onChange={handleStartHourChange}
+          disabled={true}
+          required
+        />
+      </div>
+      <div className="input-wrapper">
+        <label>Fin de l&apos;évènement</label>
+        <input
+          type="time"
+          name="time"
+          min={startHour}
+          value={endHour}
+          onChange={handleEndHourChange}
+          disabled={true}
+          required
+        />
+      </div>
+      <TextArea
+        label="Description"
+        placeholder="Description de l'évenement"
+        value={description}
+        name="description"
+        error={errorDescription}
+        disabled={true}
+        onChange={handleDescriptionChange}
+      />
+    </div>
+  );
+
   return (
     <div className="page-event-settings">
       <div className="navigation">
@@ -196,124 +382,11 @@ const EventSettings: FC<EventSettingsProps> = () => {
         <DropDownMenuTracks
           tracks={tracks}
           eventId={eventId ?? ''}
-          isButtonDisplayed={!eventClosed}
+          isButtonDisplayed={!eventClosed && userId === creatorId}
           imageUrl={trackSelectImage}
         />
       </div>
-      <form onSubmit={handleSubmit} className="event-settings">
-        <div className="top-layout">
-          <div className="title-layout">
-            <NavigateBackButton />
-            <h1>Modifier l&apos;évènement</h1>
-          </div>
-          {eventClosed ? (
-            <h2>L&apos;évènement est clôturé</h2>
-          ) : (
-            <Button label="Clôturer l'évènement" onClick={toggle} />
-          )}
-        </div>
-        <Modal isOpen={isOpen} toggle={toggle}>
-          <h2> Etes-vous sur de vouloir clôturer l&apos;évènement ?</h2>
-          <div className="confirmation-buttons">
-            <Button label="Confirmer" onClick={handleCloseEvent} />
-            <Button
-              label="Annuler"
-              onClick={() => {
-                toggle();
-                setModalMessage('');
-              }}
-            />
-          </div>
-          <div className="message">
-            {modalMessage ? <p>{modalMessage}</p> : null}
-          </div>
-        </Modal>
-        <TextBox
-          type="text"
-          label="Nom"
-          placeholder="Nom de l'évènement"
-          name={name}
-          value={name}
-          error={errorName}
-          disabled={eventClosed}
-          onChange={handleNameChange}
-        />
-        <div className="input-wrapper">
-          <label>Date de l&apos;évènement</label>
-          <input
-            type="date"
-            name="date"
-            value={date}
-            min={new Date().toISOString().split('T')[0]}
-            onChange={handleDateChange}
-            disabled={eventClosed}
-            required
-          />
-        </div>
-        <div className="input-wrapper">
-          <label>Début de l&apos;évènement</label>
-          <input
-            type="time"
-            name="time"
-            value={startHour}
-            onChange={handleStartHourChange}
-            disabled={eventClosed}
-            required
-          />
-        </div>
-        <div className="input-wrapper">
-          <label>Fin de l&apos;évènement</label>
-          <input
-            type="time"
-            name="time"
-            min={startHour}
-            value={endHour}
-            onChange={handleEndHourChange}
-            disabled={eventClosed}
-            required
-          />
-        </div>
-        <TextArea
-          label="Description"
-          placeholder="Description de l'évenement"
-          value={description}
-          name="description"
-          error={errorDescription}
-          disabled={eventClosed}
-          onChange={handleDescriptionChange}
-        />
-        {!eventClosed && (
-          <div className="confirmation-buttons">
-            <Button
-              label="Supprimer l'évènement"
-              onClick={() => setisDeleteOpen(true)}
-            />
-            <Button
-              label="Sauvegarder"
-              type={
-                isButtonDisabled ? ButtonType.disabled : ButtonType.secondary
-              }
-            />
-          </div>
-        )}
-        <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
-          <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
-          <div className="confirmation-buttons">
-            <Button label="Supprimer" onClick={deleteEventHandler} />
-            <Button
-              label="Annuler"
-              onClick={() => {
-                toggleDeleteModal();
-                setModalMessage('');
-              }}
-            />
-          </div>
-          <div className="message">
-            {modalMessage ? <p>{modalMessage}</p> : null}
-          </div>
-        </Modal>
-        <div className="message">{message ? <p>{message}</p> : null}</div>
-      </form>
+      {userId === creatorId ? forms : dataInfo}
     </div>
   );
 };

@@ -4,6 +4,8 @@ import { UserObject } from 'src/users/domain/user';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { GetPrivateEventByIdUsecase } from 'src/events/domain/usecases/getPrivateEventById.usecase';
+import { TrackObject } from 'src/tracks/domain/track';
+import { PublicUserObject } from 'src/users/domain/publicUser';
 
 describe('GetPrivateEventByIdUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -17,12 +19,29 @@ describe('GetPrivateEventByIdUsecase', () => {
   const creatorId = 'creator-id';
   const creatorEmail = 'email@email.com';
   const userEmail = 'hohoho@gmail.com';
+  const speakerEmail = 'speaker@email.com';
+  const eventSpeakerId = 'test-speaker-event-id';
 
   const creator: UserObject = {
     id: creatorId,
     firstName: 'firstname',
     lastName: 'lastname',
     email: creatorEmail,
+    role: '',
+    description: '...',
+    comments: [],
+    videos: [],
+    events: [],
+    videosAsSpeaker: [],
+    createdAt: new Date(),
+    picture_id: 'picture_id',
+  };
+
+  const speaker: UserObject = {
+    id: 'speaker-id',
+    firstName: 'Speaker',
+    lastName: 'Lastname',
+    email: speakerEmail,
     role: '',
     description: '...',
     comments: [],
@@ -65,6 +84,37 @@ describe('GetPrivateEventByIdUsecase', () => {
     creator,
   );
 
+  const speakerTrack = new TrackObject(
+    'track-id',
+    'Track Name',
+    'Track Description',
+    ['tag1'],
+    'stream-key-123',
+    false,
+    eventId,
+    new Date(),
+    new Date(),
+    new Date(),
+    [new PublicUserObject(speaker)],
+  );
+
+  const speakerEvent = new EventObject(
+    eventSpeakerId,
+    'Speaker Event',
+    'An event where speaker is not the creator',
+    [],
+    new Date(),
+    new Date(),
+    false,
+    false,
+    false,
+    'image.jpg',
+    [speakerTrack],
+    creatorId, // creator is still someone else
+    new Date(),
+    creator,
+  );
+
   beforeEach(() => {
     eventGatewayMock = {
       createNewEvent: jest.fn(),
@@ -92,19 +142,15 @@ describe('GetPrivateEventByIdUsecase', () => {
    */
 
     userGatewayMock.getUserByEmail.mockImplementation(async (email: string) => {
-      if (email === creatorEmail) {
-        return creator;
-      }
-      if (email === userEmail) {
-        return user;
-      }
+      if (email === creatorEmail) return creator;
+      if (email === userEmail) return user;
+      if (email === speakerEmail) return speaker;
       return null;
     });
 
     eventGatewayMock.getEventById.mockImplementation(async (id: string) => {
-      if (id === eventId) {
-        return event;
-      }
+      if (id === eventId) return event;
+      if (id === eventSpeakerId) return speakerEvent;
       return null;
     });
   });
@@ -120,6 +166,18 @@ describe('GetPrivateEventByIdUsecase', () => {
     );
     expect(result).toEqual(event);
     expect(eventGatewayMock.getEventById).toHaveBeenCalledTimes(1);
+  });
+
+  /*
+    Expected case 
+   */
+
+  it('should return the event if current user is a speaker on one of the tracks', async () => {
+    const result = await getPrivateEventByIdUsecase.execute(
+      eventSpeakerId,
+      speakerEmail,
+    );
+    expect(result).toEqual(speakerEvent);
   });
 
   /*

@@ -50,16 +50,18 @@ const CheckBoxList = (props: CheckBoxListProps) => {
             <span className={styles.userSelected}>
               {user.firstName} {user.lastName}
             </span>
-            <span
-              className={styles.userSelectedRmButton}
-              onClick={() =>
-                props.setCategory(
-                  props.category.filter((cUser) => cUser.id !== user.id),
-                )
-              }
-            >
-              &times;
-            </span>
+            {!props.disabled && (
+              <span
+                className={styles.userSelectedRmButton}
+                onClick={() =>
+                  props.setCategory(
+                    props.category.filter((cUser) => cUser.id !== user.id),
+                  )
+                }
+              >
+                &times;
+              </span>
+            )}
           </div>
         ))
       )}
@@ -71,13 +73,15 @@ const CheckBoxList = (props: CheckBoxListProps) => {
       <div className={styles.top}>
         <h3 className={styles.title}>{props.title}</h3>
         <div>
-          <input
-            type="text"
-            placeholder="Chercher pour ajouter..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchBar}
-          />
+          {!props.disabled && (
+            <input
+              type="text"
+              placeholder="Chercher pour ajouter..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={styles.searchBar}
+            />
+          )}
           {searchResult}
         </div>
       </div>

@@ -6,14 +6,13 @@ import { EventStatus } from '../../../../utils/EventStatus';
 import styles from './EventBox.module.css';
 
 import Button, { ButtonType } from '../../generic/Button/Button';
-import Event from '../../../../utils/EventsProperties';
+import { PublicEvent } from '../../../../utils/EventsProperties';
 
 interface EventBoxProps {
-  event: Event;
+  event: PublicEvent;
   imageURL?: string;
   eventStatus: EventStatus;
   onPublish?: (eventId: string) => void;
-  canEdit?: boolean;
 }
 
 const EventBox = (props: EventBoxProps) => {
@@ -70,18 +69,22 @@ const EventBox = (props: EventBoxProps) => {
           src={require('../../../../assets/' + props.imageURL)}
           alt="img"
         ></img>
-        {props.canEdit && editButton}
+        {props.event.canBeEditByUser && editButton}
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.title}>{event.name}</div>
-        <div className={styles.date}>{`Date de début: ${dateDisplay.getDate()}/${
+        <div
+          className={styles.date}
+        >{`Date de début: ${dateDisplay.getDate()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.info}>{`Créé par : ${
-          event.creator ?(event.creator.firstName + ' ' + event.creator.lastName)
-         : "Créateur inconnu"}`}</div>
+          event.creator
+            ? event.creator.firstName + ' ' + event.creator.lastName
+            : 'Créateur inconnu'
+        }`}</div>
       </div>
       {props.eventStatus === EventStatus.Published && buttonsPublished}
       {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}

@@ -3,44 +3,80 @@ import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
 import { EventObject } from 'src/events/domain/event';
 import { PublicEventObject } from 'src/events/domain/publicEvent';
 import { UserObject } from 'src/users/domain/user';
+import { PublicUserObject } from 'src/users/domain/publicUser';
+import { TrackObject } from 'src/tracks/domain/track';
+import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 
 describe('GetEventsUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
+  let userGatewayMock: jest.Mocked<IUserGateway>;
   let getEventsUsecase: GetEventsUsecase;
 
   /*
     Data Test 
    */
-  //const filter = { published: true };
+  const creatorEmail = 'creator@example.com';
+  const speakerEmail = 'speaker@example.com';
 
   const creator: UserObject = {
     id: 'creator-id',
-    firstName: 'firstname',
-    lastName: 'lastname',
-    email: 'coucou@yohan.cava?',
+    firstName: 'Creator',
+    lastName: 'User',
+    email: creatorEmail,
     role: '',
-    description: '...',
+    description: '',
     comments: [],
     videos: [],
     events: [],
     videosAsSpeaker: [],
     createdAt: new Date(),
-    picture_id: 'picture_id',
+    picture_id: '',
   };
+
+  const speaker: UserObject = {
+    id: 'speaker-id',
+    firstName: 'Speaker',
+    lastName: 'User',
+    email: speakerEmail,
+    role: '',
+    description: '',
+    comments: [],
+    videos: [],
+    events: [],
+    videosAsSpeaker: [],
+    createdAt: new Date(),
+    picture_id: '',
+  };
+
+  const speaker_pub = new PublicUserObject(speaker);
+
+  const sampleTrack = new TrackObject(
+    'track-id',
+    'Track 1',
+    'Description',
+    ['tag'],
+    'stream-key',
+    false,
+    'event-id-3',
+    new Date(),
+    new Date(),
+    new Date(),
+    [speaker_pub],
+  );
 
   const eventList: EventObject[] = [
     new EventObject(
       'event-id-1',
       'Event 1',
-      'Description 1',
-      ['tag1'],
+      'Desc',
+      ['tag'],
       new Date(),
       new Date(),
       true,
       false,
       false,
-      'image1.jpg',
-      [],
+      'image.jpg',
+      [], // no speakers
       'creator-id',
       new Date(),
       creator,
@@ -48,41 +84,36 @@ describe('GetEventsUsecase', () => {
     new EventObject(
       'event-id-2',
       'Event 2',
-      'Description 2',
-      ['tag2'],
+      'Desc',
+      ['tag'],
       new Date(),
       new Date(),
       true,
       false,
       false,
-      'image2.jpg',
-      [],
+      'image.jpg',
+      [], // no speakers
+      'creator-id',
+      new Date(),
+      creator,
+    ),
+    new EventObject(
+      'event-id-3',
+      'Event 3',
+      'Desc',
+      ['tag'],
+      new Date(),
+      new Date(),
+      true,
+      false,
+      false,
+      'image.jpg',
+      [sampleTrack], // has speaker
       'creator-id',
       new Date(),
       creator,
     ),
   ];
-
-  const publicEventList = eventList.map((e) => new PublicEventObject(e, null));
-
-  eventList.push(
-    new EventObject(
-      'event-id-2',
-      'Event 2',
-      'Description 2',
-      ['tag2'],
-      new Date(),
-      new Date(),
-      false,
-      false,
-      false,
-      'image2.jpg',
-      [],
-      'creator-id',
-      new Date(),
-      creator,
-    ),
-  );
 
   beforeEach(() => {
     eventGatewayMock = {
@@ -93,7 +124,16 @@ describe('GetEventsUsecase', () => {
       getEventById: jest.fn(),
     };
 
-    getEventsUsecase = new GetEventsUsecase(eventGatewayMock);
+    userGatewayMock = {
+      getUserByEmail: jest.fn(),
+      createNewUser: jest.fn(),
+      getUsers: jest.fn(),
+      getUserById: jest.fn(),
+      loginUser: jest.fn(),
+      getListUsers: jest.fn(),
+    };
+
+    getEventsUsecase = new GetEventsUsecase(eventGatewayMock, userGatewayMock);
 
     /*
       Expected Moke 
@@ -106,6 +146,12 @@ describe('GetEventsUsecase', () => {
         });
       });
     });
+
+    userGatewayMock.getUserByEmail.mockImplementation(async (email: string) => {
+      if (email === creatorEmail) return creator;
+      if (email === speakerEmail) return speaker;
+      return null;
+    });
   });
 
   /*
@@ -114,7 +160,9 @@ describe('GetEventsUsecase', () => {
 
   it('should return a list of events from the eventGateway', async () => {
     const result = await getEventsUsecase.execute({}, null);
-    expect(result).toEqual(publicEventList);
+    expect(result).toEqual(
+      eventList.map((e) => new PublicEventObject(e, null)),
+    );
     expect(eventGatewayMock.getEvents).toHaveBeenCalledTimes(1);
   });
 
@@ -127,6 +175,41 @@ describe('GetEventsUsecase', () => {
     const result = await getEventsUsecase.execute({ published: true }, null);
     expect(result).toEqual([]);
     expect(eventGatewayMock.getEvents).toHaveBeenCalledTimes(1);
+  });
+
+  /*
+    Expected case : canBeEditByUser=true when current email matches creator
+   */
+
+  it('should set canBeEditByUser=true when current email matches creator', async () => {
+    const result = await getEventsUsecase.execute({}, creatorEmail);
+    expect(result.every((e) => e.canBeEditByUser)).toBe(true);
+  });
+
+  /*
+    Expected case : canBeEditByUser=true for speaker of a track
+   */
+
+  it('should set canBeEditByUser=true for speaker of a track', async () => {
+    const result = await getEventsUsecase.execute({}, speakerEmail);
+    const speakerEditable = result.find((e) => e.id === 'event-id-3');
+    expect(speakerEditable?.canBeEditByUser).toBe(true);
+  });
+
+  /*
+    Expected case : canBeEditByUser=false for unknown email
+   */
+  it('should set canBeEditByUser=false for unknown email', async () => {
+    const result = await getEventsUsecase.execute({}, 'unknown@example.com');
+    expect(result.every((e) => !e.canBeEditByUser)).toBe(true);
+  });
+
+  /*
+    Expected case : canBeEditByUser=false when email is null
+   */
+  it('should set canBeEditByUser=false when email is null', async () => {
+    const result = await getEventsUsecase.execute({}, null);
+    expect(result.every((e) => !e.canBeEditByUser)).toBe(true);
   });
 
   /*

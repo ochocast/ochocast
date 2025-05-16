@@ -17,9 +17,13 @@ export class GetPrivateEventsUsecase {
   ): Promise<PublicEventObject[]> {
     const currentUser = await this.userGateway.getUserByEmail(currentEmail);
     if (!currentUser) throw new NotFoundException('User not found');
-    filter.creatorId = currentUser.id;
-    return (await this.eventGateway.getEvents(filter)).map(
-      (e) => new PublicEventObject(e, currentEmail),
+
+    const allEvents = await this.eventGateway.getEvents(filter);
+
+    const editableEvents = allEvents.filter((event) =>
+      event.canBeReadBy(currentUser),
     );
+
+    return editableEvents.map((e) => new PublicEventObject(e, currentUser));
   }
 }

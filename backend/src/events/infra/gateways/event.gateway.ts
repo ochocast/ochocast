@@ -23,9 +23,7 @@ export class EventGateway implements IEventGateway {
         where: {
           ...filter,
         },
-        relations: filter.id
-          ? ['creator', 'tracks', 'tracks.speakers']
-          : ['creator'],
+        relations: ['creator', 'tracks', 'tracks.speakers'],
       })
       .then((entities) => entities.map(toEventObject));
   }

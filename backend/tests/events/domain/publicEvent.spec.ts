@@ -1,7 +1,6 @@
 import { PublicEventObject } from 'src/events/domain/publicEvent';
 import { EventObject } from 'src/events/domain/event';
 import { TrackObject } from 'src/tracks/domain/track';
-import { PublicUserObject } from 'src/users/domain/publicUser';
 import { UserObject } from 'src/users/domain/user';
 
 jest.mock('src/users/domain/publicUser', () => ({
@@ -40,6 +39,21 @@ describe('PublicEventObject', () => {
     picture_id: 'pic123',
   };
 
+  const userLambda: UserObject = {
+    id: 'u2',
+    firstName: 'Bob',
+    lastName: 'taratata',
+    email: 'boby@example.com',
+    role: 'speaker',
+    events: [],
+    comments: [],
+    videos: [],
+    videosAsSpeaker: [],
+    description: 'Speaker bio',
+    createdAt: now,
+    picture_id: 'pic123',
+  };
+
   const baseEvent: EventObject = new EventObject(
     'event1',
     'Spooky Night',
@@ -58,7 +72,7 @@ describe('PublicEventObject', () => {
   );
 
   it('should map from EventObject and expose public fields correctly', () => {
-    const result = new PublicEventObject(baseEvent, 'alice@example.com');
+    const result = new PublicEventObject(baseEvent, baseCreator);
 
     expect(result).toMatchObject({
       id: 'event1',
@@ -78,14 +92,13 @@ describe('PublicEventObject', () => {
     });
   });
 
-  it('should set canBeEditByUser to false if email does not match', () => {
-    const result = new PublicEventObject(baseEvent, 'bob@example.com');
+  it('should set canBeEditByUser to false if user does not match', () => {
+    const result = new PublicEventObject(baseEvent, userLambda);
     expect(result.canBeEditByUser).toBe(false);
   });
 
-  it('should instantiate creator with PublicUserObject', () => {
-    const result = new PublicEventObject(baseEvent, baseCreator.email);
-    expect(PublicUserObject).toHaveBeenCalledWith(baseCreator);
-    expect(result.creator).toHaveProperty('isPublic', true);
+  it('canBeEditByUser to false user is null', () => {
+    const result = new PublicEventObject(baseEvent, null);
+    expect(result.canBeEditByUser).toBe(false);
   });
 });

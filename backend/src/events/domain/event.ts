@@ -92,7 +92,10 @@ export class EventObject {
   }
 
   public canBeReadBy(user: UserObject): boolean {
-    return this.creator.email === user.email;
+    return (
+      this.creator.email === user.email ||
+      this.tracks.some((track) => track.speakers?.some((s) => s.id === user.id))
+    );
   }
 
   constructor(
