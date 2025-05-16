@@ -28,8 +28,9 @@ const removeAccents = (str: string): string =>
   str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 // Filtering function: searches in both "name" and "description" properties
-const filterEvents = (events: Event[], query: string): Event[] => {
+const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
   const queryNormalized = removeAccents(query.toLowerCase());
+  if (!events) return [];
   return events.filter(event => {
     const nameNormalized = removeAccents(event.name.toLowerCase());
     const descNormalized = removeAccents(event.description.toLowerCase());
