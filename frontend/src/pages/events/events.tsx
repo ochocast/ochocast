@@ -20,6 +20,7 @@ import {
 import { createEvent } from '../../utils/api';
 import { PublicEvent } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 export interface eventsProps {}
 
@@ -71,6 +72,9 @@ const EventsPage: FC<eventsProps> = () => {
 
   const [message, setMessage] = useState('');
   const userString = localStorage.getItem('backendUser');
+
+  const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
+
 
   const fetchEventData = async (userString: string | null) => {
     try {
@@ -132,6 +136,11 @@ const EventsPage: FC<eventsProps> = () => {
   const onPublish = async (eventId: string) => {
     try {
       const res = await publishEvent(eventId);
+      if (res.status !== 200) {
+        setToast({ message: "Erreur lors de la publication de l'évènement", type: "error" });
+      } else {
+        setToast({ message: "Évènement publié avec succès !", type: "success" });
+      }
       setEventsPublished((prevEvents) => [...prevEvents, res.data]);
 
       setEventsUnpublished([
@@ -186,6 +195,7 @@ const EventsPage: FC<eventsProps> = () => {
         });
 
         if (res.status === 201) {
+          setToast({ message: "Évènement créé avec succès !", type: "success" });
           toggle();
           setName('');
           setDescription('');
@@ -195,6 +205,7 @@ const EventsPage: FC<eventsProps> = () => {
           setEventsUnpublished((prevEvents) => [...prevEvents, res.data]);
         }
       } catch (error) {
+        setToast({ message: "Erreur lors de la création de l'évènement", type: "error" });
         logger.error(error);
         setMessage(
           "L'évènement n'a pas pu être créer, une erreur est survenue",
@@ -304,6 +315,13 @@ const EventsPage: FC<eventsProps> = () => {
           <div className="message">{message ? <p>{message}</p> : null}</div>
         </form>
       </Modal>
+      {toast && (
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast(null)}
+      />
+      )}
     </div>
   );
 };
