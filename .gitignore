@@ -21,6 +21,6 @@ backend/docs
 
 localMinio/run_env/*
 
-**/package-lock.json
+/package-lock.json
 
 coverage
