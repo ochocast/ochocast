@@ -4,11 +4,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getTrackById, getPublicEvent, closeTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
-import { default as _ReactPlayer } from 'react-player/lazy';
-import { ReactPlayerProps } from 'react-player/types/lib';
+// import { default as _ReactPlayer } from 'react-player/lazy';
+// import { ReactPlayerProps } from 'react-player/types/lib';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import WaitingScreen from '../../components/waitingScreen/waitingScreen';
 
-const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
+// const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const fetchTrack = async (trackId?: string) => {
   try {
@@ -79,23 +80,29 @@ const LiveTrack = () => {
             </div>
             <Button label="Clôturer la piste" onClick={fetchCloseTrack()} />
           </div>
-          <div>
-            <ReactPlayer
-              width="55%"
-              height="auto"
-              url={url}
-              playing
-              controls
-              config={{
-                file: {
-                  forceHLS: true,
-                  hlsOptions: {
-                    liveSyncDurationCount: 2,
-                    liveMaxLatencyDurationCount: 3,
+            <div className="player-wrapper">
+            {/* {url ? ( */}
+            {/* <div>
+              <ReactPlayer
+                width="100%"
+                height="auto"
+                url={url}
+                playing
+                controls
+                config={{
+                  file: {
+                    forceHLS: true,
+                    hlsOptions: {
+                      liveSyncDurationCount: 2,
+                      liveMaxLatencyDurationCount: 3,
+                    },
                   },
-                },
-              }}
-            />
+                }}
+              />
+            </div> */}
+            {/* ) : ( */}
+            <WaitingScreen />
+            {/* )} */}
           </div>
           <div>
             <button onClick={() => changeQuality('_low')}>Low</button>
