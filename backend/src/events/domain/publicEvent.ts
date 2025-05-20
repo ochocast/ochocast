@@ -89,6 +89,12 @@ export class PublicEventObject {
   })
   creator: PublicUserObject;
 
+  @ApiProperty({
+    example: 42,
+    description: 'Number of subsription.',
+  })
+  nbSubscription: number;
+
   constructor(event: EventObject, currentUser: UserObject) {
     this.id = event.id;
     this.name = event.name;
@@ -109,5 +115,6 @@ export class PublicEventObject {
           track.speakers?.some((speaker) => speaker.id === currentUser.id),
         ));
     this.creator = new PublicUserObject(event.creator);
+    this.nbSubscription = event.usersSubscribe?.length;
   }
 }

@@ -55,6 +55,9 @@ export class UserEntity {
   @ManyToMany(() => TrackEntity, (track) => track.speakers)
   speakingTracks: TrackEntity[];
 
+  @ManyToMany(() => EventEntity, (event) => event.usersSubscribe)
+  eventsSubscribe: EventEntity[];
+
   constructor(user: Partial<UserEntity>) {
     Object.assign(this, user);
   }

@@ -31,6 +31,7 @@ describe('EventObject', () => {
       baseCreatorId,
       baseCreatedAt,
       undefined,
+      [],
     );
 
     expect(event.id).toBe(baseId);
@@ -64,6 +65,7 @@ describe('EventObject', () => {
       baseCreatorId,
       baseCreatedAt,
       undefined,
+      [],
     );
 
     expect(event.published).toBe(false);
@@ -87,6 +89,7 @@ describe('EventObject', () => {
       baseCreatorId,
       baseCreatedAt,
       undefined,
+      [],
     );
 
     expect(Array.isArray(event.tracks)).toBe(true);
@@ -109,6 +112,7 @@ describe('EventObject', () => {
       baseCreatorId,
       baseCreatedAt,
       undefined,
+      [],
     );
 
     expect(event.startDate.getTime()).toBeLessThan(event.endDate.getTime());

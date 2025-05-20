@@ -3,6 +3,7 @@ import { EventObject } from '../../events/domain/event';
 import { toTrackEntity, toTrackObject } from './track.mapper';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { toUserObject } from './user.mapper';
+import { PublicUserObject } from 'src/users/domain/publicUser';
 
 /**
  * Convertit un EventEntity en EventObject
@@ -25,6 +26,7 @@ export function toEventObject(entity: EventEntity): EventObject {
     entity.creator?.id ?? entity.creatorId,
     entity.createdAt,
     entity.creator ? toUserObject(entity.creator) : undefined,
+    entity.usersSubscribe?.map((e) => new PublicUserObject(toUserObject(e))),
   );
 }
 /**
@@ -37,5 +39,6 @@ export function toEventEntity(obj: EventObject): EventEntity {
     ...obj,
     tracks: obj.tracks?.map((e) => toTrackEntity(e)),
     creator: { id: obj.creatorId } as UserEntity,
+    usersSubscribe: [], // <!> must be completed after
   });
 }

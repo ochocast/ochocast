@@ -83,6 +83,7 @@ describe('GetPrivateEventsUsecase', () => {
     'creator-id',
     new Date(),
     creator,
+    [],
   );
 
   const user: UserObject = {
@@ -131,6 +132,7 @@ describe('GetPrivateEventsUsecase', () => {
       creatorId,
       new Date(),
       creator,
+      [],
     ),
     new EventObject(
       'event-id-2',
@@ -147,6 +149,7 @@ describe('GetPrivateEventsUsecase', () => {
       creatorId,
       new Date(),
       creator,
+      [],
     ),
   ];
 
@@ -171,6 +174,7 @@ describe('GetPrivateEventsUsecase', () => {
       user.id,
       new Date(),
       user,
+      [],
     ),
   );
 

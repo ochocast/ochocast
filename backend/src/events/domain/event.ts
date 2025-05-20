@@ -1,6 +1,7 @@
 import { TrackObject } from 'src/tracks/domain/track';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserObject } from 'src/users/domain/user';
+import { PublicUserObject } from 'src/users/domain/publicUser';
 
 export class EventObject {
   @ApiProperty({
@@ -87,6 +88,12 @@ export class EventObject {
   })
   creator: UserObject | undefined;
 
+  @ApiProperty({
+    example: [PublicUserObject],
+    description: 'public user subscribe to the evetn.',
+  })
+  usersSubscribe: PublicUserObject[];
+
   public canBeEditBy(user: UserObject): boolean {
     return this.creator.email === user.email;
   }
@@ -113,6 +120,7 @@ export class EventObject {
     creatorId: string,
     createdAt: Date,
     creator: UserObject,
+    usersSubscribe: PublicUserObject[],
   ) {
     this.id = id;
     this.name = name;
@@ -128,6 +136,7 @@ export class EventObject {
     this.creatorId = creatorId;
     this.createdAt = createdAt;
     this.creator = creator;
+    this.usersSubscribe = usersSubscribe;
   }
 }
 

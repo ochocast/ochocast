@@ -14,6 +14,7 @@ import { GetPrivateEventsUsecase } from './domain/usecases/getPrivateEvents.usec
 import { PublishEventUsecase } from './domain/usecases/publishEvent.usecase';
 import { CloseEventUsecase } from './domain/usecases/closeEvent.usecase';
 import { GetPrivateEventByIdUsecase } from './domain/usecases/getPrivateEventById.usecase';
+import { SubscribeToEventUsecase } from './domain/usecases/subscribeToEvent.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([EventEntity, UserEntity])],
@@ -36,6 +37,7 @@ import { GetPrivateEventByIdUsecase } from './domain/usecases/getPrivateEventByI
     PublishEventUsecase,
     CloseEventUsecase,
     GetPrivateEventByIdUsecase,
+    SubscribeToEventUsecase,
   ],
 })
 export class EventsModule {}

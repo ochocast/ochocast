@@ -63,6 +63,7 @@ describe('DeleteEventUsecase', () => {
     'creator-id',
     new Date(),
     creator,
+    [],
   );
 
   beforeEach(() => {

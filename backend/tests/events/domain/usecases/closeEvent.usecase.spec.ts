@@ -63,6 +63,7 @@ describe('CloseEventUsecase', () => {
     creatorId,
     new Date(),
     creator,
+    [],
   );
 
   const eventClose = new EventObject(
@@ -80,6 +81,7 @@ describe('CloseEventUsecase', () => {
     event.creatorId,
     event.createdAt,
     creator,
+    [],
   );
 
   beforeEach(() => {

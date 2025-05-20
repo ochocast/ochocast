@@ -45,6 +45,7 @@ describe('GetEventByIdUsecase', () => {
     creatorId,
     new Date(),
     creator,
+    [],
   );
 
   const publicEvent = new PublicEventObject(event, null);

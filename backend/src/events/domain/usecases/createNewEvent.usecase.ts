@@ -35,6 +35,7 @@ export class CreateNewEventUsecase {
       user.id,
       new Date(),
       user,
+      [],
     );
 
     await this.eventGateway.createNewEvent(event);

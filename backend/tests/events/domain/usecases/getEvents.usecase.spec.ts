@@ -80,6 +80,7 @@ describe('GetEventsUsecase', () => {
       'creator-id',
       new Date(),
       creator,
+      [],
     ),
     new EventObject(
       'event-id-2',
@@ -96,6 +97,7 @@ describe('GetEventsUsecase', () => {
       'creator-id',
       new Date(),
       creator,
+      [],
     ),
     new EventObject(
       'event-id-3',
@@ -112,6 +114,7 @@ describe('GetEventsUsecase', () => {
       'creator-id',
       new Date(),
       creator,
+      [],
     ),
   ];
 

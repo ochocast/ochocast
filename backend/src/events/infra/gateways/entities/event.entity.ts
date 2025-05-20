@@ -4,6 +4,8 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 import { TrackEntity } from '../../../../tracks/infra/gateways/entities/track.entity';
@@ -48,6 +50,12 @@ export class EventEntity {
 
   @Column()
   creatorId: string;
+
+  @ManyToMany(() => UserEntity, (user) => user.eventsSubscribe, {
+    cascade: true,
+  })
+  @JoinTable()
+  usersSubscribe: UserEntity[];
 
   @Column()
   createdAt: Date;

@@ -37,6 +37,7 @@ describe('VideosController - getVideosSuggestions', () => {
     videos: [],
     videosAsSpeaker: [],
     speakingTracks: [],
+    eventsSubscribe: [],
   };
 
   const mockTag: TagEntity = {

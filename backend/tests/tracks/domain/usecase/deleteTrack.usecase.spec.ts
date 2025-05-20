@@ -73,6 +73,7 @@ describe('DeleteTracktUsecase', () => {
     'creator-1',
     now,
     mockUser,
+    [],
   );
 
   const trackList: TrackObject[] = [

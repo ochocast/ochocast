@@ -54,6 +54,7 @@ describe('Event Mapper', () => {
       events: [],
     } as any,
     createdAt: now,
+    usersSubscribe: [],
   });
 
   it('should map EventEntity to EventObject', () => {
@@ -104,6 +105,7 @@ describe('Event Mapper', () => {
       'user1',
       now,
       mockUserObject,
+      [],
     );
 
     const result = toEventEntity(eventObject);

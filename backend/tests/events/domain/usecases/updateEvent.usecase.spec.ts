@@ -64,6 +64,7 @@ describe('UpdateEventUsecase', () => {
     creatorId,
     new Date(),
     creator,
+    [],
   );
 
   const dataToUpdate: EventDataDto = {
@@ -89,6 +90,7 @@ describe('UpdateEventUsecase', () => {
     creatorId,
     event.createdAt,
     creator,
+    [],
   );
 
   beforeEach(() => {

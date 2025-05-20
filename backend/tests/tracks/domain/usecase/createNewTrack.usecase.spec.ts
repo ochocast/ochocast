@@ -56,6 +56,7 @@ describe('CreateNewTracktUsecase', () => {
     'creator-1',
     now,
     mockUser,
+    [],
   );
 
   const trackDto: TrackDto = {

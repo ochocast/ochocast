@@ -1,0 +1,36 @@
+import {
+  Inject,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { IEventGateway } from '../gateways/events.gateway';
+import { PublicEventObject } from '../publicEvent';
+import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
+import { PublicUserObject } from 'src/users/domain/publicUser';
+
+export class SubscribeToEventUsecase {
+  constructor(
+    @Inject('EventGateway')
+    private eventGateway: IEventGateway,
+    @Inject('UserGateway')
+    private userGateway: IUserGateway,
+  ) {}
+
+  async execute(id: string, email: string): Promise<PublicEventObject> {
+    const event = await this.eventGateway.getEventById(id);
+    if (!event) throw new NotFoundException('Event not found');
+    if (!event.published)
+      throw new UnauthorizedException(
+        'subscibe to not publish event is not possible',
+      );
+    const currentUser = await this.userGateway.getUserByEmail(email);
+    if (!currentUser) throw new NotFoundException('User not found');
+
+    if (!event.usersSubscribe.some((e) => e.id === currentUser.id))
+      event.usersSubscribe.push(new PublicUserObject(currentUser));
+
+    return this.eventGateway
+      .updateEvent(event)
+      .then((e) => new PublicEventObject(e, currentUser));
+  }
+}

@@ -4,11 +4,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEntity } from './entities/event.entity';
 import { toEventEntity, toEventObject } from 'src/common/mapper/event.mapper';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 export class EventGateway implements IEventGateway {
   constructor(
     @InjectRepository(EventEntity)
     private readonly eventsRepository: Repository<EventEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
   ) {}
 
   async createNewEvent(eventDetails: EventObject): Promise<EventObject> {
@@ -34,11 +37,16 @@ export class EventGateway implements IEventGateway {
         id: eventDetails.id,
       },
     });
-
-    const updatedEntity = this.eventsRepository.merge(
-      event,
-      toEventEntity(eventDetails),
+    const eventEntity = toEventEntity(eventDetails);
+    eventEntity.usersSubscribe = await Promise.all(
+      eventDetails.usersSubscribe.map(async (publicUser) => {
+        const full = await this.userRepository.findOneBy({ id: publicUser.id });
+        if (!full) throw new Error(`User ${publicUser.id} not found`);
+        return full;
+      }),
     );
+
+    const updatedEntity = this.eventsRepository.merge(event, eventEntity);
     const saved = await this.eventsRepository.save(updatedEntity);
     return toEventObject(saved);
   }

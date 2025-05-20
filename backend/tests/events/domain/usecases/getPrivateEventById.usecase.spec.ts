@@ -82,6 +82,7 @@ describe('GetPrivateEventByIdUsecase', () => {
     creatorId,
     new Date(),
     creator,
+    [],
   );
 
   const speakerTrack = new TrackObject(
@@ -113,6 +114,7 @@ describe('GetPrivateEventByIdUsecase', () => {
     creatorId, // creator is still someone else
     new Date(),
     creator,
+    [],
   );
 
   beforeEach(() => {

@@ -69,6 +69,7 @@ describe('PublicEventObject', () => {
     baseCreator.id,
     now,
     baseCreator,
+    [],
   );
 
   it('should map from EventObject and expose public fields correctly', () => {

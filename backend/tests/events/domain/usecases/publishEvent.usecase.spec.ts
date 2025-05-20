@@ -63,6 +63,7 @@ describe('PublishEventUsecase', () => {
     creatorId,
     new Date(),
     creator,
+    [],
   );
 
   const eventPublish = new EventObject(
@@ -80,6 +81,7 @@ describe('PublishEventUsecase', () => {
     event.creatorId,
     event.createdAt,
     creator,
+    [],
   );
 
   beforeEach(() => {

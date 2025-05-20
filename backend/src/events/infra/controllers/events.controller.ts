@@ -27,6 +27,7 @@ import { GetPrivateEventsUsecase } from 'src/events/domain/usecases/getPrivateEv
 import { PublishEventUsecase } from 'src/events/domain/usecases/publishEvent.usecase';
 import { CloseEventUsecase } from 'src/events/domain/usecases/closeEvent.usecase';
 import { GetPrivateEventByIdUsecase } from 'src/events/domain/usecases/getPrivateEventById.usecase';
+import { SubscribeToEventUsecase } from 'src/events/domain/usecases/subscribeToEvent.usecase';
 
 @ApiTags('Events')
 @Controller('events')
@@ -41,6 +42,7 @@ export class EventsController {
     private publishEventUseCase: PublishEventUsecase,
     private closeEventUseCase: CloseEventUsecase,
     private getPrivateEventByIdUsecase: GetPrivateEventByIdUsecase,
+    private subscribeToEventUsecase: SubscribeToEventUsecase,
   ) {}
 
   @Post()
@@ -130,6 +132,18 @@ export class EventsController {
     }
 
     return this.closeEventUseCase.execute(id, email);
+  }
+
+  @Put('subscribe/:id')
+  async subscribeToEvent(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<PublicEventObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return this.subscribeToEventUsecase.execute(id, email);
   }
 
   @Delete(':id')
