@@ -8,7 +8,8 @@ import rightButton from '../../../../assets/droite.png';
 import EventBox from '../EventBox/EventBox';
 
 import styles from './EventsList.module.css';
-
+import { getEventsMiniature } from '../../../../utils/api';
+import fallbackMiniature from '../../../../assets/logo_2lignes_crop.png';
 interface EventsListProps {
   eventStatus: EventStatus;
   title: string;
@@ -19,6 +20,7 @@ interface EventsListProps {
 
 const EventsList = (props: EventsListProps) => {
   const [index, setIndex] = useState(0);
+  const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>({});
 
   const getEventsToShow = useCallback(() => {
     const events = props.events;
@@ -58,6 +60,32 @@ const EventsList = (props: EventsListProps) => {
     ></img>
   );
 
+  const fetchMiniatures = useCallback(async () => {
+  const newURLs: Record<string, string> = {};
+
+  await Promise.all(
+    props.events.map(async (event) => {
+      try {
+        const res = await getEventsMiniature(event.id);
+        if (res?.data?.url && !res.data.url.includes('imageSlug')) {
+          newURLs[event.id] = res.data.url;
+        } else {
+          newURLs[event.id] = fallbackMiniature; 
+        }
+      } catch (err) {
+        console.error(`Erreur récupération miniature pour event ${event.id}`, err);
+        newURLs[event.id] = fallbackMiniature;
+      }
+    })
+  );
+  setMiniatureURLs(newURLs);
+}, [props.events]);
+
+  useEffect(() => {
+    fetchMiniatures();
+  }, [fetchMiniatures]);
+
+
   return (
     <div className={styles.eventsList}>
       <div className={styles.title}>{props.title}</div>
@@ -70,7 +98,7 @@ const EventsList = (props: EventsListProps) => {
               event={event}
               eventStatus={props.eventStatus}
               key={event.id}
-              imageURL="logo_2lignes_crop.png"
+              imageURL={miniatureURLs[event.id]}
               onPublish={props.onPublish}
             />
           ))}

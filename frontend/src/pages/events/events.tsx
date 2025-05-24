@@ -21,6 +21,7 @@ import { createEvent } from '../../utils/api';
 import { PublicEvent } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 
 export interface eventsProps {}
 
@@ -75,6 +76,9 @@ const EventsPage: FC<eventsProps> = () => {
 
   const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
 
+
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
 
   const fetchEventData = async (userString: string | null) => {
     try {
@@ -133,6 +137,24 @@ const EventsPage: FC<eventsProps> = () => {
     setSearchQuery(query);
   };
 
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files ? e.target.files[0] : null;
+    if (file) {
+      const reader = new FileReader();
+      
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+        } else {
+          console.error("Le résultat du FileReader n'est pas une chaîne !");
+        }
+      };
+      
+      reader.readAsDataURL(file); 
+      setSelectedImage(file);
+    }
+  };
+
   const onPublish = async (eventId: string) => {
     try {
       const res = await publishEvent(eventId);
@@ -169,30 +191,33 @@ const EventsPage: FC<eventsProps> = () => {
         const [year, month, day] = date.split('-');
         const [s_hour, s_minute] = startHour.split(':');
         const [e_hour, e_minute] = endHour.split(':');
-
-        const res = await createEvent({
-          name: name,
-          description: description,
-          startDate: new Date(
-            Date.UTC(
-              parseInt(year),
-              parseInt(month) - 1, // Les mois vont de 0 à 11
-              parseInt(day),
-              parseInt(s_hour),
-              parseInt(s_minute),
-            ),
-          ).toISOString(),
-          endDate: new Date(
-            Date.UTC(
-              parseInt(year),
-              parseInt(month) - 1,
-              parseInt(day),
-              parseInt(e_hour),
-              parseInt(e_minute),
-            ),
-          ).toISOString(),
-          imageSlug: 'imageSlug',
-        });
+        const startDateISOString = new Date(
+              Date.UTC(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                parseInt(s_hour),
+                parseInt(s_minute),
+              ),
+            ).toISOString();
+        const endDateISOString = new Date(
+              Date.UTC(
+                parseInt(year),
+                parseInt(month) - 1,
+                parseInt(day),
+                parseInt(e_hour),
+                parseInt(e_minute),
+              ),
+            ).toISOString();
+        const formData = new FormData();
+        formData.append('image_slug', selectedImage?.name || 'imageslug');
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('startDate', startDateISOString);
+        formData.append('endDate', endDateISOString);
+        if (selectedImage) {
+          formData.append('miniature', selectedImage); }
+        const res = await createEvent(formData);
 
         if (res.status === 201) {
           setToast({ message: "Évènement créé avec succès !", type: "success" });
@@ -202,6 +227,8 @@ const EventsPage: FC<eventsProps> = () => {
           setDate('');
           setStartHour('');
           setEndHour('');
+          setSelectedImage(null);
+          setImageUrl(null);
           setEventsUnpublished((prevEvents) => [...prevEvents, res.data]);
         }
       } catch (error) {
@@ -301,6 +328,11 @@ const EventsPage: FC<eventsProps> = () => {
                 onChange={handleEndHourChange}
                 required
               />
+            </div>
+             <div className="input-wrapper">
+              <label>Miniature</label>
+              <InputFile placeholder="Choisissez une miniature" onChange={handleImageChange} disable={false} required={false}/>
+              {imageUrl && <img src={imageUrl} alt="Miniature Preview" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}
             </div>
           </div>
           <TextArea

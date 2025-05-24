@@ -66,7 +66,11 @@ const EventBox = (props: EventBoxProps) => {
       <div className={styles.imgWrapper}>
         <img
           className={styles.img}
-          src={require('../../../../assets/' + props.imageURL)}
+          src={props.imageURL || '../../../../assets/logo_2lignes_crop.png'}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = '../../../../assets/logo_2lignes_crop.png';
+          }}
           alt="img"
         ></img>
         {props.event.canBeEditByUser && editButton}

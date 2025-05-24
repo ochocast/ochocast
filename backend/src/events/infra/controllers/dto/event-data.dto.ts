@@ -17,4 +17,7 @@ export class EventDataDto {
 
   @IsNotEmpty()
   imageSlug: string;
+
+  @IsNotEmpty()
+  miniature: File;
 }

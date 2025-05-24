@@ -5,12 +5,14 @@ interface InputFileProps {
   placeholder?: string;
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
   disable: boolean;
+  required?: boolean;
 }
 
 const InputFile = ({
   placeholder = 'Glissez ou sélectionnez des fichiers',
   onChange,
   disable,
+  required = true
 }: InputFileProps) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files;
@@ -37,9 +39,9 @@ const InputFile = ({
         type="file"
         name="images"
         id="images"
-        required
         onChange={handleFileSelect}
         disabled={disable}
+        required={required}
       />
       <div className="file-dummy">
         <div className="default">{placeholder}</div>

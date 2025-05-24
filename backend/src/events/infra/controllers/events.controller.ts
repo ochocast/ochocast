@@ -9,6 +9,8 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -28,6 +30,8 @@ import { PublishEventUsecase } from 'src/events/domain/usecases/publishEvent.use
 import { CloseEventUsecase } from 'src/events/domain/usecases/closeEvent.usecase';
 import { GetPrivateEventByIdUsecase } from 'src/events/domain/usecases/getPrivateEventById.usecase';
 import { SubscribeToEventUsecase } from 'src/events/domain/usecases/subscribeToEvent.usecase';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { GetEventMiniatureUsecase } from 'src/events/domain/usecases/getEventsMiniature.usecase';
 
 @ApiTags('Events')
 @Controller('events')
@@ -43,15 +47,19 @@ export class EventsController {
     private closeEventUseCase: CloseEventUsecase,
     private getPrivateEventByIdUsecase: GetPrivateEventByIdUsecase,
     private subscribeToEventUsecase: SubscribeToEventUsecase,
+    private getEventMiniatureUsecase: GetEventMiniatureUsecase,
   ) {}
 
   @Post()
+  @UseInterceptors(FileInterceptor('miniature'))
   @UsePipes(new ValidationPipe())
   async createNewEvent(
-    @Body() event: EventDataDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() event: EventDataDto & { image_slug: string },
     @CurrentUserEmail() email: string,
   ): Promise<EventObject> {
-    return this.createNewEventUsecase.execute(email, event);
+    const miniatureFile = file;
+    return this.createNewEventUsecase.execute(email, event, miniatureFile);
   }
 
   @Get()
@@ -156,5 +164,14 @@ export class EventsController {
     }
 
     return await this.deleteEventUsecase.execute(id, email);
+  }
+
+  @Get('miniature/:id')
+  async getEventMiniature(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<{ url: string }> {
+    const url = await this.getEventMiniatureUsecase.execute(id, email);
+    return { url };
   }
 }

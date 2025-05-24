@@ -9,6 +9,7 @@ describe('DeleteEventUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
   let userGatewayMock: jest.Mocked<IUserGateway>;
   let deleteEventUsecase: DeleteEventUsecase;
+  let s3ClientMock: jest.Mocked<any>;
 
   /*
     Data Test 
@@ -67,6 +68,10 @@ describe('DeleteEventUsecase', () => {
   );
 
   beforeEach(() => {
+    s3ClientMock = {
+      send: jest.fn(),
+    };
+
     eventGatewayMock = {
       createNewEvent: jest.fn(),
       getEvents: jest.fn(),
@@ -87,8 +92,8 @@ describe('DeleteEventUsecase', () => {
     deleteEventUsecase = new DeleteEventUsecase(
       eventGatewayMock,
       userGatewayMock,
+      s3ClientMock,
     );
-
     /*
     Expected Moke 
    */

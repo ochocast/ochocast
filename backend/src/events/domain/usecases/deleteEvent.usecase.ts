@@ -6,6 +6,7 @@ import {
 import { IEventGateway } from '../gateways/events.gateway';
 import { EventObject } from '../event';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
+import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 export class DeleteEventUsecase {
   constructor(
@@ -13,6 +14,8 @@ export class DeleteEventUsecase {
     private eventGateway: IEventGateway,
     @Inject('UserGateway')
     private userGateway: IUserGateway,
+    @Inject('s3Client')
+    private s3Client: S3Client,
   ) {}
 
   async execute(eventId: string, currentEmail: string): Promise<EventObject> {
@@ -23,6 +26,13 @@ export class DeleteEventUsecase {
     if (!event.canBeEditBy(currentUser))
       throw new UnauthorizedException("Current user can't delete this event");
 
+    if (event.imageSlug !== 'imageSlug') {
+      const miniatureCommand = new DeleteObjectCommand({
+        Bucket: process.env.STOCK_MINIATURE_BUCKET,
+        Key: event.imageSlug,
+      });
+      this.s3Client.send(miniatureCommand);
+    }
     return await this.eventGateway.deleteEvent(eventId);
   }
 }

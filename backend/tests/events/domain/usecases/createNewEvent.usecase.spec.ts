@@ -14,6 +14,7 @@ describe('CreateNewEventUsecase', () => {
   let createNewEventUsecase: CreateNewEventUsecase;
   let eventGatewayMock: jest.Mocked<IEventGateway>;
   let userGatewayMock: jest.Mocked<IUserGateway>;
+  let s3ClientMock: jest.Mocked<any>;
 
   /*
     Data Test 
@@ -26,7 +27,8 @@ describe('CreateNewEventUsecase', () => {
     description: 'An event for testing',
     startDate: new Date('2025-05-01T10:00:00Z'),
     endDate: new Date('2025-05-01T12:00:00Z'),
-    imageSlug: 'test-image.jpg',
+    imageSlug: 'imageSlug',
+    miniature: new File([], 'imageSlug.jpg'),
   };
 
   const creator: UserObject = {
@@ -65,6 +67,7 @@ describe('CreateNewEventUsecase', () => {
     createNewEventUsecase = new CreateNewEventUsecase(
       eventGatewayMock,
       userGatewayMock,
+      s3ClientMock,
     );
 
     /*
@@ -87,6 +90,7 @@ describe('CreateNewEventUsecase', () => {
     const createdEvent = await createNewEventUsecase.execute(
       creator.email,
       createEventDto,
+      null,
     );
 
     expect(createdEvent).toBeInstanceOf(EventObject);
@@ -97,7 +101,7 @@ describe('CreateNewEventUsecase', () => {
     expect(createdEvent.startDate).toEqual(new Date('2025-05-01T10:00:00Z'));
     expect(createdEvent.endDate).toEqual(new Date('2025-05-01T12:00:00Z'));
     expect(createdEvent.isPrivate).toBe(true);
-    expect(createdEvent.imageSlug).toBe('test-image.jpg');
+    expect(createdEvent.imageSlug).toBe('imageSlug');
     expect(createdEvent.createdAt).toBeInstanceOf(Date);
     expect(createdEvent.creatorId).toEqual(creatorId);
 
@@ -114,7 +118,7 @@ describe('CreateNewEventUsecase', () => {
     );
 
     await expect(
-      createNewEventUsecase.execute(creator.email, createEventDto),
+      createNewEventUsecase.execute(creator.email, createEventDto, null),
     ).rejects.toThrow('Database error');
 
     expect(eventGatewayMock.createNewEvent).toHaveBeenCalledTimes(1);
@@ -126,7 +130,7 @@ describe('CreateNewEventUsecase', () => {
 
   it('should throw if eventGateway.createNewEvent fails', async () => {
     await expect(
-      createNewEventUsecase.execute('not@email.com', createEventDto),
+      createNewEventUsecase.execute('not@email.com', createEventDto, null),
     ).rejects.toThrow(NotFoundException);
 
     expect(eventGatewayMock.createNewEvent).toHaveBeenCalledTimes(0);

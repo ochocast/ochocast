@@ -73,6 +73,7 @@ describe('UpdateEventUsecase', () => {
     startDate: new Date('2025-05-01T10:00:00Z'),
     endDate: new Date('2025-05-01T12:00:00Z'),
     imageSlug: 'test-image.jpg',
+    miniature: new File([], 'test-image.jpg'),
   };
 
   const eventUpdated = new EventObject(
