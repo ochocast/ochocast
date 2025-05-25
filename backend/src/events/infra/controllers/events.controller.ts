@@ -122,7 +122,7 @@ export class EventsController {
   async publishEvent(
     @Param('id') id: string,
     @CurrentUserEmail() email: string,
-  ): Promise<EventObject> {
+  ): Promise<PublicEventObject> {
     if (!isUUID(id)) {
       throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
     }

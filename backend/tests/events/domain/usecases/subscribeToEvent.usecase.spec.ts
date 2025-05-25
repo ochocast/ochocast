@@ -195,6 +195,7 @@ describe('SubcribeToEventUsecase', () => {
    */
 
   it('should throw an error if eventGateway.updateEvent fails', async () => {
+    event.usersSubscribe = [];
     eventGatewayMock.updateEvent.mockRejectedValue(new Error('DB Error'));
     await expect(
       subscribeToEventUsecase.execute(eventId, userEmail),

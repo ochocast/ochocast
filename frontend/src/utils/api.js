@@ -30,8 +30,10 @@ export const updateEvent = (eventId, event) =>
 export const deleteEvent = (eventId) => api.delete('/events/' + eventId);
 export const publishEvent = (eventId) => api.put('/events/publish/' + eventId);
 export const closeEvent = (eventId) => api.put('/events/close/' + eventId);
+export const subscribeEvent = (eventId) => api.put('/events/subscribe/' + eventId);
 export const getEventsMiniature = (event_id) =>
   api.get(`/events/miniature/${event_id}`);
+
 
 // Tracks
 export const getTrackById = (trackId) => api.get('/tracks/' + trackId);

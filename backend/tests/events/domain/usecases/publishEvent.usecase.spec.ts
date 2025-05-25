@@ -4,6 +4,7 @@ import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { EventObject } from 'src/events/domain/event';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { UserObject } from 'src/users/domain/user';
+import { PublicEventObject } from 'src/events/domain/publicEvent';
 
 describe('PublishEventUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -142,7 +143,7 @@ describe('PublishEventUsecase', () => {
   it('should publish the event when user is authorized', async () => {
     const result = await publishEventUsecase.execute(eventId, creatorEmail);
 
-    expect(result).toEqual(eventPublish);
+    expect(result).toEqual(new PublicEventObject(eventPublish, creator));
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(1);
   });
 

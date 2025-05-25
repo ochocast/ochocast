@@ -20,10 +20,12 @@ import { Track } from '../../utils/EventsProperties';
 import Modal from '../../components/modal/modal';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 import logger from '../../utils/logger';
+import { useTranslation } from 'react-i18next';
 
 interface EventSettingsProps {}
 
 const EventSettings: FC<EventSettingsProps> = () => {
+  const { t } = useTranslation();
   const { eventId } = useParams();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
@@ -133,14 +135,12 @@ const EventSettings: FC<EventSettingsProps> = () => {
         });
 
         if (res.status === 200) {
-          setMessage("L'évènement a bien été modifié");
+          setMessage(t('eventModified'));
           setButtonDisabled(true);
         }
       } catch (error) {
         logger.error(error);
-        setMessage(
-          "L'évènement n'a pas pu être modifié, une erreur est survenue",
-        );
+        setMessage(t('eventCouldNotBeModified'));
       }
     }
   };
@@ -150,16 +150,14 @@ const EventSettings: FC<EventSettingsProps> = () => {
       await deleteEvent(eventId);
       navigate('/events/');
     } catch (error) {
-      setMessage("L'évènement n'a pas pu être supprimé");
+      setMessage(t('eventCouldNotBeDeleted'));
     }
   };
 
   const handleCloseEvent = async () => {
     for (const track of tracks) {
       if (track.closed === false) {
-        setModalMessage(
-          "Impossible de clôturer l'évènement, il faut clôturer les pistes avant de clôturer l'évènement",
-        );
+        setModalMessage(t('impossibleCloseEvent'));
         return;
       }
     }
@@ -168,18 +166,17 @@ const EventSettings: FC<EventSettingsProps> = () => {
       if (res.status == 200) {
         setEventClosed(true);
         toggle();
-        setMessage("L'évènement a bien été clôturé");
+        setMessage(t('eventClosed'));
       }
     } catch (error) {
-      setMessage("L'évènement n'a pas pu être clôturé");
+      setMessage(t('eventCouldNotClosed'));
     }
   };
 
   if (isFetchError)
     return (
       <Button
-        label="Evènement indisponible veuillez retourner sur la page de présentation
-        des évènements"
+        label={t('eventUnavailableReturnPresentationPage')}
         onClick={() => navigate('/events')}
       />
     );
@@ -377,6 +374,16 @@ const EventSettings: FC<EventSettingsProps> = () => {
             onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
             Paramètres
+          </button>
+        </div>
+        <div className="settings-img-button">
+          <img className="image-settings" src={rouageImage} alt="iconeSelect" />
+          <button
+            className="button-settings"
+            type="button"
+            onClick={() => navigate(`/events/${eventId}/event-statistics`)}
+          >
+            Statistiques
           </button>
         </div>
         <DropDownMenuTracks

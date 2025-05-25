@@ -26,7 +26,7 @@ export class EventGateway implements IEventGateway {
         where: {
           ...filter,
         },
-        relations: ['creator', 'tracks', 'tracks.speakers'],
+        relations: ['creator', 'tracks', 'tracks.speakers', 'usersSubscribe'],
       })
       .then((entities) => entities.map(toEventObject));
   }
@@ -60,7 +60,7 @@ export class EventGateway implements IEventGateway {
   async getEventById(id: string): Promise<EventObject> {
     const entity = await this.eventsRepository.findOne({
       where: { id },
-      relations: ['creator', 'tracks', 'tracks.speakers'],
+      relations: ['creator', 'tracks', 'tracks.speakers', 'usersSubscribe'],
     });
 
     if (!entity) return null;

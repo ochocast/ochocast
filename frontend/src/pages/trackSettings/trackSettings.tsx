@@ -310,6 +310,16 @@ const TrackSettings: FC = () => {
             Paramètres
           </button>
         </div>
+        <div className="settings-img-button">
+          <img className="image-settings" src={rouageImage} alt="iconeSelect" />
+          <button
+            className="button-settings"
+            type="button"
+            onClick={() => navigate(`/events/${eventId}/event-statistics`)}
+          >
+            Statistiques
+          </button>
+        </div>
         <DropDownMenuTracks
           tracks={tracks}
           eventId={eventId ?? ''}

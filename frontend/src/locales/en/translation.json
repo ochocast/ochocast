@@ -38,5 +38,16 @@
   "oneOrManyDisrespectedConditions": "One or more conditions are not met",
   "unknown": "Unknown",
   "unknownEmail": "Email address not provided",
-  "noDescription": "No description"
+  "noDescription": "No description",
+  "eventModified": "The event has been modified",
+  "eventCouldNotBeModified" : "Event could not be modified, an error occurred",
+  "eventCouldNotBeDeleted": "Event could not be deleted",
+  "impossibleCloseEvent": "Impossible to close the event, tracks must be closed before closing the event",
+  "eventClosed": "The event was successfully closed",
+  "eventCouldNotClosed": "The event could not be closed",
+  "eventUnavailableReturnPresentationPage": "Event unavailable, please return to the presentation page",
+  "registeredUsers": "Registered users",
+  "dashboard": "Dashboard",
+  "settings": "Settings",
+  "statistics": "Statistics"
 }

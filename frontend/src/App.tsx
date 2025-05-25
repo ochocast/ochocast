@@ -17,6 +17,7 @@ import Videos from './pages/videos/videos';
 import HomePage from './pages/home/Home';
 import Profile from './pages/profile/profile';
 import {ProtectedRoutes} from "./utils/ProtectedRoutes";
+import EventStatistic from './pages/eventStatistics/eventStatistics';
 
 function App() {
   return (
@@ -32,6 +33,10 @@ function App() {
         <Route
           path="/events/:eventId/event-settings"
           element={<EventSettings/>}
+        />
+        <Route
+          path="/events/:eventId/event-statistics"
+          element={<EventStatistic/>}
         />
         <Route
           path="/events/:eventId/tracks"

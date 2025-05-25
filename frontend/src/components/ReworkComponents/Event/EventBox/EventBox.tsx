@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { EventStatus } from '../../../../utils/EventStatus';
@@ -7,6 +7,7 @@ import styles from './EventBox.module.css';
 
 import Button, { ButtonType } from '../../generic/Button/Button';
 import { PublicEvent } from '../../../../utils/EventsProperties';
+import { subscribeEvent } from '../../../../utils/api';
 
 interface EventBoxProps {
   event: PublicEvent;
@@ -19,6 +20,7 @@ const EventBox = (props: EventBoxProps) => {
   const event = props.event;
   const dateDisplay = new Date(event.startDate);
   const navigate = useNavigate();
+  const [nbSubscribe, setNbSubscribe] = useState(event.nbSubscription);
 
   const editButton = (
     <div className={styles.editButton}>
@@ -32,12 +34,19 @@ const EventBox = (props: EventBoxProps) => {
 
   const buttonsPublished = (
     <div className={styles.subscribeWrapper}>
-      <Button label="S'inscrire" type={ButtonType.primary} />
+      <Button
+        label="S'inscrire"
+        type={ButtonType.primary}
+        onClick={async () => {
+          if ((await subscribeEvent(event.id)).status == 200)
+            setNbSubscribe(nbSubscribe + 1);
+        }}
+      />
       <div className={styles.subscriptionsWrapper}>
         <span className={styles.dot}></span>
-        <span className={styles.subscritpions}>{`${
-          0 /*event.subscriptions*/
-        } inscrits`}</span>
+        <span
+          className={styles.subscritpions}
+        >{`${nbSubscribe} inscrits`}</span>
       </div>
     </div>
   );

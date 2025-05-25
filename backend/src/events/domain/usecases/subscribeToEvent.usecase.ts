@@ -28,6 +28,7 @@ export class SubscribeToEventUsecase {
 
     if (!event.usersSubscribe.some((e) => e.id === currentUser.id))
       event.usersSubscribe.push(new PublicUserObject(currentUser));
+    else throw new UnauthorizedException('User can not subscribe 2 time');
 
     return this.eventGateway
       .updateEvent(event)

@@ -13,6 +13,7 @@ export default interface Event {
   creatorId: string;
   creator: User;
   createdAt: Date;
+  usersSubscribe: PublicUser[];
   // eslint-disable-next-line
 }
 
@@ -55,6 +56,7 @@ export interface PublicEvent {
   creatorId: string;
   canBeEditByUser : boolean;
   creator: PublicUser;
+  nbSubscription: number;
 }
 
 

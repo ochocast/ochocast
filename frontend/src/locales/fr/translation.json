@@ -38,5 +38,16 @@
   "oneOrManyDisrespectedConditions": "Une ou plusieurs conditions ne sont pas remplies",
   "unknown": "Inconnu",
   "unknownEmail": "Adresse mail non renseignée",
-  "noDescription": "Aucune description"
+  "noDescription": "Aucune description",
+  "eventModified": "L'évènement a bien été modifié",
+  "eventCouldNotBeModified": "L'évènement n'a pas pu être modifié, une erreur est survenue",
+  "eventCouldNotBeDeleted": "L'évènement n'a pas pu être supprimé",
+  "impossibleCloseEvent": "Impossible de clôturer l'évènement, il faut clôturer les pistes avant de clôturer l'évènement",
+  "eventClosed": "L'évènement a bien été clôturé",
+  "eventCouldNotClosed": "L'évènement n'a pas pu être clôturé",
+  "eventUnavailableReturnPresentationPage": "Evènement indisponible veuillez retourner sur la page de présentation des évènements",
+  "registeredUsers": "Utilisateurs inscrits",
+  "dashboard": "Tableau de bord",
+  "settings": "Paramètres",
+  "statistics": "Statistiques"
 }

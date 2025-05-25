@@ -33,10 +33,13 @@ const removeAccents = (str: string): string =>
 const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
   if (!events) return [];
   const queryNormalized = removeAccents(query.toLowerCase());
-  return events.filter(event => {
+  return events.filter((event) => {
     const nameNormalized = removeAccents(event.name.toLowerCase());
     const descNormalized = removeAccents(event.description.toLowerCase());
-    return nameNormalized.includes(queryNormalized) || descNormalized.includes(queryNormalized);
+    return (
+      nameNormalized.includes(queryNormalized) ||
+      descNormalized.includes(queryNormalized)
+    );
   });
 };
 
@@ -74,8 +77,10 @@ const EventsPage: FC<eventsProps> = () => {
   const [message, setMessage] = useState('');
   const userString = localStorage.getItem('backendUser');
 
-  const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
-
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -159,16 +164,23 @@ const EventsPage: FC<eventsProps> = () => {
     try {
       const res = await publishEvent(eventId);
       if (res.status !== 200) {
-        setToast({ message: "Erreur lors de la publication de l'évènement", type: "error" });
+        setToast({
+          message: "Erreur lors de la publication de l'évènement",
+          type: 'error',
+        });
       } else {
-        setToast({ message: "Évènement publié avec succès !", type: "success" });
-      }
-      setEventsPublished((prevEvents) => [...prevEvents, res.data]);
+        setToast({
+          message: 'Évènement publié avec succès !',
+          type: 'success',
+        });
 
-      setEventsUnpublished([
-        ...eventsUnpublished.filter((event) => event.id !== eventId),
-      ]);
-      fetchEventData(userString);
+        setEventsPublished((prevEvents) => [...prevEvents, res.data]);
+
+        setEventsUnpublished([
+          ...eventsUnpublished.filter((event) => event.id !== eventId),
+        ]);
+        fetchEventData(userString);
+      }
     } catch (error) {
       logger.error(`Failed to update event: ${error}`);
     }
@@ -220,7 +232,10 @@ const EventsPage: FC<eventsProps> = () => {
         const res = await createEvent(formData);
 
         if (res.status === 201) {
-          setToast({ message: "Évènement créé avec succès !", type: "success" });
+          setToast({
+            message: 'Évènement créé avec succès !',
+            type: 'success',
+          });
           toggle();
           setName('');
           setDescription('');
@@ -232,7 +247,10 @@ const EventsPage: FC<eventsProps> = () => {
           setEventsUnpublished((prevEvents) => [...prevEvents, res.data]);
         }
       } catch (error) {
-        setToast({ message: "Erreur lors de la création de l'évènement", type: "error" });
+        setToast({
+          message: "Erreur lors de la création de l'évènement",
+          type: 'error',
+        });
         logger.error(error);
         setMessage(
           "L'évènement n'a pas pu être créer, une erreur est survenue",
@@ -241,17 +259,28 @@ const EventsPage: FC<eventsProps> = () => {
     }
   };
 
-  const filteredPublished = searchQuery === '' ? eventsPublished : filterEvents(eventsPublished, searchQuery);
-  const filteredUnpublished = searchQuery === '' ? eventsUnpublished : filterEvents(eventsUnpublished, searchQuery);
-  const filteredClosed = searchQuery === '' ? eventsClosed : filterEvents(eventsClosed, searchQuery);
+  const filteredPublished =
+    searchQuery === ''
+      ? eventsPublished
+      : filterEvents(eventsPublished, searchQuery);
+  const filteredUnpublished =
+    searchQuery === ''
+      ? eventsUnpublished
+      : filterEvents(eventsUnpublished, searchQuery);
+  const filteredClosed =
+    searchQuery === '' ? eventsClosed : filterEvents(eventsClosed, searchQuery);
 
   return (
     <div className="events">
-    <header className="events-header">
-       <div className="search-container">
-         <SearchBar onClick={handleSearch} needInput={true} placeholder="Rechercher un évènement..." />
-       </div>
-     </header>
+      <header className="events-header">
+        <div className="search-container">
+          <SearchBar
+            onClick={handleSearch}
+            needInput={true}
+            placeholder="Rechercher un évènement..."
+          />
+        </div>
+      </header>
       <div className="button-event-creation">
         <Button
           label="Créer un évènement"
@@ -348,11 +377,11 @@ const EventsPage: FC<eventsProps> = () => {
         </form>
       </Modal>
       {toast && (
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast(null)}
-      />
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
