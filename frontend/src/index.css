@@ -15,14 +15,15 @@
   --theme-color-950: #05291f;
   --theme-color-1000:#344054;
   --theme-color-1050:#101828;
+  --theme-color-1100: #ccc;
 
   --theme-color-3000:rgba(255, 255, 255, 0.1);
   --theme-color-3050:rgba(255, 255, 255, 0.2);
   --theme-color-3100:rgba(255, 255, 255, 0.5);
   --theme-color-3200:rgba(0, 255, 0, 0.3);
   --theme-color-3300:rgba(0, 255, 0, 0.4);
-
-  
+  --theme-color-3400:rgba(0, 0, 0, 0.3);
+  --theme-color-3500:rgba(0, 0, 0, 0.5);
 
   --theme-color-2000: #d0d5dd;
   --theme-color-2050: #667085;

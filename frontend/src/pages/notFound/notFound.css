@@ -10,7 +10,7 @@
 
 .notFound h1 {
   font-size: 2em;
-  color: #f00 !important; /* Red color for the heading */
+  color: --theme-color-red !important; /* Red color for the heading */
 }
 
 .notFound p {

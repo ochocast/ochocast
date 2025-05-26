@@ -27,7 +27,7 @@
 }
 
 .live-box {
-  background-color: black;
+  background-color: --theme-color-black;
   height: 500px;
 }
 
@@ -62,8 +62,8 @@
   margin: 0 auto;
   border-radius: 20px;
   max-width: 80%;
-  border: 1px solid var(--primary-primary-01-db, #0e2356);
-  background: var(--None-01_W, #fff);
+  border: 1px solid var(--primary-primary-01-db, --theme-color-800);
+  background: var(--None-01_W, --theme-color-white);
   height: 7vh;
   align-items: center;
   padding-left: 2%;
