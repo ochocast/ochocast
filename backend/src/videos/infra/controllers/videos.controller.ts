@@ -55,13 +55,15 @@ export class VideosController {
   ): Promise<VideoObject> {
     const videoFile = files.find((file) => file.fieldname === 'file');
     const miniatureFile = files.find((file) => file.fieldname === 'miniature');
+    console.log(videoFile + '\n');
+    console.log(miniatureFile + '\n');
     return await this.createNewVideoUsecase.execute(
       video,
       videoFile,
       miniatureFile,
     );
   }
-  
+
   // Standard GET route with query parameters
   @Get()
   @ApiOperation({

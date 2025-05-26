@@ -28,6 +28,7 @@ export class CreateNewVideoUsecase {
     file: Express.Multer.File,
     miniatureFile: Express.Multer.File,
   ): Promise<VideoObject> {
+    console.log('début execute');
     const baseName = path.parse(videoToCreate.media_id).name;
     const media_id = Date.now() + '.' + baseName + '.mp4';
     const miniature_id = `miniature${Date.now()}.jpg`;
@@ -47,18 +48,23 @@ export class CreateNewVideoUsecase {
       [new CommentEntity(null)],
       false,
     );
-
+    console.log(video);
     const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
     const tempOutputPath = path.join(
       tmpdir(),
       `${video.media_id}-transcoded.mp4`,
     );
+    console.log('début writefile vidéo\n');
     await writeFile(tempInputPath, file.buffer);
+    console.log('fin writefile vidéo\n');
 
+    console.log('début transcode vidéo\n');
     await transcodeVideo(tempInputPath, tempOutputPath);
+    console.log('fin transcode vidéo\n');
 
     const transcodedBuffer = await readFile(tempOutputPath);
 
+    console.log('début upload vidéo\n');
     const upload = new Upload({
       client: this.s3Client,
       params: {
@@ -68,6 +74,7 @@ export class CreateNewVideoUsecase {
         ContentType: 'video/mp4',
       },
     });
+    console.log('fin upload vidéo\n');
 
     const video_result = await upload.done();
     if (miniatureFile) {
@@ -77,6 +84,7 @@ export class CreateNewVideoUsecase {
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
 
+      console.log('début upload miniature\n');
       const miniatureUpload = new Upload({
         client: this.s3Client,
         params: {
@@ -86,12 +94,15 @@ export class CreateNewVideoUsecase {
           ContentType: 'image/jpeg',
         },
       });
+      console.log('fin upload miniature\n');
       const miniature_result = await miniatureUpload.done();
       await unlink(tempMiniaturePath).catch(() => {});
     }
 
+    console.log('début unlink path\n');
     await unlink(tempInputPath).catch(() => {});
     await unlink(tempOutputPath).catch(() => {});
+    console.log('fin unlink path\n');
 
     await this.videoGateway.createNewVideo(video);
     return video;
