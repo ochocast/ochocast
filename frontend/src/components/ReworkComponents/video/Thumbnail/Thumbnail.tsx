@@ -7,6 +7,8 @@ import { getMiniature } from '../../../../utils/api';
 import Button, { ButtonType } from '../../generic/Button/Button';
 import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
 import { useTranslation } from 'react-i18next';
+import { addToFavorites, removeFromFavorites, isVideoFavorite } from '../../../../utils/api';
+import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg';
 
 export interface PreviewMinitureProps {
   Id: string;
@@ -20,6 +22,21 @@ export interface PreviewMinitureProps {
 }
 
 const Thumbnail = (props: PreviewMinitureProps) => {
+  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const toggleFavorite = async () => {
+    try {
+      if (isFavorite) {
+        await removeFromFavorites(props.Id);
+        setIsFavorite(false);
+      } else {
+        await addToFavorites(props.Id);
+        setIsFavorite(true);
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite', error);
+    }
+  };
+
   const [miniatureURL, setMiniatureUrl] = useState<string>(
     '/exemple/image_tuile_event.png',
     // process.env.DEFAULT_MINIATURE_IMAGE
@@ -42,7 +59,17 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       }
     };
 
+    const fetchFavoriteStatus = async () => {
+      try {
+        const result = await isVideoFavorite(props.Id);
+        setIsFavorite(result);
+      } catch (error) {
+        console.error('Error checking favorite status', error);
+      }
+    };
+
     fetchMiniatureUrl();
+    fetchFavoriteStatus();
   }, [props.Id]);
 
   const dateDisplay = new Date(props.createdAt); // to be able to getDay..
@@ -107,8 +134,8 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       </div>
       <img
         className={styles.starIconContainer}
-        src={FavorisNotSelected}
-        onClick={() => {}}
+        src={isFavorite ? FavorisFilterSelected : FavorisNotSelected}
+        onClick={toggleFavorite}
       />
     </div>
   );

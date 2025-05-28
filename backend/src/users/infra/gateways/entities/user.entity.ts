@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   OneToMany,
   ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { EventEntity } from '../../../../events/infra/gateways/entities/event.entity';
 import { CommentEntity } from '../../../../comments/infra/gateways/entities/comment.entity';
@@ -14,6 +15,7 @@ import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+  
 
   @Column()
   firstName: string;
@@ -54,9 +56,20 @@ export class UserEntity {
 
   @ManyToMany(() => TrackEntity, (track) => track.speakers)
   speakingTracks: TrackEntity[];
-
-  @ManyToMany(() => EventEntity, (event) => event.usersSubscribe)
-  eventsSubscribe: EventEntity[];
+  
+ @ManyToMany(() => VideoEntity, (video) => video.usersWhoFavorited)
+ @JoinTable({
+  name: 'user_favorite_videos',
+  joinColumn: {
+    name: 'user_id',
+    referencedColumnName: 'id',
+  },
+  inverseJoinColumn: {
+    name: 'video_id',
+    referencedColumnName: 'id',
+  },
+})
+favoriteVideos: VideoEntity[];
 
   constructor(user: Partial<UserEntity>) {
     Object.assign(this, user);

@@ -63,3 +63,17 @@ export const findTag = (name) => api.get(`/tags?name=${name}`);
 export const findTags = (tag) => api.get(`/tags/find?value=${tag}`);
 export const findUsers = (user) => api.get(`/users/find?value=${user}`);
 export const getSuggestions = (data) => api.get(`/videos/suggestions/${data}`);
+
+//favori
+export const addToFavorites = (videoId) =>
+  api.post(`/users/favorites/${videoId}`);
+
+
+export const removeFromFavorites = (videoId) =>
+  api.delete(`/users/favorites/${videoId}`);
+
+export const isVideoFavorite = async (videoId) => {
+  const response = await api.get(`/users/favorites/${videoId}`);
+  return response?.data?.isFavorite === true;
+};
+

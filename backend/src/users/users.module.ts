@@ -9,6 +9,9 @@ import { LoginUserUseCase } from './domain/usecases/loginUser.usecase';
 import { S3Module } from 'src/s3.module';
 import { GetProfilePictureUsecase } from './domain/usecases/getProfilePicture.usecase';
 import { GetListUsersUsecase } from './domain/usecases/getListUsers.usecase';
+import { AddFavoriteVideoUsecase } from './domain/usecases/addFavoriteVideo.usecase';
+import { RemoveFavoriteVideoUsecase } from './domain/usecases/removeFavoriteVideo.usecase';
+import { IsFavoriteVideoUsecase } from './domain/usecases/isFavoriteVideo.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity]), S3Module],
@@ -23,6 +26,9 @@ import { GetListUsersUsecase } from './domain/usecases/getListUsers.usecase';
     LoginUserUseCase,
     GetProfilePictureUsecase,
     GetListUsersUsecase,
+    AddFavoriteVideoUsecase,
+    RemoveFavoriteVideoUsecase,
+    IsFavoriteVideoUsecase,
   ],
   exports: ['UserGateway'],
 })

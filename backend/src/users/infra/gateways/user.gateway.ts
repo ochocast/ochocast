@@ -81,4 +81,30 @@ export class UserGateway implements IUserGateway {
 
     return user ? toUserObject(user) : null;
   }
+
+  async addFavoriteVideo(userId: string, videoId: string): Promise<void> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+    await this.usersRepository
+      .createQueryBuilder()
+      .relation(UserEntity, 'favoriteVideos')
+      .of(userId)
+      .add(videoId);
+  }
+
+  async removeFavoriteVideo(userId: string, videoId: string): Promise<void> {
+    await this.usersRepository
+      .createQueryBuilder()
+      .relation(UserEntity, 'favoriteVideos')
+      .of(userId)
+      .remove(videoId);
+  }
+
+  async isVideoFavorite(userId: string, videoId: string): Promise<boolean> {
+    const user = await this.usersRepository.findOne({
+      where: { id: userId },
+      relations: ['favoriteVideos'],
+    });
+    return !!user?.favoriteVideos.some((video) => video.id === videoId);
+  }
 }

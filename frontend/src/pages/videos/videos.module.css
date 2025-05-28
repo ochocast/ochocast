@@ -90,6 +90,7 @@ Button {
   width: 30px; 
   height: 30px;
   cursor: pointer;
+  transform: translateY(-10px);
 }
 
 .starIconFilterContainer:hover {

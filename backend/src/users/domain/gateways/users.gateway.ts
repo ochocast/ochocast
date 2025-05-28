@@ -7,4 +7,7 @@ export interface IUserGateway {
   getListUsers: (filter: any) => Promise<UserObject[]>;
   getUserByEmail(email: string): Promise<UserObject | null>;
   getUserById(id: string): Promise<UserObject | null>;
+  addFavoriteVideo(userId: string, videoId: string): Promise<void>;
+  removeFavoriteVideo(userId: string, videoId: string): Promise<void>;
+  isVideoFavorite(userId: string, videoId: string): Promise<boolean>;
 }

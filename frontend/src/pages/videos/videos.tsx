@@ -16,6 +16,7 @@ import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg'
 interface VideosProps {}
 
 const Videos: FC<VideosProps> = () => {
+  console.log(localStorage.getItem('backendUser'));
   const [videos, setVideo] = useState<Video[]>([]);
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);

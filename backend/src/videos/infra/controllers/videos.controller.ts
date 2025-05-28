@@ -23,13 +23,13 @@ import { VideoObject } from '../../domain/video';
 import { DeleteVideoUsecase } from '../../domain/usecases/deleteVideo.usecase';
 import { DeleteVideoAdminUsecase } from '../../domain/usecases/deleteVideoAdmin.usecase';
 //import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
-import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
-import logger from '../../../utils/logger';
 import { ModifyVideoUsecase } from 'src/videos/domain/usecases/modifyVideo.usecase';
 import { GetVideosSuggestionsUsecase } from 'src/videos/domain/usecases/getVideosSuggestions.usecase';
+import { Public } from 'nest-keycloak-connect';
 @ApiTags('Videos')
 @Controller('videos')
 export class VideosController {
@@ -65,6 +65,7 @@ export class VideosController {
   }
 
   // Standard GET route with query parameters
+  @Public()
   @Get()
   @ApiOperation({
     description:
@@ -75,6 +76,7 @@ export class VideosController {
     return this.getVideosUsecase.execute(filter);
   }
 
+  @Public()
   @Get('/all')
   @ApiOperation({
     description:
@@ -121,8 +123,8 @@ export class VideosController {
   }
 
   @Get(':userId')
-  async getVideosByUser (@Param('userId') id: string): Promise<VideoObject[]> {
-    const videos = await this.getVideosUsecase.execute({creator: {id}});
+  async getVideosByUser(@Param('userId') id: string): Promise<VideoObject[]> {
+    const videos = await this.getVideosUsecase.execute({ creator: { id } });
     return videos;
   }
 

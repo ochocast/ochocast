@@ -65,3 +65,17 @@ npm run start:dev
 Here is the docker recovery link: `rg.fr-par.scw.cloud/backend-images/octocast-backend:latest`.
 
 just clone it and run it.
+
+
+## To test all features:
+
+cd ./backend
+```
+npm run test:unit
+```
+
+## To test one specific feature:
+
+cd ./backend
+```
+npx jest nameOfTheSpecFile
