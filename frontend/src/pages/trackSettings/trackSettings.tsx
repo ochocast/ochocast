@@ -19,6 +19,8 @@ import { useTrackSettings } from './useTrackSettings';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
 
+import { useTranslation } from 'react-i18next';
+
 const TrackSettings: FC = () => {
   const { trackId, eventId } = useParams();
   const {
@@ -40,9 +42,10 @@ const TrackSettings: FC = () => {
   const [isButtonDisabled, setButtonDisabled] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { t } = useTranslation();
 
   if (trackId && !track) {
-    return <div className="loading">Chargement de la piste...</div>;
+    return <div className="loading">{t('LoadingTrack')}</div>;
   }
 
   const userString = localStorage.getItem('backendUser');
@@ -67,16 +70,17 @@ const TrackSettings: FC = () => {
 
   const closed = track.closed || event?.closed;
 
+  
   const form = (
     <form onSubmit={handleFormSubmit} className="track-settings">
       <div className="top-layout">
         <div className="title-layout">
           <NavigateBackButton />
-          <h1>{trackId ? track.name : 'Nouvelle Piste'}</h1>
+          <h1>{trackId ? track.name : t('NewTrack')}</h1>
         </div>
         {trackId && (
           <Button
-            label="Commencer le live"
+            label={t('StartLive')}
             onClick={toggle}
             type={closed ? ButtonType.disabled : ButtonType.secondary}
           />
@@ -84,11 +88,11 @@ const TrackSettings: FC = () => {
       </div>
       <hr />
       <Modal isOpen={isOpen} toggle={toggle}>
-        <h1>Commencer le live</h1>
+        <h1>{t('StartLive')}</h1>
         <div className="start-live-buttons">
-          <Button label="Lancer le live depuis OBS" />
+          <Button label={t('StartLiveOBS')} />
           <Button
-            label="Lancer le live depuis OCHOCast"
+            label={t('StartLiveOCHOCast')}
             onClick={() => navigate(`/tracks/${trackId}/streaming`)}
           />
         </div>
@@ -96,19 +100,19 @@ const TrackSettings: FC = () => {
 
       <TextBox
         type="text"
-        label="Nom de la piste"
-        placeholder="Ma piste"
+        label={t('TrackName')}
+        placeholder={t('MyTrack')}
         value={track.name || ''}
-        name="name"
+        name={t('Name')}
         error={!track.name}
         disabled={closed}
         onChange={handleInputChange('name')}
       />
       <TextArea
-        label="Description de la piste"
-        placeholder="Description..."
+        label={t('TrackDescription')}
+        placeholder={t('DescriptionEvent')}
         value={track.description || ''}
-        name="description"
+        name={t('DescriptionEvent2')}
         error={!track.description}
         disabled={closed}
         onChange={handleInputChange('description')}
@@ -123,25 +127,25 @@ const TrackSettings: FC = () => {
               setSpeakers(users);
               setButtonDisabled(false);
             }}
-            title="Orateurs"
+            title={t('Speaker')}
             disabled={closed !== undefined && closed}
           />
           <div className="track-date-inputs">
             <div className="input-wrapper">
-              <label>Date de l&apos;évènement</label>
+              <label>{t('DateOfTheEvent')}</label>
               <input
                 type="date"
-                name="date"
+                name={t('Date')}
                 value={formatDateForInput(track.startDate)}
                 disabled
                 required
               />
             </div>
             <div className="input-wrapper">
-              <label>Début de la piste</label>
+              <label>{t('StartTrack')}</label>
               <input
                 type="time"
-                name="start"
+                name={t('Start')}
                 value={formatTimeForInput(track.startDate)}
                 onChange={(e) => {
                   const [hours, minutes] = e.target.value
@@ -161,10 +165,10 @@ const TrackSettings: FC = () => {
               />
             </div>
             <div className="input-wrapper">
-              <label>Fin de la piste</label>
+              <label>{t('EndOfTheTrack')}</label>
               <input
                 type="time"
-                name="end"
+                name={t('End')}
                 value={formatTimeForInput(track.endDate)}
                 onChange={(e) => {
                   const [hours, minutes] = e.target.value
@@ -189,7 +193,7 @@ const TrackSettings: FC = () => {
 
       <div className="controlsContainer">
         <Button
-          label={trackId ? 'Sauvegarder' : 'Créer'}
+          label={trackId ? t('Save') : t('Create')}
           type={
             isButtonDisabled || closed
               ? ButtonType.disabled
@@ -197,16 +201,16 @@ const TrackSettings: FC = () => {
           }
         />
         {trackId && (
-          <Button label="Supprimer la piste" onClick={toggleDeleteModal} />
+          <Button label={t('DeleteTrack')} onClick={toggleDeleteModal} />
         )}
       </div>
 
       <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
         <h2>Êtes-vous sûr de vouloir supprimer la piste ?</h2>
         <div className="confirmation-buttons">
-          <Button label="Supprimer" onClick={handleDelete} />
+          <Button label={t('Delete')} onClick={handleDelete} />
           <Button
-            label="Annuler"
+            label={t('Cancel')}
             onClick={() => {
               toggleDeleteModal();
               setMessage('');
@@ -229,19 +233,19 @@ const TrackSettings: FC = () => {
       <hr />
       <TextBox
         type="text"
-        label="Nom de la piste"
-        placeholder="Ma piste"
+        label={t('TrackName')}
+        placeholder={t('MyTrack')}
         value={track.name || ''}
-        name="name"
+        name={t('Name')}
         error={!track.name}
         disabled={true}
         onChange={handleInputChange('name')}
       />
       <TextArea
-        label="Description de la piste"
+        label={t('TrackDescription')}
         placeholder="Description..."
         value={track.description || ''}
-        name="description"
+        name={t('DescriptionEvent2')}
         error={!track.description}
         disabled={true}
         onChange={handleInputChange('description')}
@@ -256,35 +260,35 @@ const TrackSettings: FC = () => {
               setSpeakers(users);
               setButtonDisabled(false);
             }}
-            title="Orateurs"
+            title={t('Speaker')}
             disabled={true}
           />
           <div className="track-date-inputs">
             <div className="input-wrapper">
-              <label>Date de l&apos;évènement</label>
+              <label>{t('DateOfTheEvent')}</label>
               <input
                 type="date"
-                name="date"
+                name={t('Date')}
                 value={formatDateForInput(track.startDate)}
                 disabled={true}
                 required
               />
             </div>
             <div className="input-wrapper">
-              <label>Début de la piste</label>
+              <label>{t('StartTrack')}</label>
               <input
                 type="time"
-                name="start"
+                name={t('Start')}
                 value={formatTimeForInput(track.startDate)}
                 disabled={true}
                 required
               />
             </div>
             <div className="input-wrapper">
-              <label>Fin de la piste</label>
+              <label>{t('EndOfTheTrack')}</label>
               <input
                 type="time"
-                name="end"
+                name={t('End')}
                 value={formatTimeForInput(track.endDate)}
                 disabled={true}
                 required
@@ -299,7 +303,7 @@ const TrackSettings: FC = () => {
   return (
     <div className="page-track-settings">
       <div className="navigation">
-        <h1>Tableau de bord</h1>
+        <h1>{t('dashboard')}</h1>
         <div className="settings-img-button">
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
@@ -307,7 +311,7 @@ const TrackSettings: FC = () => {
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
-            Paramètres
+            {t('settings')}
           </button>
         </div>
         <div className="settings-img-button">
@@ -317,7 +321,7 @@ const TrackSettings: FC = () => {
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-statistics`)}
           >
-            Statistiques
+            {t('statistics')}
           </button>
         </div>
         <MenuTracks

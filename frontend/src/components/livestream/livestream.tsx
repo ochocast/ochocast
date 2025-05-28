@@ -1,4 +1,5 @@
 import React, {FC} from "react";
+import { useTranslation } from 'react-i18next';
 
 /* eslint-disable */
 
@@ -43,6 +44,8 @@ const LiveStream : FC<LiveStreamProps> = ({streamKey}) => {
     const [wsConnected, setWsConnected] = React.useState(false);
     
     const serverIP = process.env.REACT_APP_SERVER_IP;
+
+    const { t } = useTranslation();
   
     const previewStream = async (): Promise<void> => {
       if (preview || !videoRef || !videoRef.current) return; //MAY BE SHITING IN THE FUTURE
@@ -117,11 +120,11 @@ const LiveStream : FC<LiveStreamProps> = ({streamKey}) => {
             <div>{
                 !streaming ?
                 <>
-                <button onClick={previewStream}>Preview</button>
-                <button onClick={startStreaming}>Start Streaming</button>
+                <button onClick={previewStream}>{t('Preview')}</button>
+                <button onClick={startStreaming}>{t('StartStreaming')}</button>
                 </>
                 :
-                <button onClick={stopStreaming}>Stop Streaming</button> 
+                <button onClick={stopStreaming}>{t('StopStreaming')}</button> 
               }
             </div>
             <div>

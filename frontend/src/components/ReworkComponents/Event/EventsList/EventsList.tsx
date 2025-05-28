@@ -10,6 +10,7 @@ import EventBox from '../EventBox/EventBox';
 import styles from './EventsList.module.css';
 import { getEventsMiniature } from '../../../../utils/api';
 import fallbackMiniature from '../../../../assets/logo_2lignes_crop.png';
+
 interface EventsListProps {
   eventStatus: EventStatus;
   title: string;

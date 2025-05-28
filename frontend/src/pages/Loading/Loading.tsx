@@ -2,10 +2,12 @@ import React from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import logger from '../../utils/logger';
+import { useTranslation } from 'react-i18next';
 
 function LoadingPage() {
   const auth = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   React.useEffect(() => {
     if (!auth.isLoading) {
@@ -22,7 +24,7 @@ function LoadingPage() {
 
   return (
     <div>
-      <h1>Connexion/Déconnexion en cours...</h1>
+      <h1>{t('LoggingInOut')}</h1>
     </div>
   );
 }

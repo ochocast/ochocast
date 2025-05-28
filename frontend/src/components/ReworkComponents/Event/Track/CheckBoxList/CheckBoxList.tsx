@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import { User } from '../../../../../utils/EventsProperties';
-
+import { useTranslation } from 'react-i18next';
 import styles from './CheckBoxList.module.css';
 
 interface CheckBoxListProps {
@@ -14,6 +14,7 @@ interface CheckBoxListProps {
 
 const CheckBoxList = (props: CheckBoxListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const { t } = useTranslation();
 
   const filteredUsers = props.allUsers.filter((user) => {
     if (searchTerm.length == 0 || props.category.includes(user)) return;
@@ -43,7 +44,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   const selectedUsersComp = (
     <div className={styles.usersContainer}>
       {props.category.length === 0 ? (
-        <p>Aucun élément sélectionné</p>
+        <p>{t('NoItemsSelected')}</p>
       ) : (
         props.category.map((user) => (
           <div key={user.id} className={styles.user}>
@@ -76,7 +77,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
           {!props.disabled && (
             <input
               type="text"
-              placeholder="Chercher pour ajouter..."
+              placeholder={t('SearchToAdd')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className={styles.searchBar}

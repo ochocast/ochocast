@@ -1,4 +1,5 @@
 import React, { ChangeEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import './InputFile.css';
 
 interface InputFileProps {
@@ -9,11 +10,13 @@ interface InputFileProps {
 }
 
 const InputFile = ({
-  placeholder = 'Glissez ou sélectionnez des fichiers',
+  placeholder,
   onChange,
   disable,
   required = true
 }: InputFileProps) => {
+  const { t } = useTranslation();
+  const effectiveplaceholder = placeholder ?? t('DragOrSelectFiles');
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files;
     if (file === null) {
@@ -37,14 +40,14 @@ const InputFile = ({
       {/* <label>Upload Your File <span className="required">*</span></label> */}
       <input
         type="file"
-        name="images"
+        name={t('Images')}
         id="images"
         onChange={handleFileSelect}
         disabled={disable}
         required={required}
       />
       <div className="file-dummy">
-        <div className="default">{placeholder}</div>
+        <div className="default">{effectiveplaceholder}</div>
       </div>
     </div>
   );

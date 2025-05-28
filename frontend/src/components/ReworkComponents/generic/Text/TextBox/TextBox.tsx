@@ -1,5 +1,6 @@
 import React, { ChangeEvent } from 'react';
 import style from './TextBox.module.css';
+import { useTranslation } from 'react-i18next';
 
 export interface TextBoxProps {
   type: 'text' | 'number' | 'email' | 'password';
@@ -22,6 +23,7 @@ const TextBox = ({
   disabled,
   onChange,
 }: TextBoxProps) => {
+  const { t } = useTranslation();
   return (
     <div className={style.inputWrapper}>
       <label htmlFor={label}>{label}</label>
@@ -34,7 +36,7 @@ const TextBox = ({
         onChange={onChange}
         disabled={disabled}
       />
-      {error && <p className={style.error}>Le champ ne peut pas être vide!</p>}
+      {error && <p className={style.error}>{t('FieldCannotBeEmpty')}</p>}
     </div>
   );
 };

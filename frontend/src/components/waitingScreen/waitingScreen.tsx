@@ -1,7 +1,11 @@
 import React from 'react';
 import styles from './waitingScreen.module.css';
+import { useTranslation } from 'react-i18next';
 
 const WaitingScreen = () => {
+
+  const { t } = useTranslation();
+
   return (
     <div className={styles.waitingScreen}>
       <img
@@ -10,12 +14,12 @@ const WaitingScreen = () => {
         className={styles.waitingIllustration}
       />
       <p className={styles.waitingText}>
-        Veuillez patienter
+        {t('Please wait')}
         <span className={styles.dot}>.</span>
         <span className={styles.dot}>.</span>
         <span className={styles.dot}>.</span>
       </p>
-      <h2>La session commencera bientôt.</h2>
+      <h2>{t('TheSessionWillStartSoon')}</h2>
     </div>
   );
 };

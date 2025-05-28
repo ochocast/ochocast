@@ -5,6 +5,7 @@ import { getTrackById, getPublicEvent, closeTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import LiveStream from '../../components/livestream/livestream';
+import { useTranslation } from 'react-i18next';
 
 const fetchTrack = async (trackId?: string) => {
   try {
@@ -29,6 +30,7 @@ const StreamTrack = () => {
   const { trackId } = useParams();
   const [track, setTrack] = useState<Track>();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (track?.closed) {
     navigate(`/events/${track?.event.id}/tracks`);
@@ -61,7 +63,7 @@ const StreamTrack = () => {
         <>
           <div className="live-header">
             <h1 className="event-title">{track.event?.name}</h1>
-            <Button label="Clôturer la piste" onClick={fetchCloseTrack()} />
+            <Button label={t('CloseTrack')} onClick={fetchCloseTrack()} />
           </div>
 
           <div className="live-container">
@@ -72,7 +74,7 @@ const StreamTrack = () => {
             <div className="track-title">
               <h2>{track.name}</h2>
               <Button
-                label="Paramètres"
+                label={t('settings')}
                 onClick={() =>
                   navigate(
                     `/events/${track.event.id}/track-settings/${trackId}`,
@@ -84,7 +86,7 @@ const StreamTrack = () => {
           </div>
         </>
       ) : (
-        <h1>loading</h1>
+        <h1>{t('Loading')}</h1>
       )}
     </div>
   );

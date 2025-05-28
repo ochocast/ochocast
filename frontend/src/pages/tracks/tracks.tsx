@@ -7,6 +7,7 @@ import { PublicEvent } from '../../utils/EventsProperties';
 import './tracks.css';
 import { getPublicEvent } from '../../utils/api';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import { useTranslation } from 'react-i18next';
 
 export interface tracksProps {}
 
@@ -22,6 +23,7 @@ const fetchEvent = async (eventId?: string) => {
 const TracksPage: FC<tracksProps> = () => {
   const [event, setEvent] = useState<PublicEvent | undefined>(undefined);
   const { eventId } = useParams();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchEventData = async () => {
@@ -37,12 +39,12 @@ const TracksPage: FC<tracksProps> = () => {
       <div className="tracks_page_title_wrapper">
         <NavigateBackButton />
         <span className="tracks_page_title">
-          Les pistes de l&apos;évènement : {event?.name}
+          {t('EventTracks')} {event?.name}
         </span>
       </div>
       <div className="tracks_wrapper">
         <div className="tracks_description">
-          <div className="tracks_title">Description de l&apos;évènement :</div>
+          <div className="tracks_title">{t('EventDescription')}</div>
           {event?.description}
         </div>
       </div>
@@ -54,7 +56,7 @@ const TracksPage: FC<tracksProps> = () => {
         ) : (
           <div
             className="no_tracks_message"
-            data-text="Il n'existe aucune track sur cet évènement pour le moment."
+            data-text={t('NoTracks')}
           />
         )}
       </div>

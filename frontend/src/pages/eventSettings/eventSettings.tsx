@@ -186,20 +186,20 @@ const EventSettings: FC<EventSettingsProps> = () => {
       <div className="top-layout">
         <div className="title-layout">
           <NavigateBackButton />
-          <h1>Modifier l&apos;évènement</h1>
+          <h1>{t('EditEvent')}</h1>
         </div>
         {eventClosed ? (
-          <h2>L&apos;évènement est clôturé</h2>
+          <h2>{t('EventClosed')}</h2>
         ) : (
-          <Button label="Clôturer l'évènement" onClick={toggle} />
+          <Button label={t('CloseEvent')} onClick={toggle} />
         )}
       </div>
       <Modal isOpen={isOpen} toggle={toggle}>
-        <h2> Etes-vous sur de vouloir clôturer l&apos;évènement ?</h2>
+        <h2>{t('SureCloseEvent')}</h2>
         <div className="confirmation-buttons">
-          <Button label="Confirmer" onClick={handleCloseEvent} />
+          <Button label={t('Confirm')} onClick={handleCloseEvent} />
           <Button
-            label="Annuler"
+            label={t('Cancel')}
             onClick={() => {
               toggle();
               setModalMessage('');
@@ -212,8 +212,8 @@ const EventSettings: FC<EventSettingsProps> = () => {
       </Modal>
       <TextBox
         type="text"
-        label="Nom"
-        placeholder="Nom de l'évènement"
+        label={t('Name')}
+        placeholder={t('NameEvent')}
         name={name}
         value={name}
         error={errorName}
@@ -221,10 +221,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         onChange={handleNameChange}
       />
       <div className="input-wrapper">
-        <label>Date de l&apos;évènement</label>
+        <label>{t('DateOfTheEvent')}</label>
         <input
           type="date"
-          name="date"
+          name={t('Date')}
           value={date}
           min={new Date().toISOString().split('T')[0]}
           onChange={handleDateChange}
@@ -233,10 +233,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <div className="input-wrapper">
-        <label>Début de l&apos;évènement</label>
+        <label>{t('StartEvent')}</label>
         <input
           type="time"
-          name="time"
+          name={t('Time')}
           value={startHour}
           onChange={handleStartHourChange}
           disabled={eventClosed}
@@ -244,10 +244,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <div className="input-wrapper">
-        <label>Fin de l&apos;évènement</label>
+        <label>{t('EndEvent')}</label>
         <input
           type="time"
-          name="time"
+          name={t('Time')}
           min={startHour}
           value={endHour}
           onChange={handleEndHourChange}
@@ -256,10 +256,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <TextArea
-        label="Description"
-        placeholder="Description de l'évenement"
+        label={t('DescriptionEvent2')}
+        placeholder={t('EventDescription')}
         value={description}
-        name="description"
+        name={t('DescriptionEvent2')}
         error={errorDescription}
         disabled={eventClosed}
         onChange={handleDescriptionChange}
@@ -267,21 +267,21 @@ const EventSettings: FC<EventSettingsProps> = () => {
       {!eventClosed && (
         <div className="confirmation-buttons">
           <Button
-            label="Supprimer l'évènement"
+            label={t('DeleteEvent')}
             onClick={() => setisDeleteOpen(true)}
           />
           <Button
-            label="Sauvegarder"
+            label={t('Save')}
             type={isButtonDisabled ? ButtonType.disabled : ButtonType.secondary}
           />
         </div>
       )}
       <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
-        <h2> Etes-vous sur de vouloir supprimer l&apos;évènement ?</h2>
+        <h2> {t('SureDeleteEvent')}</h2>
         <div className="confirmation-buttons">
-          <Button label="Supprimer" onClick={deleteEventHandler} />
+          <Button label={t('Delete')} onClick={deleteEventHandler} />
           <Button
-            label="Annuler"
+            label={t('Cancel')}
             onClick={() => {
               toggleDeleteModal();
               setModalMessage('');
@@ -301,14 +301,14 @@ const EventSettings: FC<EventSettingsProps> = () => {
       <div className="top-layout">
         <div className="title-layout">
           <NavigateBackButton />
-          <h1>Modifier l&apos;évènement</h1>
+          <h1>{t('ModifyEvent')}</h1>
         </div>
-        {eventClosed && <h2>L&apos;évènement est clôturé</h2>}
+        {eventClosed && <h2>{t('EventClosed')}</h2>}
       </div>
       <TextBox
         type="text"
-        label="Nom"
-        placeholder="Nom de l'évènement"
+        label={t('Name')}
+        placeholder={t('NameEvent')}
         name={name}
         value={name}
         error={errorName}
@@ -316,10 +316,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         onChange={handleNameChange}
       />
       <div className="input-wrapper">
-        <label>Date de l&apos;évènement</label>
+        <label>{t('DateEvent')}</label>
         <input
           type="date"
-          name="date"
+          name={t('Date')}
           value={date}
           min={new Date().toISOString().split('T')[0]}
           onChange={handleDateChange}
@@ -328,10 +328,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <div className="input-wrapper">
-        <label>Début de l&apos;évènement</label>
+        <label>{t('StartEvent')}</label>
         <input
           type="time"
-          name="time"
+          name={t('Time')}
           value={startHour}
           onChange={handleStartHourChange}
           disabled={true}
@@ -339,10 +339,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <div className="input-wrapper">
-        <label>Fin de l&apos;évènement</label>
+        <label>{t('EndEvent')}</label>
         <input
           type="time"
-          name="time"
+          name={t('Time')}
           min={startHour}
           value={endHour}
           onChange={handleEndHourChange}
@@ -351,10 +351,10 @@ const EventSettings: FC<EventSettingsProps> = () => {
         />
       </div>
       <TextArea
-        label="Description"
-        placeholder="Description de l'évenement"
+        label={t('DescriptionEvent2')}
+        placeholder={t('EventDescription')}
         value={description}
-        name="description"
+        name={t('DescriptionEvent2')}
         error={errorDescription}
         disabled={true}
         onChange={handleDescriptionChange}
@@ -365,7 +365,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
   return (
     <div className="page-event-settings">
       <div className="navigation">
-        <h1>Tableau de bord</h1>
+        <h1>{t('dashboard')}</h1>
         <div className="settings-img-button">
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
@@ -373,7 +373,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
-            Paramètres
+            {t('settings')}
           </button>
         </div>
         <div className="settings-img-button">
@@ -383,7 +383,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-statistics`)}
           >
-            Statistiques
+            {t('statistics')}
           </button>
         </div>
         <MenuTracks

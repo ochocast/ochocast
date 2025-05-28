@@ -22,6 +22,7 @@ import { PublicEvent } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
+import { useTranslation } from 'react-i18next';
 
 export interface eventsProps {}
 
@@ -160,17 +161,20 @@ const EventsPage: FC<eventsProps> = () => {
     }
   };
 
+  const { t } = useTranslation();
+
   const onPublish = async (eventId: string) => {
     try {
       const res = await publishEvent(eventId);
+    
       if (res.status !== 200) {
         setToast({
-          message: "Erreur lors de la publication de l'évènement",
+          message: t('ErrorPublishingEvent'),
           type: 'error',
         });
       } else {
         setToast({
-          message: 'Évènement publié avec succès !',
+          message: t('EventSuccessfullyPublished'),
           type: 'success',
         });
 
@@ -233,7 +237,7 @@ const EventsPage: FC<eventsProps> = () => {
 
         if (res.status === 201) {
           setToast({
-            message: 'Évènement créé avec succès !',
+            message: t('EventSuccessfullyCreated'),
             type: 'success',
           });
           toggle();
@@ -248,12 +252,12 @@ const EventsPage: FC<eventsProps> = () => {
         }
       } catch (error) {
         setToast({
-          message: "Erreur lors de la création de l'évènement",
+          message: t('ErrorCreatingEvent'),
           type: 'error',
         });
         logger.error(error);
         setMessage(
-          "L'évènement n'a pas pu être créer, une erreur est survenue",
+          t('ErrorCreationEvent'),
         );
       }
     }
@@ -277,13 +281,13 @@ const EventsPage: FC<eventsProps> = () => {
           <SearchBar
             onClick={handleSearch}
             needInput={true}
-            placeholder="Rechercher un évènement..."
+            placeholder={t('searchAnEvent')}
           />
         </div>
       </header>
       <div className="button-event-creation">
         <Button
-          label="Créer un évènement"
+          label={t('CreateAnEvent')}
           type={ButtonType.primary}
           onClick={toggle}
         />
@@ -292,7 +296,7 @@ const EventsPage: FC<eventsProps> = () => {
         {filteredPublished && filteredPublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.Published}
-            title="Prochain évènements"
+            title={t('UpcomingEvents')}
             events={filteredPublished}
             viewerID={userString ? JSON.parse(userString).id : ''}
           />
@@ -300,7 +304,7 @@ const EventsPage: FC<eventsProps> = () => {
         {filteredUnpublished && filteredUnpublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.NotPublished}
-            title="Évènements non publiés"
+            title={t('UnpublishedEvents')}
             events={filteredUnpublished}
             onPublish={onPublish}
           />
@@ -308,29 +312,29 @@ const EventsPage: FC<eventsProps> = () => {
         {filteredClosed && filteredClosed.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.Finished}
-            title="Évènements passé"
+            title={t('PastEvents')}
             events={filteredClosed}
           />
         ) : null}
       </div>
       <Modal isOpen={isOpen} toggle={toggle}>
-        <h1>Créer un nouvel évènement</h1>
+        <h1>{t('CreateNewEvent')}</h1>
         <form className="add-event-form" onSubmit={handleSubmit}>
           <div className="side-by-side">
             <TextBox
               type="text"
-              label="Nom de l'évènement"
-              placeholder="Mon évènement"
+              label={t('NameEvent')}
+              placeholder={t('MyEvent')}
               value={name}
-              name="name"
+              name={t('Name')}
               error={errorName}
               onChange={handleNameChange}
             />
             <div className="input-wrapper">
-              <label>Date de l&apos;évènement</label>
+              <label>{t('DateEvent')}</label>
               <input
                 type="date"
-                name="date"
+                name={t('Date')}
                 value={date}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={handleDateChange}
@@ -338,20 +342,20 @@ const EventsPage: FC<eventsProps> = () => {
               />
             </div>
             <div className="input-wrapper">
-              <label>Début de l&apos;évènement</label>
+              <label>{t('StartEvent')}</label>
               <input
                 type="time"
-                name="time"
+                name={t('Time')}
                 value={startHour}
                 onChange={handleStartHourChange}
                 required
               />
             </div>
             <div className="input-wrapper">
-              <label>Fin de l&apos;évènement</label>
+              <label>{t('EndEvent')}</label>
               <input
                 type="time"
-                name="time"
+                name={t('Time')}
                 min={startHour}
                 value={endHour}
                 onChange={handleEndHourChange}
@@ -359,20 +363,20 @@ const EventsPage: FC<eventsProps> = () => {
               />
             </div>
              <div className="input-wrapper">
-              <label>Miniature</label>
-              <InputFile placeholder="Choisissez une miniature" onChange={handleImageChange} disable={false} required={false}/>
+              <label>{t('Thumbnail')}</label>
+              <InputFile placeholder={t('ChooseThumbnail')} onChange={handleImageChange} disable={false} required={false}/>
               {imageUrl && <img src={imageUrl} alt="Miniature Preview" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}
             </div>
           </div>
           <TextArea
-            label="Description de l'évènement"
-            placeholder="Description..."
+            label={t('EventDescription')}
+            placeholder={t('DescriptionEvent')}
             value={description}
-            name="description"
+            name={t('DescriptionEvent2')}
             error={errorDescription}
             onChange={handleDescriptionChange}
           />
-          <Button label="Créer l'évènement" type={ButtonType.primary} />
+          <Button label={t('CreateEvent')} type={ButtonType.primary} />
           <div className="message">{message ? <p>{message}</p> : null}</div>
         </form>
       </Modal>

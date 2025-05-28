@@ -56,7 +56,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           <img className={styles.image} alt="" src={imageSrc} />
           <div className={styles.titlesCenter}>
             <h2 className={styles.name}>{props.name}</h2>
-            <h5 className={styles.email}>Email: {props.email}</h5>
+            <h5 className={styles.email}>{t('Email')} {props.email}</h5>
           </div>
         </div>
       </Card>
@@ -70,8 +70,8 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           <div>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.name}</h2>
-              <h5 className={styles.email}>Email: {props.email}</h5>
-              <span className={styles.descriptionTitle}>Description :</span>
+              <h5 className={styles.email}>{t('Email')} {props.email}</h5>
+              <span className={styles.descriptionTitle}>{t('Description')}</span>
               <span className={styles.descriptionClamp}>
                 {props.description}
               </span>
@@ -90,8 +90,8 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           <div className={styles.description}>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.name}</h2>
-              <h5 className={styles.email}>Email: {props.email}</h5>
-              <span className={styles.descriptionTitle}>Description :</span>
+              <h5 className={styles.email}>{t('Email')} {props.email}</h5>
+              <span className={styles.descriptionTitle}>{t('Description')}</span>
               <span>{props.description}</span>
             </div>
             <div className={styles.logout}>

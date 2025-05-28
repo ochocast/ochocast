@@ -1,13 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import './notFound.css';
+import { useTranslation } from 'react-i18next';
 
 const NotFoundPage = () => {
+  const { t } = useTranslation();
   return (
     <div className="notFound">
-      <h1>404 - Page introuvable</h1>
-      <p>Désolé, la page que vous recherchez n&apos;existe pas.</p>
-      <Link to="/">Retour à l&apos;accueil</Link>
+      <h1>{t('404')}</h1>
+      <p>{t('PageDoesntExist')}</p>
+      <Link to="/">{t('ReturnHome')}</Link>
     </div>
   );
 };

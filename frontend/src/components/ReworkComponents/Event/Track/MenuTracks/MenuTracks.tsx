@@ -2,6 +2,7 @@ import React from 'react';
 import styles from './MenuTracks.module.css';
 import { Track } from '../../../../../utils/EventsProperties';
 import addButton from '../../../../../assets/addButton.png';
+import { useTranslation } from 'react-i18next';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -14,6 +15,7 @@ export interface MenuTracksProps {
 
 const MenuTracks = (props: MenuTracksProps) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const addTrackButton = (
     <button
@@ -28,7 +30,7 @@ const MenuTracks = (props: MenuTracksProps) => {
   const header = (
     <div className={styles.header}>
       <img className={styles.img} src={props.imageUrl} alt="iconeSelect" />
-      <span className={styles.title}>Pistes</span>
+      <span className={styles.title}>{t('Tracks')}</span>
         {props.isButtonDisplayed && addTrackButton}
     </div>
   );

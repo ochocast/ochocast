@@ -8,6 +8,7 @@ import Button from '../../components/ReworkComponents/generic/Button/Button';
 // import { ReactPlayerProps } from 'react-player/types/lib';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 import WaitingScreen from '../../components/waitingScreen/waitingScreen';
+import { useTranslation } from 'react-i18next';
 
 // const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
@@ -69,6 +70,8 @@ const LiveTrack = () => {
     fetchTrackData();
   }, [trackId]);
 
+  const { t } = useTranslation();
+
   return (
     <div className="live-page">
       {track ? (
@@ -78,7 +81,7 @@ const LiveTrack = () => {
               <NavigateBackButton />
               <h1 className="event-title">{track.event.name}</h1>
             </div>
-            <Button label="Clôturer la piste" onClick={fetchCloseTrack()} />
+            <Button label={t('CloseTrack')} onClick={fetchCloseTrack()} />
           </div>
             <div className="player-wrapper">
             {/* {url ? ( */}
@@ -117,7 +120,7 @@ const LiveTrack = () => {
             <div className="track-title">
               <h2>{track.name}</h2>
               <Button
-                label="Paramètres"
+                label={t('settings')}
                 onClick={() =>
                   navigate(
                     `/events/${track.event.id}/track-settings/${trackId}`,
@@ -129,7 +132,7 @@ const LiveTrack = () => {
           </div>
         </>
       ) : (
-        <h1>loading</h1>
+        <h1>{t('Loading')}</h1>
       )}
     </div>
   );

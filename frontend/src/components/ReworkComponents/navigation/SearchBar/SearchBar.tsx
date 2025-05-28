@@ -3,6 +3,7 @@ import { Tag_video, User } from '../../../../utils/VideoProperties';
 import { findTags, findUsers } from '../../../../utils/api';
 import logger from '../../../../utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export enum SearchBarIcon {
   SEARCH = 'search.svg',
@@ -108,6 +109,7 @@ const SearchBar = ({
       suggestionsList.style.display = 'none';
     }
   }, [tag_suggestions, user_suggestions, onClick]);
+  const { t } = useTranslation();
 
   return (
     <>
@@ -118,7 +120,7 @@ const SearchBar = ({
             value={query}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder ? placeholder : 'Recherche ...'}
+            placeholder={placeholder ? placeholder : t('Searching')}
             className={styles.searchInput}
             ref={inputRef} // Associe la référence à l'élément d'entrée
           />

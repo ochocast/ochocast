@@ -11,10 +11,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import logger from '../../utils/logger';
 import Event from '../../utils/EventsProperties';
 import { Track, User } from '../../utils/EventsProperties';
+import { useTranslation } from 'react-i18next';
 
 export const useTrackSettings = () => {
   const { eventId, trackId } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [event, setEvent] = useState<Event>();
@@ -23,6 +25,7 @@ export const useTrackSettings = () => {
   const [speakers, setSpeakers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  
 
   // Get users
   useEffect(() => {
@@ -108,27 +111,27 @@ export const useTrackSettings = () => {
     e.preventDefault();
 
     if (!data.name?.trim() || !data.description?.trim()) {
-      setMessage('Nom et description requis.');
+      setMessage(t('NameDescriptionRequired'));
       return;
     }
 
     if (!data.startDate || !data.endDate) {
-      setMessage('Début et fin requis.');
+      setMessage(t('StartEndRequired'));
       return;
     }
 
     if (data.startDate >= data.endDate) {
-      setMessage("L'heure de début doit être antérieure à l'heure de fin.");
+      setMessage(t('StartTimeError'));
       return;
     }
 
     if (event && (data.startDate < event.startDate || data.endDate > event.endDate)) {
-      setMessage("L'heure de début et de fin doit être compris dans le crenaux.");
+      setMessage(t('TimeError'));
       return;
     }
 
     if (selectedSpeakers.length === 0) {
-      setMessage('Au moins un orateur requis.');
+      setMessage(t('SpeakerError'));
       return;
     }
 
@@ -153,7 +156,7 @@ export const useTrackSettings = () => {
       }
     } catch (err) {
       logger.error(err);
-      setMessage("Erreur lors de l'enregistrement de la piste");
+      setMessage(t('ErrorSavingTrack'));
     }
   };
 
@@ -164,7 +167,7 @@ export const useTrackSettings = () => {
       navigate(`/events/${eventId}/event-settings`);
     } catch (err) {
       logger.error(err);
-      setMessage('Erreur lors de la suppression de la piste');
+      setMessage(t('DeleteTrackError'));
     }
   };
 

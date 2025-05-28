@@ -8,6 +8,7 @@ import styles from './EventBox.module.css';
 import Button, { ButtonType } from '../../generic/Button/Button';
 import { PublicEvent } from '../../../../utils/EventsProperties';
 import { subscribeEvent } from '../../../../utils/api';
+import { t } from 'i18next';
 
 interface EventBoxProps {
   event: PublicEvent;
@@ -35,7 +36,7 @@ const EventBox = (props: EventBoxProps) => {
   const buttonsPublished = (
     <div className={styles.subscribeWrapper}>
       <Button
-        label="S'inscrire"
+        label={t('Register')}
         type={ButtonType.primary}
         onClick={async () => {
           if ((await subscribeEvent(event.id)).status == 200)
@@ -46,7 +47,7 @@ const EventBox = (props: EventBoxProps) => {
         <span className={styles.dot}></span>
         <span
           className={styles.subscritpions}
-        >{`${nbSubscribe} inscrits`}</span>
+        >{`${nbSubscribe}` + t('registered')}</span>
       </div>
     </div>
   );
@@ -54,7 +55,7 @@ const EventBox = (props: EventBoxProps) => {
   const buttonsNotPublished = (
     <div className={styles.centerWrapper}>
       <Button
-        label="Publier"
+        label={t('Publish')}
         type={ButtonType.primary}
         onClick={() => props.onPublish && props.onPublish(event.id)}
       />
@@ -63,7 +64,7 @@ const EventBox = (props: EventBoxProps) => {
 
   const buttonsFinished = (
     <div className={styles.centerWrapper}>
-      <Button label="Statistiques" type={ButtonType.primary} />
+      <Button label={t('statistics')} type={ButtonType.primary} />
     </div>
   );
 
@@ -88,16 +89,16 @@ const EventBox = (props: EventBoxProps) => {
         <div className={styles.title}>{event.name}</div>
         <div
           className={styles.date}
-        >{`Date de début: ${dateDisplay.getDate()}/${
+        >{t('StartDate') + `${dateDisplay.getDate()}/${
           dateDisplay.getMonth() + 1
         }/${dateDisplay.getFullYear()}`}</div>
       </div>
       <div className={styles.eventWrapper}>
-        <div className={styles.info}>{`Créé par : ${
+        <div className={styles.info}>{t('CreatedBy') + 
           event.creator
             ? event.creator.firstName + ' ' + event.creator.lastName
-            : 'Créateur inconnu'
-        }`}</div>
+            : "" + t('CreatorUnknown')
+        }</div>
       </div>
       {props.eventStatus === EventStatus.Published && buttonsPublished}
       {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}
