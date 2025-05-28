@@ -5,14 +5,14 @@ import addButton from '../../../../../assets/addButton.png';
 
 import { useNavigate } from 'react-router-dom';
 
-export interface DropDownMenuTracksProps {
+export interface MenuTracksProps {
   tracks: Track[];
   eventId: string;
   imageUrl: string;
   isButtonDisplayed: boolean;
 }
 
-const DropDownMenuTracks = (props: DropDownMenuTracksProps) => {
+const MenuTracks = (props: MenuTracksProps) => {
   const navigate = useNavigate();
 
   const addTrackButton = (
@@ -56,4 +56,4 @@ const DropDownMenuTracks = (props: DropDownMenuTracksProps) => {
   );
 };
 
-export default DropDownMenuTracks;
+export default MenuTracks;

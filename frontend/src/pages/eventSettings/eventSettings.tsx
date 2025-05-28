@@ -7,7 +7,7 @@ import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
-import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
+import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 import {
   getPrivateEvent,
   updateEvent,
@@ -386,7 +386,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
             Statistiques
           </button>
         </div>
-        <DropDownMenuTracks
+        <MenuTracks
           tracks={tracks}
           eventId={eventId ?? ''}
           isButtonDisplayed={!eventClosed && userId === creatorId}

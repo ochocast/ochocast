@@ -3,7 +3,7 @@ import React from 'react';
 import './eventStatistics.css';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
-import DropDownMenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
+import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 import { getPrivateEvent } from '../../utils/api';
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
@@ -97,7 +97,7 @@ const EventStatistic: FC<EventStatisticProps> = () => {
             {t('statistics')}
           </button>
         </div>
-        <DropDownMenuTracks
+        <MenuTracks
           tracks={tracks}
           eventId={eventId ?? ''}
           isButtonDisplayed={!eventClosed && userId === creatorId}
