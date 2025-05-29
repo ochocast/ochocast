@@ -15,7 +15,6 @@ import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-  
 
   @Column()
   firstName: string;
@@ -56,20 +55,23 @@ export class UserEntity {
 
   @ManyToMany(() => TrackEntity, (track) => track.speakers)
   speakingTracks: TrackEntity[];
-  
- @ManyToMany(() => VideoEntity, (video) => video.usersWhoFavorited)
- @JoinTable({
-  name: 'user_favorite_videos',
-  joinColumn: {
-    name: 'user_id',
-    referencedColumnName: 'id',
-  },
-  inverseJoinColumn: {
-    name: 'video_id',
-    referencedColumnName: 'id',
-  },
-})
-favoriteVideos: VideoEntity[];
+
+  @ManyToMany(() => EventEntity, (event) => event.usersSubscribe)
+  eventsSubscribe: EventEntity[];
+
+  @ManyToMany(() => VideoEntity, (video) => video.usersWhoFavorited)
+  @JoinTable({
+    name: 'user_favorite_videos',
+    joinColumn: {
+      name: 'user_id',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'video_id',
+      referencedColumnName: 'id',
+    },
+  })
+  favoriteVideos: VideoEntity[];
 
   constructor(user: Partial<UserEntity>) {
     Object.assign(this, user);
