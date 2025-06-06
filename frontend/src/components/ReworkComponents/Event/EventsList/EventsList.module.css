@@ -9,7 +9,7 @@
 .title {
   font-size: 36px;
   margin-left: 150px;
-  text-shadow: 0 4px 4px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 4px 4px var(--theme-color-3400);
 }
 
 .list {

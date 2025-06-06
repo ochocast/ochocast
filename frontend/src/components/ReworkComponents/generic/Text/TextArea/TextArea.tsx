@@ -1,6 +1,6 @@
 import React, { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import './TextArea.css';
+import styles from './TextArea.module.css';
 
 export interface TextAreaProps {
   label: string;
@@ -25,7 +25,7 @@ const TextArea = ({
 }: TextAreaProps) => {
   const { t } = useTranslation();
   return (
-    <div className="area-wrapper">
+    <div className={styles.areaWrapper}>
       <label htmlFor={label}>{label}</label>
       <textarea
         id={label}
@@ -36,7 +36,7 @@ const TextArea = ({
         disabled={disabled}
         onChange={onChange}
       />
-      {error && <p className="error">{t('FieldCannotBeEmpty')}</p>}
+      {error && <p className={styles.error}>{t('FieldCannotBeEmpty')}</p>}
     </div>
   );
 };

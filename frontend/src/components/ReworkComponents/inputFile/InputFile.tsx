@@ -1,6 +1,6 @@
 import React, { ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import './InputFile.css';
+import styles from './InputFile.module.css';
 
 interface InputFileProps {
   placeholder?: string;
@@ -24,9 +24,9 @@ const InputFile = ({
     }
 
     if (file?.length === 1) {
-      const fileArea = e.target.closest('.file-area');
+      const fileArea = e.target.closest(`.${styles.fileArea}`);
       if (fileArea) {
-        const fileDummyDefault = fileArea.querySelector('.file-dummy .default');
+        const fileDummyDefault = fileArea.querySelector(`.${styles.fileDummy} .default`);
         if (fileDummyDefault) {
           fileDummyDefault.innerHTML = file[0].name; // Set the innerHTML to the name of the selected file
           onChange(e);
@@ -36,7 +36,7 @@ const InputFile = ({
   };
 
   return (
-    <div className="form-group file-area">
+    <div className={styles.fileArea}>
       {/* <label>Upload Your File <span className="required">*</span></label> */}
       <input
         type="file"
@@ -46,7 +46,7 @@ const InputFile = ({
         disabled={disable}
         required={required}
       />
-      <div className="file-dummy">
+      <div className={styles.fileDummy}>
         <div className="default">{effectiveplaceholder}</div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, {FC} from "react";
+import './livestream.module.css';
 import { useTranslation } from 'react-i18next';
 
 /* eslint-disable */

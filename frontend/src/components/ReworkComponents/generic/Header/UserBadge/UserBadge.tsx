@@ -1,7 +1,7 @@
 import React, { JSX } from 'react';
 import profilePicture from './profile-picture.svg';
 import { useNavigate } from 'react-router-dom';
-import './UserBadge.css';
+import styles from './UserBadge.module.css';
 
 interface Props {
   username?: string;
@@ -14,14 +14,14 @@ export const UserBadge = ({ username, image }: Props): JSX.Element => {
 
   return (
     <div
-      className="userBadge"
+      className={styles.userBadge}
       onClick={() => {
         navigate('/profile');
       }}
     >
-      <div className="userBadge-name">{username}</div>
+      <div className={`${styles.userBadge} ${styles.userBadgeName}`}>{username}</div>
       <img
-        className="userBadge-picture"
+        className={`${styles.userBadge} ${styles.userBadgePicture}`}
         alt="Profile picture"
         src={image ? image : profilePicture}
       />

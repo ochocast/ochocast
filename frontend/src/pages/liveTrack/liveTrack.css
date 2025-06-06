@@ -27,7 +27,7 @@
 }
 
 .live-box {
-  background-color: --theme-color-black;
+  background-color: var(--theme-color-black);
   height: 500px;
 }
 

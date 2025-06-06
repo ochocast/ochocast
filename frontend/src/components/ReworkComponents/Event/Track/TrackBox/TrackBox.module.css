@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  border: 1px solid black;
+  border: 1px solid var(--theme-color-black);
   border-radius: 20px;
   padding-inline: 20px;
 }
@@ -21,7 +21,7 @@
 }
 
 .line {
-  background-color: #d9d9d9;
+  background-color: var(--theme-color-60);
   height: 5px;
   width: 100%;
 }

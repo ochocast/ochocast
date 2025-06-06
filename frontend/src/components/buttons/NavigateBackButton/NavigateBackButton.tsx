@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './NavigateBackButton.css';
+import styles from './NavigateBackButton.module.css';
 
 import defaultImageUrl from '../../../assets/gaucheAigu.svg';
 
@@ -23,14 +23,14 @@ const NavigateBackButton: FC<NavigateBackButtonProps> = ({ customPageUrl }) => {
   };
 
   return (
-    <div className="NavigateBackButton">
+    <div className={styles.NavigateBackButtonContainer}>
       <img
-        className="navigate-back-image"
+        className={styles.NavigateBackImage}
         src={defaultImageUrl}
         alt="iconeSelect"
       />
       <button
-        className="navigate-back-button"
+        className={styles.NavigateBackButton}
         type="button"
         onClick={handleClick}
       />

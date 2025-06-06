@@ -1,12 +1,12 @@
-/* NavigateBackButton.css */
+/* NavigateBackButton.module.css */
 
-.NavigateBackButton {
+.NavigateBackButtonContainer {
   position: relative;
   width: 40px; /* Adjust the size as needed */
   height: 40px; /* Adjust the size as needed */
 }
 
-.navigate-back-image {
+.NavigateBackImage {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -16,7 +16,7 @@
   left: 0;
 }
 
-.navigate-back-button {
+.NavigateBackButton {
   background-color: transparent;
   width: 100%;
   height: 100%;

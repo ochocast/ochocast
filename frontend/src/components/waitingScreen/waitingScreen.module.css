@@ -6,8 +6,8 @@
   height: 42vh;
   text-align: center;
   animation: fadeIn 1s ease-in-out;
-  background-color: #c6edcb;
-  border: 1px solid #000;
+  background-color: var(--theme-color-300);
+  border: 1px solid var(--theme-color-black);
   border-radius: 8px;
   padding: 1rem;
 }

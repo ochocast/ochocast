@@ -1,5 +1,5 @@
 /* ===================== FILE INPUT ===================== */
-.file-area {
+.fileArea {
   width: -webkit-fill-available;
   position: relative;
 
@@ -13,7 +13,7 @@
     cursor: pointer;
   }
 
-  .file-dummy {
+  .fileDummy {
     padding: 2%;
     background: var(--theme-color-3050);
     border: 2px dashed var(--theme-color-3050);
@@ -21,16 +21,16 @@
     transition: background 0.3s ease-in-out;
   }
 
-  &:hover .file-dummy {
+  &:hover .fileDummy {
     background: var(--theme-color-3000);
   }
 
-  input[type=file]:focus+.file-dummy {
+  input[type=file]:focus+.fileDummy {
     outline: 2px solid var(--theme-color-3100);
     outline: -webkit-focus-ring-color auto 5px;
   }
 
-  input[type=file]:valid+.file-dummy {
+  input[type=file]:valid+.fileDummy {
     border-color: var(--theme-color-3300);
     background-color: var(--theme-color-3200);
   }

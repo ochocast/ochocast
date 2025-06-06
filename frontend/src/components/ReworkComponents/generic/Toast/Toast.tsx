@@ -17,7 +17,7 @@ const Toast: React.FC<ToastProps> = ({ message, type = "info", duration = 3000, 
   }, [duration, onClose]);
 
   return (
-    <div className={`${styles.toast} ${styles[`toast-${type}`]}`}>
+    <div className={`${styles.toast} ${styles[`toast_${type}`]}`}>
       <span>{message}</span>
     </div>
   );

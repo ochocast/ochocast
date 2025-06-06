@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Header.css';
+import styles from './Header.module.css';
 
 import octoLogo from '../../../../assets/ochoIconFull.svg';
 
@@ -17,10 +17,10 @@ const Header: FC<HeaderProps> = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="Header">
-      <div className="Logo-div">
+    <div className={styles.Header}>
+      <div className={styles.LogoDiv}>
         <img
-          className="Logo"
+          className={styles.Logo}
           src={octoLogo}
           alt="Logo"
           // width="200"
@@ -28,7 +28,7 @@ const Header: FC<HeaderProps> = () => {
           onClick={() => navigate('/')}
         />
       </div>
-        <div className="NavBadge">
+        <div className={styles.NavBadge}>
           <NavItems />
             {username && (
           <UserBadge username={username} />

@@ -8,5 +8,5 @@
 .navItems {
   display: flex;
   gap: 1rem;
-  color: #fff;
+  color: var(--theme-color-white);
 }

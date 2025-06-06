@@ -10,7 +10,7 @@
 .title {
   margin: 0px;
   background-color: var(--theme-color-100);
-  color: black;
+  color: var(--theme-color-black);
   border: none;
   height: 100%;
   font-size: 32px;

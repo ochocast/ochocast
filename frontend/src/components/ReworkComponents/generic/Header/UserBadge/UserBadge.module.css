@@ -12,11 +12,11 @@
   cursor: pointer;
 }
 
-.userBadge .userBadge-name {
+.userBadge .userBadgeName {
   color: var(--theme-color-black);
 }
 
-.userBadge .userBadge-picture {
+.userBadge .userBadgePicture {
   width: 1.5em;
   max-height: 42px;
   cursor: pointer;
@@ -24,14 +24,14 @@
 
 /* Mobile S */
 @media (min-width: 320px) {
-  .userBadge .userBadge-name {
+  .userBadge .userBadgeName {
     display: none;
   }
 }
 
 /* Mobile L / Tablette */
 @media (min-width: 640px) {
-  .userBadge .userBadge-name {
+  .userBadge .userBadgeName {
     display: flex;
   }
 }

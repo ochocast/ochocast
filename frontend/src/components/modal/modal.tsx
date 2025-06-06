@@ -1,5 +1,5 @@
 import React, { FC } from 'react';
-import './modal.css';
+import styles from './modal.module.css';
 
 export interface ModalProps {
   children?: React.ReactNode;
@@ -10,8 +10,8 @@ export interface ModalProps {
 const Modal: FC<ModalProps> = ({ children, isOpen, toggle }) => (
   <>
     {isOpen && (
-      <div className="overlay" onClick={toggle}>
-        <div onClick={(e) => e.stopPropagation()} className="box">
+      <div className={styles.overlay} onClick={toggle}>
+        <div onClick={(e) => e.stopPropagation()} className={styles.box} >
           {children}
         </div>
       </div>

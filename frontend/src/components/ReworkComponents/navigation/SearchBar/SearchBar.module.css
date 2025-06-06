@@ -19,7 +19,7 @@
 }
 
 .searchInput::placeholder {
-  color: var(--theme-color-700); /* Placeholder text color */
+  color: var(--theme-color-700); 
   opacity: 0.7;
 }
 
@@ -46,10 +46,10 @@
   padding: 10px 15px;
   cursor: pointer;
   font-size: 16px;
-  color: #333;
+  color: var(--theme-color-1200);
   font-family: Arial, sans-serif;
-  border: 5px solid black;
-  background-color: white;
+  border: 5px solid var(--theme-color-black);
+  background-color: var(--theme-color-white);
 }
 
 .suggestions_list li img {
@@ -60,10 +60,10 @@
 }
 
 .suggestions_list li:hover {
-  background-color: #e6f7e6;
-  color: #1a771a;
+  background-color: var(--theme-color-200);
+  color: var(--theme-color-1150);
 }
 
 .suggestions_list li:active {
-  background-color: #d4f0d4;
+  background-color: var(--theme-color-200);
 }

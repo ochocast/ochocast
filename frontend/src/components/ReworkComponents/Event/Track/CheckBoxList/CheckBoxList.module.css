@@ -3,7 +3,7 @@
   flex-direction: column;
   background-color: var(--theme-color-50);
   width: 45%;
-  border: #000 1px solid;
+  border: var(--theme-color-black) 1px solid;
   border-radius: 1.3rem;
   padding: 10px;
 }

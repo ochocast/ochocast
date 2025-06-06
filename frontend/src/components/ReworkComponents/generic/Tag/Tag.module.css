@@ -30,5 +30,5 @@
 }
 .primary {
   background-color: var(--theme-color-500);
-  color: #fff;
+  color: var(--theme-color-white);
 }
