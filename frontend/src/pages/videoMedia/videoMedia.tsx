@@ -74,7 +74,10 @@ const VideoMedia: FC<VideoMediaProps> = () => {
     return LoadingCircle();
   }
 
-  if (video != undefined)
+  if (!video) {
+    return <NotFoundPage />;
+  }
+
     return (
       <div className={styles.containerGlobal}>
         <h2 className={styles.video_title}>
@@ -162,7 +165,6 @@ const VideoMedia: FC<VideoMediaProps> = () => {
         </div>
       </div>
     );
-  else return NotFoundPage();
 };
 
 export default VideoMedia;
