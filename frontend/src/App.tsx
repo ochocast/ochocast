@@ -18,7 +18,6 @@ import HomePage from './pages/home/Home';
 import Profile from './pages/profile/profile';
 import {ProtectedRoutes} from "./utils/ProtectedRoutes";
 import EventStatistic from './pages/eventStatistics/eventStatistics';
-import EventsHomePage from './pages/eventsHome/eventsHome';
 
 function App() {
   return (
@@ -30,10 +29,6 @@ function App() {
         <Route
           path="/events"
           element={<EventsPage/>}
-        />
-        <Route 
-          path="/events-home"
-          element={<EventsHomePage/>}
         />
         <Route
           path="/events/:eventId/event-settings"
