@@ -15,6 +15,7 @@ export interface SearchBarProps {
   placeholder?: string;
   needInput?: boolean;
   icon?: SearchBarIcon;
+  hasSugestion?: boolean;
 }
 
 const SearchBar = ({
@@ -22,6 +23,7 @@ const SearchBar = ({
   needInput,
   placeholder,
   icon,
+  hasSugestion,
 }: SearchBarProps) => {
   const [query, setQuery] = useState('');
   const [tag_suggestions, setTag] = useState<Tag_video[]>([]);
@@ -30,6 +32,10 @@ const SearchBar = ({
 
   if (needInput === undefined) {
     needInput = true;
+  }
+
+  if (hasSugestion === undefined) {
+    hasSugestion = true;
   }
 
   const findSuggestions = async (query_enter: string) => {
@@ -48,7 +54,7 @@ const SearchBar = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-  
+
     if (value !== '') {
       findSuggestions(value);
     } else {
@@ -68,11 +74,12 @@ const SearchBar = ({
   };
 
   useEffect(() => {
-    const suggestionsList = document.getElementById('suggestions_list') as HTMLUListElement;
-    if (tag_suggestions.length || user_suggestions) {
+    const suggestionsList = hasSugestion ? document.getElementById(
+      'suggestions_list',
+    ) as HTMLUListElement : undefined;
+    if (suggestionsList && (tag_suggestions.length || user_suggestions)) {
       suggestionsList.innerHTML = '';
       const filteredObjects: { name: string; img: string }[] = [];
-
 
       suggestionsList.style.display = 'block';
       suggestionsList.innerHTML = '';
@@ -105,10 +112,10 @@ const SearchBar = ({
 
         suggestionsList.appendChild(li);
       });
-    } else {
+    } else if (suggestionsList){
       suggestionsList.style.display = 'none';
     }
-  }, [tag_suggestions, user_suggestions, onClick]);
+  }, [tag_suggestions, user_suggestions, onClick, hasSugestion]);
   const { t } = useTranslation();
 
   return (
@@ -130,12 +137,16 @@ const SearchBar = ({
             className={styles.searchIcon}
             alt="Search"
             src={
-              icon === SearchBarIcon.ADD ? SearchBarIcon.ADD : SearchBarIcon.SEARCH
+              icon === SearchBarIcon.ADD
+                ? SearchBarIcon.ADD
+                : SearchBarIcon.SEARCH
             }
           />
         </button>
       </div>
-      <ul id={`suggestions_list`} className="suggestions_list"></ul>
+      {hasSugestion && (
+        <ul id={`suggestions_list`} className="suggestions_list"></ul>
+      )}
     </>
   );
 };
