@@ -140,5 +140,7 @@
   "NewTrack" : "New track",
   "SureDeleteEvent" : "Are you sure you want to delete the event?",
   "Images" : "Images",
-  "Speakers" : "Speakers"
+  "Speakers" : "Speakers",
+  "myEvents" : "My events",
+  "isRegistered": "is registered"
 }

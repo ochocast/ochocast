@@ -47,7 +47,7 @@ const EventBox = (props: EventBoxProps) => {
         <span className={styles.dot}></span>
         <span
           className={styles.subscritpions}
-        >{`${nbSubscribe}` + t('registered')}</span>
+        >{`${nbSubscribe} ` + t('registered')}</span>
       </div>
     </div>
   );

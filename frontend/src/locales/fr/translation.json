@@ -140,5 +140,7 @@
   "NewTrack" : "Nouvelle piste",
   "SureDeleteEvent" : "Etes-vous sur de vouloir supprimer l'évènement ?",
   "Images" : "Images",
-  "Speakers" : "Orateurs"
+  "Speakers" : "Orateurs",
+  "myEvents" : "Mes évènements",
+  "isRegistered": "est inscrit"
 }
