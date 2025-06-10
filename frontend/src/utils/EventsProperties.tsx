@@ -54,14 +54,37 @@ export interface PublicEvent {
   imageSlug: string;
   tracks: Track[];
   creatorId: string;
-  canBeEditByUser : boolean;
+  canBeEditByUser: boolean;
   creator: PublicUser;
   nbSubscription: number;
 }
-
 
 export interface PublicUser {
   id: string;
   firstName: string;
   lastName: string;
 }
+
+export const eventToPublicEvent = (event: Event): PublicEvent => {
+  return {
+    id: event.id,
+    name: event.name,
+    description: event.description,
+    tags: event.tags,
+    startDate: event.startDate,
+    endDate: event.endDate,
+    published: event.published,
+    private: event.private,
+    closed: event.closed,
+    imageSlug: event.imageSlug,
+    tracks: event.tracks,
+    creatorId: event.creatorId,
+    canBeEditByUser: true,
+    creator: {
+      id: event.creatorId,
+      firstName: event.creator?.firstName,
+      lastName: event.creator?.lastName,
+    },
+    nbSubscription: event.usersSubscribe.length,
+  };
+};

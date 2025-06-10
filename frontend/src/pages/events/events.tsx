@@ -18,7 +18,7 @@ import {
   publishEvent,
 } from '../../utils/api';
 import { createEvent } from '../../utils/api';
-import { PublicEvent } from '../../utils/EventsProperties';
+import { eventToPublicEvent, PublicEvent } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
@@ -248,7 +248,7 @@ const EventsPage: FC<eventsProps> = () => {
           setEndHour('');
           setSelectedImage(null);
           setImageUrl(null);
-          setEventsUnpublished((prevEvents) => [...prevEvents, res.data]);
+          setEventsUnpublished((prevEvents) => [...prevEvents, eventToPublicEvent(res.data)]);
         }
       } catch (error) {
         setToast({
