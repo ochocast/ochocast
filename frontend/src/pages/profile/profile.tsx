@@ -84,12 +84,10 @@ const Profile: FC<ProfileProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <ProfileDescription
-          name={currentUser ? currentUser.firstName : 'Inconnu'}
-          email={
-            currentUser ? currentUser.email : 'Adresse mail non renseignée'
-          }
+          name={currentUser ? currentUser.firstName : t('unknown')}
+          email={currentUser ? currentUser.email : t('unknownEmail')}
           description={
-            currentUser ? currentUser.description : 'Aucune description'
+            currentUser ? currentUser.description : t('noDescription')
           }
           image={
             currentUser
@@ -105,7 +103,7 @@ const Profile: FC<ProfileProps> = () => {
               handleSearch([query]);
             }}
             needInput={true}
-            placeholder="Exemple: DevOps"
+            placeholder={t('noDescription')}
             icon={SearchBarIcon.SEARCH}
           />
         </div>
