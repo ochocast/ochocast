@@ -12,28 +12,39 @@ import * as sharp from 'sharp';
 
 jest.mock('@aws-sdk/lib-storage', () => ({
   Upload: jest.fn().mockImplementation(() => ({
-    done: jest.fn().mockResolvedValue({ Location: 'https://mock-s3-url.com/miniature.jpg' }),
+    done: jest
+      .fn()
+      .mockResolvedValue({ Location: 'https://mock-s3-url.com/miniature.jpg' }),
   })),
 }));
 
-jest.mock('sharp', () => jest.fn().mockReturnValue({
-  resize: jest.fn().mockReturnThis(),
-  jpeg: jest.fn().mockReturnThis(),
-  toFile: jest.fn().mockResolvedValue(true),
-}));
+jest.mock('sharp', () =>
+  jest.fn().mockReturnValue({
+    resize: jest.fn().mockReturnThis(),
+    jpeg: jest.fn().mockReturnThis(),
+    toFile: jest.fn().mockResolvedValue(true),
+  }),
+);
 
 jest.mock('fluent-ffmpeg', () => {
-  const mockFfmpeg = {
-    videoCodec: jest.fn().mockReturnThis(),
-    outputOptions: jest.fn().mockReturnThis(),
-    format: jest.fn().mockReturnThis(),
-    on: jest.fn().mockReturnThis(),
-    save: jest.fn().mockReturnThis(),
-  };
-  return Object.assign(jest.fn(() => mockFfmpeg), {
+  const ffmpegMock = jest.fn(() => ffmpegMock);
+  ffmpegMock.videoCodec = jest.fn(() => ffmpegMock);
+  ffmpegMock.outputOptions = jest.fn(() => ffmpegMock);
+  ffmpegMock.format = jest.fn(() => ffmpegMock);
+  ffmpegMock.on = jest.fn(function (event, cb) {
+    if (event === 'end') {
+      setImmediate(cb);
+    }
+    return ffmpegMock;
+  });
+  ffmpegMock.save = jest.fn(() => ffmpegMock);
+  ffmpegMock.setFfmpegPath = jest.fn();
+
+  return Object.assign(ffmpegMock, {
     setFfmpegPath: jest.fn(),
   });
 });
+
 
 jest.mock('node:fs/promises', () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
@@ -55,7 +66,9 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
       ],
     }).compile();
 
-    createNewVideoUsecase = module.get<CreateNewVideoUsecase>(CreateNewVideoUsecase);
+    createNewVideoUsecase = module.get<CreateNewVideoUsecase>(
+      CreateNewVideoUsecase,
+    );
     videoGateway = module.get<IVideoGateway>('VideoGateway');
     s3Client = module.get<S3Client>('s3Client');
   });
@@ -74,18 +87,37 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
       archived: false,
     };
 
-    const mockVideoFile = { buffer: Buffer.from('fake video data') } as Express.Multer.File;
-    const miniatureFile = { buffer: Buffer.from('mock miniature data') } as Express.Multer.File;
+    const mockVideoFile = {
+      buffer: Buffer.from('fake video data'),
+    } as Express.Multer.File;
+    const miniatureFile = {
+      buffer: Buffer.from('mock miniature data'),
+    } as Express.Multer.File;
 
     (videoGateway.createNewVideo as jest.Mock).mockResolvedValue(undefined);
 
-    const result = await createNewVideoUsecase.execute(dto, mockVideoFile, miniatureFile);
+    const result = await createNewVideoUsecase.execute(
+      dto,
+      mockVideoFile,
+      miniatureFile,
+    );
 
     expect(result).toBeInstanceOf(VideoObject);
     expect(sharp).toHaveBeenCalledWith(miniatureFile.buffer);
     expect(sharp().resize).toHaveBeenCalledWith(1280, 720);
     expect(sharp().jpeg).toHaveBeenCalledWith({ quality: 80 });
     expect(sharp().toFile).toHaveBeenCalled();
-    expect(Upload).toHaveBeenCalledTimes(1);
+
+    expect(Upload).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      params: expect.objectContaining({
+        Key: expect.stringMatching(/\.mp4$/),
+      }),
+    }));
+
+    expect(Upload).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      params: expect.objectContaining({
+        Key: expect.stringMatching(/\.jpg$/),
+      }),
+    }));
   });
 });

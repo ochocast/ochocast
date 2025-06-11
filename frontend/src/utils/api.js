@@ -11,6 +11,17 @@ export const api = create({
   },
 });
 
+
+api.addAsyncRequestTransform(async (request) => {
+  const userString = localStorage.getItem('backendUser');
+  const user = userString ? JSON.parse(userString) : null;
+
+  if (user?.token) {
+    request.headers['Authorization'] = `Bearer ${user.token}`;
+  }
+});
+
+
 // Users
 export const loginUser = () => api.get('/users/login');
 export const getUsers = () => api.get('/users');
@@ -67,8 +78,6 @@ export const getSuggestions = (data) => api.get(`/videos/suggestions/${data}`);
 //favori
 export const addToFavorites = (videoId) =>
   api.post(`/users/favorites/${videoId}`);
-
-
 export const removeFromFavorites = (videoId) =>
   api.delete(`/users/favorites/${videoId}`);
 
@@ -76,4 +85,6 @@ export const isVideoFavorite = async (videoId) => {
   const response = await api.get(`/users/favorites/${videoId}`);
   return response?.data?.isFavorite === true;
 };
+export const getFavoriteVideos = () => api.get('/users/favorites');
+
 

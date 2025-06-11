@@ -2,6 +2,8 @@ import { VideoGateway } from '../../../../src/videos/infra/gateways/video.gatewa
 import { Repository } from 'typeorm';
 import { VideoEntity } from '../../../../src/videos/infra/gateways/entities/video.entity';
 import { S3Client } from '@aws-sdk/client-s3';
+import { UserGateway } from 'src/users/infra/gateways/user.gateway';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 describe('VideoGateway - getVideosSuggestions', () => {
   let videoGateway: VideoGateway;
@@ -76,5 +78,54 @@ describe('VideoGateway - getVideosSuggestions', () => {
     expect(mockQueryBuilder.where).toHaveBeenCalled();
     expect(mockQueryBuilder.andWhere).toHaveBeenCalled();
     expect(mockQueryBuilder.getMany).toHaveBeenCalled();
+  });
+});
+
+describe('UserGateway - getFavoriteVideos', () => {
+  let userGateway: UserGateway;
+  let usersRepositoryMock: Partial<Repository<UserEntity>>;
+
+  beforeEach(() => {
+    usersRepositoryMock = {
+      findOne: jest.fn().mockResolvedValue({
+        favoriteVideos: [
+          {
+            id: 'video-1',
+            title: 'Favorite Video',
+            tags: [],
+            creator: { firstName: 'John', lastName: 'Doe' },
+            comments: [],
+          },
+        ],
+      }),
+    };
+
+    userGateway = new UserGateway(usersRepositoryMock as any);
+  });
+
+  it('should retrieve favorite videos correctly', async () => {
+    const result = await userGateway.getFavoriteVideos('test@example.com');
+
+    expect(usersRepositoryMock.findOne).toHaveBeenCalledWith({
+      where: { email: 'test@example.com' },
+      relations: ['favoriteVideos', 'favoriteVideos.tags', 'favoriteVideos.creator', 'favoriteVideos.comments'],
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('video-1');
+  });
+
+  it('should handle no favorite videos', async () => {
+    usersRepositoryMock.findOne = jest.fn().mockResolvedValue({ favoriteVideos: [] });
+
+    const result = await userGateway.getFavoriteVideos('test@example.com');
+
+    expect(result).toEqual([]);
+  });
+
+  it('should throw error if user not found', async () => {
+    usersRepositoryMock.findOne = jest.fn().mockResolvedValue(null);
+
+    await expect(userGateway.getFavoriteVideos('missing@example.com')).rejects.toThrow('User not found');
   });
 });

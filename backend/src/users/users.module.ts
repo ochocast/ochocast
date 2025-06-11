@@ -12,6 +12,7 @@ import { GetListUsersUsecase } from './domain/usecases/getListUsers.usecase';
 import { AddFavoriteVideoUsecase } from './domain/usecases/addFavoriteVideo.usecase';
 import { RemoveFavoriteVideoUsecase } from './domain/usecases/removeFavoriteVideo.usecase';
 import { IsFavoriteVideoUsecase } from './domain/usecases/isFavoriteVideo.usecase';
+import { GetFavoriteVideosUsecase } from './domain/usecases/getFavoriteVideo.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserEntity]), S3Module],
@@ -29,6 +30,7 @@ import { IsFavoriteVideoUsecase } from './domain/usecases/isFavoriteVideo.usecas
     AddFavoriteVideoUsecase,
     RemoveFavoriteVideoUsecase,
     IsFavoriteVideoUsecase,
+    GetFavoriteVideosUsecase,
   ],
   exports: ['UserGateway'],
 })

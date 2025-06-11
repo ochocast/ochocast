@@ -100,6 +100,10 @@ describe('CloseEventUsecase', () => {
       getUserById: jest.fn(),
       loginUser: jest.fn(),
       getListUsers: jest.fn(),
+      addFavoriteVideo: jest.fn(),
+      removeFavoriteVideo: jest.fn(),
+      isVideoFavorite: jest.fn(),
+      getFavoriteVideos: jest.fn(),
     };
 
     closeEventUsecase = new CloseEventUsecase(

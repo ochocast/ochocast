@@ -37,6 +37,7 @@ describe('VideosController - getVideosSuggestions', () => {
     videos: [],
     videosAsSpeaker: [],
     speakingTracks: [],
+    favoriteVideos: [],
     eventsSubscribe: [],
   };
 

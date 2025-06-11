@@ -5,6 +5,7 @@ import { Repository, ILike } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
 import { toEventEntity } from 'src/common/mapper/event.mapper';
 import { toUserObject } from 'src/common/mapper/user.mapper';
+import { VideoObject } from 'src/videos/domain/video';
 
 export class UserGateway implements IUserGateway {
   constructor(
@@ -106,5 +107,28 @@ export class UserGateway implements IUserGateway {
       relations: ['favoriteVideos'],
     });
     return !!user?.favoriteVideos.some((video) => video.id === videoId);
+  }
+
+  async getFavoriteVideos(email: string): Promise<VideoObject[]> {
+    const user = await this.usersRepository.findOne({
+      where: { email },
+      relations: [
+        'favoriteVideos',
+        'favoriteVideos.tags',
+        'favoriteVideos.creator',
+        'favoriteVideos.comments',
+      ],
+    });
+
+    if (!user) throw new Error('User not found');
+
+    if (!user.favoriteVideos) return [];
+
+    return user.favoriteVideos.map((video) => ({
+      ...video,
+      creator: video.creator,
+      tags: video.tags,
+      comments: video.comments,
+    }));
   }
 }

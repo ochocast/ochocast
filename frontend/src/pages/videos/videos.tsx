@@ -12,6 +12,8 @@ import SearchBar, {
   SearchBarIcon,
 } from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
 import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
+import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
+import { getFavoriteVideos } from '../../utils/api';
 
 interface VideosProps {}
 
@@ -21,6 +23,8 @@ const Videos: FC<VideosProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
+  const [showFavorites, setShowFavorites] = useState(false);
+  const user = userString ? JSON.parse(userString) : null;
 
   // Simuler un appel API pour récupérer des vidéos
   const getMe = async () => {
@@ -52,7 +56,24 @@ const Videos: FC<VideosProps> = () => {
     }
   };
 
-  if (isLoading) {
+  const handleToggleFavorites = async () => {
+    if (!user?.id) return;
+  
+    const nextState = !showFavorites;
+    setShowFavorites(nextState);
+  
+    try {
+      const response = nextState
+        ? await getFavoriteVideos()
+        : await getVideos();
+  
+      setVideo(response.data || []);
+    } catch (error) {
+      logger.error('Error toggling favorite filter:', error);
+    }
+  };
+  
+    if (isLoading) {
     return <LoadingCircle />;
   }
 
@@ -72,8 +93,9 @@ const Videos: FC<VideosProps> = () => {
           </div>
           <img
             className={style.starIconFilterContainer}
-            src={FavorisFilterNotSelected}
-            onClick={() => {}}
+            src={showFavorites ? FavorisFilterSelected : FavorisFilterNotSelected}
+            onClick={handleToggleFavorites}
+            alt="Filtrer par favoris"
           />
         </div>
 

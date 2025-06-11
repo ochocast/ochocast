@@ -24,7 +24,7 @@ import { GetListUsersUsecase } from 'src/users/domain/usecases/getListUsers.usec
 import { AddFavoriteVideoUsecase } from 'src/users/domain/usecases/addFavoriteVideo.usecase';
 import { RemoveFavoriteVideoUsecase } from 'src/users/domain/usecases/removeFavoriteVideo.usecase';
 import { IsFavoriteVideoUsecase } from 'src/users/domain/usecases/isFavoriteVideo.usecase';
-
+import { GetFavoriteVideosUsecase } from 'src/users/domain/usecases/getFavoriteVideo.usecase';
 
 @ApiTags('Users')
 @Controller('users')
@@ -35,9 +35,10 @@ export class UsersController {
     private loginUserUsecase: LoginUserUseCase,
     private getProfilePictureUsecase: GetProfilePictureUsecase,
     private getListUserUsecase: GetListUsersUsecase,
-    private addFavoriteVideoUsecase: AddFavoriteVideoUsecase,    
-    private removeFavoriteVideoUsecase: RemoveFavoriteVideoUsecase, 
-    private isFavoriteVideoUsecase: IsFavoriteVideoUsecase  
+    private addFavoriteVideoUsecase: AddFavoriteVideoUsecase,
+    private removeFavoriteVideoUsecase: RemoveFavoriteVideoUsecase,
+    private isFavoriteVideoUsecase: IsFavoriteVideoUsecase,
+    private readonly getFavoriteVideosUsecase: GetFavoriteVideosUsecase,
   ) {}
 
   @Post()
@@ -99,8 +100,15 @@ export class UsersController {
     @AuthenticatedUser() user: any,
     @Param('videoId') videoId: string,
   ): Promise<{ isFavorite: boolean }> {
-    const result = await this.isFavoriteVideoUsecase.execute(user.email, videoId);
+    const result = await this.isFavoriteVideoUsecase.execute(
+      user.email,
+      videoId,
+    );
     return { isFavorite: result };
   }
 
+  @Get('/favorites')
+  async getFavoriteVideosByEmail(@AuthenticatedUser() user: any) {
+    return this.getFavoriteVideosUsecase.execute(user.email);
+  }
 }

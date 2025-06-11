@@ -1,3 +1,4 @@
+import { VideoObject } from 'src/videos/domain/video';
 import { UserObject } from '../user';
 
 export interface IUserGateway {
@@ -10,4 +11,5 @@ export interface IUserGateway {
   addFavoriteVideo(userId: string, videoId: string): Promise<void>;
   removeFavoriteVideo(userId: string, videoId: string): Promise<void>;
   isVideoFavorite(userId: string, videoId: string): Promise<boolean>;
+  getFavoriteVideos(userId: string): Promise<VideoObject[]>;
 }

@@ -120,6 +120,10 @@ describe('CloseTracktUsecase', () => {
       loginUser: jest.fn(),
       getUserByEmail: jest.fn(),
       getUserById: jest.fn(),
+      addFavoriteVideo: jest.fn(),
+      removeFavoriteVideo: jest.fn(),
+      isVideoFavorite: jest.fn(),
+      getFavoriteVideos: jest.fn(),
     };
 
     eventGatewayMock = {
