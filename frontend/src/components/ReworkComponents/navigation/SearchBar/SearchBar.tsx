@@ -26,10 +26,10 @@ const SearchBar = ({
   hasSugestion,
 }: SearchBarProps) => {
   const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null); // Référence pour l'élément d'entrée
   const [tag_suggestions, setTag] = useState<Tag_video[]>([]);
   const [user_suggestions, setUser] = useState<User[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null); // Référence pour l'élément d'entrée
-
+  
   if (needInput === undefined) {
     needInput = true;
   }
@@ -81,7 +81,7 @@ const SearchBar = ({
       suggestionsList.innerHTML = '';
       const filteredObjects: { name: string; img: string }[] = [];
 
-      suggestionsList.style.display = 'block';
+      suggestionsList.style.display = 'none';
       suggestionsList.innerHTML = '';
 
       filteredObjects.forEach((obj) => {

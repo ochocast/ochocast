@@ -11,6 +11,8 @@ import logger from '../../utils/logger';
 import SearchBar, {
   SearchBarIcon,
 } from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
+import FilterPanel from '../../components/ReworkComponents/navigation/FilterPanel/FilterPanel';
+import FilterIcon from '../../assets/filter_icon.svg';
 import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
 import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
@@ -18,42 +20,106 @@ import { getFavoriteVideos } from '../../utils/api';
 interface VideosProps {}
 
 const Videos: FC<VideosProps> = () => {
-  console.log(localStorage.getItem('backendUser'));
-  const [videos, setVideo] = useState<Video[]>([]);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
   const [showFavorites, setShowFavorites] = useState(false);
   const user = userString ? JSON.parse(userString) : null;
 
-  // Simuler un appel API pour récupérer des vidéos
-  const getMe = async () => {
-    setIsLoading(true);
-    try {
-      const videosResponse = await getVideos();
-      setVideo(videosResponse.data || []);
-    } catch (error) {
-      logger.error('Error fetching videos:', error);
-    }
-    setIsLoading(false);
-  };
+  const [filters, setFilters] = useState<{
+    tags: string[];
+    users: string[];
+    startDate: Date | null;
+    endDate: Date | null;
+  }>({
+    tags: [],
+    users: [],
+    startDate: null,
+    endDate: null,
+  });
+
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    getMe();
+    applyFilters(filters);
+  });
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      setIsLoading(true);
+      try {
+        const res = await getVideos();
+        const allVideos = res.data || [];
+        setVideos(allVideos);
+        setFilteredVideos(allVideos);
+      } catch (error) {
+        logger.error('Error fetching videos:', error);
+      }
+      setIsLoading(false);
+    };
+
+    fetchVideos();
   }, [userString]);
 
   const handleSearch = async (keywords: string[]) => {
     try {
       if (keywords[0] !== '') {
         const response = await getSuggestions(keywords[0]);
-        setVideo(response.data || []);
+        const result = response.data || [];
+        setVideos(result);
       } else {
-        const videosResponse = await getVideos();
-        setVideo(videosResponse.data || []);
+        const response = await getVideos();
+        const result = response.data || [];
+        setVideos(result);
       }
     } catch (error) {
       logger.error('Error fetching suggestions:', error);
     }
+  };
+
+  const applyFilters = (newFilters = filters) => {
+    let result = [...videos];
+
+    if (newFilters.tags.length > 0) {
+      result = result.filter(video =>
+        video.tags?.some(tag => newFilters.tags.includes(tag.name))
+      );
+    }
+
+    if (newFilters.users.length > 0) {
+      result = result.filter(video =>
+        newFilters.users.includes(video.creator?.firstName)
+      );
+    }
+
+    if (newFilters.startDate && newFilters.endDate) {
+      result = result.filter(video => {
+        const createdAt = new Date(video.createdAt);
+        return createdAt >= newFilters.startDate! && createdAt <= newFilters.endDate!;
+      });
+    }
+
+    setFilteredVideos(result);
+  };
+
+  const handleTagsChange = (tags: string[]) => {
+    const updated = { ...filters, tags };
+    setFilters(updated);
+    applyFilters(updated);
+  };
+
+  const handleUsersChange = (users: string[]) => {
+    const updated = { ...filters, users };
+    setFilters(updated);
+    applyFilters(updated);
+  };
+
+  const handleDateFilter = (startDate: Date | null, endDate: Date | null) => {
+    const updated = { ...filters, startDate, endDate };
+    setFilters(updated);
+    applyFilters(updated);
   };
 
   const handleToggleFavorites = async () => {
@@ -67,7 +133,7 @@ const Videos: FC<VideosProps> = () => {
         ? await getFavoriteVideos()
         : await getVideos();
   
-      setVideo(response.data || []);
+      setVideos(response.data || []);
     } catch (error) {
       logger.error('Error toggling favorite filter:', error);
     }
@@ -81,35 +147,53 @@ const Videos: FC<VideosProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <div className={style.display1}>
-          <div className={style.SearchBar}>
+          <div className={style.searchBarRow}>
             <SearchBar
-              onClick={(query) => {
-                handleSearch([query]);
-              }}
+              onClick={(query) => handleSearch([query])}
               needInput={true}
               placeholder={t('exemple')}
               icon={SearchBarIcon.SEARCH}
             />
+            <button
+              className={style.filterToggleButton}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <img src={FilterIcon} alt="Filter icon" />
+            </button>
+            <img
+              className={style.starIconFilterContainer}
+              src={showFavorites ? FavorisFilterSelected : FavorisFilterNotSelected}
+              onClick={handleToggleFavorites}
+              alt="Filtrer par favoris"
+            />
           </div>
-          <img
-            className={style.starIconFilterContainer}
-            src={showFavorites ? FavorisFilterSelected : FavorisFilterNotSelected}
-            onClick={handleToggleFavorites}
-            alt="Filtrer par favoris"
-          />
+          {showFilters && (
+            <div className={style.filterPanelWrapper}>
+              <FilterPanel
+                onTagsChange={handleTagsChange}
+                onUsersChange={handleUsersChange}
+                onDateFilter={handleDateFilter}
+                closePanel={() => setShowFilters(false)}
+                initialTags={filters.tags}
+                initialUsers={filters.users}
+                initialStartDate={filters.startDate}
+                initialEndDate={filters.endDate}
+              />
+            </div>
+          )}
         </div>
 
         <div className={style.video_row}>
-          {videos.length > 0 ? (
-            videos.map((video) => (
+          {filteredVideos.length > 0 ? (
+            filteredVideos.map((video) => (
               <Thumbnail
                 key={video.id}
                 Id={video.id}
                 title={video.title}
-                createBy={video.creator.firstName}
+                createBy={video.creator?.firstName}
                 views={video.views}
                 createdAt={video.createdAt.toString()}
-                tags={video.tags && video.tags?.map((tag) => tag.name)}
+                tags={video.tags?.map(tag => tag.name)}
               />
             ))
           ) : (

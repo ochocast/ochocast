@@ -25,6 +25,7 @@
   --theme-color-3100:rgba(255, 255, 255, 0.5);
   --theme-color-3200:rgba(0, 255, 0, 0.3);
   --theme-color-3300:rgba(0, 255, 0, 0.4);
+
   --theme-color-3400:rgba(0, 0, 0, 0.3);
   --theme-color-3500:rgba(0, 0, 0, 0.5);
   --theme-color-3600: rgba(16, 24, 40, 0.05);
@@ -32,7 +33,9 @@
   --theme-color-2000: #d0d5dd;
   --theme-color-2050: #667085;
   --theme-color-2100: #344054;
-
+  --theme-color-2150: #4b5563;
+  --theme-color-2200: #6b7280;
+  
   --theme-color-white: #ffffff;
   --theme-color-black: #000000;
   --theme-color-gray: #cccccc;

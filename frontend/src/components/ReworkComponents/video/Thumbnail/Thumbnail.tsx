@@ -7,7 +7,11 @@ import { getMiniature } from '../../../../utils/api';
 import Button, { ButtonType } from '../../generic/Button/Button';
 import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
 import { useTranslation } from 'react-i18next';
-import { addToFavorites, removeFromFavorites, isVideoFavorite } from '../../../../utils/api';
+import {
+  addToFavorites,
+  removeFromFavorites,
+  isVideoFavorite,
+} from '../../../../utils/api';
 import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg';
 
 export interface PreviewMinitureProps {
@@ -124,7 +128,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
             <Button
               type={ButtonType.primary}
-              label={t('modifyVideo')}
+              label={t('modify')}
               onClick={() => navigate(`/video/video-settings/${props.Id}`)}
             />
           </div>
