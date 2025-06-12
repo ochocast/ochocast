@@ -45,6 +45,7 @@ jest.mock('fluent-ffmpeg', () => {
   });
 });
 
+
 jest.mock('node:fs/promises', () => ({
   writeFile: jest.fn().mockResolvedValue(undefined),
   readFile: jest.fn().mockResolvedValue(Buffer.from('fake data')),
@@ -107,22 +108,16 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
     expect(sharp().jpeg).toHaveBeenCalledWith({ quality: 80 });
     expect(sharp().toFile).toHaveBeenCalled();
 
-    expect(Upload).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        params: expect.objectContaining({
-          Key: expect.stringMatching(/\.mp4$/),
-        }),
+    expect(Upload).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      params: expect.objectContaining({
+        Key: expect.stringMatching(/\.mp4$/),
       }),
-    );
+    }));
 
-    expect(Upload).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        params: expect.objectContaining({
-          Key: expect.stringMatching(/\.jpg$/),
-        }),
+    expect(Upload).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      params: expect.objectContaining({
+        Key: expect.stringMatching(/\.jpg$/),
       }),
-    );
+    }));
   });
 });

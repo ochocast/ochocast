@@ -42,12 +42,29 @@
   color: var(--theme-color-800);
 }
 
+
+.video_description :global(p) {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+
+.video_description :global(ul) {
+  padding-left: 1.2rem;
+  list-style: disc;
+}
+
+.video_description :global(a) {
+  color: #1e90ff;
+  text-decoration: underline;
+}
+
 .buttonList {
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
 
 .containerPlayer {
   display: flex;

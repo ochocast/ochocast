@@ -592,8 +592,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </Card>
           </div>
           <textarea
-            placeholder={description === '' ? 'Description' : description}
-            style={{ resize: 'vertical' }}
+            className="descriptionInput"
+            placeholder="Description"
+            value={description}
             onChange={handleDescriptionChange}
           />
           <div className="buttonContainer">
