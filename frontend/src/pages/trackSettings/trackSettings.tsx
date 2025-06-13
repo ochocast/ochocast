@@ -64,13 +64,12 @@ const TrackSettings: FC = () => {
       setMessage('');
     };
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    handleSubmit(e, track, speakers);
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    if (await handleSubmit(e, track, speakers)) setButtonDisabled(true);
   };
 
   const closed = track.closed || event?.closed;
 
-  
   const form = (
     <form onSubmit={handleFormSubmit} className="track-settings">
       <div className="top-layout">
@@ -129,6 +128,7 @@ const TrackSettings: FC = () => {
             }}
             title={t('Speaker')}
             disabled={closed !== undefined && closed}
+            userId={userId != event?.creatorId ? userId : ''}
           />
           <div className="track-date-inputs">
             <div className="input-wrapper">
@@ -262,6 +262,7 @@ const TrackSettings: FC = () => {
             }}
             title={t('Speaker')}
             disabled={true}
+            userId=""
           />
           <div className="track-date-inputs">
             <div className="input-wrapper">

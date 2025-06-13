@@ -10,6 +10,7 @@ interface CheckBoxListProps {
   setCategory: (speakers: User[]) => void;
   title: string;
   disabled: boolean;
+  userId: string;
 }
 
 const CheckBoxList = (props: CheckBoxListProps) => {
@@ -51,7 +52,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
             <span className={styles.userSelected}>
               {user.firstName} {user.lastName}
             </span>
-            {!props.disabled && (
+            {!props.disabled && (props.userId != user.id) && (
               <span
                 className={styles.userSelectedRmButton}
                 onClick={() =>

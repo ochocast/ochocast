@@ -25,7 +25,6 @@ export const useTrackSettings = () => {
   const [speakers, setSpeakers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  
 
   // Get users
   useEffect(() => {
@@ -56,10 +55,8 @@ export const useTrackSettings = () => {
     getTrackById(trackId)
       .then((res) => {
         const trck = res.data;
-        if (!trck.startDate)
-          trck.startDate = event.startDate;
-        if (!trck.endDate)
-          trck.endDate = event.endDate;
+        if (!trck.startDate) trck.startDate = event.startDate;
+        if (!trck.endDate) trck.endDate = event.endDate;
         setTrack(trck);
         setSpeakers(
           allUsers.filter((user) =>
@@ -85,7 +82,12 @@ export const useTrackSettings = () => {
 
       // Applique l'heure de début
       const startDate = new Date(dateOnly);
-      startDate.setHours(eventDate.getUTCHours(), eventDate.getUTCMinutes(), 0, 0);
+      startDate.setHours(
+        eventDate.getUTCHours(),
+        eventDate.getUTCMinutes(),
+        0,
+        0,
+      );
 
       // Applique l'heure de fin
       const endDate = new Date(dateOnly);
@@ -107,32 +109,35 @@ export const useTrackSettings = () => {
     e: FormEvent<HTMLFormElement>,
     data: Partial<Track>,
     selectedSpeakers: User[],
-  ) => {
+  ): Promise<boolean> => {
     e.preventDefault();
 
     if (!data.name?.trim() || !data.description?.trim()) {
       setMessage(t('NameDescriptionRequired'));
-      return;
+      return false;
     }
 
     if (!data.startDate || !data.endDate) {
       setMessage(t('StartEndRequired'));
-      return;
+      return false;
     }
 
     if (data.startDate >= data.endDate) {
       setMessage(t('StartTimeError'));
-      return;
+      return false;
     }
 
-    if (event && (data.startDate < event.startDate || data.endDate > event.endDate)) {
+    if (
+      event &&
+      (data.startDate < event.startDate || data.endDate > event.endDate)
+    ) {
       setMessage(t('TimeError'));
-      return;
+      return false;
     }
 
     if (selectedSpeakers.length === 0) {
       setMessage(t('SpeakerError'));
-      return;
+      return false;
     }
 
     const trackBody = {
@@ -148,6 +153,8 @@ export const useTrackSettings = () => {
     try {
       if (trackId) {
         const res = await updateTrack(trackId, trackBody);
+        if (res.status != 200)
+          throw res.data;
         setTracks((prev) => prev.map((t) => (t.id === trackId ? res.data : t)));
       } else {
         const res = await createTrack(trackBody);
@@ -157,7 +164,9 @@ export const useTrackSettings = () => {
     } catch (err) {
       logger.error(err);
       setMessage(t('ErrorSavingTrack'));
+      return false;
     }
+    return true;
   };
 
   const handleDelete = async () => {

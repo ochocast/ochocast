@@ -189,7 +189,7 @@ describe('UpdateTracktUsecase', () => {
     Expected case 
    */
 
-  it('should create a new track and call the TrackGateway', async () => {
+  it('should update a  track and call the TrackGateway', async () => {
     const res = await updateTrackUseCase.execute(
       trackId,
       trackDto,
@@ -209,6 +209,28 @@ describe('UpdateTracktUsecase', () => {
   });
 
   /*
+    Expected case : Creator can remove himself from track speaker 
+   */
+
+  it('should create a update track and call the TrackGateway when creator remove himself from event', async () => {
+    const res = await updateTrackUseCase.execute(
+      trackId,
+      {
+        name: 'Main Track',
+        description: 'Main stage track',
+        keywords: ['main', 'track'],
+        startDate: now,
+        endDate: now,
+        eventId: eventId,
+        speakers: [],
+      },
+      mockUser.email,
+    );
+
+    expect(res.speakers).toEqual([]);
+  });
+
+  /*
     Error case : DB fail
    */
 
@@ -217,6 +239,28 @@ describe('UpdateTracktUsecase', () => {
     await expect(
       updateTrackUseCase.execute(trackId, trackDto, mockUser.email),
     ).rejects.toThrow('DB error');
+  });
+
+  /*
+    Error case : a speaker try to remove himself
+   */
+
+  it('should throw if a speaker try to remove himself', async () => {
+    await expect(
+      updateTrackUseCase.execute(
+        trackId2,
+        {
+          name: 'T2',
+          description: 'D2',
+          keywords: [],
+          startDate: now,
+          endDate: now,
+          eventId,
+          speakers: [],
+        },
+        mockUser2.email,
+      ),
+    ).rejects.toThrow(UnauthorizedException);
   });
 
   /*

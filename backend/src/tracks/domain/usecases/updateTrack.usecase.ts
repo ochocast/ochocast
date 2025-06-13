@@ -32,8 +32,9 @@ export class UpdateTrackUsecase {
     const currentUser = await this.userGateway.getUserByEmail(email);
     if (!currentUser)
       throw new NotFoundException(`User (email : ${email}) not found`);
+    let event = undefined;
     if (!track.canBeEditBy(currentUser)) {
-      const event = await this.eventGateWay.getEventById(track.eventId);
+      event = await this.eventGateWay.getEventById(track.eventId);
       if (!event.canBeEditBy(currentUser)) throw new UnauthorizedException();
     }
     if (track.eventId !== trackData.eventId)
@@ -53,6 +54,12 @@ export class UpdateTrackUsecase {
     track.endDate = trackData.endDate;
     track.startDate = trackData.startDate;
     track.speakers = speakers;
+
+    if (!track.canBeEditBy(currentUser)) {
+      if (!event) event = await this.eventGateWay.getEventById(track.eventId);
+      if (!event.canBeEditBy(currentUser))
+        throw new UnauthorizedException('Speaker cannot remove himself!');
+    }
     return this.trackGateway.updateTrack(track);
   }
 }
