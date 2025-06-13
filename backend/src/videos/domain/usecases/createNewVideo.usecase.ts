@@ -28,6 +28,7 @@ export class CreateNewVideoUsecase {
     file: Express.Multer.File,
     miniatureFile: Express.Multer.File,
   ): Promise<VideoObject> {
+    console.log(ffmpegInstaller.path);
     console.log('début execute');
     const baseName = path.parse(videoToCreate.media_id).name;
     const media_id = Date.now() + '.' + baseName + '.mp4';
@@ -114,17 +115,30 @@ async function transcodeVideo(
   outputPath: string,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    const command = ffmpeg(inputPath)
       .videoCodec('libx264')
       .outputOptions(['-preset fast', '-crf 23', '-movflags +faststart'])
       .format('mp4')
+      .output(outputPath)
+      .on('start', (commandLine) => {
+        console.log('Commande FFmpeg lancée :', commandLine);
+      })
+      .on('stderr', (stderrLine) => {
+        console.debug('[ffmpeg]', stderrLine);
+      })
       .on('end', () => {
+        console.log('Transcodage terminé');
         resolve();
       })
-      .on('error', (err) => {
-        console.error('Erreur lors du transcodage :', err);
+      .on('error', (err, stdout, stderr) => {
+        console.error('Erreur lors du transcodage :', err.message);
+        console.error('FFmpeg stdout :', stdout);
+        console.error('FFmpeg stderr :', stderr);
         reject(err);
-      })
-      .save(outputPath);
+      });
+
+    command.addOption('-loglevel', 'debug');
+
+    command.run();
   });
 }
