@@ -4,7 +4,7 @@ import './events.css';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
-import Modal from '../../components/modal/modal';
+import Modal from '../../components/ReworkComponents/generic/modal/modal';
 
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';

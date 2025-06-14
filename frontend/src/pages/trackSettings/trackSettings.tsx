@@ -10,7 +10,7 @@ import { useParams } from 'react-router-dom';
 import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
 import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
-import Modal from '../../components/modal/modal';
+import Modal from '../../components/ReworkComponents/generic/modal/modal';
 
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';

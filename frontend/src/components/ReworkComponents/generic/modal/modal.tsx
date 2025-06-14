@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React from 'react';
 import styles from './modal.module.css';
 
 export interface ModalProps {
@@ -7,16 +7,16 @@ export interface ModalProps {
   toggle: () => void;
 }
 
-const Modal: FC<ModalProps> = ({ children, isOpen, toggle }) => (
-  <>
-    {isOpen && (
-      <div className={styles.overlay} onClick={toggle}>
+const Modal = (props: ModalProps) => {
+  return <>
+    {props.isOpen && (
+      <div className={styles.overlay} onClick={props.toggle}>
         <div onClick={(e) => e.stopPropagation()} className={styles.box} >
-          {children}
+          {props.children}
         </div>
       </div>
     )}
-  </>
-);
+  </>;
+};
 
 export default Modal;

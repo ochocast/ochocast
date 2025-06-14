@@ -17,7 +17,7 @@ import {
 import trackSelectImage from '../../assets/tracksIconeSelect.png';
 import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
-import Modal from '../../components/modal/modal';
+import Modal from '../../components/ReworkComponents/generic/modal/modal';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 import logger from '../../utils/logger';
 import { useTranslation } from 'react-i18next';
