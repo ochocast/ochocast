@@ -152,8 +152,8 @@ const TrackSettings: FC = () => {
                     .split(':')
                     .map(Number);
                   const current = new Date(track.startDate || new Date());
-                  current.setHours(hours);
-                  current.setMinutes(minutes);
+                  current.setUTCHours(hours);
+                  current.setUTCMinutes(minutes);
                   current.setSeconds(0);
                   current.setMilliseconds(0);
                   setTrack({ ...track, startDate: current });
@@ -175,8 +175,8 @@ const TrackSettings: FC = () => {
                     .split(':')
                     .map(Number);
                   const current = new Date(track.endDate || new Date());
-                  current.setHours(hours);
-                  current.setMinutes(minutes);
+                  current.setUTCHours(hours);
+                  current.setUTCMinutes(minutes);
                   current.setSeconds(0);
                   current.setMilliseconds(0);
                   setTrack({ ...track, endDate: current });

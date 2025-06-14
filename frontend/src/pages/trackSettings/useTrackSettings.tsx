@@ -9,7 +9,7 @@ import {
 } from '../../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
 import logger from '../../utils/logger';
-import Event from '../../utils/EventsProperties';
+import Event, { PublicUser } from '../../utils/EventsProperties';
 import { Track, User } from '../../utils/EventsProperties';
 import { useTranslation } from 'react-i18next';
 
@@ -54,13 +54,20 @@ export const useTrackSettings = () => {
     setLoading(true);
     getTrackById(trackId)
       .then((res) => {
-        const trck = res.data;
-        if (!trck.startDate) trck.startDate = event.startDate;
-        if (!trck.endDate) trck.endDate = event.endDate;
+
+        const eventDate = new Date(event.startDate);
+        const eventEnd = new Date(event.endDate);
+        const trck: Track = res.data;
+        trck.startDate = new Date(trck.startDate);
+        trck.endDate = new Date(trck.endDate);
+
+        if (!trck.startDate) trck.startDate = eventDate;
+        if (!trck.endDate) trck.endDate = eventEnd;
+
         setTrack(trck);
         setSpeakers(
           allUsers.filter((user) =>
-            trck.speakers.map((e: User) => e.id).includes(user.id),
+            trck.speakers.map((e: PublicUser) => e.id).includes(user.id),
           ),
         );
       })
@@ -73,25 +80,25 @@ export const useTrackSettings = () => {
       const eventDate = new Date(event.startDate);
       const eventEnd = new Date(event.endDate);
 
-      // Crée une date avec uniquement jour/mois/année de l'event
-      const dateOnly = new Date(
+      const startDate = new Date(Date.UTC(
         eventDate.getUTCFullYear(),
         eventDate.getUTCMonth(),
         eventDate.getUTCDate(),
-      );
-
-      // Applique l'heure de début
-      const startDate = new Date(dateOnly);
-      startDate.setHours(
         eventDate.getUTCHours(),
         eventDate.getUTCMinutes(),
         0,
         0,
-      );
+      ));
 
-      // Applique l'heure de fin
-      const endDate = new Date(dateOnly);
-      endDate.setHours(eventEnd.getUTCHours(), eventEnd.getUTCMinutes(), 0, 0);
+      const endDate = new Date(Date.UTC(
+        eventEnd.getUTCFullYear(),
+        eventEnd.getUTCMonth(),
+        eventEnd.getUTCDate(),
+        eventEnd.getUTCHours(),
+        eventEnd.getUTCMinutes(),
+        0,
+        0,
+      ));
 
       setTrack({
         name: '',
@@ -122,14 +129,16 @@ export const useTrackSettings = () => {
       return false;
     }
 
-    if (data.startDate >= data.endDate) {
+    if (data.startDate.getTime() >= data.endDate.getTime()) {
       setMessage(t('StartTimeError'));
       return false;
     }
 
-    if (
-      event &&
-      (data.startDate < event.startDate || data.endDate > event.endDate)
+    const eventStart = event ? new Date(event.startDate) : new Date();
+    const eventEnd = event ? new Date(event.endDate) : new Date();
+
+    if (event &&
+      (data.startDate < eventStart || data.endDate > eventEnd)
     ) {
       setMessage(t('TimeError'));
       return false;

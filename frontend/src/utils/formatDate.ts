@@ -7,7 +7,7 @@ export const formatDateForInput = (date?: Date | string): string => {
 export const formatTimeForInput = (date?: Date | string): string => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const hours = String(d.getUTCHours()).padStart(2, '0');
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
   return `${hours}:${minutes}`;
 };
