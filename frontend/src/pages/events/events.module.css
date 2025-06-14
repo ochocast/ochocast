@@ -7,7 +7,7 @@
   width: 100%;
 }
 
-.search-container {
+.searchContainer {
   margin-top: 5%;
 }
 
@@ -15,7 +15,7 @@
   width: 100%;
 }
 
-.side-by-side .input-wrapper .select-wrapper {
+.sideBySide .inputWrapper .select-wrapper {
   width: 100%;
   box-sizing: border-box;
 }
@@ -47,20 +47,20 @@ h1 {
   margin-top: 0px;
 }
 
-.add-event-form {
+.addEventForm {
   display: flex;
   flex-direction: column;
   row-gap: 2%;
 }
 
-.side-by-side {
+.sideBySide {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px 3em;
   width: 100%;
 }
 
-.button-event-creation {
+.buttonEventCreation {
   display: flex;
   justify-content: center;
   flex-direction: column;

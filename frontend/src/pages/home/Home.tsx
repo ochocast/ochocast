@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 
 import HomeCards from '../../components/ReworkComponents/generic/Cards/CardHome/CardHome';
-import './Home.css';
+import styles from './Home.module.css';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +15,7 @@ const HomePage: FC<HomeProps> = () => {
   const { t } = useTranslation();
 
   return (
-    <><div className="HomeCard">
+    <><div className={styles.HomeCard}>
         <HomeCards
           title= {t('streaming')}
           description={t('getAvailableLiveEvents')}
@@ -30,7 +30,7 @@ const HomePage: FC<HomeProps> = () => {
             },
           ]} />
         <div
-          className="cardContainer"
+          className={styles.cardContainer}
           onClick={() => {
             navigate('/videos');
           } }

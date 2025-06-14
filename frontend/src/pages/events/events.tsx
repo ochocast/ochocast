@@ -1,5 +1,5 @@
 import React, { ChangeEvent, FC, FormEvent, useEffect, useState } from 'react';
-import './events.css';
+import styles from './events.module.css';
 
 import Button, {
   ButtonType,
@@ -275,9 +275,9 @@ const EventsPage: FC<eventsProps> = () => {
     searchQuery === '' ? eventsClosed : filterEvents(eventsClosed, searchQuery);
 
   return (
-    <div className="events">
+    <div className={styles.events}>
       <header className="events-header">
-        <div className="search-container">
+        <div className={styles.searchContainer}>
           <SearchBar
             onClick={handleSearch}
             needInput={true}
@@ -285,14 +285,14 @@ const EventsPage: FC<eventsProps> = () => {
           />
         </div>
       </header>
-      <div className="button-event-creation">
+      <div className={styles.buttonEventCreation}>
         <Button
           label={t('CreateAnEvent')}
           type={ButtonType.primary}
           onClick={toggle}
         />
       </div>
-      <div className="content">
+      <div className={styles.content}>
         {filteredPublished && filteredPublished.length >= 1 ? (
           <EventsList
             eventStatus={EventStatus.Published}
@@ -319,8 +319,8 @@ const EventsPage: FC<eventsProps> = () => {
       </div>
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('CreateNewEvent')}</h1>
-        <form className="add-event-form" onSubmit={handleSubmit}>
-          <div className="side-by-side">
+        <form className={styles.addEventForm} onSubmit={handleSubmit}>
+          <div className={styles.sideBySide}>
             <TextBox
               type="text"
               label={t('NameEvent')}
@@ -330,7 +330,7 @@ const EventsPage: FC<eventsProps> = () => {
               error={errorName}
               onChange={handleNameChange}
             />
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('DateEvent')}</label>
               <input
                 type="date"
@@ -341,7 +341,7 @@ const EventsPage: FC<eventsProps> = () => {
                 required
               />
             </div>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('StartEvent')}</label>
               <input
                 type="time"
@@ -351,7 +351,7 @@ const EventsPage: FC<eventsProps> = () => {
                 required
               />
             </div>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('EndEvent')}</label>
               <input
                 type="time"
@@ -362,7 +362,7 @@ const EventsPage: FC<eventsProps> = () => {
                 required
               />
             </div>
-             <div className="input-wrapper">
+             <div className={styles.inputWrapper}>
               <label>{t('Thumbnail')}</label>
               <InputFile placeholder={t('ChooseThumbnail')} onChange={handleImageChange} disable={false} required={false}/>
               {imageUrl && <img src={imageUrl} alt="Miniature Preview" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}

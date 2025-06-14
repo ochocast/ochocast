@@ -2,7 +2,7 @@ import React from 'react';
 import { FC, ChangeEvent, useState } from 'react';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
-import './trackSettings.css';
+import styles from './trackSettings.module.css';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
@@ -71,9 +71,9 @@ const TrackSettings: FC = () => {
   const closed = track.closed || event?.closed;
 
   const form = (
-    <form onSubmit={handleFormSubmit} className="track-settings">
-      <div className="top-layout">
-        <div className="title-layout">
+    <form onSubmit={handleFormSubmit} className={styles.trackSettings}>
+      <div className={styles.topLayout}>
+        <div className={styles.titleLayout}>
           <NavigateBackButton />
           <h1>{trackId ? track.name : t('NewTrack')}</h1>
         </div>
@@ -88,7 +88,7 @@ const TrackSettings: FC = () => {
       <hr />
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('StartLive')}</h1>
-        <div className="start-live-buttons">
+        <div className={styles.startLiveButtons}>
           <Button label={t('StartLiveOBS')} />
           <Button
             label={t('StartLiveOCHOCast')}
@@ -117,8 +117,8 @@ const TrackSettings: FC = () => {
         onChange={handleInputChange('description')}
       />
 
-      <div className="track-date-speaker-wrapper">
-        <div className="checkBoxListContainer">
+      <div className={styles.trackDateSpeakerWrapper}>
+        <div className={styles.checkBoxListContainer}>
           <CheckBoxList
             allUsers={allUsers}
             category={speakers}
@@ -130,8 +130,8 @@ const TrackSettings: FC = () => {
             disabled={closed !== undefined && closed}
             userId={userId != event?.creatorId ? userId : ''}
           />
-          <div className="track-date-inputs">
-            <div className="input-wrapper">
+          <div className={styles.trackDateInputs}>
+            <div className={styles.inputWrapper}>
               <label>{t('DateOfTheEvent')}</label>
               <input
                 type="date"
@@ -141,7 +141,7 @@ const TrackSettings: FC = () => {
                 required
               />
             </div>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('StartTrack')}</label>
               <input
                 type="time"
@@ -164,7 +164,7 @@ const TrackSettings: FC = () => {
                 required
               />
             </div>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('EndOfTheTrack')}</label>
               <input
                 type="time"
@@ -191,7 +191,7 @@ const TrackSettings: FC = () => {
         </div>
       </div>
 
-      <div className="controlsContainer">
+      <div className={styles.controlsContainer}>
         <Button
           label={trackId ? t('Save') : t('Create')}
           type={
@@ -207,7 +207,7 @@ const TrackSettings: FC = () => {
 
       <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
         <h2>Êtes-vous sûr de vouloir supprimer la piste ?</h2>
-        <div className="confirmation-buttons">
+        <div className={styles.confirmationButtons}>
           <Button label={t('Delete')} onClick={handleDelete} />
           <Button
             label={t('Cancel')}
@@ -223,9 +223,9 @@ const TrackSettings: FC = () => {
   );
 
   const trackInfo = (
-    <div className="track-settings">
-      <div className="top-layout">
-        <div className="title-layout">
+    <div className={styles.trackSettings}>
+      <div className={styles.topLayout}>
+        <div className={styles.titleLayout}>
           <NavigateBackButton />
           <h1>{trackId ? track.name : 'Ereur'}</h1>
         </div>
@@ -251,8 +251,8 @@ const TrackSettings: FC = () => {
         onChange={handleInputChange('description')}
       />
 
-      <div className="track-date-speaker-wrapper">
-        <div className="checkBoxListContainer">
+      <div className={styles.trackDateSpeakerWrapper}>
+        <div className={styles.checkBoxListContainer}>
           <CheckBoxList
             allUsers={allUsers}
             category={speakers}
@@ -264,8 +264,8 @@ const TrackSettings: FC = () => {
             disabled={true}
             userId=""
           />
-          <div className="track-date-inputs">
-            <div className="input-wrapper">
+          <div className={styles.trackDateInputs}>
+            <div className={styles.inputWrapper}>
               <label>{t('DateOfTheEvent')}</label>
               <input
                 type="date"
@@ -275,7 +275,7 @@ const TrackSettings: FC = () => {
                 required
               />
             </div>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('StartTrack')}</label>
               <input
                 type="time"
@@ -285,7 +285,7 @@ const TrackSettings: FC = () => {
                 required
               />
             </div>
-            <div className="input-wrapper">
+            <div className={styles.inputWrapper}>
               <label>{t('EndOfTheTrack')}</label>
               <input
                 type="time"
@@ -302,23 +302,23 @@ const TrackSettings: FC = () => {
   );
 
   return (
-    <div className="page-track-settings">
-      <div className="navigation">
+    <div className={styles.pageTrackSettings}>
+      <div className={styles.navigation}>
         <h1>{t('dashboard')}</h1>
-        <div className="settings-img-button">
+        <div className={styles.settingsImgButton}>
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
-            className="button-settings"
+            className={styles.buttonSettings}
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
             {t('settings')}
           </button>
         </div>
-        <div className="settings-img-button">
+        <div className={styles.settingsImgButton}>
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
-            className="button-settings"
+            className={styles.buttonSettings}
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-statistics`)}
           >

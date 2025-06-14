@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import './streamTrack.css';
+import styles from './streamTrack.module.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTrackById, getPublicEvent, closeTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
@@ -58,11 +58,11 @@ const StreamTrack = () => {
   }, [trackId]);
 
   return (
-    <div className="live-page">
+    <div className={styles.livePage}>
       {track ? (
         <>
-          <div className="live-header">
-            <h1 className="event-title">{track.event?.name}</h1>
+          <div className={styles.liveHeader}>
+            <h1 className={styles.eventTitle}>{track.event?.name}</h1>
             <Button label={t('CloseTrack')} onClick={fetchCloseTrack()} />
           </div>
 
@@ -70,8 +70,8 @@ const StreamTrack = () => {
             <LiveStream streamKey={track.streamKey} />
           </div>
 
-          <div className="track-info">
-            <div className="track-title">
+          <div className={styles.trackInfo}>
+            <div className={styles.trackTitle}>
               <h2>{track.name}</h2>
               <Button
                 label={t('settings')}
@@ -82,7 +82,7 @@ const StreamTrack = () => {
                 }
               />
             </div>
-            <div className="description">{track.description}</div>
+            <div className={styles.description}>{track.description}</div>
           </div>
         </>
       ) : (

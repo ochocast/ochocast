@@ -1,20 +1,20 @@
-.live-page {
+.livePage {
   padding: 2%;
 }
 
-.live-header {
+.liveHeader {
   display: flex;
   justify-content: space-between;
   padding: 1%;
 }
 
-.live-header-left {
+.liveHeaderLeft {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
-.event-title {
+.eventTitle {
   font-size: 30px;
   font-weight: 700;
   letter-spacing: 1px;
@@ -31,7 +31,7 @@
   height: 500px;
 }
 
-.track-title {
+.trackTitle {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -45,14 +45,14 @@
   display: flex;
 }
 
-.player-wrapper {
+.playerWrapper {
   width: 100%;
   margin: 0 auto;
   justify-content: center;
   align-items: center;
 }
 
-.track-info {
+.trackInfo {
   width: 100%;
   justify-content: center;
   align-items: center;

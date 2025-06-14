@@ -1,6 +1,6 @@
 import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
-import './eventSettings.css';
+import styles from './eventSettings.module.css';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import Button, {
@@ -182,9 +182,9 @@ const EventSettings: FC<EventSettingsProps> = () => {
     );
 
   const forms = (
-    <form onSubmit={handleSubmit} className="event-settings">
-      <div className="top-layout">
-        <div className="title-layout">
+    <form onSubmit={handleSubmit} className={styles.eventSettings}>
+      <div className={styles.topLayout}>
+        <div className={styles.titleLayout}>
           <NavigateBackButton />
           <h1>{t('EditEvent')}</h1>
         </div>
@@ -196,7 +196,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
       </div>
       <Modal isOpen={isOpen} toggle={toggle}>
         <h2>{t('SureCloseEvent')}</h2>
-        <div className="confirmation-buttons">
+        <div className={styles.confirmationButtons}>
           <Button label={t('Confirm')} onClick={handleCloseEvent} />
           <Button
             label={t('Cancel')}
@@ -220,7 +220,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         disabled={eventClosed}
         onChange={handleNameChange}
       />
-      <div className="input-wrapper">
+      <div className={styles.inputWrapper}>
         <label>{t('DateOfTheEvent')}</label>
         <input
           type="date"
@@ -232,7 +232,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           required
         />
       </div>
-      <div className="input-wrapper">
+      <div className={styles.inputWrapper}>
         <label>{t('StartEvent')}</label>
         <input
           type="time"
@@ -243,7 +243,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           required
         />
       </div>
-      <div className="input-wrapper">
+      <div className={styles.inputWrapper}>
         <label>{t('EndEvent')}</label>
         <input
           type="time"
@@ -265,7 +265,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         onChange={handleDescriptionChange}
       />
       {!eventClosed && (
-        <div className="confirmation-buttons">
+        <div className={styles.confirmationButtons}>
           <Button
             label={t('DeleteEvent')}
             onClick={() => setisDeleteOpen(true)}
@@ -278,7 +278,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
       )}
       <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
         <h2> {t('SureDeleteEvent')}</h2>
-        <div className="confirmation-buttons">
+        <div className={styles.confirmationButtons}>
           <Button label={t('Delete')} onClick={deleteEventHandler} />
           <Button
             label={t('Cancel')}
@@ -297,9 +297,9 @@ const EventSettings: FC<EventSettingsProps> = () => {
   );
 
   const dataInfo = (
-    <div className="event-settings">
-      <div className="top-layout">
-        <div className="title-layout">
+    <div className={styles.eventSettings}>
+      <div className={styles.topLayout}>
+        <div className={styles.titleLayout}>
           <NavigateBackButton />
           <h1>{t('ModifyEvent')}</h1>
         </div>
@@ -315,7 +315,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         disabled={true}
         onChange={handleNameChange}
       />
-      <div className="input-wrapper">
+      <div className={styles.inputWrapper}>
         <label>{t('DateEvent')}</label>
         <input
           type="date"
@@ -327,7 +327,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           required
         />
       </div>
-      <div className="input-wrapper">
+      <div className={styles.inputWrapper}>
         <label>{t('StartEvent')}</label>
         <input
           type="time"
@@ -338,7 +338,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           required
         />
       </div>
-      <div className="input-wrapper">
+      <div className={styles.inputWrapper}>
         <label>{t('EndEvent')}</label>
         <input
           type="time"
@@ -363,23 +363,23 @@ const EventSettings: FC<EventSettingsProps> = () => {
   );
 
   return (
-    <div className="page-event-settings">
-      <div className="navigation">
+    <div className={styles.pageEventSettings}>
+      <div className={styles.navigation}>
         <h1>{t('dashboard')}</h1>
-        <div className="settings-img-button">
+        <div className={styles.settingsImgButton}>
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
-            className="button-settings"
+            className={styles.buttonSettings}
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
             {t('settings')}
           </button>
         </div>
-        <div className="settings-img-button">
+        <div className={styles.settingsImgButton}>
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
-            className="button-settings"
+            className={styles.buttonSettings}
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-statistics`)}
           >

@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import TrackBox from '../../components/ReworkComponents/Event/Track/TrackBox/TrackBox';
 import { PublicEvent } from '../../utils/EventsProperties';
 
-import './tracks.css';
+import styles from './tracks.module.css';
 import { getEventsMiniature, getPublicEvent } from '../../utils/api';
 import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
 import { useTranslation } from 'react-i18next';
@@ -62,33 +62,33 @@ const TracksPage: FC<tracksProps> = () => {
 }, [eventId]);
 
 const tracklist = event?.tracks?.length ? (
-  <div className="tracks_container">
+  <div className={styles.tracksContainer}>
     {event.tracks.map((track, index) => (
       <TrackBox key={index} track={track} />
     ))}
   </div>
 ) : (
-  <p className="no_tracks_message">
+  <p className={styles.noTracksMessage}>
     {t('NoTracks')}
   </p>
 );
 
   return (
-    <div className="tracks">
-      <div className="tracks_page_title_wrapper">
+    <div className={styles.tracks}>
+      <div className={styles.tracksPageTitleWrapper}>
         <NavigateBackButton />
-        <span className="tracks_page_title">
+        <span className={styles.tracksPageTitle}>
           {t('EventTracks')} {event?.name}
         </span>
       </div>
-      <div className="tracks_header">
+      <div className={styles.tracksHeader}>
         {miniatureURL && (
-          <div className="tracks_miniature_container">
-            <img src={miniatureURL} alt="Miniature" className="tracks_miniature" />
+          <div className={styles.tracksMiniatureContainer}>
+            <img src={miniatureURL} alt="Miniature" className={styles.tracksMiniature} />
           </div>
         )}
-        <div className="tracks_description">
-          <div className="tracks_title">{t('EventDescription')}</div>
+        <div className={styles.tracksDescription}>
+          <div className={styles.tracksTitle}>{t('EventDescription')}</div>
           {event?.description}
         </div>
       </div>

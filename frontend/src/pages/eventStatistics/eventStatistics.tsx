@@ -1,6 +1,6 @@
 import { FC, useState, useEffect } from 'react';
 import React from 'react';
-import './eventStatistics.css';
+import styles from './eventStatistics.module.css';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
 import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
@@ -59,13 +59,13 @@ const EventStatistic: FC<EventStatisticProps> = () => {
     );
 
   const body = (
-    <div className="user-subscribe-wrapper">
-      <h3 className="user-subscribe-title">
+    <div className={styles.UserSubscribeWrapper}>
+      <h3 className={styles.UserSubscribeTitle}>
         {t('registeredUsers')} ({subscribeUser.length})
       </h3>
-      <div className="user-subscribe-container">
+      <div className={styles.UserSubscribeContainer}>
         {subscribeUser.map((user: PublicUser) => (
-          <p key={user.id} className="user-subscribe">
+          <p key={user.id} className={styles.UserSubscribe}>
             {user.firstName + ' ' + user.lastName}
           </p>
         ))}
@@ -74,23 +74,23 @@ const EventStatistic: FC<EventStatisticProps> = () => {
   );
 
   return (
-    <div className="page-event-settings">
-      <div className="navigation">
+    <div className={styles.PageEventSettings}>
+      <div className={styles.navigation}>
         <h1>{t('dashboard')}</h1>
-        <div className="settings-img-button">
+        <div className={styles.settingsImgButton}>
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
-            className="button-settings"
+            className={styles.ButtonSettings}
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-settings`)}
           >
             {t('settings')}
           </button>
         </div>
-        <div className="settings-img-button">
+        <div className={styles.settingsImgButton}>
           <img className="image-settings" src={rouageImage} alt="iconeSelect" />
           <button
-            className="button-settings"
+            className={styles.ButtonSettings}
             type="button"
             onClick={() => navigate(`/events/${eventId}/event-statistics`)}
           >

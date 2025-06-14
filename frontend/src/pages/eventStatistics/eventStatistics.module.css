@@ -1,4 +1,4 @@
-.user-subscribe-wrapper {
+.UserSubscribeWrapper {
   width: 100%;
   max-width: 400px;
   max-height: 300px;
@@ -12,7 +12,7 @@
   flex-direction: column;
 }
 
-.user-subscribe-title {
+.UserSubscribeTitle {
   margin-bottom: 12px;
   font-size: 18px;
   font-weight: 600;
@@ -20,13 +20,13 @@
   text-align: center;
 }
 
-.user-subscribe-container {
+.UserSubscribeContainer {
   max-height: 200px;
   overflow-y: auto;
   padding-right: 10px;
 }
 
-.user-subscribe {
+.UserSubscribe {
   margin: 6px 0;
   padding: 6px 10px;
   background-color: var(--theme-color-white);
@@ -34,4 +34,40 @@
   border-radius: 8px;
   font-size: 14px;
   color: var(--theme-color-950);
+}
+
+.PageEventSettings {
+  display: flex;
+  height: auto;
+}
+
+.navigation {
+  display: flex;
+  flex-direction: column;
+  width: 30%;
+  height: 100vh;
+  background-color: var(--theme-color-100);
+  padding: 2%;
+  align-items: center;
+  gap: 30px;
+}
+
+.navigation h1 {
+  margin-top: 20px;
+}
+
+.settingsImgButton {
+  display: flex;
+  width: 100%;
+}
+
+.ButtonSettings {
+  margin: 0px;
+  color: var(--theme-color-black);
+  height: 100%;
+  border: none;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  background-color: var(--theme-color-100);
 }

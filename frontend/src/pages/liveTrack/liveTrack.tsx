@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import './liveTrack.css';
+import styles from './liveTrack.module.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTrackById, getPublicEvent, closeTrack } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
@@ -73,17 +73,17 @@ const LiveTrack = () => {
   const { t } = useTranslation();
 
   return (
-    <div className="live-page">
+    <div className={styles.livePage}>
       {track ? (
         <>
-          <div className="live-header">
-            <div className="live-header-left">
+          <div className={styles.liveHeader}>
+            <div className={styles.liveHeaderLeft}>
               <NavigateBackButton />
-              <h1 className="event-title">{track.event.name}</h1>
+              <h1 className={styles.eventTitle}>{track.event.name}</h1>
             </div>
             <Button label={t('CloseTrack')} onClick={fetchCloseTrack()} />
           </div>
-            <div className="player-wrapper">
+            <div className={styles.playerWrapper}>
             {/* {url ? ( */}
             {/* <div>
               <ReactPlayer
@@ -116,8 +116,8 @@ const LiveTrack = () => {
             <button onClick={() => changeQuality('')}>Auto</button>
           </div>
 
-          <div className="track-info">
-            <div className="track-title">
+          <div className={styles.trackInfo}>
+            <div className={styles.trackTitle}>
               <h2>{track.name}</h2>
               <Button
                 label={t('settings')}
@@ -128,7 +128,7 @@ const LiveTrack = () => {
                 }
               />
             </div>
-            <div className="description">{track.description}</div>
+            <div className={styles.description}>{track.description}</div>
           </div>
         </>
       ) : (
