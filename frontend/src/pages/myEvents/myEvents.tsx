@@ -1,0 +1,224 @@
+import React, { useCallback, useEffect, useState } from 'react';
+
+import styles from './myEvents.module.css';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
+import SearchBar from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
+import { useTranslation } from 'react-i18next';
+import { PublicEvent } from '../../utils/EventsProperties';
+import {
+  getClosedEvents,
+  getEventsMiniature,
+  getPublishedEvents,
+  getUnpublishedEvents,
+  publishEvent
+} from '../../utils/api';
+import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import logger from '../../utils/logger';
+import DisableEventBox from '../../components/ReworkComponents/Event/EventBox/DisableEventBox/DisableEventBox';
+import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
+import { EventStatus } from '../../utils/EventStatus';
+import EventsList from '../../components/ReworkComponents/Event/EventsList/EventsList';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+
+const removeAccents = (str: string): string =>
+  str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
+  if (!events) return [];
+  const queryNormalized = removeAccents(query.toLowerCase());
+  return events.filter((event) => {
+    const nameNormalized = removeAccents(event.name.toLowerCase());
+    const descNormalized = removeAccents(event.description.toLowerCase());
+    return (
+      nameNormalized.includes(queryNormalized) ||
+      descNormalized.includes(queryNormalized)
+    );
+  });
+};
+
+const MyEvents = () => {
+  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [publishEvents, setPublishEvents] = useState<PublicEvent[]>([]);
+  const [unpublishEvents, setUnpublishEvents] = useState<PublicEvent[]>([]);
+  const [closeEvents, setCloseEvents] = useState<PublicEvent[]>([]);
+  const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>(
+    {},
+  );
+  const [searchQuery, setSearchQuery] = useState('');
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
+
+  const fetchMiniatures = useCallback(async () => {
+    const newURLs: Record<string, string> = {};
+
+    await Promise.all(
+      publishEvents
+        .concat(unpublishEvents)
+        .concat(closeEvents)
+        .map(async (event) => {
+          try {
+            const res = await getEventsMiniature(event.id);
+            if (res?.data?.url && !res.data.url.includes('imageSlug')) {
+              newURLs[event.id] = res.data.url;
+            } else {
+              newURLs[event.id] = fallbackMiniature;
+            }
+          } catch (err) {
+            console.error(
+              `Erreur récupération miniature pour event ${event.id}`,
+              err,
+            );
+            newURLs[event.id] = fallbackMiniature;
+          }
+        }),
+    );
+    setMiniatureURLs(newURLs);
+  }, [publishEvents, unpublishEvents, closeEvents]);
+
+  const fetchEventData = async () => {
+    try {
+      const resPublishEvent = await getPublishedEvents();
+      const resNotPublishEvent = await getUnpublishedEvents();
+      const resClosedEvent = await getClosedEvents();
+
+      if (resPublishEvent.status != 200) throw new resPublishEvent.data();
+      if (resNotPublishEvent.status != 200)
+        throw new resNotPublishEvent.data();
+      if (resClosedEvent.status != 200) throw new resClosedEvent.data();
+
+      setPublishEvents(
+        resPublishEvent.data.filter((e: PublicEvent) => e.canBeEditByUser),
+      );
+      setUnpublishEvents(resNotPublishEvent.data);
+      setCloseEvents(resClosedEvent.data);
+
+      setIsLoading(false);
+    } catch (error) {
+      logger.error(`Failed to fetch events: ${error}`);
+    }
+  };
+  useEffect(() => {
+
+    fetchEventData();
+  }, []);
+
+  useEffect(() => {
+    fetchMiniatures();
+  }, [fetchMiniatures]);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const onPublish = async (eventId: string) => {
+    try {
+      const res = await publishEvent(eventId);
+
+      if (res.status !== 200) {
+        setToast({
+          message: t('ErrorPublishingEvent'),
+          type: 'error',
+        });
+      } else {
+        setToast({
+          message: t('EventSuccessfullyPublished'),
+          type: 'success',
+        });
+
+        setPublishEvents((prevEvents) => [...prevEvents, res.data]);
+
+        setUnpublishEvents((prevEvents) => [
+          ...prevEvents.filter((event) => event.id !== eventId),
+        ]);
+        fetchEventData();
+      }
+    } catch (error) {
+      logger.error(`Failed to update event: ${error}`);
+    }
+  };
+
+  const filteredPublishEvents =
+    searchQuery === ''
+      ? publishEvents
+      : filterEvents(publishEvents, searchQuery);
+  const filteredUnpublishEvents =
+    searchQuery === ''
+      ? unpublishEvents
+      : filterEvents(unpublishEvents, searchQuery);
+  const filteredClosedEvents =
+    searchQuery === '' ? closeEvents : filterEvents(closeEvents, searchQuery);
+
+  const loading = Array.from({ length: 10 }, (_, i) => (
+    <DisableEventBox key={i} />
+  ));
+
+  const eventsBoxs = filteredClosedEvents.map((event: PublicEvent) => {
+    return (
+      <EventBox
+        event={event}
+        eventStatus={EventStatus.Finished}
+        key={event.id}
+        imageURL={miniatureURLs[event.id]}
+      />
+    );
+  });
+
+  return (
+    <>
+      <div className={styles.header}>
+        <div className={styles.searchContainer}>
+          <SearchBar
+            onClick={handleSearch}
+            needInput={true}
+            placeholder={t('searchAnEvent')}
+            hasSugestion={false}
+          />
+        </div>
+        <Button label={t('CreateAnEvent')} type={ButtonType.primary} />
+      </div>
+      <div className={styles.body}>
+        <div className={styles.wrapperEvents}>
+          {isLoading ? (
+            <div className={styles.wrapperCloseEvents}>{loading}</div>
+          ) : (
+            <>
+              {filteredPublishEvents.length > 0 && <EventsList
+                eventStatus={EventStatus.Published}
+                title={t('PublicEvents')}
+                events={filteredPublishEvents}
+              />}
+              {filteredUnpublishEvents.length > 0 &&
+                <EventsList
+                  eventStatus={EventStatus.NotPublished}
+                  title={t('UnpublishedEvents')}
+                  events={filteredUnpublishEvents}
+                  onPublish={onPublish}
+                />
+              }
+              {filteredClosedEvents.length > 0 && (
+                <>
+                  <div className={styles.closeTitle}>{t('ClosedEvents')}</div>
+                  <div className={styles.wrapperCloseEvents}>{eventsBoxs}</div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </>
+  );
+};
+
+export default MyEvents;

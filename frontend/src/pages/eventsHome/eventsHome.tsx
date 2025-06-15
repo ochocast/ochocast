@@ -13,6 +13,7 @@ import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox'
 import { getEventsMiniature, getPublishedEvents } from '../../utils/api';
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 import logger from '../../utils/logger';
+import { useNavigate } from 'react-router-dom';
 
 const removeAccents = (str: string): string =>
   str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -31,6 +32,7 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
 };
 
 const EventsHomePage = () => {
+  const navigate = useNavigate();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [events, setEvents] = useState<PublicEvent[]>([]);
@@ -123,9 +125,13 @@ const EventsHomePage = () => {
               /*TODO*/
             }}
           />
-         {t('isRegistered')}
+          {t('isRegistered')}
         </div>
-        <Button label={t('myEvents')} type={ButtonType.primary} />
+        <Button
+          label={t('myEvents')}
+          type={ButtonType.primary}
+          onClick={() => navigate('/my-events')}
+        />
       </div>
       <div className={styles.body}>
         <h1>{t('UpcomingEvents')}</h1>

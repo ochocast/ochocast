@@ -45,9 +45,9 @@ const EventBox = (props: EventBoxProps) => {
       />
       <div className={styles.subscriptionsWrapper}>
         <span className={styles.dot}></span>
-        <span
-          className={styles.subscritpions}
-        >{`${nbSubscribe} ` + t('registered')}</span>
+        <span className={styles.subscritpions}>
+          {`${nbSubscribe} ` + t('registered')}
+        </span>
       </div>
     </div>
   );
@@ -64,7 +64,11 @@ const EventBox = (props: EventBoxProps) => {
 
   const buttonsFinished = (
     <div className={styles.centerWrapper}>
-      <Button label={t('statistics')} type={ButtonType.primary} />
+      <Button
+        label={t('statistics')}
+        type={ButtonType.primary}
+        onClick={() => navigate(`/events/${event.id}/event-statistics`)}
+      />
     </div>
   );
 
@@ -87,18 +91,19 @@ const EventBox = (props: EventBoxProps) => {
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.title}>{event.name}</div>
-        <div
-          className={styles.date}
-        >{t('StartDate') + `${dateDisplay.getDate()}/${
-          dateDisplay.getMonth() + 1
-        }/${dateDisplay.getFullYear()}`}</div>
+        <div className={styles.date}>
+          {t('StartDate') +
+            `${dateDisplay.getDate()}/${
+              dateDisplay.getMonth() + 1
+            }/${dateDisplay.getFullYear()}`}
+        </div>
       </div>
       <div className={styles.eventWrapper}>
-        <div className={styles.info}>{t('CreatedBy') + 
-          event.creator
+        <div className={styles.info}>
+          {t('CreatedBy') + event.creator
             ? event.creator.firstName + ' ' + event.creator.lastName
-            : "" + t('CreatorUnknown')
-        }</div>
+            : '' + t('CreatorUnknown')}
+        </div>
       </div>
       {props.eventStatus === EventStatus.Published && buttonsPublished}
       {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}
