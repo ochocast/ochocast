@@ -106,16 +106,18 @@ export class EventsController {
   }
 
   @Put(':id')
+  @UseInterceptors(FileInterceptor('miniature'))
   async updateEvent(
     @Param('id') id: string,
     @Body() eventData: EventDataDto,
+    @UploadedFile() file: Express.Multer.File,
     @CurrentUserEmail() email: string,
   ): Promise<EventObject> {
     if (!isUUID(id)) {
       throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
     }
 
-    return this.updateEventUsecase.execute(id, eventData, email);
+    return this.updateEventUsecase.execute(id, eventData, file, email);
   }
 
   @Put('publish/:id')
