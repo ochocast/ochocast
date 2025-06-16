@@ -71,9 +71,12 @@ export const useTrackSettings = () => {
           ),
         );
       })
-      .catch((err) => logger.error(`Failed to fetch track ${trackId}: ${err}`))
+      .catch((err) => {
+        logger.error(`Failed to fetch track ${trackId}: ${err}`);
+        navigate('/events');
+      })
       .finally(() => setLoading(false));
-  }, [trackId, allUsers, event]);
+  }, [trackId, allUsers, event, navigate]);
 
   useEffect(() => {
     if (!trackId && event) {
