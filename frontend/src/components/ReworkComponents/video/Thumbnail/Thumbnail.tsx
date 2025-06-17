@@ -121,12 +121,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         {props.onArchived !== undefined ? (
           <div className={styles.buttonList}>
             <Button
-              type={ButtonType.secondary}
-              label={t('archiveVideo')}
-              onClick={() => props.onArchived!(props.Id)}
-            />
-
-            <Button
               type={ButtonType.primary}
               label={t('modify')}
               onClick={() => navigate(`/video/video-settings/${props.Id}`)}

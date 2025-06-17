@@ -25,6 +25,7 @@ import {
   getVideo,
   modifyVideo,
   findTag,
+  deleteVideo,
 } from '../../utils/api';
 import { Tag_video, User } from '../../utils/VideoProperties';
 
@@ -240,6 +241,27 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         alert(t('failedLoadingVideo'));
       });
     setIsLoading(false);
+  };
+
+  const deleteThisVideo = async () => {
+    await deleteVideo(videoId)
+      .then((response) => {
+        if (
+          response.status === 202 ||
+          response.status === 201 ||
+          response.status === 204 ||
+          response.status === 200
+        ) {
+          alert('Vidéo modifiée avec succès !');
+          navigate('/videos');
+        } else {
+          alert(t('failedLoading') + ' : ${response}');
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement de la vidéo :', error);
+        alert(t('failedLoadingVideo'));
+      });
   };
 
   const updateVideo = async () => {
@@ -598,7 +620,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             onChange={handleDescriptionChange}
           />
           <div className="buttonContainer">
-            <Button label={t('archive')}></Button>
+            <Button 
+              onClick={deleteThisVideo}
+              label={t('archive')}
+              type={ButtonType.primary}  
+            ></Button>
             {videoId !== undefined ? (
               <Button
                 onClick={updateVideo}
