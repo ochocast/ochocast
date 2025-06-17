@@ -10,6 +10,7 @@ describe('UpdateEventUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
   let userGatewayMock: jest.Mocked<IUserGateway>;
   let updateEventUsecase: UpdateEventUsecase;
+  let s3ClientMock: jest.Mocked<any>;
 
   /*
     Data Test 
@@ -18,6 +19,7 @@ describe('UpdateEventUsecase', () => {
   const creatorId = 'creator-id';
   const creatorEmail = 'email@email.com';
   const userEmail = 'hohoho@gmail.com';
+  const file = null;
 
   const creator: UserObject = {
     id: creatorId,
@@ -119,6 +121,7 @@ describe('UpdateEventUsecase', () => {
     updateEventUsecase = new UpdateEventUsecase(
       eventGatewayMock,
       userGatewayMock,
+      s3ClientMock,
     );
 
     /*
@@ -157,6 +160,7 @@ describe('UpdateEventUsecase', () => {
     const result = await updateEventUsecase.execute(
       eventId,
       dataToUpdate,
+      file,
       creatorEmail,
     );
 
@@ -172,7 +176,7 @@ describe('UpdateEventUsecase', () => {
     eventGatewayMock.updateEvent.mockRejectedValue(new Error('Update failed'));
 
     await expect(
-      updateEventUsecase.execute(eventId, dataToUpdate, creatorEmail),
+      updateEventUsecase.execute(eventId, dataToUpdate, file, creatorEmail),
     ).rejects.toThrow('Update failed');
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(1);
   });
@@ -183,7 +187,12 @@ describe('UpdateEventUsecase', () => {
 
   it('should throw an error if Event does not exist', async () => {
     await expect(
-      updateEventUsecase.execute('wrong event id', dataToUpdate, creatorEmail),
+      updateEventUsecase.execute(
+        'wrong event id',
+        dataToUpdate,
+        file,
+        creatorEmail,
+      ),
     ).rejects.toThrow(NotFoundException);
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(0);
   });
@@ -194,7 +203,12 @@ describe('UpdateEventUsecase', () => {
 
   it('should throw an error if Current user does not exist', async () => {
     await expect(
-      updateEventUsecase.execute(eventId, dataToUpdate, 'wrong@email.com'),
+      updateEventUsecase.execute(
+        eventId,
+        dataToUpdate,
+        file,
+        'wrong@email.com',
+      ),
     ).rejects.toThrow(NotFoundException);
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(0);
   });
@@ -205,7 +219,7 @@ describe('UpdateEventUsecase', () => {
 
   it('should throw an error if Current user does not have the right to update the event', async () => {
     await expect(
-      updateEventUsecase.execute(eventId, dataToUpdate, userEmail),
+      updateEventUsecase.execute(eventId, dataToUpdate, file, userEmail),
     ).rejects.toThrow(UnauthorizedException);
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(0);
   });
