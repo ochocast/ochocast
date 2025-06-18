@@ -107,3 +107,7 @@ export const isVideoFavorite = async (videoId) => {
 export const getFavoriteVideos = () => api.get('/users/favorites');
 
 
+//Comments
+export const getComments = (videoId) => api.get(`/comments/${videoId}`);
+export const createComment = (commentData) => api.post('/comments', commentData);
+export const deleteComment = (id) => api.delete(`/comments/${id}`);

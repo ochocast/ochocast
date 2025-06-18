@@ -21,12 +21,13 @@ export class CommentGateway implements ICommentGateway {
   }
 
   getComments(filter: any): Promise<CommentObject[]> {
-    return this.commentsRepository.find({
-      where: {
-        ...filter,
-      },
-      relations: ['creator'],
-    });
+    return this.commentsRepository
+      .createQueryBuilder('comment')
+      .leftJoinAndSelect('comment.creator', 'creator')
+      .leftJoinAndSelect('comment.video', 'video')
+      .where('comment.videoId = :videoId', { videoId: filter })
+      .orderBy('comment.createdAt', 'DESC')
+      .getMany();
   }
 
   async deleteComment(commentId: string): Promise<CommentObject> {

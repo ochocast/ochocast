@@ -28,3 +28,12 @@ export interface Tag_video {
   id: string;
   name: string;
 }
+
+export interface CommentObject {
+  id: string,
+  creator: User,
+  video: Video,
+  content: string,
+  createdAt: Date,
+  updatedAt: Date,
+}

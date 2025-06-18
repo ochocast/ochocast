@@ -17,14 +17,30 @@
 .imageSmall {
   width: 3rem;
   height: auto;
-  position: relative;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   border-radius: 50%;
-  align-self: center;
 }
 
 .name {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: max-content;
+}
+
+.namesmall {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+  text-align: center;
+  margin-right: 3rem;
 }
 
 .email {
@@ -39,6 +55,7 @@
 
 .profileContainer {
   display: flex;
+  min-width: 175px;
   flex-direction: row;
   gap: 1rem;
 }

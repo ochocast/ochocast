@@ -3,9 +3,9 @@ import styles from './videoMedia.module.css';
 import ReactMarkdown from 'react-markdown';
 import { default as _ReactPlayer } from 'react-player/lazy';
 import { ReactPlayerProps } from 'react-player/types/lib';
-import { getMedia, getVideo } from '../../utils/api';
+import { createComment, getComments, getMedia, getVideo } from '../../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Video } from '../../utils/VideoProperties';
+import { CommentObject, Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
@@ -14,9 +14,12 @@ import ProfileDescription, {
 } from '../../components/ReworkComponents/profil/ProfileDescription/ProfileDescription';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import Vues from '../../../src/assets/vues.svg';
+
 import Button, { ButtonType } from '../../components/ReworkComponents/generic/Button/Button';
 import { t } from 'i18next';
-
+import Commentary from '../../components/ReworkComponents/video/Comments/Commentary/Commentary';
+import CommentBar from '../../components/ReworkComponents/video/Comments/CommentBar/CommentBar';
+      
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const VideoMedia: FC = () => {
@@ -24,10 +27,11 @@ const VideoMedia: FC = () => {
   const [url, setUrl] = useState<string>('');
   const [video, setVideo] = useState<Video>();
   const [isLoading, setIsLoading] = useState(false);
+  const [commentaryList, setCommentaryList] = useState<CommentObject[]>([]);
   const linkExpirationTime = 3600;
   const renewalThreshold = 300;
   const navigate = useNavigate();
-
+  
   const renewSignedUrl = async () => {
     const url_response = await getMedia(videoId);
     if (url_response) setUrl(url_response.data);
@@ -36,6 +40,9 @@ const VideoMedia: FC = () => {
   useEffect(() => {
     const getMe = async () => {
       setIsLoading(true);
+      const response = await getComments(videoId);
+      if (response != undefined) setCommentaryList(response.data);
+      console.log(commentaryList);
       const video_response = await getVideo(videoId);
       const url_response = await getMedia(videoId);
       if (url_response) setUrl(url_response.data);
@@ -45,7 +52,8 @@ const VideoMedia: FC = () => {
     getMe();
 
     window.scrollTo(0, 0);
-  }, [videoId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoId]); //disabled this line because adding commentary list or removing videoId reload the page infinitely
 
   setTimeout(renewSignedUrl, (linkExpirationTime - renewalThreshold) * 1000);
 
@@ -103,7 +111,8 @@ const VideoMedia: FC = () => {
             </div>
             <div className={styles.profileDescription}>
               <ProfileDescription
-                name={`${video.creator.firstName} ${video.creator.lastName}`}
+                firstname={video.creator.firstName + ' ' + video.creator.lastName}
+                lastname=''
                 email={video.creator.email}
                 description={video.creator.description}
                 image="/persona.png"
@@ -112,10 +121,41 @@ const VideoMedia: FC = () => {
             </div>
           </div>
         </div>
+        <CommentBar
+          onSubmit={async (text) => {
+            if (!videoId) return;
+            const backendUser = localStorage.getItem('backendUser');
+            if (backendUser != null && backendUser != undefined) {
+              await createComment({
+                video: video,
+                content: text,
+                creator: JSON.parse(backendUser).id
+              });            
+            }
+            const refreshed = await getComments(videoId);
+            if (refreshed) setCommentaryList(refreshed.data);
+        }}
+        />
         <div className={styles.containerOther}>
-          <Card>
-            <div className={styles.miniatureList}></div>
-          </Card>
+
+          <div>
+            <Card>
+              <div className={styles.miniatureList}>
+              </div>
+            </Card>
+          </div>
+          <div className={styles.commentaryContainer}>
+            {Array.isArray(commentaryList) &&
+            commentaryList.map((comment, index) => (
+            <Commentary
+              key={index}
+              content={comment.content}
+              firstname={comment.creator.firstName}
+              lastname={comment.creator.lastName}
+              created_at={comment.createdAt}
+            />
+            ))}
+          </div>
         </div>
       </div>
     );

@@ -18,7 +18,8 @@ export enum ProfileDescriptionState {
 }
 
 type ProfileDescriptionProps = {
-  name: string;
+  firstname: string;
+  lastname: string,
   email: string;
   description: string;
   image?: string;
@@ -82,18 +83,22 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     padding: '1rem',
     maxWidth: 'min-content',
   };
+
   if (props.state === ProfileDescriptionState.tiny) {
     return (
       <Card styleAddon={tinyPading}>
         <div className={styles.profileContainer}>
+          <h3 className={styles.namesmall}>
+            <span>{props.firstname}</span>
+            <span>{props.lastname}</span>
+          </h3>
+            
           <img 
-            className={styles.imageSmall}
-            alt=""
+            className={styles.imageSmall} 
+            alt="" 
             src={pictureUrl !== null
               ? pictureUrl
-              : '/persona.png'}
-          />
-          <h3 className={styles.name}>{props.name}</h3>
+              : '/persona.png'} />
         </div>
       </Card>
     );
@@ -111,7 +116,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
               : '/persona.png'}
           />
           <div className={styles.titlesCenter}>
-            <h2 className={styles.name}>{props.name}</h2>
+            <h2 className={styles.name}>{props.firstname}</h2>
             <h5 className={styles.email}>{t('Email')} {props.email}</h5>
           </div>
         </div>
@@ -131,7 +136,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           />
           <div>
             <div className={styles.titles}>
-              <h2 className={styles.name}>{props.name}</h2>
+              <h2 className={styles.name}>{props.firstname}</h2>
               <h5 className={styles.email}>{t('Email')} {props.email}</h5>
               <span className={styles.descriptionTitle}>{t('Description')}</span>
               <span className={styles.descriptionClamp}>
@@ -148,8 +153,8 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainer}>
-          <img
-            className={styles.imageLarge}
+          <img 
+            className={styles.image}
             alt=""
             src={pictureUrl !== null
               ? pictureUrl
@@ -157,7 +162,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           />
           <div className={styles.description}>
             <div className={styles.titles}>
-              <h2 className={styles.name}>{props.name}</h2>
+              <h2 className={styles.name}>{props.firstname}</h2>
               <h5 className={styles.email}>{t('Email')} {props.email}</h5>
               <span className={styles.descriptionTitle}>{t('Description')}</span>
               <span>{props.description}</span>

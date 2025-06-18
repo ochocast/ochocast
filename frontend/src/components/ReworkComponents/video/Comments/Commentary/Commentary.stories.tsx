@@ -16,6 +16,10 @@ const meta = {
     },
     // Use `fn` to spy on the onClick arg, which will appear in the actions panel once invoked: https://storybook.js.org/docs/essentials/actions#action-args
     args: {
+        
+        firstname: 'Jhon',
+        lastname: 'Doe',
+        created_at: undefined,
         content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc scelerisque nisi convallis nisl iaculis vehicula. Vivamus non vestibulum dui, sed eleifend augue. Fusce imperdiet dolor eu rhoncus interdum.',
     },
 } satisfies Meta<typeof Commentary>;

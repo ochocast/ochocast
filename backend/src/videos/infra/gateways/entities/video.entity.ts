@@ -63,9 +63,6 @@ export class VideoEntity {
     Object.assign(this, video);
   }
 
-
   @ManyToMany(() => UserEntity, (user) => user.favoriteVideos)
- usersWhoFavorited: UserEntity[];
-
-
+  usersWhoFavorited: UserEntity[];
 }

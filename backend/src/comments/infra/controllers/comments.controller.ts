@@ -37,18 +37,8 @@ export class CommentsController {
   }
 
   // Standard GET route with query parameters
-  @Get()
-  @ApiOperation({
-    description:
-      'This request accepts query parameters in order to filter the results. Only the filter by id will expand the creator field.',
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'string',
-    required: false,
-    description: 'Filter comments by creator id',
-  })
-  findComments(@Query() filter: any): Promise<CommentObject[]> {
+  @Get(':videoId')
+  findComments(@Param('videoId') filter: string): Promise<CommentObject[]> {
     return this.getCommentsUsecase.execute(filter);
   }
 

@@ -13,15 +13,13 @@
   font-weight: normal;
 }
 
-.vues
-{
+.vues {
   font-size: 1em;
   font-style: italic;
   font-weight: normal;
 }
 
-.video_title
-{
+.video_title {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -83,8 +81,6 @@
   margin-bottom: 1rem;
 }
 
-/* ------------- */
-
 .containerOther {
   margin-top: 1rem;
   display: flex;
@@ -101,8 +97,71 @@
   gap: 1rem;
 }
 
-.commentaryList {
+.page {
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.commentaryContainer {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
   gap: 1rem;
+}
+
+.comment {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 1rem;
+}
+
+.profile {
+  width: 150px;
+  flex-shrink: 0;
+  font-weight: bold;
+  color: var(--theme-color-3000);
+}
+
+.body {
+  flex: 1;
+  padding-left: 1rem;
+  border-left: 2px solid var(--theme-color-white);
+}
+
+.body p {
+  margin: 0;
+}
+
+.body small {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--theme-color-3050);
+}
+
+.commentBar {
+  display: flex;
+  padding: 1rem;
+  background-color: var(--theme-color-white);
+  border-top: 1px solid var(--theme-color-white);
+  box-sizing: border-box;
+}
+
+.commentBar input {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+}
+
+.commentBar button {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
 }

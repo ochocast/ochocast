@@ -84,8 +84,11 @@ const Profile: FC<ProfileProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <ProfileDescription
-          name={currentUser ? currentUser.firstName : t('unknown')}
-          email={currentUser ? currentUser.email : t('unknownEmail')}
+          firstname={currentUser ? currentUser.firstName : t('unknown')}
+          lastname=''
+          email={
+            currentUser ? currentUser.email : t('unknownEmail')
+          }
           description={
             currentUser ? currentUser.description : t('noDescription')
           }

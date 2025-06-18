@@ -216,10 +216,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     form.append('tags', JSON.stringify(tags));
     form.append('internal_speakers', JSON.stringify(intern_list));
     form.append('external_speakers', extern_User_List);
-    form.append(
+    /*form.append(
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
-    );
+    );*/
     setIsLoading(true);
     await createVideo(form)
       .then((response) => {
