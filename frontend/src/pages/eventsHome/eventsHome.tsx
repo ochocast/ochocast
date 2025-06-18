@@ -69,9 +69,10 @@ const EventsHomePage = () => {
     const fetchEventData = async () => {
       try {
         const res = await getPublishedEvents();
-        if (res.status != 200) throw new res.data;
-        setEvents(res.data);
-        setIsLoading(false);
+        if (res.status === 200) {
+          setEvents(await res.data);
+          setIsLoading(false);
+        }
       } catch (error) {
         logger.error(`Failed to fetch events: ${error}`);
       }
