@@ -21,7 +21,6 @@ export class GetProfilePictureUsecase {
 
     // Generate a signed URL valid for 1 hour
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
-    console.log(url);
 
     return url;
   }

@@ -40,6 +40,9 @@
   --theme-color-black: #000000;
   --theme-color-gray: #cccccc;
   --theme-color-red: #db4437;
+
+  --width-profile-picture: 192px;
+  --height-profile-picture: 180px;
   /* --secondary-bg-color: #808080; */
 
   /* #798c89 */

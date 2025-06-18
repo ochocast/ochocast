@@ -25,7 +25,9 @@ api.addAsyncRequestTransform(async (request) => {
 // Users
 export const loginUser = () => api.get('/users/login');
 export const getUsers = () => api.get('/users');
-export const getProfilePicture = (userId) => api.get(`/picture/${userId}`);
+export const getProfilePicture = (userId) => api.get(`/users/picture/${userId}`);
+export const updateProfile = (newProfile) => api.post(`/users/update`, newProfile);
+export const updateProfileWithoutImage = (newProfile) => api.post(`/users/update2`, newProfile);
 
 // Events
 export const createEvent = (event) => api.post('/events', event);

@@ -137,6 +137,7 @@ describe('GetPrivateEventByIdUsecase', () => {
       removeFavoriteVideo: jest.fn(),
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
+      updateUserProfile: jest.fn(),
     };
     getPrivateEventByIdUsecase = new GetPrivateEventByIdUsecase(
       eventGatewayMock,

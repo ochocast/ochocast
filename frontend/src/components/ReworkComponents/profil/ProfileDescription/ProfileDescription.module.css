@@ -76,3 +76,9 @@
   flex-direction: column;
   justify-content: space-between;
 }
+
+.logout {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}

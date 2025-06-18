@@ -124,6 +124,7 @@ describe('CloseTracktUsecase', () => {
       removeFavoriteVideo: jest.fn(),
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
+      updateUserProfile: jest.fn(),
     };
 
     eventGatewayMock = {

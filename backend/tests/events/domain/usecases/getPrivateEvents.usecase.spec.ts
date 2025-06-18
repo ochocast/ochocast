@@ -198,6 +198,7 @@ describe('GetPrivateEventsUsecase', () => {
       removeFavoriteVideo: jest.fn(),
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
+      updateUserProfile: jest.fn(),
     };
 
     getPrivateEventsUsecase = new GetPrivateEventsUsecase(

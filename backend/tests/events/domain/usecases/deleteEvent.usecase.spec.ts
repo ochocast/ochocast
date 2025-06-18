@@ -91,6 +91,7 @@ describe('DeleteEventUsecase', () => {
       removeFavoriteVideo: jest.fn(),
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
+      updateUserProfile: jest.fn(),
     };
 
     deleteEventUsecase = new DeleteEventUsecase(

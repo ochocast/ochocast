@@ -19,6 +19,7 @@ import Profile from './pages/profile/profile';
 import {ProtectedRoutes} from "./utils/ProtectedRoutes";
 import EventStatistic from './pages/eventStatistics/eventStatistics';
 import EventsHomePage from './pages/eventsHome/eventsHome';
+import ProfileSetting from './pages/ProfileSettings/ProfileSettings';
 import MyEvents from './pages/myEvents/myEvents';
 
 function App() {
@@ -75,6 +76,10 @@ function App() {
         <Route
           path="/video/video-settings/:videoId"
           element={<VideoSettings />}
+        />
+        <Route
+          path="/profile/profile-settings"
+          element={<ProfileSetting />}
         />
         <Route
           path="/video/:videoId"
