@@ -131,4 +131,23 @@ export class UserGateway implements IUserGateway {
       comments: video.comments,
     }));
   }
+  async updateUserProfile(
+    userId: string,
+    newFirstName: string,
+    newDescription: string,
+    newProfilePictureId: string,
+  ): Promise<void> {
+    if (newFirstName) {
+      await this.usersRepository.update(userId, {
+        firstName: newFirstName || 'Pas de nom',
+        description: newDescription || '',
+        picture_id: newProfilePictureId || '',
+      });
+    } else {
+      await this.usersRepository.update(userId, {
+        description: newDescription || '',
+        picture_id: newProfilePictureId || '',
+      });
+    }
+  }
 }

@@ -25,6 +25,9 @@ import { AddFavoriteVideoUsecase } from 'src/users/domain/usecases/addFavoriteVi
 import { RemoveFavoriteVideoUsecase } from 'src/users/domain/usecases/removeFavoriteVideo.usecase';
 import { IsFavoriteVideoUsecase } from 'src/users/domain/usecases/isFavoriteVideo.usecase';
 import { GetFavoriteVideosUsecase } from 'src/users/domain/usecases/getFavoriteVideo.usecase';
+import { UpdateProfileUseCase } from 'src/users/domain/usecases/updateProfile.usecase';
+import { UpdateProfileUseCaseWithoutImage } from 'src/users/domain/usecases/updateProfileWithoutImage.usecase';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -39,6 +42,8 @@ export class UsersController {
     private removeFavoriteVideoUsecase: RemoveFavoriteVideoUsecase,
     private isFavoriteVideoUsecase: IsFavoriteVideoUsecase,
     private readonly getFavoriteVideosUsecase: GetFavoriteVideosUsecase,
+    private updateProfileUsecase: UpdateProfileUseCase,
+    private updateProfileWithoutImageUsecase: UpdateProfileUseCaseWithoutImage,
   ) {}
 
   @Post()
@@ -110,5 +115,27 @@ export class UsersController {
   @Get('/favorites')
   async getFavoriteVideosByEmail(@AuthenticatedUser() user: any) {
     return this.getFavoriteVideosUsecase.execute(user.email);
+  }
+
+  @Post(`/update`)
+  @UseInterceptors(FileInterceptor('file'))
+  @UsePipes(new ValidationPipe())
+  async updateUser(
+    @AuthenticatedUser() user: any,
+    @Body() newProfile: UpdateUserDto,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<{ success: boolean }> {
+    await this.updateProfileUsecase.execute(user.email, newProfile, file);
+    return { success: true };
+  }
+
+  @Post(`/update2`)
+  @UsePipes(new ValidationPipe())
+  async updateUser2(
+    @AuthenticatedUser() user: any,
+    @Body() newProfile: UpdateUserDto,
+  ): Promise<{ success: boolean }> {
+    await this.updateProfileWithoutImageUsecase.execute(user.email, newProfile);
+    return { success: true };
   }
 }

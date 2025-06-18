@@ -37,6 +37,7 @@ describe('AddFavoriteVideoUsecase', () => {
       removeFavoriteVideo: jest.fn(),
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
+      updateUserProfile: jest.fn(),
     };
 
     addFavoriteVideoUsecase = new AddFavoriteVideoUsecase(userGatewayMock);

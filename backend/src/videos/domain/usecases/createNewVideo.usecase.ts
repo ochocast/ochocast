@@ -28,8 +28,6 @@ export class CreateNewVideoUsecase {
     file: Express.Multer.File,
     miniatureFile: Express.Multer.File,
   ): Promise<VideoObject> {
-    console.log(ffmpegInstaller.path);
-    console.log('début execute');
     const baseName = path.parse(videoToCreate.media_id).name;
     const media_id = Date.now() + '.' + baseName + '.mp4';
     const miniature_id = `miniature${Date.now()}.jpg`;
@@ -49,23 +47,17 @@ export class CreateNewVideoUsecase {
       [new CommentEntity(null)],
       false,
     );
-    console.log(video);
     const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
     const tempOutputPath = path.join(
       tmpdir(),
       `${video.media_id}-transcoded.mp4`,
     );
-    console.log('début writefile vidéo\n');
     await writeFile(tempInputPath, file.buffer);
-    console.log('fin writefile vidéo\n');
 
-    console.log('début transcode vidéo\n');
     await transcodeVideo(tempInputPath, tempOutputPath);
-    console.log('fin transcode vidéo\n');
 
     const transcodedBuffer = await readFile(tempOutputPath);
 
-    console.log('début upload vidéo\n');
     const upload = new Upload({
       client: this.s3Client,
       params: {
@@ -75,17 +67,18 @@ export class CreateNewVideoUsecase {
         ContentType: 'video/mp4',
       },
     });
-    console.log('fin upload vidéo\n');
 
     const video_result = await upload.done();
     if (miniatureFile) {
-      const tempMiniaturePath = path.join(tmpdir(),`miniature${video.media_id}.jpg`);
+      const tempMiniaturePath = path.join(
+        tmpdir(),
+        `miniature${video.media_id}.jpg`,
+      );
       await sharp(miniatureFile.buffer)
         .resize(1280, 720)
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
 
-      console.log('début upload miniature\n');
       const miniatureUpload = new Upload({
         client: this.s3Client,
         params: {
@@ -95,15 +88,12 @@ export class CreateNewVideoUsecase {
           ContentType: 'image/jpeg',
         },
       });
-      console.log('fin upload miniature\n');
       const miniature_result = await miniatureUpload.done();
       await unlink(tempMiniaturePath).catch(() => {});
     }
 
-    console.log('début unlink path\n');
     await unlink(tempInputPath).catch(() => {});
     await unlink(tempOutputPath).catch(() => {});
-    console.log('fin unlink path\n');
 
     await this.videoGateway.createNewVideo(video);
     return video;
@@ -120,25 +110,12 @@ async function transcodeVideo(
       .outputOptions(['-preset fast', '-crf 23', '-movflags +faststart'])
       .format('mp4')
       .output(outputPath)
-      .on('start', (commandLine) => {
-        console.log('Commande FFmpeg lancée :', commandLine);
-      })
-      .on('stderr', (stderrLine) => {
-        console.debug('[ffmpeg]', stderrLine);
-      })
       .on('end', () => {
-        console.log('Transcodage terminé');
         resolve();
       })
-      .on('error', (err, stdout, stderr) => {
-        console.error('Erreur lors du transcodage :', err.message);
-        console.error('FFmpeg stdout :', stdout);
-        console.error('FFmpeg stderr :', stderr);
+      .on('error', (err) => {
         reject(err);
       });
-
-    command.addOption('-loglevel', 'debug');
-
     command.run();
   });
 }

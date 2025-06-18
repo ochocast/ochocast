@@ -118,6 +118,7 @@ describe('SubcribeToEventUsecase', () => {
       removeFavoriteVideo: jest.fn(),
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
+      updateUserProfile: jest.fn(),
     };
 
     subscribeToEventUsecase = new SubscribeToEventUsecase(

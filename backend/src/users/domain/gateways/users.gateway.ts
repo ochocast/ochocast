@@ -12,4 +12,10 @@ export interface IUserGateway {
   removeFavoriteVideo(userId: string, videoId: string): Promise<void>;
   isVideoFavorite(userId: string, videoId: string): Promise<boolean>;
   getFavoriteVideos(userId: string): Promise<VideoObject[]>;
+  updateUserProfile(
+    userId: string,
+    newFirstName: string,
+    newDescription: string,
+    newProfilePictureId: string,
+  ): Promise<void>;
 }
