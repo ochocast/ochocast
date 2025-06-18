@@ -69,7 +69,7 @@ const EventsHomePage = () => {
     const fetchEventData = async () => {
       try {
         const res = await getPublishedEvents();
-        if (res.status != 200) throw new res.data();
+        if (res.status != 200) throw new res.data;
         setEvents(res.data);
         setIsLoading(false);
       } catch (error) {
