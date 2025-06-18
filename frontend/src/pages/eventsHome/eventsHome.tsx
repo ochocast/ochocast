@@ -14,7 +14,6 @@ import { getEventsMiniature, getPublishedEvents } from '../../utils/api';
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 import logger from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from 'react-oidc-context';
 
 const removeAccents = (str: string): string =>
   str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -33,7 +32,7 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
 };
 
 const EventsHomePage = () => {
-  const auth = useAuth();
+  const userString = localStorage.getItem('backendUser');
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -68,22 +67,21 @@ const EventsHomePage = () => {
   }, [events]);
 
   useEffect(() => {
-    console.log(auth.isAuthenticated);
-    if (!auth.isAuthenticated) return;
     const fetchEventData = async () => {
+      setIsLoading(true);
       try {
         const res = await getPublishedEvents();
         if (res.status === 200) {
           setEvents(await res.data);
-          setIsLoading(false);
         }
       } catch (error) {
         logger.error(`Failed to fetch events: ${error}`);
-        setIsLoading(false);
       }
+      setIsLoading(false);
+
     };
     fetchEventData();
-  }, [auth.isAuthenticated]);
+  }, [userString]);
 
   useEffect(() => {
     fetchMiniatures();

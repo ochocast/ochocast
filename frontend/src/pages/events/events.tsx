@@ -23,9 +23,8 @@ import logger from '../../utils/logger';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from 'react-oidc-context';
 
-export interface eventsProps {}
+export interface eventsProps { }
 
 // Utility function to remove accents from a string
 const removeAccents = (str: string): string =>
@@ -55,7 +54,6 @@ const fetchEventsClosed = async () => {
 };
 
 const EventsPage: FC<eventsProps> = () => {
-  const auth = useAuth();
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
     setisOpen(!isOpen);
@@ -108,7 +106,6 @@ const EventsPage: FC<eventsProps> = () => {
   // use effect called once to fetch published and unpublished events
   useEffect(() => {
     const fetchEventData = async () => {
-      if (!auth.isAuthenticated) return;
       try {
         const publishedData = await getPublishedEvents();
         const unpublishedData = await getUnpublishedEvents();
@@ -123,7 +120,7 @@ const EventsPage: FC<eventsProps> = () => {
     };
 
     fetchEventData();
-  }, [auth.isAuthenticated]);
+  }, [userString]);
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -150,7 +147,7 @@ const EventsPage: FC<eventsProps> = () => {
     const file = e.target.files ? e.target.files[0] : null;
     if (file) {
       const reader = new FileReader();
-      
+
       reader.onload = () => {
         if (typeof reader.result === 'string') {
           setImageUrl(reader.result);
@@ -158,8 +155,8 @@ const EventsPage: FC<eventsProps> = () => {
           console.error("Le résultat du FileReader n'est pas une chaîne !");
         }
       };
-      
-      reader.readAsDataURL(file); 
+
+      reader.readAsDataURL(file);
       setSelectedImage(file);
     }
   };
@@ -169,7 +166,7 @@ const EventsPage: FC<eventsProps> = () => {
   const onPublish = async (eventId: string) => {
     try {
       const res = await publishEvent(eventId);
-    
+
       if (res.status !== 200) {
         setToast({
           message: t('ErrorPublishingEvent'),
@@ -211,23 +208,23 @@ const EventsPage: FC<eventsProps> = () => {
         const [s_hour, s_minute] = startHour.split(':');
         const [e_hour, e_minute] = endHour.split(':');
         const startDateISOString = new Date(
-              Date.UTC(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                parseInt(s_hour),
-                parseInt(s_minute),
-              ),
-            ).toISOString();
+          Date.UTC(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(s_hour),
+            parseInt(s_minute),
+          ),
+        ).toISOString();
         const endDateISOString = new Date(
-              Date.UTC(
-                parseInt(year),
-                parseInt(month) - 1,
-                parseInt(day),
-                parseInt(e_hour),
-                parseInt(e_minute),
-              ),
-            ).toISOString();
+          Date.UTC(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(e_hour),
+            parseInt(e_minute),
+          ),
+        ).toISOString();
         const formData = new FormData();
         formData.append('image_slug', selectedImage?.name || 'imageslug');
         formData.append('name', name);
@@ -235,7 +232,8 @@ const EventsPage: FC<eventsProps> = () => {
         formData.append('startDate', startDateISOString);
         formData.append('endDate', endDateISOString);
         if (selectedImage) {
-          formData.append('miniature', selectedImage); }
+          formData.append('miniature', selectedImage);
+        }
         const res = await createEvent(formData);
 
         if (res.status === 201) {
@@ -365,9 +363,9 @@ const EventsPage: FC<eventsProps> = () => {
                 required
               />
             </div>
-             <div className={styles.inputWrapper}>
+            <div className={styles.inputWrapper}>
               <label>{t('Thumbnail')}</label>
-              <InputFile placeholder={t('ChooseThumbnail')} onChange={handleImageChange} disable={false} required={false}/>
+              <InputFile placeholder={t('ChooseThumbnail')} onChange={handleImageChange} disable={false} required={false} />
               {imageUrl && <img src={imageUrl} alt="Miniature Preview" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}
             </div>
           </div>
