@@ -14,6 +14,7 @@ import { getEventsMiniature, getPublishedEvents } from '../../utils/api';
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 import logger from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from 'react-oidc-context';
 
 const removeAccents = (str: string): string =>
   str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -32,6 +33,7 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
 };
 
 const EventsHomePage = () => {
+  const auth = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -66,6 +68,8 @@ const EventsHomePage = () => {
   }, [events]);
 
   useEffect(() => {
+    console.log(auth.isAuthenticated);
+    if (!auth.isAuthenticated) return;
     const fetchEventData = async () => {
       try {
         const res = await getPublishedEvents();
@@ -76,11 +80,10 @@ const EventsHomePage = () => {
       } catch (error) {
         logger.error(`Failed to fetch events: ${error}`);
         setIsLoading(false);
-
       }
     };
     fetchEventData();
-  }, []);
+  }, [auth.isAuthenticated]);
 
   useEffect(() => {
     fetchMiniatures();

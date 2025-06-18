@@ -23,6 +23,7 @@ import logger from '../../utils/logger';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from 'react-oidc-context';
 
 export interface eventsProps {}
 
@@ -54,6 +55,7 @@ const fetchEventsClosed = async () => {
 };
 
 const EventsPage: FC<eventsProps> = () => {
+  const auth = useAuth();
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
     setisOpen(!isOpen);
@@ -106,6 +108,7 @@ const EventsPage: FC<eventsProps> = () => {
   // use effect called once to fetch published and unpublished events
   useEffect(() => {
     const fetchEventData = async () => {
+      if (!auth.isAuthenticated) return;
       try {
         const publishedData = await getPublishedEvents();
         const unpublishedData = await getUnpublishedEvents();
@@ -120,7 +123,7 @@ const EventsPage: FC<eventsProps> = () => {
     };
 
     fetchEventData();
-  }, []);
+  }, [auth.isAuthenticated]);
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
