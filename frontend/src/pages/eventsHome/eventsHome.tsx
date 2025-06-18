@@ -75,6 +75,8 @@ const EventsHomePage = () => {
         }
       } catch (error) {
         logger.error(`Failed to fetch events: ${error}`);
+        setIsLoading(false);
+
       }
     };
     fetchEventData();
