@@ -1,5 +1,7 @@
 import React, { ChangeEvent, FC, FormEvent, useEffect, useState } from 'react';
 import styles from './events.module.css';
+import { useAuth } from 'react-oidc-context';
+import { api } from '../../utils/api';
 
 import Button, {
   ButtonType,
@@ -44,16 +46,8 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
   });
 };
 
-const fetchEventsClosed = async () => {
-  try {
-    const res = await getClosedEvents();
-    return await res.data;
-  } catch (error) {
-    logger.error(`Failed to fetch published events: ${error}`);
-  }
-};
-
 const EventsPage: FC<eventsProps> = () => {
+  const auth = useAuth();
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
     setisOpen(!isOpen);
@@ -76,7 +70,8 @@ const EventsPage: FC<eventsProps> = () => {
   const [endHour, setEndHour] = useState('');
 
   const [message, setMessage] = useState('');
-  const userString = localStorage.getItem('backendUser');
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [toast, setToast] = useState<{
     message: string;
@@ -86,41 +81,40 @@ const EventsPage: FC<eventsProps> = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
-  const fetchEventData = async (userString: string | null) => {
+  const fetchEventData = async () => {
+    setIsLoading(true);
+    setFetchError(null);
     try {
-      if (!userString) {
-        throw new Error('User not found');
-      }
       const publishedData = await getPublishedEvents();
       const unpublishedData = await getUnpublishedEvents();
-      const closedData = await fetchEventsClosed();
+      const closedData = await getClosedEvents();
+
+      if (publishedData.status !== 200) throw new Error("Échec récupération événements publiés");
+      if (unpublishedData.status !== 200) throw new Error("Échec récupération événements non publiés");
+      if (closedData.status !== 200) throw new Error("Échec récupération événements clos");
 
       setEventsPublished(publishedData.data);
       setEventsUnpublished(unpublishedData.data);
-      setEventsClosed(closedData);
+      setEventsClosed(closedData.data);
     } catch (error) {
       logger.error(`Failed to fetch events: ${error}`);
+      setFetchError("Impossible de charger les événements");
     }
+    setIsLoading(false);
   };
 
-  // use effect called once to fetch published and unpublished events
+  // Use effect for fetching events when auth changes
   useEffect(() => {
-    const fetchEventData = async () => {
-      try {
-        const publishedData = await getPublishedEvents();
-        const unpublishedData = await getUnpublishedEvents();
-        const closedData = await fetchEventsClosed();
+    // Assurez-vous que les headers API sont configurés avec le token
+    if (auth.user?.access_token) {
+      api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+    }
 
-        setEventsPublished(publishedData.data);
-        setEventsUnpublished(unpublishedData.data);
-        setEventsClosed(closedData);
-      } catch (error) {
-        logger.error(`Failed to fetch events: ${error}`);
-      }
-    };
-
-    fetchEventData();
-  }, [userString]);
+    // Seulement si on a un token et qu'on n'est pas en train de charger
+    if (auth.user && !auth.isLoading) {
+      fetchEventData();
+    }
+  }, [auth.user, auth.isLoading]);
 
   const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
     setName(e.target.value);
@@ -165,6 +159,11 @@ const EventsPage: FC<eventsProps> = () => {
 
   const onPublish = async (eventId: string) => {
     try {
+      // Assurez-vous que le token est toujours valide
+      if (auth.user?.access_token) {
+        api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+      }
+      
       const res = await publishEvent(eventId);
 
       if (res.status !== 200) {
@@ -183,10 +182,14 @@ const EventsPage: FC<eventsProps> = () => {
         setEventsUnpublished([
           ...eventsUnpublished.filter((event) => event.id !== eventId),
         ]);
-        fetchEventData(userString);
+        fetchEventData();
       }
     } catch (error) {
       logger.error(`Failed to update event: ${error}`);
+      setToast({
+        message: t('ErrorPublishingEvent'),
+        type: 'error',
+      });
     }
   };
 
@@ -204,6 +207,13 @@ const EventsPage: FC<eventsProps> = () => {
 
     if (!isError) {
       try {
+        // Assurez-vous que le token est toujours valide
+        if (auth.user?.access_token) {
+          api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+        } else {
+          throw new Error("Session expirée, veuillez vous reconnecter");
+        }
+
         const [year, month, day] = date.split('-');
         const [s_hour, s_minute] = startHour.split(':');
         const [e_hour, e_minute] = endHour.split(':');
@@ -250,6 +260,10 @@ const EventsPage: FC<eventsProps> = () => {
           setSelectedImage(null);
           setImageUrl(null);
           setEventsUnpublished((prevEvents) => [...prevEvents, eventToPublicEvent(res.data)]);
+          // Actualiser tous les événements après la création
+          fetchEventData();
+        } else {
+          throw new Error("Erreur de création d'événement");
         }
       } catch (error) {
         setToast({
@@ -275,6 +289,9 @@ const EventsPage: FC<eventsProps> = () => {
   const filteredClosed =
     searchQuery === '' ? eventsClosed : filterEvents(eventsClosed, searchQuery);
 
+  // Obtenir l'ID utilisateur depuis le contexte d'authentification
+  const userId = auth.user?.profile?.sub || '';
+
   return (
     <div className={styles.events}>
       <header className="events-header">
@@ -294,29 +311,40 @@ const EventsPage: FC<eventsProps> = () => {
         />
       </div>
       <div className={styles.content}>
-        {filteredPublished && filteredPublished.length >= 1 ? (
-          <EventsList
-            eventStatus={EventStatus.Published}
-            title={t('UpcomingEvents')}
-            events={filteredPublished}
-            viewerID={userString ? JSON.parse(userString).id : ''}
-          />
-        ) : null}
-        {filteredUnpublished && filteredUnpublished.length >= 1 ? (
-          <EventsList
-            eventStatus={EventStatus.NotPublished}
-            title={t('UnpublishedEvents')}
-            events={filteredUnpublished}
-            onPublish={onPublish}
-          />
-        ) : null}
-        {filteredClosed && filteredClosed.length >= 1 ? (
-          <EventsList
-            eventStatus={EventStatus.Finished}
-            title={t('PastEvents')}
-            events={filteredClosed}
-          />
-        ) : null}
+        {isLoading ? (
+          <div className={styles.loadingMessage}>Chargement des événements...</div>
+        ) : fetchError ? (
+          <div className={styles.errorMessage}>{fetchError}</div>
+        ) : (
+          <>
+            {filteredPublished && filteredPublished.length >= 1 ? (
+              <EventsList
+                eventStatus={EventStatus.Published}
+                title={t('UpcomingEvents')}
+                events={filteredPublished}
+                viewerID={userId}
+              />
+            ) : null}
+            {filteredUnpublished && filteredUnpublished.length >= 1 ? (
+              <EventsList
+                eventStatus={EventStatus.NotPublished}
+                title={t('UnpublishedEvents')}
+                events={filteredUnpublished}
+                onPublish={onPublish}
+              />
+            ) : null}
+            {filteredClosed && filteredClosed.length >= 1 ? (
+              <EventsList
+                eventStatus={EventStatus.Finished}
+                title={t('PastEvents')}
+                events={filteredClosed}
+              />
+            ) : null}
+            {filteredPublished.length === 0 && filteredUnpublished.length === 0 && filteredClosed.length === 0 && (
+              <div className={styles.emptyState}>Aucun événement trouvé</div>
+            )}
+          </>
+        )}
       </div>
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('CreateNewEvent')}</h1>

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useAuth } from 'react-oidc-context';
+import { api } from '../../utils/api';
 
 import styles from './myEvents.module.css';
 import Button, {
@@ -39,8 +41,10 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
 };
 
 const MyEvents = () => {
+  const auth = useAuth();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [publishEvents, setPublishEvents] = useState<PublicEvent[]>([]);
   const [unpublishEvents, setUnpublishEvents] = useState<PublicEvent[]>([]);
   const [closeEvents, setCloseEvents] = useState<PublicEvent[]>([]);
@@ -81,31 +85,39 @@ const MyEvents = () => {
   }, [publishEvents, unpublishEvents, closeEvents]);
 
   const fetchEventData = async () => {
+    setIsLoading(true);
     try {
       const resPublishEvent = await getPublishedEvents();
       const resNotPublishEvent = await getUnpublishedEvents();
       const resClosedEvent = await getClosedEvents();
 
-      if (resPublishEvent.status != 200) throw new resPublishEvent.data();
-      if (resNotPublishEvent.status != 200)
-        throw new resNotPublishEvent.data();
-      if (resClosedEvent.status != 200) throw new resClosedEvent.data();
+      if (resPublishEvent.status !== 200) throw new Error("Échec récupération événements publiés");
+      if (resNotPublishEvent.status !== 200) throw new Error("Échec récupération événements non publiés");
+      if (resClosedEvent.status !== 200) throw new Error("Échec récupération événements clos");
 
       setPublishEvents(
         resPublishEvent.data.filter((e: PublicEvent) => e.canBeEditByUser),
       );
       setUnpublishEvents(resNotPublishEvent.data);
       setCloseEvents(resClosedEvent.data);
-
-      setIsLoading(false);
     } catch (error) {
       logger.error(`Failed to fetch events: ${error}`);
+      setFetchError("Impossible de charger vos événements");
     }
+    setIsLoading(false);
   };
   useEffect(() => {
+    // Assurez-vous que les headers API sont configurés avec le token
+    if (auth.user?.access_token) {
+      api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
+    }
 
-    fetchEventData();
-  }, []);
+    // Seulement si on a un token et qu'on n'est pas en train de charger
+    if (auth.user && !auth.isLoading) {
+      setFetchError(null);
+      fetchEventData();
+    }
+  }, [auth.user, auth.isLoading]);
 
   useEffect(() => {
     fetchMiniatures();
@@ -185,6 +197,8 @@ const MyEvents = () => {
         <div className={styles.wrapperEvents}>
           {isLoading ? (
             <div className={styles.wrapperCloseEvents}>{loading}</div>
+          ) : fetchError ? (
+            <div className={styles.errorMessage}>{fetchError}</div>
           ) : (
             <>
               {filteredPublishEvents.length > 0 && <EventsList
@@ -205,6 +219,9 @@ const MyEvents = () => {
                   <div className={styles.closeTitle}>{t('ClosedEvents')}</div>
                   <div className={styles.wrapperCloseEvents}>{eventsBoxs}</div>
                 </>
+              )}
+              {filteredPublishEvents.length === 0 && filteredUnpublishEvents.length === 0 && filteredClosedEvents.length === 0 && (
+                <div className={styles.emptyState}>Aucun événement trouvé</div>
               )}
             </>
           )}

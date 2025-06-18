@@ -15,6 +15,36 @@
   width: 100%;
 }
 
+/* Ajout des classes pour les états de chargement, erreur et vide */
+.loadingMessage {
+  text-align: center;
+  padding: 20px;
+  width: 100%;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.errorMessage {
+  text-align: center;
+  padding: 20px;
+  width: 100%;
+  color: #e74c3c;
+  font-size: 1.1rem;
+  background-color: rgba(231, 76, 60, 0.1);
+  border-radius: 4px;
+  margin: 20px 0;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 20px;
+  width: 100%;
+  color: #666;
+  font-style: italic;
+  margin: 20px 0;
+}
+/* Fin des ajouts */
+
 .sideBySide .inputWrapper .select-wrapper {
   width: 100%;
   box-sizing: border-box;

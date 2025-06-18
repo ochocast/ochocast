@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
+import { useAuth } from 'react-oidc-context';
+import { api } from '../../utils/api';
 
 import styles from './eventsHome.module.css';
 import DisableEventBox from '../../components/ReworkComponents/Event/EventBox/DisableEventBox/DisableEventBox';
@@ -32,7 +34,9 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
 };
 
 const EventsHomePage = () => {
-  const userString = localStorage.getItem('backendUser');
+  const auth = useAuth();
+  // Gardons userString pour référence mais non-utilisé
+  // const userString = localStorage.getItem('backendUser');
   const navigate = useNavigate();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -41,6 +45,7 @@ const EventsHomePage = () => {
     {},
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchMiniatures = useCallback(async () => {
     const newURLs: Record<string, string> = {};
@@ -64,11 +69,15 @@ const EventsHomePage = () => {
       }),
     );
     setMiniatureURLs(newURLs);
-  }, [events]);
+  }, [events]);  useEffect(() => {
+    // Assurez-vous que les headers API sont configurés avec le token
+    if (auth.user?.access_token) {
+      api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+    }
 
-  useEffect(() => {
     const fetchEventData = async () => {
       setIsLoading(true);
+      setFetchError(null);
       try {
         const res = await getPublishedEvents();
         if (res.status === 200) {
@@ -76,12 +85,16 @@ const EventsHomePage = () => {
         }
       } catch (error) {
         logger.error(`Failed to fetch events: ${error}`);
+        setFetchError("Impossible de charger les événements");
       }
       setIsLoading(false);
-
     };
-    fetchEventData();
-  }, [userString]);
+    
+    // Si on a un token et qu'on n'est pas en train de charger, on lance le fetch
+    if (auth.user && !auth.isLoading) {
+      fetchEventData();
+    }
+  }, [auth.user, auth.isLoading]);
 
   useEffect(() => {
     fetchMiniatures();
@@ -140,7 +153,15 @@ const EventsHomePage = () => {
       <div className={styles.body}>
         <h1>{t('UpcomingEvents')}</h1>
         <div className={styles.wrapperEvents}>
-          {isLoading ? loading : eventsBoxs}
+          {isLoading ? (
+            loading
+          ) : fetchError ? (
+            <div className={styles.errorMessage}>{fetchError}</div>
+          ) : eventsBoxs.length > 0 ? (
+            eventsBoxs
+          ) : (
+            <div className={styles.emptyState}>Aucun événement trouvé</div>
+          )}
         </div>
       </div>
     </>
