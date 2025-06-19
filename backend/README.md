@@ -79,3 +79,11 @@ npm run test:unit
 cd ./backend
 ```
 npx jest nameOfTheSpecFile
+```
+
+## To run migration:
+
+npx ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/config/typeorm.config.ts
+```
+
+
