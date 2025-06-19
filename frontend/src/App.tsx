@@ -1,6 +1,7 @@
 import './App.css';
 import { Routes, Route } from 'react-router-dom';
 import React from 'react';
+import { BrandingProvider } from './context/BrandingContext';
 
 import Header from './components/ReworkComponents/generic/Header/Header';
 import LoginPage from './pages/Login/Login';
@@ -24,6 +25,7 @@ import MyEvents from './pages/myEvents/myEvents';
 
 function App() {
   return (
+    <BrandingProvider>
     <ProtectedRoutes>
       <Header />
       <Routes>
@@ -90,6 +92,7 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </ProtectedRoutes>
+    </BrandingProvider>
   );
 }
 
