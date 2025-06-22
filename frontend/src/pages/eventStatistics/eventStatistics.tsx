@@ -3,13 +3,11 @@ import React from 'react';
 import styles from './eventStatistics.module.css';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
-import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 import { getPrivateEvent } from '../../utils/api';
-import trackSelectImage from '../../assets/tracksIconeSelect.png';
-import rouageImage from '../../assets/rouage.svg';
 import { PublicUser, Track } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 import { useTranslation } from 'react-i18next';
+import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 
 interface EventStatisticProps {}
 
@@ -75,36 +73,8 @@ const EventStatistic: FC<EventStatisticProps> = () => {
 
   return (
     <div className={styles.PageEventSettings}>
-      <div className={styles.navigation}>
-        <h1>{t('dashboard')}</h1>
-        <div className={styles.settingsImgButton}>
-          <img className="image-settings" src={rouageImage} alt="iconeSelect" />
-          <button
-            className={styles.ButtonSettings}
-            type="button"
-            onClick={() => navigate(`/events/${eventId}/event-settings`)}
-          >
-            {t('settings')}
-          </button>
-        </div>
-        <div className={styles.settingsImgButton}>
-          <img className="image-settings" src={rouageImage} alt="iconeSelect" />
-          <button
-            className={styles.ButtonSettings}
-            type="button"
-            onClick={() => navigate(`/events/${eventId}/event-statistics`)}
-          >
-            {t('statistics')}
-          </button>
-        </div>
-        <MenuTracks
-          tracks={tracks}
-          eventId={eventId ?? ''}
-          isButtonDisplayed={!eventClosed && userId === creatorId}
-          imageUrl={trackSelectImage}
-        />
-      </div>
-      {body}
+      <EventDashboard eventId={eventId} tracks={tracks} eventClosed={!eventClosed && userId === creatorId} />
+      <div className={styles.bodyWrapper}>{body}</div>
     </div>
   );
 };

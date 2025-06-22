@@ -7,21 +7,19 @@ import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
 import { useNavigate, useParams } from 'react-router-dom';
-import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
 import {
   getPrivateEvent,
   updateEvent,
   deleteEvent,
   closeEvent,
 } from '../../utils/api';
-import trackSelectImage from '../../assets/tracksIconeSelect.png';
-import rouageImage from '../../assets/rouage.svg';
 import { Track } from '../../utils/EventsProperties';
-import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import logger from '../../utils/logger';
 import { useTranslation } from 'react-i18next';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import Modal from '../../components/ReworkComponents/generic/modal/modal';
+import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 
 interface EventSettingsProps {}
 
@@ -172,35 +170,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   return (
     <div className={styles.pageEventSettings}>
-      <div className={styles.navigation}>
-        <h1>{t('dashboard')}</h1>
-        <div className={styles.settingsImgButton}>
-          <img className={styles.imageSettings} src={rouageImage} alt="iconeSelect" />
-          <button
-            className={styles.buttonSettings}
-            type="button"
-            onClick={() => navigate(`/events/${eventId}/event-settings`)}
-          >
-            {t('settings')}
-          </button>
-        </div>
-        <div className={styles.settingsImgButton}>
-          <img className={styles.imageSettings} src={rouageImage} alt="iconeSelect" />
-          <button
-            className={styles.buttonSettings}
-            type="button"
-            onClick={() => navigate(`/events/${eventId}/event-statistics`)}
-          >
-            {t('statistics')}
-          </button>
-        </div>
-        <MenuTracks
-          tracks={tracks}
-          eventId={eventId ?? ''}
-          isButtonDisplayed={!eventClosed && userId === creatorId}
-          imageUrl={trackSelectImage}
-        />
-      </div>
+      <EventDashboard eventId={eventId} tracks={tracks} eventClosed={!eventClosed && userId === creatorId} />
       <form onSubmit={handleSubmit} className={styles.eventSettings}>
         <div className={styles.topLayout}>
           <div className={styles.titleLayout}>

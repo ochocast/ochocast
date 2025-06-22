@@ -6,7 +6,7 @@ import { PublicEvent } from '../../utils/EventsProperties';
 
 import styles from './tracks.module.css';
 import { getEventsMiniature, getPublicEvent } from '../../utils/api';
-import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import { useTranslation } from 'react-i18next';
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 

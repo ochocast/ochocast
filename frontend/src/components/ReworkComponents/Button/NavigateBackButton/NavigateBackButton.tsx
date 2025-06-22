@@ -1,20 +1,20 @@
-import React, { FC } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './NavigateBackButton.module.css';
 
-import defaultImageUrl from '../../../assets/gaucheAigu.svg';
+import defaultImageUrl from '../../../../assets/gaucheAigu.svg';
 
 export interface NavigateBackButtonProps {
   className?: string;
   customPageUrl?: string;
 }
 
-const NavigateBackButton: FC<NavigateBackButtonProps> = ({ customPageUrl }) => {
-  const navigate = useNavigate();
+const NavigateBackButton = (props : NavigateBackButtonProps) => {
 
+  // Redirige vers la page spécifiée ou vers la page précédente
+  const navigate = useNavigate();
   const handleClick = () => {
-    // Redirige vers la page spécifiée ou vers la page précédente
-    const destination = customPageUrl || null;
+    const destination = props.customPageUrl || null;
     if (destination) {
       navigate(destination);
     } else {

@@ -8,18 +8,15 @@ import Button, {
 } from '../../components/ReworkComponents/generic/Button/Button';
 import { useParams } from 'react-router-dom';
 import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
-import MenuTracks from '../../components/ReworkComponents/Event/Track/MenuTracks/MenuTracks';
-import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import Modal from '../../components/ReworkComponents/generic/modal/modal';
-
-import trackSelectImage from '../../assets/tracksIconeSelect.png';
-import rouageImage from '../../assets/rouage.svg';
 
 import { useTrackSettings } from './useTrackSettings';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
 
 import { useTranslation } from 'react-i18next';
+import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 
 const TrackSettings: FC = () => {
   const { trackId, eventId } = useParams();
@@ -58,11 +55,11 @@ const TrackSettings: FC = () => {
 
   const handleInputChange =
     (field: keyof typeof track) =>
-    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setTrack({ ...track, [field]: e.target.value });
-      setButtonDisabled(false);
-      setMessage('');
-    };
+      (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setTrack({ ...track, [field]: e.target.value });
+        setButtonDisabled(false);
+        setMessage('');
+      };
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     if (await handleSubmit(e, track, speakers)) setButtonDisabled(true);
@@ -303,35 +300,7 @@ const TrackSettings: FC = () => {
 
   return (
     <div className={styles.pageTrackSettings}>
-      <div className={styles.navigation}>
-        <h1>{t('dashboard')}</h1>
-        <div className={styles.settingsImgButton}>
-          <img className="image-settings" src={rouageImage} alt="iconeSelect" />
-          <button
-            className={styles.buttonSettings}
-            type="button"
-            onClick={() => navigate(`/events/${eventId}/event-settings`)}
-          >
-            {t('settings')}
-          </button>
-        </div>
-        <div className={styles.settingsImgButton}>
-          <img className="image-settings" src={rouageImage} alt="iconeSelect" />
-          <button
-            className={styles.buttonSettings}
-            type="button"
-            onClick={() => navigate(`/events/${eventId}/event-statistics`)}
-          >
-            {t('statistics')}
-          </button>
-        </div>
-        <MenuTracks
-          tracks={tracks}
-          eventId={eventId ?? ''}
-          isButtonDisplayed={!closed && userId === event?.creatorId}
-          imageUrl={trackSelectImage}
-        />
-      </div>
+      <EventDashboard eventId={eventId} tracks={tracks} eventClosed={!closed && userId === event?.creatorId} />
       {canEdit ? form : trackInfo}
     </div>
   );

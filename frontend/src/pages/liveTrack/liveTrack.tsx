@@ -6,7 +6,7 @@ import { Track } from '../../utils/EventsProperties';
 import Button from '../../components/ReworkComponents/generic/Button/Button';
 // import { default as _ReactPlayer } from 'react-player/lazy';
 // import { ReactPlayerProps } from 'react-player/types/lib';
-import NavigateBackButton from '../../components/buttons/NavigateBackButton/NavigateBackButton';
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import WaitingScreen from '../../components/waitingScreen/waitingScreen';
 import { useTranslation } from 'react-i18next';
 
