@@ -23,6 +23,7 @@ import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox'
 import { EventStatus } from '../../utils/EventStatus';
 import EventsList from '../../components/ReworkComponents/Event/EventsList/EventsList';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import { useNavigate } from 'react-router-dom';
 
 const removeAccents = (str: string): string =>
   str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -43,6 +44,7 @@ const filterEvents = (events: PublicEvent[], query: string): PublicEvent[] => {
 const MyEvents = () => {
   const auth = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [publishEvents, setPublishEvents] = useState<PublicEvent[]>([]);
@@ -191,7 +193,11 @@ const MyEvents = () => {
             hasSugestion={false}
           />
         </div>
-        <Button label={t('CreateAnEvent')} type={ButtonType.primary} />
+        <Button
+          label={t('CreateAnEvent')}
+          type={ButtonType.primary}
+          onClick={() => navigate('/my-events/create')}
+        />
       </div>
       <div className={styles.body}>
         <div className={styles.wrapperEvents}>

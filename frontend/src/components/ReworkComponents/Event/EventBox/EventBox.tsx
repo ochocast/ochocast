@@ -72,10 +72,27 @@ const EventBox = (props: EventBoxProps) => {
     </div>
   );
 
+  const buttonsPreview = (
+    <div className={styles.subscribeWrapper}>
+      <Button
+        label={t('Register')}
+        type={ButtonType.primary}
+      />
+      <div className={styles.subscriptionsWrapper}>
+        <span className={styles.dot}></span>
+        <span className={styles.subscritpions}>
+          {`12 ` + t('registered')}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className={styles.box}
-      onClick={() => navigate(`/events/${event.id}/tracks`)}
+      onClick={() => {if (props.eventStatus !== EventStatus.Preview) {
+        navigate(`/events/${event.id}/tracks`);
+      }}}
     >
       <div className={styles.imgWrapper}>
         <img
@@ -87,7 +104,7 @@ const EventBox = (props: EventBoxProps) => {
           }}
           alt="img"
         ></img>
-        {props.event.canBeEditByUser && editButton}
+        {props.event.canBeEditByUser && props.eventStatus !== EventStatus.Preview && editButton}
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.title}>{event.name}</div>
@@ -108,6 +125,7 @@ const EventBox = (props: EventBoxProps) => {
       {props.eventStatus === EventStatus.Published && buttonsPublished}
       {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}
       {props.eventStatus === EventStatus.Finished && buttonsFinished}
+      {props.eventStatus === EventStatus.Preview && buttonsPreview}
     </div>
   );
 };

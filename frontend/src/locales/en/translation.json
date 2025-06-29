@@ -98,7 +98,7 @@
   "ChooseThumbnail" : "Choose a thumbnail",
   "EventDescription" : "Description of the event",
   "DescriptionEvent" : "Description...",
-  "CreateEvent" : "CreateEvent",
+  "CreateEvent" : "Create Event",
   "EditEvent" : "Edit the event",
   "EventClosed" : "The event is closed",
   "CloseEvent" : "Close the event",
@@ -147,5 +147,6 @@
   "myEvents" : "My events",
   "isRegistered": "is registered",
   "PublicEvents": "Public events",
-  "ClosedEvents": "Closed events"
+  "ClosedEvents": "Closed events",
+  "unknownDate": "Date not specified"
 }

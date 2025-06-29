@@ -147,5 +147,6 @@
   "myEvents" : "Mes évènements",
   "isRegistered": "est inscrit",
   "PublicEvents": "Évènements public",
-  "ClosedEvents": "Évènements cloturé"
+  "ClosedEvents": "Évènements cloturé",
+  "unknownDate": "Date non définie"
 }

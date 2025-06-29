@@ -25,6 +25,7 @@ import logger from '../../utils/logger';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 
 export interface eventsProps { }
 
@@ -304,11 +305,9 @@ const EventsPage: FC<eventsProps> = () => {
         </div>
       </header>
       <div className={styles.buttonEventCreation}>
-        <Button
-          label={t('CreateAnEvent')}
-          type={ButtonType.primary}
-          onClick={toggle}
-        />
+        <Link to="/events/create">
+          <Button label={t('CreateAnEvent')} type={ButtonType.primary} />
+        </Link>
       </div>
       <div className={styles.content}>
         {isLoading ? (

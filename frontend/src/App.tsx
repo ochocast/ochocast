@@ -22,6 +22,7 @@ import EventStatistic from './pages/eventStatistics/eventStatistics';
 import EventsHomePage from './pages/eventsHome/eventsHome';
 import ProfileSetting from './pages/ProfileSettings/ProfileSettings';
 import MyEvents from './pages/myEvents/myEvents';
+import CreateEvent from './pages/CreateEvent/createEvent';
 
 function App() {
   return (
@@ -42,6 +43,10 @@ function App() {
         <Route 
           path="/my-events"
           element={<MyEvents/>}
+        />
+        <Route 
+          path="/my-events/create" 
+          element={<CreateEvent />} 
         />
         <Route
           path="/events/:eventId/event-settings"

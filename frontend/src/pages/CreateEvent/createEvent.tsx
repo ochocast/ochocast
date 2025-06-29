@@ -1,0 +1,220 @@
+import React, { useState, ChangeEvent, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from 'react-oidc-context';
+import { createEvent } from '../../utils/api';
+import { api } from '../../utils/api';
+import logger from '../../utils/logger';
+
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
+import Button, { ButtonType } from '../../components/ReworkComponents/generic/Button/Button';
+import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
+import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { EventStatus } from '../../utils/EventStatus';
+import { PublicEvent, PublicUser } from '../../utils/EventsProperties';
+import styles from './createEvent.module.css';
+
+const CreateEventPage: React.FC = () => {
+  const auth = useAuth();
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [date, setDate] = useState('');
+  const [startHour, setStartHour] = useState('');
+  const [endHour, setEndHour] = useState('');
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
+  const [errorName, setErrorName] = useState(false);
+  const [errorDescription, setErrorDescription] = useState(false);
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => typeof reader.result === 'string' && setImageUrl(reader.result);
+      reader.readAsDataURL(file);
+      setSelectedImage(file);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    let isError = false;
+    setErrorName(!name.trim());
+    setErrorDescription(!description.trim());
+
+    if (!name.trim() || !description.trim()) {
+      isError = true;
+    }
+
+    if (!isError) {
+      try {
+        if (auth.user?.access_token) {
+          api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
+        }
+
+        const [year, month, day] = date.split('-');
+        const [s_hour, s_minute] = startHour.split(':');
+        const [e_hour, e_minute] = endHour.split(':');
+
+        const startDateISOString = new Date(Date.UTC(+year, +month - 1, +day, +s_hour, +s_minute)).toISOString();
+        const endDateISOString = new Date(Date.UTC(+year, +month - 1, +day, +e_hour, +e_minute)).toISOString();
+
+        const formData = new FormData();
+        formData.append('image_slug', selectedImage?.name || fallbackMiniature);
+        formData.append('name', name);
+        formData.append('description', description);
+        formData.append('startDate', startDateISOString);
+        formData.append('endDate', endDateISOString);
+        if (selectedImage) formData.append('miniature', selectedImage);
+
+        const res = await createEvent(formData);
+
+        if (res.status === 201) {
+          setToast({ message: t('EventSuccessfullyCreated'), type: 'success' });
+          setTimeout(() => navigate('/events'), 1500);
+        } else {
+          throw new Error('Création échouée');
+        }
+      } catch (error) {
+        logger.error(error);
+        setToast({ message: t('ErrorCreatingEvent'), type: 'error' });
+      }
+    }
+  };
+
+  const getPreviewEvent = (): PublicEvent => {
+    const now = new Date();
+    const startDate = date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
+    const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
+
+    const mockUser: PublicUser = {
+      id: 'preview-user',
+      firstName: auth.user?.profile?.given_name || 'John',
+      lastName: auth.user?.profile?.family_name || 'Doe',
+    };
+
+    return {
+      id: 'preview-id',
+      name: name || t('NameEvent'),
+      description,
+      tags: '',
+      startDate,
+      endDate,
+      published: false,
+      private: false,
+      closed: false,
+      imageSlug: selectedImage?.name || '',
+      tracks: [],
+      creatorId: mockUser.id,
+      canBeEditByUser: true,
+      creator: mockUser,
+      nbSubscription: 12,
+    };
+  };
+
+  return (
+    <>
+      <div className={styles.header}>
+        <NavigateBackButton />
+        <h1 className={styles.title}>{t('CreateNewEvent')}</h1>
+      </div>
+
+      <div className={styles.events}>
+        <div className={styles.contentWrapper}>
+          <form className={styles.addEventForm} onSubmit={handleSubmit}>
+            <div className={styles.inputWrapper}>
+              <label>{t('NameEvent')}</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('MyEvent')}
+                className={errorName ? styles.error : ''}
+                required
+              />
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('DateEvent')}</label>
+              <input
+                type="date"
+                value={date}
+                min={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('StartEvent')}</label>
+              <input
+                type="time"
+                value={startHour}
+                onChange={(e) => setStartHour(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('EndEvent')}</label>
+              <input
+                type="time"
+                value={endHour}
+                onChange={(e) => setEndHour(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('Thumbnail')}</label>
+              <InputFile
+                placeholder={t('ChooseThumbnail')}
+                onChange={handleImageChange}
+                disable={false}
+                required={false}
+              />
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('EventDescription')}</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t('DescriptionEvent')}
+                className={errorDescription ? styles.error : ''}
+                required
+              />
+            </div>
+
+            <div className={`${styles.buttonEventCreation} ${styles.desktopOnly}`}>
+              <Button label={t('CreateEvent')} type={ButtonType.primary} />
+            </div>
+          </form>
+
+          <div className={styles.preview}>
+            <h2>{t('Preview')}</h2>
+            <EventBox
+              event={getPreviewEvent()}
+              imageURL={imageUrl || fallbackMiniature}
+              eventStatus={EventStatus.Preview}
+            />
+          </div>
+
+          <div className={`${styles.buttonEventCreation} ${styles.mobileOnly}`}>
+            <Button label={t('CreateEvent')} type={ButtonType.primary} />
+          </div>
+        </div>
+
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
+    </>
+  );
+};
+
+export default CreateEventPage;
