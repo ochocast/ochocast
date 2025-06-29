@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Header.module.css';
 
@@ -16,6 +16,11 @@ const Header: FC<HeaderProps> = () => {
   const navigate = useNavigate();
   const branding = useBrandingContext();
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const toggleMenu = () => setMenuOpen(!menuOpen);
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <div className={styles.Header}>
       <div className={styles.LogoDiv}>
@@ -26,15 +31,45 @@ const Header: FC<HeaderProps> = () => {
           onClick={() => navigate('/')}
         />
       </div>
-        <div className={styles.NavBadge}>
-          <NavItems />
-            {username && (
-          <UserBadge username={username} />
-            )}
-            <div className='languageSelector'>
-        <LanguageSwitcher />
-      </div>
+
+      {/* Desktop menu */}
+      <div className={styles.NavBadge}>
+        <NavItems />
+        {username && <UserBadge username={username} />}
+        <div className="languageSelector">
+          <LanguageSwitcher />
         </div>
+      </div>
+
+      {/* Hamburger icon for mobile */}
+      <div className={styles.Hamburger} onClick={toggleMenu}>
+        <div />
+        <div />
+        <div />
+      </div>
+
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className={styles.MobileMenu}>
+          <div onClick={() => { navigate('/events'); closeMenu(); }}>
+            Streaming
+          </div>
+          <div onClick={() => { navigate('/videos'); closeMenu(); }}>
+            Videos
+          </div>
+          <div onClick={() => { navigate('/video/video-settings'); closeMenu(); }}>
+            Publish a video
+          </div>
+          {username && (
+            <div>
+              <UserBadge username={username} />
+            </div>
+          )}
+          <div className="languageSelector">
+            <LanguageSwitcher />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
