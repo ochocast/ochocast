@@ -17,6 +17,8 @@ import { GetPrivateEventByIdUsecase } from './domain/usecases/getPrivateEventByI
 import { SubscribeToEventUsecase } from './domain/usecases/subscribeToEvent.usecase';
 import { S3Module } from 'src/s3.module';
 import { GetEventMiniatureUsecase } from './domain/usecases/getEventsMiniature.usecase';
+import { CloseExpiredEventsScheduler } from './closeExpiredEvents.scheduler';
+import { CloseExpiredEventsUsecase } from './domain/usecases/closeExpiredEvents.usecase';
 
 @Module({
   imports: [TypeOrmModule.forFeature([EventEntity, UserEntity]), S3Module],
@@ -41,6 +43,8 @@ import { GetEventMiniatureUsecase } from './domain/usecases/getEventsMiniature.u
     GetPrivateEventByIdUsecase,
     SubscribeToEventUsecase,
     GetEventMiniatureUsecase,
+    CloseExpiredEventsUsecase,
+    CloseExpiredEventsScheduler, 
   ],
 })
 export class EventsModule {}
