@@ -99,6 +99,7 @@
   "EventDescription" : "Description de l'évènement",
   "DescriptionEvent" : "Description...",
   "CreateEvent" : "Créer l'évènement",
+  "CreatingEvent" : "Création...",
   "EditEvent" : "Modifier l'évènement",
   "EventClosed" : "L'évènement est clôturé",
   "CloseEvent" : "Clôturer l'évènement",

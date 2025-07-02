@@ -31,6 +31,7 @@ const CreateEventPage: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
   const [errorName, setErrorName] = useState(false);
   const [errorDescription, setErrorDescription] = useState(false);
+  const [isCreatingEvent, setIsCreatingEvent] = useState<boolean>(false);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -44,6 +45,12 @@ const CreateEventPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    // Empêcher les double-clics
+    if (isCreatingEvent) {
+      return;
+    }
+    
     let isError = false;
     setErrorName(!name.trim());
     setErrorDescription(!description.trim());
@@ -53,6 +60,7 @@ const CreateEventPage: React.FC = () => {
     }
 
     if (!isError) {
+      setIsCreatingEvent(true); // Désactiver le bouton
       try {
         if (auth.user?.access_token) {
           api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
@@ -77,13 +85,16 @@ const CreateEventPage: React.FC = () => {
 
         if (res.status === 201) {
           setToast({ message: t('EventSuccessfullyCreated'), type: 'success' });
+          // Ne pas réactiver le bouton en cas de succès - on reste désactivé jusqu'à la redirection
           setTimeout(() => navigate('/events'), 1500);
+          return; // Sortir sans passer par finally
         } else {
           throw new Error('Création échouée');
         }
       } catch (error) {
         logger.error(error);
         setToast({ message: t('ErrorCreatingEvent'), type: 'error' });
+        setIsCreatingEvent(false); // Réactiver seulement en cas d'erreur
       }
     }
   };
@@ -193,7 +204,10 @@ const CreateEventPage: React.FC = () => {
             </div>
 
             <div className={`${styles.buttonEventCreation} ${styles.desktopOnly}`}>
-              <Button label={t('CreateEvent')} type={ButtonType.primary} />
+              <Button 
+                label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')} 
+                type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
+              />
             </div>
           </form>
 
@@ -207,7 +221,10 @@ const CreateEventPage: React.FC = () => {
           </div>
 
           <div className={`${styles.buttonEventCreation} ${styles.mobileOnly}`}>
-            <Button label={t('CreateEvent')} type={ButtonType.primary} />
+            <Button 
+              label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')} 
+              type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
+            />
           </div>
         </div>
 

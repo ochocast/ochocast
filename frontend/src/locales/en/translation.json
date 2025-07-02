@@ -99,6 +99,7 @@
   "EventDescription" : "Description of the event",
   "DescriptionEvent" : "Description...",
   "CreateEvent" : "Create Event",
+  "CreatingEvent" : "Creating...",
   "EditEvent" : "Edit the event",
   "EventClosed" : "The event is closed",
   "CloseEvent" : "Close the event",

@@ -52,6 +52,10 @@ const EventsPage: FC<eventsProps> = () => {
   const [isOpen, setisOpen] = useState(false);
   const toggle = () => {
     setisOpen(!isOpen);
+    // Réinitialiser l'état de création quand on ferme le modal
+    if (isOpen) {
+      setIsCreatingEvent(false);
+    }
   };
 
   const [name, setName] = useState('');
@@ -81,6 +85,7 @@ const EventsPage: FC<eventsProps> = () => {
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isCreatingEvent, setIsCreatingEvent] = useState<boolean>(false);
 
   const fetchEventData = async () => {
     setIsLoading(true);
@@ -196,6 +201,12 @@ const EventsPage: FC<eventsProps> = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Empêcher les double-clics
+    if (isCreatingEvent) {
+      return;
+    }
+    
     let isError = false;
     if (!name.trim()) {
       setErrorName(true);
@@ -207,6 +218,7 @@ const EventsPage: FC<eventsProps> = () => {
     }
 
     if (!isError) {
+      setIsCreatingEvent(true); // Désactiver le bouton
       try {
         // Assurez-vous que le token est toujours valide
         if (auth.user?.access_token) {
@@ -263,6 +275,7 @@ const EventsPage: FC<eventsProps> = () => {
           setEventsUnpublished((prevEvents) => [...prevEvents, eventToPublicEvent(res.data)]);
           // Actualiser tous les événements après la création
           fetchEventData();
+          setIsCreatingEvent(false); // Réactiver après succès et nettoyage
         } else {
           throw new Error("Erreur de création d'événement");
         }
@@ -275,6 +288,7 @@ const EventsPage: FC<eventsProps> = () => {
         setMessage(
           t('ErrorCreationEvent'),
         );
+        setIsCreatingEvent(false); // Réactiver en cas d'erreur
       }
     }
   };
@@ -404,7 +418,10 @@ const EventsPage: FC<eventsProps> = () => {
             error={errorDescription}
             onChange={handleDescriptionChange}
           />
-          <Button label={t('CreateEvent')} type={ButtonType.primary} />
+          <Button 
+            label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')} 
+            type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
+          />
           <div className="message">{message ? <p>{message}</p> : null}</div>
         </form>
       </Modal>
