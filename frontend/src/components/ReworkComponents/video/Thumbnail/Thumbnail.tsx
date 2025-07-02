@@ -13,6 +13,7 @@ import {
   isVideoFavorite,
 } from '../../../../utils/api';
 import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg';
+const IMAGE_TUILE_EVENT = '/exemple/image_tuile_event.png';
 
 export interface PreviewMinitureProps {
   Id: string;
@@ -42,7 +43,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   };
 
   const [miniatureURL, setMiniatureUrl] = useState<string>(
-    '/exemple/image_tuile_event.png',
+    IMAGE_TUILE_EVENT,
     // process.env.DEFAULT_MINIATURE_IMAGE
   );
   const navigate = useNavigate();
@@ -133,6 +134,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       <img
         className={styles.starIconContainer}
         src={isFavorite ? FavorisFilterSelected : FavorisNotSelected}
+        alt=""
         onClick={toggleFavorite}
       />
     </div>

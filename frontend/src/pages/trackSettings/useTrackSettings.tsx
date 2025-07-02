@@ -54,7 +54,6 @@ export const useTrackSettings = () => {
     setLoading(true);
     getTrackById(trackId)
       .then((res) => {
-
         const eventDate = new Date(event.startDate);
         const eventEnd = new Date(event.endDate);
         const trck: Track = res.data;
@@ -83,25 +82,29 @@ export const useTrackSettings = () => {
       const eventDate = new Date(event.startDate);
       const eventEnd = new Date(event.endDate);
 
-      const startDate = new Date(Date.UTC(
-        eventDate.getUTCFullYear(),
-        eventDate.getUTCMonth(),
-        eventDate.getUTCDate(),
-        eventDate.getUTCHours(),
-        eventDate.getUTCMinutes(),
-        0,
-        0,
-      ));
+      const startDate = new Date(
+        Date.UTC(
+          eventDate.getUTCFullYear(),
+          eventDate.getUTCMonth(),
+          eventDate.getUTCDate(),
+          eventDate.getUTCHours(),
+          eventDate.getUTCMinutes(),
+          0,
+          0,
+        ),
+      );
 
-      const endDate = new Date(Date.UTC(
-        eventEnd.getUTCFullYear(),
-        eventEnd.getUTCMonth(),
-        eventEnd.getUTCDate(),
-        eventEnd.getUTCHours(),
-        eventEnd.getUTCMinutes(),
-        0,
-        0,
-      ));
+      const endDate = new Date(
+        Date.UTC(
+          eventEnd.getUTCFullYear(),
+          eventEnd.getUTCMonth(),
+          eventEnd.getUTCDate(),
+          eventEnd.getUTCHours(),
+          eventEnd.getUTCMinutes(),
+          0,
+          0,
+        ),
+      );
 
       setTrack({
         name: '',
@@ -140,9 +143,7 @@ export const useTrackSettings = () => {
     const eventStart = event ? new Date(event.startDate) : new Date();
     const eventEnd = event ? new Date(event.endDate) : new Date();
 
-    if (event &&
-      (data.startDate < eventStart || data.endDate > eventEnd)
-    ) {
+    if (event && (data.startDate < eventStart || data.endDate > eventEnd)) {
       setMessage(t('TimeError'));
       return false;
     }
@@ -165,8 +166,7 @@ export const useTrackSettings = () => {
     try {
       if (trackId) {
         const res = await updateTrack(trackId, trackBody);
-        if (res.status != 200)
-          throw res.data;
+        if (res.status !== 200) throw res.data;
         setTracks((prev) => prev.map((t) => (t.id === trackId ? res.data : t)));
       } else {
         const res = await createTrack(trackBody);

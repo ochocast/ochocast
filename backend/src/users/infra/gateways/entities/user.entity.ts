@@ -15,7 +15,6 @@ import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-  
 
   @Column()
   firstName: string;

@@ -45,6 +45,7 @@ import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/Loadi
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
+const IMAGE_TUILE_EVENT = '/exemple/image_tuile_event.png';
 interface VideoSettingsProps {}
 
 const VideoSettings: FC<VideoSettingsProps> = () => {
@@ -77,9 +78,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const [media, setMedia] = useState<File>();
   const handleMediaChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files != null && e.target.files != undefined) {
+    if (e.target.files != null && e.target.files !== undefined) {
       const media_tmp = e.target.files[0];
-      if (media_tmp != undefined) setMedia(media_tmp);
+      if (media_tmp !== undefined) setMedia(media_tmp);
     }
   };
 
@@ -93,7 +94,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [miniature, setMiniature] = useState<File>();
   const [miniatureUrl, setMiniatureUrl] = useState<string | null>(null);
   const handleMiniatureChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files != null && e.target.files != undefined) {
+    if (e.target.files != null && e.target.files !== undefined) {
       const miniature_tmp = e.target.files[0];
       const reader = new FileReader();
 
@@ -107,7 +108,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       };
 
       reader.readAsDataURL(miniature_tmp);
-      if (miniature_tmp != undefined) setMiniature(miniature_tmp);
+      if (miniature_tmp !== undefined) setMiniature(miniature_tmp);
     }
   };
 
@@ -157,7 +158,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             setTags([...tags, newTag]);
           }
         } else {
-          alert(t('failedLoading') + ' : ${response}');
+          alert(t('failedLoading') + ` : ${response}`);
         }
       })
       .catch((error) => {
@@ -173,14 +174,14 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     let err = '';
     // conditions publication
-    if (media == undefined) err += '- ' + t('missingVideoFile') + '\n';
+    if (media === undefined) err += '- ' + t('missingVideoFile') + '\n';
     else if (
-      media?.name.split('.').pop() != undefined && //could be moved to handleMediaChange
+      media?.name.split('.').pop() !== undefined && //could be moved to handleMediaChange
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
     )
       err += '- ' + t('videoFormatError') + '\n';
-    if (title == '') err += '- ' + t('unknownTitle') + '\n';
-    if (tags.length == 0) err += '- ' + t('missingTag') + '\n';
+    if (title === '') err += '- ' + t('unknownTitle') + '\n';
+    if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (list_by_title.length > 0)
       err += '- ' + t('titleAlreadyExists') + ' :/\n';
     if (!miniature) err += '- ' + t('miniatureUnknown') + '\n';
@@ -190,25 +191,25 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       )
     )
       err += '- ' + t('miniatureFormatError') + '\n';
-    if (err != '') {
+    if (err !== '') {
       alert(t('oneOrManyDisrespectedConditions') + ' : \n' + err);
       return;
     }
 
     //search title in DB
     const form = new FormData();
-    if (media != undefined) {
+    if (media !== undefined) {
       form.append('file', media);
       form.append('media_id', media.name);
     }
-    if (miniature != undefined) {
+    if (miniature !== undefined) {
       form.append('miniature', miniature);
       form.append('miniature_id', miniature.name);
     }
     form.append('title', title);
     form.append('description', description);
     const backendUser = localStorage.getItem('backendUser');
-    if (backendUser != null && backendUser != undefined) {
+    if (backendUser !== null && backendUser !== undefined) {
       form.append('creator', JSON.parse(backendUser).id);
     }
 
@@ -233,7 +234,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           setIsLoading(false);
           navigate('/videos');
         } else {
-          alert(t('failedLoading') + ' : ${response}');
+          alert(t('failedLoading') + ` : ${response}`);
         }
       })
       .catch((error) => {
@@ -255,7 +256,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           alert('Vidéo modifiée avec succès !');
           navigate('/videos');
         } else {
-          alert(t('failedLoading') + ' : ${response}');
+          alert(`${t('failedLoading')} : ${response}`);
         }
       })
       .catch((error) => {
@@ -271,16 +272,16 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     let err = '';
     // conditions publication
-    if (baseVideo?.media_id === undefined && media == undefined)
+    if (baseVideo?.media_id === undefined && media === undefined)
       err += '- ' + t('missingVideoFile') + '\n';
     else if (
       baseVideo?.media_id === undefined &&
-      media?.name.split('.').pop() != undefined && //could be moved to handleMediaChange
+      media?.name.split('.').pop() !== undefined && //could be moved to handleMediaChange
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
     )
       err += '- ' + t('videoFormatError') + '\n';
-    if (title == '') err += '- ' + t('unknownTitle') + '\n';
-    if (tags.length == 0) err += '- ' + t('missingTag') + '\n';
+    if (title === '') err += '- ' + t('unknownTitle') + '\n';
+    if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
       err += '- ' + t('titleAlreadyExists') + ' :/\n';
     if (
@@ -290,27 +291,27 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       )
     )
       err += '- ' + t('miniatureFormatError') + '\n';
-    if (err != '') {
+    if (err !== '') {
       alert(t('oneOrManyDisrespectedConditions') + ' : \n' + err);
       return;
     }
 
     //search title in DB
     const form = new FormData();
-    if (baseVideo?.media_id != undefined) {
+    if (baseVideo?.media_id !== undefined) {
       form.append('id', baseVideo?.id);
     }
-    if (baseVideo?.media_id != undefined) {
+    if (baseVideo?.media_id !== undefined) {
       form.append('media_id', baseVideo?.media_id);
     }
-    if (miniature != undefined) {
+    if (miniature !== undefined) {
       form.append('miniature', miniature);
       form.append('miniature_id', miniature.name);
     }
     form.append('title', title);
     form.append('description', description);
     const backendUser = localStorage.getItem('backendUser');
-    if (backendUser != null && backendUser != undefined) {
+    if (backendUser !== null && backendUser !== undefined) {
       form.append('creator', JSON.parse(backendUser).id);
     }
 
@@ -346,7 +347,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           alert('Vidéo modifiée avec succès !');
           navigate('/videos');
         } else {
-          alert(t('failedLoading') + ' : ${response}');
+          alert(t('failedLoading') + ` : ${response}`);
         }
       })
       .catch((error) => {
@@ -620,10 +621,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             onChange={handleDescriptionChange}
           />
           <div className="buttonContainer">
-            <Button 
+            <Button
               onClick={deleteThisVideo}
               label={t('archive')}
-              type={ButtonType.primary}  
+              type={ButtonType.primary}
             ></Button>
             {videoId !== undefined ? (
               <Button
@@ -645,11 +646,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         <Thumbnail
           Id="1"
           title={title || t('Titre')}
-          imageSrc={
-            miniatureUrl !== null
-              ? miniatureUrl
-              : '/exemple/image_tuile_event.png'
-          }
+          imageSrc={miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT}
           createBy={auth.user?.profile.given_name || 'Non connecté'}
           views={0}
           createdAt={new Date().toString()}

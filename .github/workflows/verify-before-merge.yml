@@ -6,6 +6,30 @@ on:
       - main
 
 jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show working directory
+        run: pwd
+      - name: Debug — list files
+        run: ls -la
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+      - name: Install dependencies (root)
+        run: npm ci
+      - name: Run ESLint on frontend
+        run: npx eslint frontend --ext .ts,.tsx,.js,.jsx
+      - name: Run Prettier check on frontend and backend
+        run: npx prettier --check "frontend/**/*.{js,jsx,ts,tsx}" "backend/**/*.{js,jsx,ts,tsx}"
+
   build-front:
     name: build-front
     runs-on: ubuntu-latest

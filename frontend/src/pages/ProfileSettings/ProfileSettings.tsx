@@ -1,5 +1,11 @@
-import React, { useCallback, useRef, ChangeEvent, useEffect, useState } from 'react';
-import style from './profileSetting.module.css'; 
+import React, {
+  useCallback,
+  useRef,
+  ChangeEvent,
+  useEffect,
+  useState,
+} from 'react';
+import style from './profileSetting.module.css';
 import { useNavigate } from 'react-router-dom';
 import { User } from '../../utils/VideoProperties';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +22,9 @@ import Button, {
 } from '../../components/ReworkComponents/generic/Button/Button';
 import ImagePlus from '../../assets/image_plus.svg';
 
+const DEFAULT_PROFILE_IMAGE = '/persona.png';
+const UNDEFINED_MINIATURE_IDENTIFIER = 'miniatureundefined';
+
 const ProfileSetting = () => {
   const navigate = useNavigate();
   const [pseudo, setPseudo] = useState('');
@@ -26,48 +35,47 @@ const ProfileSetting = () => {
   const { t } = useTranslation();
 
   const getMe = useCallback(async () => {
-      setIsLoading(true);
-      try {
-        const backendUser = JSON.parse(userString!);
-  
-        const userResponse = await getUsers();
-        const user = userResponse.data.find((u: User) => u.id === backendUser.id);
-        setCurrentUser(user || null);
-      } catch (error) {
-        console.error('Error fetching videos:', error);
-      }
-      setIsLoading(false);
-    }, [userString]);
-  
-    useEffect(() => {
-      getMe();
-    }, [getMe]);
+    setIsLoading(true);
+    try {
+      const backendUser = JSON.parse(userString!);
+
+      const userResponse = await getUsers();
+      const user = userResponse.data.find((u: User) => u.id === backendUser.id);
+      setCurrentUser(user || null);
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+    }
+    setIsLoading(false);
+  }, [userString]);
+
+  useEffect(() => {
+    getMe();
+  }, [getMe]);
 
   const [picture, setPicture] = useState<File>();
   const [pictureUrl, setPictureUrl] = useState<string | null>(null);
 
-    useEffect(() => {
-      const fetchMiniatureUrl = async () => {
-        if (currentUser && currentUser.email) {
-          try {
-            const url = await getProfilePicture(currentUser.id);
-            // TODO: rework this condition
-            if (url?.data.includes('miniatureundefined')) {
-              return;
-            }
-            setPictureUrl(url?.data || '/persona.png');
-          } catch (error) {
-            console.error('Error fetching miniature URL', error);
+  useEffect(() => {
+    const fetchMiniatureUrl = async () => {
+      if (currentUser && currentUser.email) {
+        try {
+          const url = await getProfilePicture(currentUser.id);
+          if (url?.data.includes(UNDEFINED_MINIATURE_IDENTIFIER)) {
+            return;
           }
+          setPictureUrl(url?.data || DEFAULT_PROFILE_IMAGE);
+        } catch (error) {
+          console.error('Error fetching miniature URL', error);
         }
-      };
+      }
+    };
     fetchMiniatureUrl();
   }, [currentUser]);
 
   const handleConfirm = () => {
     setIsLoading(true);
 
-    if (picture != undefined) {
+    if (picture !== undefined) {
       const form = new FormData();
 
       if (pseudo) form.append('firstName', pseudo);
@@ -93,17 +101,13 @@ const ProfileSetting = () => {
         .catch((error) => {
           console.error('Erreur lors de la modification du profil', error);
           alert('Erreur lors de la modification du profil');
-        }
-      );
-    }
-    else {
-      updateProfileWithoutImage(
-        {
-          'firstName': pseudo || currentUser?.firstName,
-          'description': description,
-          'picture_id': currentUser?.picture_id,
-        }
-      )
+        });
+    } else {
+      updateProfileWithoutImage({
+        firstName: pseudo || currentUser?.firstName,
+        description: description,
+        picture_id: currentUser?.picture_id,
+      })
         .then(async (response) => {
           if (
             response.status === 202 ||
@@ -120,43 +124,39 @@ const ProfileSetting = () => {
         .catch((error) => {
           console.error('Erreur lors de la modification du profil', error);
           alert('Erreur lors de la modification du profil');
-        }
-      );
+        });
     }
     setIsLoading(false);
   };
 
-      
   const handleCancel = () => {
     navigate('/profile');
   };
 
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLoadNewimg = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files != null && e.target.files != undefined) {
+    if (e.target.files !== null && e.target.files !== undefined) {
       const picture_tmp = e.target.files[0];
       const reader = new FileReader();
 
       reader.onload = () => {
-        // Vérifie explicitement que reader.result est bien une chaîne
         if (typeof reader.result === 'string') {
-          setPictureUrl(reader.result); // Affecte l'URL de la preview
+          setPictureUrl(reader.result);
         } else {
           console.error("Le résultat du FileReader n'est pas une chaîne !");
         }
       };
-      
+
       reader.readAsDataURL(picture_tmp);
-      if (picture_tmp != undefined) setPicture(picture_tmp);
+      if (picture_tmp !== undefined) setPicture(picture_tmp);
     }
   };
 
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
-  
+
   if (isLoading) {
     return <LoadingCircle />;
   }
@@ -166,7 +166,7 @@ const ProfileSetting = () => {
       <Card>
         <div className={style.profileContainer}>
           <div className={style.relativeContainer}>
-            <input 
+            <input
               type="file"
               ref={fileInputRef}
               onChange={handleLoadNewimg}
@@ -174,16 +174,12 @@ const ProfileSetting = () => {
               style={{ display: 'none' }}
             />
             <div className={style.overlay} onClick={handleImageClick}>
-              <img src={ImagePlus} alt="Ajouter image" />
+              <img src={ImagePlus} alt="Ajouter" />
             </div>
-            <img 
-              className={style.imageLarge} 
-              alt=""
-              src={
-              pictureUrl !== null
-                ? pictureUrl
-                : '/persona.png'
-              } 
+            <img
+              className={style.imageLarge}
+              alt="Profil utilisateur"
+              src={pictureUrl !== null ? pictureUrl : DEFAULT_PROFILE_IMAGE}
               onClick={handleImageClick}
             />
           </div>
@@ -196,16 +192,18 @@ const ProfileSetting = () => {
                   value={pseudo}
                   onChange={(e) => setPseudo(e.target.value)}
                   className={style.input}
-                style={{
-                  border: '1px solid var(--theme-color-2000)',
-                  borderRadius: 'inherit',
-                  width: '-webkit-fill-available',
-                  height: '-webkit-fill-available',
-                  textAlign: 'left',
-                }}
+                  style={{
+                    border: '1px solid var(--theme-color-2000)',
+                    borderRadius: 'inherit',
+                    width: '-webkit-fill-available',
+                    height: '-webkit-fill-available',
+                    textAlign: 'left',
+                  }}
                 />
               </h2>
-              <h5 className={style.email}>{t('Email')} {currentUser?.email}</h5>
+              <h5 className={style.email}>
+                {t('Email')} {currentUser?.email}
+              </h5>
               <span className={style.descriptionTitle}>{t('Description')}</span>
               <input
                 type="text"
@@ -228,7 +226,7 @@ const ProfileSetting = () => {
                 label={t('Confirm')}
                 type={ButtonType.primary}
               ></Button>
-              
+
               <Button
                 onClick={handleCancel}
                 label={t('cancel')}

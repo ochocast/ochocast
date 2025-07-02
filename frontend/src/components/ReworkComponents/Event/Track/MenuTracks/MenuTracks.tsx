@@ -31,7 +31,7 @@ const MenuTracks = (props: MenuTracksProps) => {
     <div className={styles.header}>
       <img className={styles.img} src={props.imageUrl} alt="iconeSelect" />
       <span className={styles.title}>{t('Tracks')}</span>
-        {props.isButtonDisplayed && addTrackButton}
+      {props.isButtonDisplayed && addTrackButton}
     </div>
   );
 

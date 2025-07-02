@@ -1,9 +1,13 @@
-import React, { useState } from "react";
-import { useTranslation } from "react-i18next";
-import styles from "./LanguageSwitcher.module.css";
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import styles from './LanguageSwitcher.module.css';
 
 interface WebpackRequire extends NodeRequire {
-  context: (path: string, deep?: boolean, filter?: RegExp) => {
+  context: (
+    path: string,
+    deep?: boolean,
+    filter?: RegExp,
+  ) => {
     keys: () => string[];
   };
 }
@@ -14,8 +18,10 @@ type LanguageOption = {
   label: string;
 };
 
-const context = require.context("../../locales", true, /translation\.json$/);
-const languageCodes = Array.from(new Set(context.keys().map((key) => key.split("/")[1])));
+const context = require.context('../../locales', true, /translation\.json$/);
+const languageCodes = Array.from(
+  new Set(context.keys().map((key) => key.split('/')[1])),
+);
 
 const LANGUAGES: LanguageOption[] = languageCodes.map((code) => ({
   code,
@@ -29,14 +35,15 @@ const LanguageSelector: React.FC = () => {
 
   const handleLanguageChange = (lang: string) => {
     i18n.changeLanguage(lang);
-    localStorage.setItem("lang", lang);
+    localStorage.setItem('lang', lang);
     setOpen(false);
   };
 
   return (
     <div className={styles.selector}>
       <button className={styles.button} onClick={() => setOpen(!open)}>
-        🌐 {LANGUAGES.find((l) => l.code === currentLang)?.label || "Language"} ▾
+        🌐 {LANGUAGES.find((l) => l.code === currentLang)?.label || 'Language'}{' '}
+        ▾
       </button>
 
       {open && (
@@ -44,7 +51,7 @@ const LanguageSelector: React.FC = () => {
           {LANGUAGES.map((lang) => (
             <li
               key={lang.code}
-              className={`${styles.item} ${currentLang === lang.code ? "active" : ""}`}
+              className={`${styles.item} ${currentLang === lang.code ? 'active' : ''}`}
               onClick={() => handleLanguageChange(lang.code)}
             >
               {lang.label}

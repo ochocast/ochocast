@@ -51,13 +51,28 @@ const Header: FC<HeaderProps> = () => {
       {/* Mobile menu */}
       {menuOpen && (
         <div className={styles.MobileMenu}>
-          <div onClick={() => { navigate('/events'); closeMenu(); }}>
+          <div
+            onClick={() => {
+              navigate('/events');
+              closeMenu();
+            }}
+          >
             Streaming
           </div>
-          <div onClick={() => { navigate('/videos'); closeMenu(); }}>
+          <div
+            onClick={() => {
+              navigate('/videos');
+              closeMenu();
+            }}
+          >
             Videos
           </div>
-          <div onClick={() => { navigate('/video/video-settings'); closeMenu(); }}>
+          <div
+            onClick={() => {
+              navigate('/video/video-settings');
+              closeMenu();
+            }}
+          >
             Publish a video
           </div>
           {username && (

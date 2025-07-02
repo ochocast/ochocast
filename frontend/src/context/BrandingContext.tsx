@@ -17,7 +17,9 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
 export function useBrandingContext() {
   const context = useContext(BrandingContext);
   if (context === null) {
-    throw new Error('useBrandingContext must be used within a BrandingProvider');
+    throw new Error(
+      'useBrandingContext must be used within a BrandingProvider',
+    );
   }
   return context;
 }

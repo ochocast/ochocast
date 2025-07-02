@@ -108,7 +108,12 @@ describe('UserGateway - getFavoriteVideos', () => {
 
     expect(usersRepositoryMock.findOne).toHaveBeenCalledWith({
       where: { email: 'test@example.com' },
-      relations: ['favoriteVideos', 'favoriteVideos.tags', 'favoriteVideos.creator', 'favoriteVideos.comments'],
+      relations: [
+        'favoriteVideos',
+        'favoriteVideos.tags',
+        'favoriteVideos.creator',
+        'favoriteVideos.comments',
+      ],
     });
 
     expect(result).toHaveLength(1);
@@ -116,7 +121,9 @@ describe('UserGateway - getFavoriteVideos', () => {
   });
 
   it('should handle no favorite videos', async () => {
-    usersRepositoryMock.findOne = jest.fn().mockResolvedValue({ favoriteVideos: [] });
+    usersRepositoryMock.findOne = jest
+      .fn()
+      .mockResolvedValue({ favoriteVideos: [] });
 
     const result = await userGateway.getFavoriteVideos('test@example.com');
 
@@ -126,6 +133,8 @@ describe('UserGateway - getFavoriteVideos', () => {
   it('should throw error if user not found', async () => {
     usersRepositoryMock.findOne = jest.fn().mockResolvedValue(null);
 
-    await expect(userGateway.getFavoriteVideos('missing@example.com')).rejects.toThrow('User not found');
+    await expect(
+      userGateway.getFavoriteVideos('missing@example.com'),
+    ).rejects.toThrow('User not found');
   });
 });

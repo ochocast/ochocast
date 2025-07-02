@@ -44,7 +44,7 @@ import { CloseExpiredEventsUsecase } from './domain/usecases/closeExpiredEvents.
     SubscribeToEventUsecase,
     GetEventMiniatureUsecase,
     CloseExpiredEventsUsecase,
-    CloseExpiredEventsScheduler, 
+    CloseExpiredEventsScheduler,
   ],
 })
 export class EventsModule {}

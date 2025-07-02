@@ -7,19 +7,27 @@ import { useTranslation } from 'react-i18next';
 
 const NavItems = () => {
   const navigate = useNavigate();
-    const { t } = useTranslation();
-  
+  const { t } = useTranslation();
+
   return (
     <div className={styles.navItems}>
       <div className={styles.navItem}>
-        <a className={styles.navItem1} onClick={() => navigate('/events')}>
-        {t('streaming')}
-        </a>
+        <button
+          type="button"
+          className={styles.navItem1}
+          onClick={() => navigate('/events')}
+        >
+          {t('streaming')}
+        </button>
       </div>
       <div className={styles.navItem}>
-        <a className={styles.navItem1} onClick={() => navigate('/videos')}>
-        {t('videos')}
-        </a>
+        <button
+          type="button"
+          className={styles.navItem1}
+          onClick={() => navigate('/videos')}
+        >
+          {t('videos')}
+        </button>
       </div>
       <Button
         label={t('publishVideo')}

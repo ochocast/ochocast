@@ -10,6 +10,8 @@ import { PublicEvent } from '../../../../utils/EventsProperties';
 import { subscribeEvent } from '../../../../utils/api';
 import { t } from 'i18next';
 
+import defaultLogo from '../../../../assets/logo_2lignes_crop.png';
+
 interface EventBoxProps {
   event: PublicEvent;
   imageURL?: string;
@@ -39,7 +41,7 @@ const EventBox = (props: EventBoxProps) => {
         label={t('Register')}
         type={ButtonType.primary}
         onClick={async () => {
-          if ((await subscribeEvent(event.id)).status == 200)
+          if ((await subscribeEvent(event.id)).status === 200)
             setNbSubscribe(nbSubscribe + 1);
         }}
       />
@@ -74,15 +76,10 @@ const EventBox = (props: EventBoxProps) => {
 
   const buttonsPreview = (
     <div className={styles.subscribeWrapper}>
-      <Button
-        label={t('Register')}
-        type={ButtonType.primary}
-      />
+      <Button label={t('Register')} type={ButtonType.primary} />
       <div className={styles.subscriptionsWrapper}>
         <span className={styles.dot}></span>
-        <span className={styles.subscritpions}>
-          {`12 ` + t('registered')}
-        </span>
+        <span className={styles.subscritpions}>{`12 ` + t('registered')}</span>
       </div>
     </div>
   );
@@ -90,21 +87,25 @@ const EventBox = (props: EventBoxProps) => {
   return (
     <div
       className={styles.box}
-      onClick={() => {if (props.eventStatus !== EventStatus.Preview) {
-        navigate(`/events/${event.id}/tracks`);
-      }}}
+      onClick={() => {
+        if (props.eventStatus !== EventStatus.Preview) {
+          navigate(`/events/${event.id}/tracks`);
+        }
+      }}
     >
       <div className={styles.imgWrapper}>
         <img
           className={styles.img}
-          src={props.imageURL || '../../../../assets/logo_2lignes_crop.png'}
+          src={props.imageURL || defaultLogo}
           onError={(e) => {
             e.currentTarget.onerror = null;
-            e.currentTarget.src = '../../../../assets/logo_2lignes_crop.png';
+            e.currentTarget.src = defaultLogo;
           }}
           alt="img"
         ></img>
-        {props.event.canBeEditByUser && props.eventStatus !== EventStatus.Preview && editButton}
+        {props.event.canBeEditByUser &&
+          props.eventStatus !== EventStatus.Preview &&
+          editButton}
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.title}>{event.name}</div>

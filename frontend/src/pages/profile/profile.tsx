@@ -22,6 +22,8 @@ import SearchBar, {
   SearchBarIcon,
 } from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
 
+const PERSONA_IMAGE = '/persona.png';
+
 interface ProfileProps {}
 
 const Profile: FC<ProfileProps> = () => {
@@ -85,17 +87,15 @@ const Profile: FC<ProfileProps> = () => {
       <div className={style.display}>
         <ProfileDescription
           firstname={currentUser ? currentUser.firstName : t('unknown')}
-          lastname=''
-          email={
-            currentUser ? currentUser.email : t('unknownEmail')
-          }
+          lastname=""
+          email={currentUser ? currentUser.email : t('unknownEmail')}
           description={
             currentUser ? currentUser.description : t('noDescription')
           }
           image={
             currentUser
-              ? currentUser.picture_id || '/persona.png'
-              : '/persona.png'
+              ? currentUser.picture_id || PERSONA_IMAGE
+              : PERSONA_IMAGE
           }
           state={ProfileDescriptionState.large}
         />

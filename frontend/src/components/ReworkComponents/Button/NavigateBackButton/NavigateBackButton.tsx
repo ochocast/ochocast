@@ -9,8 +9,7 @@ export interface NavigateBackButtonProps {
   customPageUrl?: string;
 }
 
-const NavigateBackButton = (props : NavigateBackButtonProps) => {
-
+const NavigateBackButton = (props: NavigateBackButtonProps) => {
   // Redirige vers la page spécifiée ou vers la page précédente
   const navigate = useNavigate();
   const handleClick = () => {

@@ -3,7 +3,11 @@ import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 
 interface WebpackRequire extends NodeRequire {
-  context: (path: string, deep?: boolean, filter?: RegExp) => {
+  context: (
+    path: string,
+    deep?: boolean,
+    filter?: RegExp,
+  ) => {
     keys: () => string[];
     (key: string): string;
   };

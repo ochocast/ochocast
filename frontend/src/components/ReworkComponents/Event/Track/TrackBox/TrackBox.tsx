@@ -28,7 +28,10 @@ const TrackBox = (props: TrackBoxProps) => {
         />
       </div>
       <div className={styles.line} />
-      <div className={styles.content}>{t('Speakers') + " : "}{speakers.map(e => (e.firstName + " " + e.lastName)).join(', ')}</div>
+      <div className={styles.content}>
+        {t('Speakers') + ' : '}
+        {speakers.map((e) => e.firstName + ' ' + e.lastName).join(', ')}
+      </div>
       <div className={styles.content}>{description}</div>
     </div>
   );

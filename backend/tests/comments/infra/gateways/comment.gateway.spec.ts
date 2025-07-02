@@ -1,12 +1,11 @@
-import { Test } from "@nestjs/testing";
-import { getRepositoryToken } from "@nestjs/typeorm";
-import { CommentObject } from "src/comments/domain/comment";
-import { CommentGateway } from "src/comments/infra/gateways/comment.gateway";
-import { CommentEntity } from "src/comments/infra/gateways/entities/comment.entity";
-import { UserEntity } from "src/users/infra/gateways/entities/user.entity";
-import { VideoEntity } from "src/videos/infra/gateways/entities/video.entity";
-import { Repository } from "typeorm";
-
+import { Test } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { CommentObject } from 'src/comments/domain/comment';
+import { CommentGateway } from 'src/comments/infra/gateways/comment.gateway';
+import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
+import { Repository } from 'typeorm';
 
 describe('CommentGateway', () => {
   let gateway: CommentGateway;
@@ -101,10 +100,22 @@ describe('CommentGateway', () => {
     const result = await gateway.getComments('video1');
 
     expect(repository.createQueryBuilder).toHaveBeenCalledWith('comment');
-    expect(mockBuilder.leftJoinAndSelect).toHaveBeenCalledWith('comment.creator', 'creator');
-    expect(mockBuilder.leftJoinAndSelect).toHaveBeenCalledWith('comment.video', 'video');
-    expect(mockBuilder.where).toHaveBeenCalledWith('comment.videoId = :videoId', { videoId: 'video1' });
-    expect(mockBuilder.orderBy).toHaveBeenCalledWith('comment.createdAt', 'DESC');
+    expect(mockBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'comment.creator',
+      'creator',
+    );
+    expect(mockBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'comment.video',
+      'video',
+    );
+    expect(mockBuilder.where).toHaveBeenCalledWith(
+      'comment.videoId = :videoId',
+      { videoId: 'video1' },
+    );
+    expect(mockBuilder.orderBy).toHaveBeenCalledWith(
+      'comment.createdAt',
+      'DESC',
+    );
     expect(result).toEqual([mockCommentEntity]);
   });
 

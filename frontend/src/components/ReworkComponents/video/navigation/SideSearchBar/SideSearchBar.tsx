@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import styles from './SideSearchBar.module.css';
 import Tag from '../../../generic/Tag/Tag';
-import SearchBar, { SearchBarIcon } from '../../../navigation/SearchBar/SearchBar';
+import SearchBar, {
+  SearchBarIcon,
+} from '../../../navigation/SearchBar/SearchBar';
 import Card from '../../../generic/Cards/Card';
 import Button from '../../../generic/Button/Button';
 import { useNavigate } from 'react-router-dom';

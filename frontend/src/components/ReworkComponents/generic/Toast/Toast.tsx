@@ -1,14 +1,19 @@
-import React, { useEffect } from "react";
-import styles from "./Toast.module.css";
+import React, { useEffect } from 'react';
+import styles from './Toast.module.css';
 
 type ToastProps = {
   message: string;
-  type?: "success" | "error" | "info";
+  type?: 'success' | 'error' | 'info';
   duration?: number;
   onClose: () => void;
 };
 
-const Toast: React.FC<ToastProps> = ({ message, type = "info", duration = 3000, onClose }) => {
+const Toast: React.FC<ToastProps> = ({
+  message,
+  type = 'info',
+  duration = 3000,
+  onClose,
+}) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();

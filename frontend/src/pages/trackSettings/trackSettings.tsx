@@ -55,11 +55,11 @@ const TrackSettings: FC = () => {
 
   const handleInputChange =
     (field: keyof typeof track) =>
-      (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setTrack({ ...track, [field]: e.target.value });
-        setButtonDisabled(false);
-        setMessage('');
-      };
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setTrack({ ...track, [field]: e.target.value });
+      setButtonDisabled(false);
+      setMessage('');
+    };
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     if (await handleSubmit(e, track, speakers)) setButtonDisabled(true);
@@ -125,7 +125,7 @@ const TrackSettings: FC = () => {
             }}
             title={t('Speaker')}
             disabled={closed !== undefined && closed}
-            userId={userId != event?.creatorId ? userId : ''}
+            userId={userId !== event?.creatorId ? userId : ''}
           />
           <div className={styles.trackDateInputs}>
             <div className={styles.inputWrapper}>
@@ -300,7 +300,11 @@ const TrackSettings: FC = () => {
 
   return (
     <div className={styles.pageTrackSettings}>
-      <EventDashboard eventId={eventId} tracks={tracks} eventClosed={!closed && userId === event?.creatorId} />
+      <EventDashboard
+        eventId={eventId}
+        tracks={tracks}
+        eventClosed={!closed && userId === event?.creatorId}
+      />
       {canEdit ? form : trackInfo}
     </div>
   );

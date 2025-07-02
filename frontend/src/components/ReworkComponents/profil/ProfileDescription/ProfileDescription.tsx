@@ -17,9 +17,11 @@ export enum ProfileDescriptionState {
   large = 'large',
 }
 
+const DEFAULT_PERSONA_IMAGE = '/persona.png';
+
 type ProfileDescriptionProps = {
   firstname: string;
-  lastname: string,
+  lastname: string;
   email: string;
   description: string;
   image?: string;
@@ -33,47 +35,46 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
   const navigate = useNavigate();
   const auth = useAuth();
   const { t } = useTranslation();
-  
-    const getMe = useCallback(async () => {
-        setIsLoading(true);
-        try {
-          const backendUser = JSON.parse(userString!);
-    
-          const userResponse = await getUsers();
-          const user = userResponse.data.find((u: User) => u.id === backendUser.id);
-          setCurrentUser(user || null);
-        } catch (error) {
-          console.error('Error fetching videos:', error);
-        }
-        setIsLoading(false);
-      }, [userString]);
-    
-      useEffect(() => {
-        getMe();
-      }, [getMe]);
-  
-    const [pictureUrl, setPictureUrl] = useState<string | null>(null);
-  
-      useEffect(() => {
-        const fetchMiniatureUrl = async () => {
-        setIsLoading(true);
-          if (currentUser && currentUser.email) {
-            try {
-              const url = await getProfilePicture(currentUser.id);
-              // TODO: rework this condition
-              if (url?.data.includes('miniatureundefined')) {
-                return;
-              }
-              setPictureUrl(url?.data || '/persona.png');
-            } catch (error) {
-              console.error('Error fetching miniature URL', error);
-            }
-          }
-        };
-      fetchMiniatureUrl();
-      setIsLoading(false);
-  }, [currentUser]);
 
+  const getMe = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const backendUser = JSON.parse(userString!);
+
+      const userResponse = await getUsers();
+      const user = userResponse.data.find((u: User) => u.id === backendUser.id);
+      setCurrentUser(user || null);
+    } catch (error) {
+      console.error('Error fetching videos:', error);
+    }
+    setIsLoading(false);
+  }, [userString]);
+
+  useEffect(() => {
+    getMe();
+  }, [getMe]);
+
+  const [pictureUrl, setPictureUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchMiniatureUrl = async () => {
+      setIsLoading(true);
+      if (currentUser && currentUser.email) {
+        try {
+          const url = await getProfilePicture(currentUser.id);
+          // TODO: rework this condition
+          if (url?.data.includes('miniatureundefined')) {
+            return;
+          }
+          setPictureUrl(url?.data || DEFAULT_PERSONA_IMAGE);
+        } catch (error) {
+          console.error('Error fetching miniature URL', error);
+        }
+      }
+    };
+    fetchMiniatureUrl();
+    setIsLoading(false);
+  }, [currentUser]);
 
   if (isLoading) {
     return <LoadingCircle />;
@@ -92,13 +93,12 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
             <span>{props.firstname}</span>
             <span>{props.lastname}</span>
           </h3>
-            
-          <img 
-            className={styles.imageSmall} 
-            alt="" 
-            src={pictureUrl !== null
-              ? pictureUrl
-              : '/persona.png'} />
+
+          <img
+            className={styles.imageSmall}
+            alt=""
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+          />
         </div>
       </Card>
     );
@@ -108,16 +108,16 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainerCol}>
-          <img 
+          <img
             className={styles.image}
             alt=""
-            src={pictureUrl !== null
-              ? pictureUrl
-              : '/persona.png'}
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
           />
           <div className={styles.titlesCenter}>
             <h2 className={styles.name}>{props.firstname}</h2>
-            <h5 className={styles.email}>{t('Email')} {props.email}</h5>
+            <h5 className={styles.email}>
+              {t('Email')} {props.email}
+            </h5>
           </div>
         </div>
       </Card>
@@ -127,18 +127,20 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainer}>
-          <img 
+          <img
             className={styles.image}
             alt=""
-            src={pictureUrl !== null
-              ? pictureUrl
-              : '/persona.png'}
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
           />
           <div>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.firstname}</h2>
-              <h5 className={styles.email}>{t('Email')} {props.email}</h5>
-              <span className={styles.descriptionTitle}>{t('Description')}</span>
+              <h5 className={styles.email}>
+                {t('Email')} {props.email}
+              </h5>
+              <span className={styles.descriptionTitle}>
+                {t('Description')}
+              </span>
               <span className={styles.descriptionClamp}>
                 {props.description}
               </span>
@@ -153,18 +155,20 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainer}>
-          <img 
+          <img
             className={styles.image}
             alt=""
-            src={pictureUrl !== null
-              ? pictureUrl
-              : '/persona.png'}
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
           />
           <div className={styles.description}>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.firstname}</h2>
-              <h5 className={styles.email}>{t('Email')} {props.email}</h5>
-              <span className={styles.descriptionTitle}>{t('Description')}</span>
+              <h5 className={styles.email}>
+                {t('Email')} {props.email}
+              </h5>
+              <span className={styles.descriptionTitle}>
+                {t('Description')}
+              </span>
               <span>{props.description}</span>
             </div>
             <div className={styles.logout}>

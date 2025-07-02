@@ -2,7 +2,7 @@ import React from 'react';
 import styles from './Commentary.module.css';
 import ProfileDescription, {
   ProfileDescriptionState,
-} from '../../../profil/ProfileDescription/ProfileDescription';
+} from '../../profil/ProfileDescription/ProfileDescription';
 
 export interface CommentaryProps {
   content: string;
@@ -10,6 +10,8 @@ export interface CommentaryProps {
   lastname: string;
   created_at: Date;
 }
+
+const PERSONA_IMAGE = '/persona.png';
 
 const Commentary = (props: CommentaryProps) => {
   return (
@@ -26,7 +28,7 @@ const Commentary = (props: CommentaryProps) => {
           lastname={props.lastname}
           email=""
           description=""
-          image="/persona.png"
+          image={PERSONA_IMAGE}
           state={ProfileDescriptionState.tiny}
         />
       </div>

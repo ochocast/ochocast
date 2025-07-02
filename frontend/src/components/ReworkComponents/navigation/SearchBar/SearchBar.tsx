@@ -29,7 +29,7 @@ const SearchBar = ({
   const inputRef = useRef<HTMLInputElement>(null); // Référence pour l'élément d'entrée
   const [tag_suggestions, setTag] = useState<Tag_video[]>([]);
   const [user_suggestions, setUser] = useState<User[]>([]);
-  
+
   if (needInput === undefined) {
     needInput = true;
   }
@@ -74,9 +74,9 @@ const SearchBar = ({
   };
 
   useEffect(() => {
-    const suggestionsList = hasSugestion ? document.getElementById(
-      'suggestions_list',
-    ) as HTMLUListElement : undefined;
+    const suggestionsList = hasSugestion
+      ? (document.getElementById('suggestions_list') as HTMLUListElement)
+      : undefined;
     if (suggestionsList && (tag_suggestions.length || user_suggestions)) {
       suggestionsList.innerHTML = '';
       const filteredObjects: { name: string; img: string }[] = [];
@@ -112,7 +112,7 @@ const SearchBar = ({
 
         suggestionsList.appendChild(li);
       });
-    } else if (suggestionsList){
+    } else if (suggestionsList) {
       suggestionsList.style.display = 'none';
     }
   }, [tag_suggestions, user_suggestions, onClick, hasSugestion]);

@@ -19,10 +19,12 @@ export const UserBadge = ({ username, image }: Props): JSX.Element => {
         navigate('/profile');
       }}
     >
-      <div className={`${styles.userBadge} ${styles.userBadgeName}`}>{username}</div>
+      <div className={`${styles.userBadge} ${styles.userBadgeName}`}>
+        {username}
+      </div>
       <img
         className={`${styles.userBadge} ${styles.userBadgePicture}`}
-        alt="Profile picture"
+        alt={username ? `${username}'s profile` : 'User profile'}
         src={image ? image : profilePicture}
       />
     </div>

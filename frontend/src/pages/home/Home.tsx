@@ -5,7 +5,6 @@ import styles from './Home.module.css';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
-
 //import { ButtonState } from '../../components/ReworkComponents/Button/HomeCardButton/HomeCardButton';
 
 export interface HomeProps {}
@@ -15,9 +14,10 @@ const HomePage: FC<HomeProps> = () => {
   const { t } = useTranslation();
 
   return (
-    <><div className={styles.HomeCard}>
+    <>
+      <div className={styles.HomeCard}>
         <HomeCards
-          title= {t('streaming')}
+          title={t('streaming')}
           description={t('getAvailableLiveEvents')}
           //buttonState={ButtonState.disabled}
           buttonList={[
@@ -28,15 +28,16 @@ const HomePage: FC<HomeProps> = () => {
                 navigate('/events');
               },
             },
-          ]} />
+          ]}
+        />
         <div
           className={styles.cardContainer}
           onClick={() => {
             navigate('/videos');
-          } }
+          }}
         >
           <HomeCards
-            title= {t('videos')}
+            title={t('videos')}
             description={t('getAvailableVideos')}
             buttonList={[
               {
@@ -53,9 +54,11 @@ const HomePage: FC<HomeProps> = () => {
                   navigate('/video/video-settings');
                 },
               },
-            ]} />
+            ]}
+          />
         </div>
-      </div></>
+      </div>
+    </>
   );
 };
 

@@ -83,21 +83,23 @@ const Videos: FC<VideosProps> = () => {
     let result = [...videos];
 
     if (newFilters.tags.length > 0) {
-      result = result.filter(video =>
-        video.tags?.some(tag => newFilters.tags.includes(tag.name))
+      result = result.filter((video) =>
+        video.tags?.some((tag) => newFilters.tags.includes(tag.name)),
       );
     }
 
     if (newFilters.users.length > 0) {
-      result = result.filter(video =>
-        newFilters.users.includes(video.creator?.firstName)
+      result = result.filter((video) =>
+        newFilters.users.includes(video.creator?.firstName),
       );
     }
 
     if (newFilters.startDate && newFilters.endDate) {
-      result = result.filter(video => {
+      result = result.filter((video) => {
         const createdAt = new Date(video.createdAt);
-        return createdAt >= newFilters.startDate! && createdAt <= newFilters.endDate!;
+        return (
+          createdAt >= newFilters.startDate! && createdAt <= newFilters.endDate!
+        );
       });
     }
 
@@ -124,22 +126,22 @@ const Videos: FC<VideosProps> = () => {
 
   const handleToggleFavorites = async () => {
     if (!user?.id) return;
-  
+
     const nextState = !showFavorites;
     setShowFavorites(nextState);
-  
+
     try {
       const response = nextState
         ? await getFavoriteVideos()
         : await getVideos();
-  
+
       setVideos(response.data || []);
     } catch (error) {
       logger.error('Error toggling favorite filter:', error);
     }
   };
-  
-    if (isLoading) {
+
+  if (isLoading) {
     return <LoadingCircle />;
   }
 
@@ -162,7 +164,9 @@ const Videos: FC<VideosProps> = () => {
             </button>
             <img
               className={style.starIconFilterContainer}
-              src={showFavorites ? FavorisFilterSelected : FavorisFilterNotSelected}
+              src={
+                showFavorites ? FavorisFilterSelected : FavorisFilterNotSelected
+              }
               onClick={handleToggleFavorites}
               alt="Filtrer par favoris"
             />
@@ -193,7 +197,7 @@ const Videos: FC<VideosProps> = () => {
                 createBy={video.creator?.firstName}
                 views={video.views}
                 createdAt={video.createdAt.toString()}
-                tags={video.tags?.map(tag => tag.name)}
+                tags={video.tags?.map((tag) => tag.name)}
               />
             ))
           ) : (

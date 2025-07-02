@@ -2,6 +2,8 @@ import React, { FC } from 'react';
 
 import styles from './Tag.module.css';
 
+const DELETE_ICON = '/cross.svg';
+
 export enum TagType {
   DEFAULT,
   DISABLE,
@@ -54,7 +56,7 @@ const Tag: FC<TagProps> = ({
         <img
           className={styles.icons}
           alt="delete"
-          src="/cross.svg"
+          src={DELETE_ICON}
           onClick={onClick}
         />
       )}

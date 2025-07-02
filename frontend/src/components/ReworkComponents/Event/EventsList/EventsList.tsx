@@ -20,7 +20,9 @@ interface EventsListProps {
 
 const EventsList = (props: EventsListProps) => {
   const [index, setIndex] = useState(0);
-  const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>({});
+  const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>(
+    {},
+  );
 
   const getEventsToShow = useCallback(() => {
     const events = props.events;
@@ -61,30 +63,32 @@ const EventsList = (props: EventsListProps) => {
   );
 
   const fetchMiniatures = useCallback(async () => {
-  const newURLs: Record<string, string> = {};
+    const newURLs: Record<string, string> = {};
 
-  await Promise.all(
-    props.events.map(async (event) => {
-      try {
-        const res = await getEventsMiniature(event.id);
-        if (res?.data?.url && !res.data.url.includes('imageSlug')) {
-          newURLs[event.id] = res.data.url;
-        } else {
-          newURLs[event.id] = fallbackMiniature; 
+    await Promise.all(
+      props.events.map(async (event) => {
+        try {
+          const res = await getEventsMiniature(event.id);
+          if (res?.data?.url && !res.data.url.includes('imageSlug')) {
+            newURLs[event.id] = res.data.url;
+          } else {
+            newURLs[event.id] = fallbackMiniature;
+          }
+        } catch (err) {
+          console.error(
+            `Erreur récupération miniature pour event ${event.id}`,
+            err,
+          );
+          newURLs[event.id] = fallbackMiniature;
         }
-      } catch (err) {
-        console.error(`Erreur récupération miniature pour event ${event.id}`, err);
-        newURLs[event.id] = fallbackMiniature;
-      }
-    })
-  );
-  setMiniatureURLs(newURLs);
-}, [props.events]);
+      }),
+    );
+    setMiniatureURLs(newURLs);
+  }, [props.events]);
 
   useEffect(() => {
     fetchMiniatures();
   }, [fetchMiniatures]);
-
 
   return (
     <div className={styles.eventsList}>

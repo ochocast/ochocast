@@ -27,7 +27,7 @@ import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 
-export interface eventsProps { }
+export interface eventsProps {}
 
 // Utility function to remove accents from a string
 const removeAccents = (str: string): string =>
@@ -95,16 +95,19 @@ const EventsPage: FC<eventsProps> = () => {
       const unpublishedData = await getUnpublishedEvents();
       const closedData = await getClosedEvents();
 
-      if (publishedData.status !== 200) throw new Error("Échec récupération événements publiés");
-      if (unpublishedData.status !== 200) throw new Error("Échec récupération événements non publiés");
-      if (closedData.status !== 200) throw new Error("Échec récupération événements clos");
+      if (publishedData.status !== 200)
+        throw new Error('Échec récupération événements publiés');
+      if (unpublishedData.status !== 200)
+        throw new Error('Échec récupération événements non publiés');
+      if (closedData.status !== 200)
+        throw new Error('Échec récupération événements clos');
 
       setEventsPublished(publishedData.data);
       setEventsUnpublished(unpublishedData.data);
       setEventsClosed(closedData.data);
     } catch (error) {
       logger.error(`Failed to fetch events: ${error}`);
-      setFetchError("Impossible de charger les événements");
+      setFetchError('Impossible de charger les événements');
     }
     setIsLoading(false);
   };
@@ -113,7 +116,7 @@ const EventsPage: FC<eventsProps> = () => {
   useEffect(() => {
     // Assurez-vous que les headers API sont configurés avec le token
     if (auth.user?.access_token) {
-      api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+      api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
     }
 
     // Seulement si on a un token et qu'on n'est pas en train de charger
@@ -167,9 +170,9 @@ const EventsPage: FC<eventsProps> = () => {
     try {
       // Assurez-vous que le token est toujours valide
       if (auth.user?.access_token) {
-        api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+        api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
       }
-      
+
       const res = await publishEvent(eventId);
 
       if (res.status !== 200) {
@@ -201,12 +204,12 @@ const EventsPage: FC<eventsProps> = () => {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     // Empêcher les double-clics
     if (isCreatingEvent) {
       return;
     }
-    
+
     let isError = false;
     if (!name.trim()) {
       setErrorName(true);
@@ -222,9 +225,9 @@ const EventsPage: FC<eventsProps> = () => {
       try {
         // Assurez-vous que le token est toujours valide
         if (auth.user?.access_token) {
-          api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+          api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
         } else {
-          throw new Error("Session expirée, veuillez vous reconnecter");
+          throw new Error('Session expirée, veuillez vous reconnecter');
         }
 
         const [year, month, day] = date.split('-');
@@ -272,7 +275,10 @@ const EventsPage: FC<eventsProps> = () => {
           setEndHour('');
           setSelectedImage(null);
           setImageUrl(null);
-          setEventsUnpublished((prevEvents) => [...prevEvents, eventToPublicEvent(res.data)]);
+          setEventsUnpublished((prevEvents) => [
+            ...prevEvents,
+            eventToPublicEvent(res.data),
+          ]);
           // Actualiser tous les événements après la création
           fetchEventData();
           setIsCreatingEvent(false); // Réactiver après succès et nettoyage
@@ -285,9 +291,7 @@ const EventsPage: FC<eventsProps> = () => {
           type: 'error',
         });
         logger.error(error);
-        setMessage(
-          t('ErrorCreationEvent'),
-        );
+        setMessage(t('ErrorCreationEvent'));
         setIsCreatingEvent(false); // Réactiver en cas d'erreur
       }
     }
@@ -325,7 +329,9 @@ const EventsPage: FC<eventsProps> = () => {
       </div>
       <div className={styles.content}>
         {isLoading ? (
-          <div className={styles.loadingMessage}>Chargement des événements...</div>
+          <div className={styles.loadingMessage}>
+            Chargement des événements...
+          </div>
         ) : fetchError ? (
           <div className={styles.errorMessage}>{fetchError}</div>
         ) : (
@@ -353,9 +359,11 @@ const EventsPage: FC<eventsProps> = () => {
                 events={filteredClosed}
               />
             ) : null}
-            {filteredPublished.length === 0 && filteredUnpublished.length === 0 && filteredClosed.length === 0 && (
-              <div className={styles.emptyState}>Aucun événement trouvé</div>
-            )}
+            {filteredPublished.length === 0 &&
+              filteredUnpublished.length === 0 &&
+              filteredClosed.length === 0 && (
+                <div className={styles.emptyState}>Aucun événement trouvé</div>
+              )}
           </>
         )}
       </div>
@@ -406,8 +414,23 @@ const EventsPage: FC<eventsProps> = () => {
             </div>
             <div className={styles.inputWrapper}>
               <label>{t('Thumbnail')}</label>
-              <InputFile placeholder={t('ChooseThumbnail')} onChange={handleImageChange} disable={false} required={false} />
-              {imageUrl && <img src={imageUrl} alt="Miniature Preview" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}
+              <InputFile
+                placeholder={t('ChooseThumbnail')}
+                onChange={handleImageChange}
+                disable={false}
+                required={false}
+              />
+              {imageUrl && (
+                <img
+                  src={imageUrl}
+                  alt="Miniature Preview"
+                  style={{
+                    width: '100px',
+                    height: '100px',
+                    objectFit: 'cover',
+                  }}
+                />
+              )}
             </div>
           </div>
           <TextArea
@@ -418,8 +441,8 @@ const EventsPage: FC<eventsProps> = () => {
             error={errorDescription}
             onChange={handleDescriptionChange}
           />
-          <Button 
-            label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')} 
+          <Button
+            label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
             type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
           />
           <div className="message">{message ? <p>{message}</p> : null}</div>

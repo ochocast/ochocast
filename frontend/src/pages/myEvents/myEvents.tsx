@@ -14,7 +14,7 @@ import {
   getEventsMiniature,
   getPublishedEvents,
   getUnpublishedEvents,
-  publishEvent
+  publishEvent,
 } from '../../utils/api';
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 import logger from '../../utils/logger';
@@ -93,9 +93,12 @@ const MyEvents = () => {
       const resNotPublishEvent = await getUnpublishedEvents();
       const resClosedEvent = await getClosedEvents();
 
-      if (resPublishEvent.status !== 200) throw new Error("Échec récupération événements publiés");
-      if (resNotPublishEvent.status !== 200) throw new Error("Échec récupération événements non publiés");
-      if (resClosedEvent.status !== 200) throw new Error("Échec récupération événements clos");
+      if (resPublishEvent.status !== 200)
+        throw new Error('Échec récupération événements publiés');
+      if (resNotPublishEvent.status !== 200)
+        throw new Error('Échec récupération événements non publiés');
+      if (resClosedEvent.status !== 200)
+        throw new Error('Échec récupération événements clos');
 
       setPublishEvents(
         resPublishEvent.data.filter((e: PublicEvent) => e.canBeEditByUser),
@@ -104,7 +107,7 @@ const MyEvents = () => {
       setCloseEvents(resClosedEvent.data);
     } catch (error) {
       logger.error(`Failed to fetch events: ${error}`);
-      setFetchError("Impossible de charger vos événements");
+      setFetchError('Impossible de charger vos événements');
     }
     setIsLoading(false);
   };
@@ -207,28 +210,34 @@ const MyEvents = () => {
             <div className={styles.errorMessage}>{fetchError}</div>
           ) : (
             <>
-              {filteredPublishEvents.length > 0 && <EventsList
-                eventStatus={EventStatus.Published}
-                title={t('PublicEvents')}
-                events={filteredPublishEvents}
-              />}
-              {filteredUnpublishEvents.length > 0 &&
+              {filteredPublishEvents.length > 0 && (
+                <EventsList
+                  eventStatus={EventStatus.Published}
+                  title={t('PublicEvents')}
+                  events={filteredPublishEvents}
+                />
+              )}
+              {filteredUnpublishEvents.length > 0 && (
                 <EventsList
                   eventStatus={EventStatus.NotPublished}
                   title={t('UnpublishedEvents')}
                   events={filteredUnpublishEvents}
                   onPublish={onPublish}
                 />
-              }
+              )}
               {filteredClosedEvents.length > 0 && (
                 <>
                   <div className={styles.closeTitle}>{t('ClosedEvents')}</div>
                   <div className={styles.wrapperCloseEvents}>{eventsBoxs}</div>
                 </>
               )}
-              {filteredPublishEvents.length === 0 && filteredUnpublishEvents.length === 0 && filteredClosedEvents.length === 0 && (
-                <div className={styles.emptyState}>Aucun événement trouvé</div>
-              )}
+              {filteredPublishEvents.length === 0 &&
+                filteredUnpublishEvents.length === 0 &&
+                filteredClosedEvents.length === 0 && (
+                  <div className={styles.emptyState}>
+                    Aucun événement trouvé
+                  </div>
+                )}
             </>
           )}
         </div>

@@ -7,7 +7,9 @@ import { api } from '../../utils/api';
 import logger from '../../utils/logger';
 
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
-import Button, { ButtonType } from '../../components/ReworkComponents/generic/Button/Button';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
@@ -28,7 +30,10 @@ const CreateEventPage: React.FC = () => {
   const [endHour, setEndHour] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' | 'info' } | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
   const [errorName, setErrorName] = useState(false);
   const [errorDescription, setErrorDescription] = useState(false);
   const [isCreatingEvent, setIsCreatingEvent] = useState<boolean>(false);
@@ -37,7 +42,8 @@ const CreateEventPage: React.FC = () => {
     const file = e.target.files?.[0] || null;
     if (file) {
       const reader = new FileReader();
-      reader.onload = () => typeof reader.result === 'string' && setImageUrl(reader.result);
+      reader.onload = () =>
+        typeof reader.result === 'string' && setImageUrl(reader.result);
       reader.readAsDataURL(file);
       setSelectedImage(file);
     }
@@ -45,12 +51,12 @@ const CreateEventPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     // Empêcher les double-clics
     if (isCreatingEvent) {
       return;
     }
-    
+
     let isError = false;
     setErrorName(!name.trim());
     setErrorDescription(!description.trim());
@@ -70,8 +76,12 @@ const CreateEventPage: React.FC = () => {
         const [s_hour, s_minute] = startHour.split(':');
         const [e_hour, e_minute] = endHour.split(':');
 
-        const startDateISOString = new Date(Date.UTC(+year, +month - 1, +day, +s_hour, +s_minute)).toISOString();
-        const endDateISOString = new Date(Date.UTC(+year, +month - 1, +day, +e_hour, +e_minute)).toISOString();
+        const startDateISOString = new Date(
+          Date.UTC(+year, +month - 1, +day, +s_hour, +s_minute),
+        ).toISOString();
+        const endDateISOString = new Date(
+          Date.UTC(+year, +month - 1, +day, +e_hour, +e_minute),
+        ).toISOString();
 
         const formData = new FormData();
         formData.append('image_slug', selectedImage?.name || fallbackMiniature);
@@ -101,7 +111,8 @@ const CreateEventPage: React.FC = () => {
 
   const getPreviewEvent = (): PublicEvent => {
     const now = new Date();
-    const startDate = date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
+    const startDate =
+      date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
     const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
 
     const mockUser: PublicUser = {
@@ -203,10 +214,14 @@ const CreateEventPage: React.FC = () => {
               />
             </div>
 
-            <div className={`${styles.buttonEventCreation} ${styles.desktopOnly}`}>
-              <Button 
-                label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')} 
-                type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
+            <div
+              className={`${styles.buttonEventCreation} ${styles.desktopOnly}`}
+            >
+              <Button
+                label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
+                type={
+                  isCreatingEvent ? ButtonType.disabled : ButtonType.primary
+                }
               />
             </div>
           </form>
@@ -221,14 +236,20 @@ const CreateEventPage: React.FC = () => {
           </div>
 
           <div className={`${styles.buttonEventCreation} ${styles.mobileOnly}`}>
-            <Button 
-              label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')} 
+            <Button
+              label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
               type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
             />
           </div>
         </div>
 
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
       </div>
     </>
   );

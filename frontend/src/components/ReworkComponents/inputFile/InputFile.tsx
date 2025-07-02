@@ -13,7 +13,7 @@ const InputFile = ({
   placeholder,
   onChange,
   disable,
-  required = true
+  required = true,
 }: InputFileProps) => {
   const { t } = useTranslation();
   const effectiveplaceholder = placeholder ?? t('DragOrSelectFiles');
@@ -26,7 +26,9 @@ const InputFile = ({
     if (file?.length === 1) {
       const fileArea = e.target.closest(`.${styles.fileArea}`);
       if (fileArea) {
-        const fileDummyDefault = fileArea.querySelector(`.${styles.fileDummy} .default`);
+        const fileDummyDefault = fileArea.querySelector(
+          `.${styles.fileDummy} .default`,
+        );
         if (fileDummyDefault) {
           fileDummyDefault.innerHTML = file[0].name; // Set the innerHTML to the name of the selected file
           onChange(e);

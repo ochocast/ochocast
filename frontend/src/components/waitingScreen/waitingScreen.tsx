@@ -2,14 +2,15 @@ import React from 'react';
 import styles from './waitingScreen.module.css';
 import { useTranslation } from 'react-i18next';
 
-const WaitingScreen = () => {
+const LOGO_IMAGE = '/ochoIconFull.svg';
 
+const WaitingScreen = () => {
   const { t } = useTranslation();
 
   return (
     <div className={styles.waitingScreen}>
       <img
-        src="/ochoIconFull.svg"
+        src={LOGO_IMAGE}
         alt="Waiting illustration"
         className={styles.waitingIllustration}
       />

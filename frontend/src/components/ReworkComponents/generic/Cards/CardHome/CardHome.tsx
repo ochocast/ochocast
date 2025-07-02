@@ -1,8 +1,6 @@
 import React from 'react';
 import styles from './CardHome.module.css';
-import Button, {
-  ButtonType,
-} from '../../Button/Button';
+import Button, { ButtonType } from '../../Button/Button';
 import Card from '../Card';
 
 type CardHomeProps = {

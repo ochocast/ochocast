@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import yaml from "js-yaml";
-import { BrandingConfig } from "../branding/types";
+import { useEffect, useState } from 'react';
+import yaml from 'js-yaml';
+import { BrandingConfig } from '../branding/types';
 
 const CONFIG_PATH = `${process.env.PUBLIC_URL}/branding/theme.yaml`;
 
@@ -22,7 +22,7 @@ export function useBranding() {
         // Mettre à jour le titre
         document.title = parsed.appName;
       } catch (error) {
-        console.error("Erreur lors du chargement du thème:", error);
+        console.error('Erreur lors du chargement du thème:', error);
       }
     })();
   }, []);

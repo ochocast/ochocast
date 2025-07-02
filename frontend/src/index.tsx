@@ -1,4 +1,4 @@
-import './i18n'; 
+import './i18n';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -27,9 +27,9 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider {...oidcConfig}>
-          <I18nextProvider i18n={i18n}>
-            <App />
-          </I18nextProvider>
+        <I18nextProvider i18n={i18n}>
+          <App />
+        </I18nextProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,

@@ -4,9 +4,7 @@ import styles from './Button.module.css';
 export interface HomeCardButtonProps {
   label: string;
   type?: ButtonType;
-  onClick?: (
-    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
-  ) => void;
+  onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
 
 export enum ButtonType {
@@ -33,7 +31,8 @@ const Button = (props: HomeCardButtonProps) => (
             props.onClick(e);
           }
         }}
-        className={`${styles.homeCardButton} ${props.type === ButtonType.primary ? styles.primary : styles.secondary}`}>
+        className={`${styles.homeCardButton} ${props.type === ButtonType.primary ? styles.primary : styles.secondary}`}
+      >
         {props.label}
       </button>
     )}

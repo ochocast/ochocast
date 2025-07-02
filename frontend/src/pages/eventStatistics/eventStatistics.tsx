@@ -73,7 +73,11 @@ const EventStatistic: FC<EventStatisticProps> = () => {
 
   return (
     <div className={styles.PageEventSettings}>
-      <EventDashboard eventId={eventId} tracks={tracks} eventClosed={!eventClosed && userId === creatorId} />
+      <EventDashboard
+        eventId={eventId}
+        tracks={tracks}
+        eventClosed={!eventClosed && userId === creatorId}
+      />
       <div className={styles.bodyWrapper}>{body}</div>
     </div>
   );

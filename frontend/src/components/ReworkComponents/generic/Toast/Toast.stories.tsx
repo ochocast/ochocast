@@ -1,7 +1,7 @@
-import React, { useState } from 'react'; 
+import React, { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import Toast from './Toast';
-import '../../../../index.css'; 
+import '../../../../index.css';
 
 const meta: Meta<typeof Toast> = {
   title: 'feedback/Toast',
@@ -27,12 +27,14 @@ const meta: Meta<typeof Toast> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const ToastWrapper = (args: { message: string; type?: 'success' | 'error' | 'info'; duration?: number }) => {
+const ToastWrapper = (args: {
+  message: string;
+  type?: 'success' | 'error' | 'info';
+  duration?: number;
+}) => {
   const [visible, setVisible] = useState(true);
 
-  return visible ? (
-    <Toast {...args} onClose={() => setVisible(false)} />
-  ) : null;
+  return visible ? <Toast {...args} onClose={() => setVisible(false)} /> : null;
 };
 
 export const Info: Story = {

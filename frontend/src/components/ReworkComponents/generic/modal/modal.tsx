@@ -8,15 +8,17 @@ export interface ModalProps {
 }
 
 const Modal = (props: ModalProps) => {
-  return <>
-    {props.isOpen && (
-      <div className={styles.overlay} onClick={props.toggle}>
-        <div onClick={(e) => e.stopPropagation()} className={styles.box} >
-          {props.children}
+  return (
+    <>
+      {props.isOpen && (
+        <div className={styles.overlay} onClick={props.toggle}>
+          <div onClick={(e) => e.stopPropagation()} className={styles.box}>
+            {props.children}
+          </div>
         </div>
-      </div>
-    )}
-  </>;
+      )}
+    </>
+  );
 };
 
 export default Modal;

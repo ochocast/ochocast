@@ -18,7 +18,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   const { t } = useTranslation();
 
   const filteredUsers = props.allUsers.filter((user) => {
-    if (searchTerm.length == 0 || props.category.includes(user)) return;
+    if (searchTerm.length === 0 || props.category.includes(user)) return false;
     const fullName = `${user.firstName} ${user.lastName}`;
     return fullName.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -52,7 +52,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
             <span className={styles.userSelected}>
               {user.firstName} {user.lastName}
             </span>
-            {!props.disabled && (props.userId != user.id) && (
+            {!props.disabled && props.userId !== user.id && (
               <span
                 className={styles.userSelectedRmButton}
                 onClick={() =>

@@ -1,10 +1,9 @@
-import { CommentObject } from "src/comments/domain/comment";
-import { ICommentGateway } from "src/comments/domain/gateways/comments.gateway";
-import { CreateNewCommentUsecase } from "src/comments/domain/usecases/createNewComment.usecase";
-import { CreateCommentDto } from "src/comments/infra/controllers/dto/create-comment.dto";
-import { UserEntity } from "src/users/infra/gateways/entities/user.entity";
-import { VideoEntity } from "src/videos/infra/gateways/entities/video.entity";
-
+import { CommentObject } from 'src/comments/domain/comment';
+import { ICommentGateway } from 'src/comments/domain/gateways/comments.gateway';
+import { CreateNewCommentUsecase } from 'src/comments/domain/usecases/createNewComment.usecase';
+import { CreateCommentDto } from 'src/comments/infra/controllers/dto/create-comment.dto';
+import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid'),

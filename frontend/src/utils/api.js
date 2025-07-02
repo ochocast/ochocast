@@ -11,7 +11,6 @@ export const api = create({
   },
 });
 
-
 api.addAsyncRequestTransform(async (request) => {
   const userString = localStorage.getItem('backendUser');
   const user = userString ? JSON.parse(userString) : null;
@@ -21,13 +20,15 @@ api.addAsyncRequestTransform(async (request) => {
   }
 });
 
-
 // Users
 export const loginUser = () => api.get('/users/login');
 export const getUsers = () => api.get('/users');
-export const getProfilePicture = (userId) => api.get(`/users/picture/${userId}`);
-export const updateProfile = (newProfile) => api.post(`/users/update`, newProfile);
-export const updateProfileWithoutImage = (newProfile) => api.post(`/users/update2`, newProfile);
+export const getProfilePicture = (userId) =>
+  api.get(`/users/picture/${userId}`);
+export const updateProfile = (newProfile) =>
+  api.post(`/users/update`, newProfile);
+export const updateProfileWithoutImage = (newProfile) =>
+  api.post(`/users/update2`, newProfile);
 
 // Events
 export const createEvent = (event) => api.post('/events', event);
@@ -41,7 +42,9 @@ export const getPublishedEvents = async () => {
 export const getUnpublishedEvents = async () => {
   const res = await api.get(`/events/unpublished?closed=false&published=false`);
   if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
-    throw new Error('Erreur lors de la récupération des événements non publiés');
+    throw new Error(
+      'Erreur lors de la récupération des événements non publiés',
+    );
   }
   return res;
 };
@@ -60,10 +63,10 @@ export const updateEvent = (eventId, event) =>
 export const deleteEvent = (eventId) => api.delete('/events/' + eventId);
 export const publishEvent = (eventId) => api.put('/events/publish/' + eventId);
 export const closeEvent = (eventId) => api.put('/events/close/' + eventId);
-export const subscribeEvent = (eventId) => api.put('/events/subscribe/' + eventId);
+export const subscribeEvent = (eventId) =>
+  api.put('/events/subscribe/' + eventId);
 export const getEventsMiniature = (event_id) =>
   api.get(`/events/miniature/${event_id}`);
-
 
 // Tracks
 export const getTrackById = (trackId) => api.get('/tracks/' + trackId);
@@ -106,8 +109,8 @@ export const isVideoFavorite = async (videoId) => {
 };
 export const getFavoriteVideos = () => api.get('/users/favorites');
 
-
 //Comments
 export const getComments = (videoId) => api.get(`/comments/${videoId}`);
-export const createComment = (commentData) => api.post('/comments', commentData);
+export const createComment = (commentData) =>
+  api.post('/comments', commentData);
 export const deleteComment = (id) => api.delete(`/comments/${id}`);

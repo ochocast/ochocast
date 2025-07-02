@@ -83,7 +83,7 @@ const LiveTrack = () => {
             </div>
             <Button label={t('CloseTrack')} onClick={fetchCloseTrack()} />
           </div>
-            <div className={styles.playerWrapper}>
+          <div className={styles.playerWrapper}>
             {/* {url ? ( */}
             {/* <div>
               <ReactPlayer

@@ -69,10 +69,11 @@ const EventsHomePage = () => {
       }),
     );
     setMiniatureURLs(newURLs);
-  }, [events]);  useEffect(() => {
+  }, [events]);
+  useEffect(() => {
     // Assurez-vous que les headers API sont configurés avec le token
     if (auth.user?.access_token) {
-      api.setHeaders({Authorization: `Bearer ${auth.user.access_token}`});
+      api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
     }
 
     const fetchEventData = async () => {
@@ -85,11 +86,11 @@ const EventsHomePage = () => {
         }
       } catch (error) {
         logger.error(`Failed to fetch events: ${error}`);
-        setFetchError("Impossible de charger les événements");
+        setFetchError('Impossible de charger les événements');
       }
       setIsLoading(false);
     };
-    
+
     // Si on a un token et qu'on n'est pas en train de charger, on lance le fetch
     if (auth.user && !auth.isLoading) {
       fetchEventData();

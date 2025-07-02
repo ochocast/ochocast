@@ -1,6 +1,6 @@
 import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import React from 'react';
-import styles from'./eventSettings.module.css';
+import styles from './eventSettings.module.css';
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import Button, {
@@ -170,7 +170,11 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   return (
     <div className={styles.pageEventSettings}>
-      <EventDashboard eventId={eventId} tracks={tracks} eventClosed={!eventClosed && userId === creatorId} />
+      <EventDashboard
+        eventId={eventId}
+        tracks={tracks}
+        eventClosed={!eventClosed && userId === creatorId}
+      />
       <form onSubmit={handleSubmit} className={styles.eventSettings}>
         <div className={styles.topLayout}>
           <div className={styles.titleLayout}>
@@ -195,7 +199,9 @@ const EventSettings: FC<EventSettingsProps> = () => {
               }}
             />
           </div>
-          <div className={styles.message}>{modalMessage && <p>{modalMessage}</p>}</div>
+          <div className={styles.message}>
+            {modalMessage && <p>{modalMessage}</p>}
+          </div>
         </Modal>
         <TextBox
           type="text"
@@ -310,7 +316,9 @@ const EventSettings: FC<EventSettingsProps> = () => {
               }}
             />
           </div>
-          <div className={styles.message}>{modalMessage && <p>{modalMessage}</p>}</div>
+          <div className={styles.message}>
+            {modalMessage && <p>{modalMessage}</p>}
+          </div>
         </Modal>
         <div className={styles.message}>{message && <p>{message}</p>}</div>
       </form>
