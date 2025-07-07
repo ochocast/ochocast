@@ -149,5 +149,11 @@
   "isRegistered": "is registered",
   "PublicEvents": "Public events",
   "ClosedEvents": "Closed events",
+  "modifyvideosucces": "Video has been modified successfully",
+  "yourAnswer": "Your answer...",
+  "sendComment" : "Send",
+  "publishedOn" : "Published on",
+  "profileUpdated": "Profile updated!",
+  "profileUpdateError": "Error updating profile",
   "unknownDate": "Date not specified"
 }

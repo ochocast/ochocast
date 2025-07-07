@@ -21,11 +21,16 @@ import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
 import ImagePlus from '../../assets/image_plus.svg';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 const DEFAULT_PROFILE_IMAGE = '/persona.png';
 const UNDEFINED_MINIATURE_IDENTIFIER = 'miniatureundefined';
 
 const ProfileSetting = () => {
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
   const navigate = useNavigate();
   const [pseudo, setPseudo] = useState('');
   const [description, setDescription] = useState('');
@@ -92,15 +97,27 @@ const ProfileSetting = () => {
             response.status === 204 ||
             response.status === 200
           ) {
-            alert('Profil mis à jour !');
-            navigate('/profile');
+            navigate('/profile', {
+              state: {
+                toast: {
+                  message: t('profileUpdated'),
+                  type: 'success',
+                },
+              },
+            });
           } else {
-            alert('Erreur lors de la modification du profil');
+            setToast({
+              message: t('profileUpdateError'),
+              type: 'error',
+            });
           }
         })
         .catch((error) => {
           console.error('Erreur lors de la modification du profil', error);
-          alert('Erreur lors de la modification du profil');
+          setToast({
+            message: t('profileUpdateError'),
+            type: 'error',
+          });
         });
     } else {
       updateProfileWithoutImage({
@@ -115,15 +132,31 @@ const ProfileSetting = () => {
             response.status === 204 ||
             response.status === 200
           ) {
-            alert('Profil mis à jour !');
-            navigate('/profile');
+            setToast({
+              message: t('profileUpdated'),
+              type: 'success',
+            });
+            navigate('/profile', {
+              state: {
+                toast: {
+                  message: t('profileUpdated'),
+                  type: 'success',
+                },
+              },
+            });
           } else {
-            alert('Erreur lors de la modification du profil');
+            setToast({
+              message: t('profileUpdateError'),
+              type: 'error',
+            });
           }
         })
         .catch((error) => {
           console.error('Erreur lors de la modification du profil', error);
-          alert('Erreur lors de la modification du profil');
+          setToast({
+            message: t('profileUpdateError'),
+            type: 'error',
+          });
         });
     }
     setIsLoading(false);
@@ -236,6 +269,13 @@ const ProfileSetting = () => {
           </div>
         </div>
       </Card>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

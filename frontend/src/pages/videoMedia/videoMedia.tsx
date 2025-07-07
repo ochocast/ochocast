@@ -110,16 +110,17 @@ const VideoMedia: FC = () => {
               </div>
 
               <h3 className={styles.video_date}>
-                Publié le :
-                <br />
-                {video?.createdAt.toString()[8]}
-                {video?.createdAt.toString()[9]}/
-                {video?.createdAt.toString()[5]}
-                {video?.createdAt.toString()[6]}/
-                {video?.createdAt.toString()[0]}
-                {video?.createdAt.toString()[1]}
-                {video?.createdAt.toString()[2]}
-                {video?.createdAt.toString()[3]}
+                <>
+                  {t('publishedOn')} :<br />
+                  {video?.createdAt.toString()[8]}
+                  {video?.createdAt.toString()[9]}/
+                  {video?.createdAt.toString()[5]}
+                  {video?.createdAt.toString()[6]}/
+                  {video?.createdAt.toString()[0]}
+                  {video?.createdAt.toString()[1]}
+                  {video?.createdAt.toString()[2]}
+                  {video?.createdAt.toString()[3]}
+                </>
               </h3>
             </div>
             <div className={styles.profileDescription}>

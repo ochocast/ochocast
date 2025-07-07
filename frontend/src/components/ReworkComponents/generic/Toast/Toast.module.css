@@ -9,6 +9,7 @@
   z-index: 1000;
   box-shadow: 0 2px 8px var(--theme-color-3400);
   animation: fadein 0.3s ease, fadeout 0.3s ease 2.7s;
+  white-space: pre-line;
 }
 
 .toast_success {

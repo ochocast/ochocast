@@ -12,6 +12,7 @@ import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import Tag, {
   TagType,
 } from '../../components/ReworkComponents/generic/Tag/Tag';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 // import Lock_Open from '../../assets/Opened_PNG.png';
 // import Lock_Close from '../../assets/Locked_PNG.png';
 
@@ -65,6 +66,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
   };
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   // const [privacy, setPrivacy] = useState(false);
   // const handlePrivacyChange = () => {
@@ -122,7 +127,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       isTagVideo(tagChoosen) &&
       tags.some((tag) => tag.name === tagChoosen.name)
     ) {
-      alert(t('tagAlreadyExists') + '.');
+      setToast({
+        message: t('tagAlreadyExists') + '.',
+        type: 'info',
+      });
       return;
     }
     setTags([...tags, tagChoosen as Tag_video]);
@@ -151,19 +159,28 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
-          alert(t('tagCreated') + ' !');
+          setToast({
+            message: t('tagCreated'),
+            type: 'success',
+          });
           const response = await findTag(query);
           const newTag = response.data[0];
           if (!tags.some((tag) => tag.name === newTag.name)) {
             setTags([...tags, newTag]);
           }
         } else {
-          alert(t('failedLoading') + ` : ${response}`);
+          setToast({
+            message: t('failedLoading') + `:${response}`,
+            type: 'error',
+          });
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert(t('failedLoadingVideo'));
+        setToast({
+          message: t('failedLoadingVideo'),
+          type: 'error',
+        });
       });
   };
 
@@ -182,8 +199,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       err += '- ' + t('videoFormatError') + '\n';
     if (title === '') err += '- ' + t('unknownTitle') + '\n';
     if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
-    if (list_by_title.length > 0)
-      err += '- ' + t('titleAlreadyExists') + ' :/\n';
+    if (list_by_title.length > 0) err += '- ' + t('titleAlreadyExists') + '\n';
     if (!miniature) err += '- ' + t('miniatureUnknown') + '\n';
     else if (
       !accepted_minature_formats.includes(
@@ -192,10 +208,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     )
       err += '- ' + t('miniatureFormatError') + '\n';
     if (err !== '') {
-      alert(t('oneOrManyDisrespectedConditions') + ' : \n' + err);
+      setToast({
+        message: t('oneOrManyDisrespectedConditions') + ' : \n' + err,
+        type: 'error',
+      });
       return;
     }
-
     //search title in DB
     const form = new FormData();
     if (media !== undefined) {
@@ -230,16 +248,28 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
-          alert(t('successVideo') + ' !');
           setIsLoading(false);
-          navigate('/videos');
+          navigate('/videos', {
+            state: {
+              toast: {
+                message: t('successVideo'),
+                type: 'success',
+              },
+            },
+          });
         } else {
-          alert(t('failedLoading') + ` : ${response}`);
+          setToast({
+            message: t('failedLoading') + `:${response}`,
+            type: 'error',
+          });
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert(t('failedLoadingVideo'));
+        setToast({
+          message: t('failedLoadingVideo'),
+          type: 'error',
+        });
       });
     setIsLoading(false);
   };
@@ -253,15 +283,24 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
-          alert('Vidéo modifiée avec succès !');
+          setToast({
+            message: t('modifyvideosucces') + '!',
+            type: 'success',
+          });
           navigate('/videos');
         } else {
-          alert(`${t('failedLoading')} : ${response}`);
+          setToast({
+            message: t('failedLoading') + `:${response}`,
+            type: 'error',
+          });
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert(t('failedLoadingVideo'));
+        setToast({
+          message: t('failedLoadingVideo'),
+          type: 'error',
+        });
       });
   };
 
@@ -283,7 +322,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (title === '') err += '- ' + t('unknownTitle') + '\n';
     if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
-      err += '- ' + t('titleAlreadyExists') + ' :/\n';
+      err += '- ' + t('titleAlreadyExists') + '\n';
     if (
       baseVideo?.miniature_id === undefined &&
       !accepted_minature_formats.includes(
@@ -292,7 +331,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     )
       err += '- ' + t('miniatureFormatError') + '\n';
     if (err !== '') {
-      alert(t('oneOrManyDisrespectedConditions') + ' : \n' + err);
+      setToast({
+        message: t('oneOrManyDisrespectedConditions'),
+        type: 'error',
+      });
       return;
     }
 
@@ -344,15 +386,27 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
-          alert('Vidéo modifiée avec succès !');
-          navigate('/videos');
+          navigate('/videos', {
+            state: {
+              toast: {
+                message: t('modifyvideosucces') + '!',
+                type: 'success',
+              },
+            },
+          });
         } else {
-          alert(t('failedLoading') + ` : ${response}`);
+          setToast({
+            message: t('failedLoading') + `:${response}`,
+            type: 'error',
+          });
         }
       })
       .catch((error) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
-        alert(t('failedLoadingVideo'));
+        setToast({
+          message: t('failedLoading'),
+          type: 'error',
+        });
       });
   };
 
@@ -658,6 +712,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       {/*
       <Tag className='primary' >Test Primary</Tag>
       <Tag className='secondary' tsize='15px' >Test Secondary</Tag> */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

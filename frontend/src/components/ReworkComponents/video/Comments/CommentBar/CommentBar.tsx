@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import styles from './CommentBar.module.css';
+import { useTranslation } from 'react-i18next';
 
 interface CommentBarProps {
   onSubmit: (text: string) => void;
 }
 
 const CommentBar: React.FC<CommentBarProps> = ({ onSubmit }) => {
+  const { t } = useTranslation();
   const [comment, setComment] = useState('');
 
   const handleSubmit = () => {
@@ -19,13 +21,13 @@ const CommentBar: React.FC<CommentBarProps> = ({ onSubmit }) => {
     <div className={styles.addCommentContainer}>
       <input
         type="text"
-        placeholder="Votre réponse ..."
+        placeholder={t('yourAnswer')}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         className={styles.input}
       />
       <button onClick={handleSubmit} className={styles.button}>
-        Envoyer
+        {t('sendComment')}
       </button>
     </div>
   );

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import style from './profile.module.css';
 import { useTranslation } from 'react-i18next';
+import { useLocation, useNavigate } from 'react-router-dom';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 import { FC } from 'react';
 import {
@@ -28,6 +30,12 @@ interface ProfileProps {}
 
 const Profile: FC<ProfileProps> = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
   const [videos, setVideos] = useState<Video[]>([]);
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +60,16 @@ const Profile: FC<ProfileProps> = () => {
   useEffect(() => {
     getMe();
   }, [getMe]);
+
+  useEffect(() => {
+    if (location.state?.toast) {
+      setToast(location.state.toast);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    const timer = setTimeout(() => setToast(null), 2000);
+
+    return () => clearTimeout(timer);
+  }, [location.state, navigate, location.pathname]);
 
   const ArchivedVideo = (id: string) => {
     deleteVideo(id).then(() => {
@@ -130,6 +148,13 @@ const Profile: FC<ProfileProps> = () => {
           )}
         </div>
       </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

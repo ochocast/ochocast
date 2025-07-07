@@ -16,6 +16,8 @@ import FilterIcon from '../../assets/filter_icon.svg';
 import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
 import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface VideosProps {}
 
@@ -27,6 +29,22 @@ const Videos: FC<VideosProps> = () => {
   const { t } = useTranslation();
   const [showFavorites, setShowFavorites] = useState(false);
   const user = userString ? JSON.parse(userString) : null;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
+
+  useEffect(() => {
+    if (location.state?.toast) {
+      setToast(location.state.toast);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    const timer = setTimeout(() => setToast(null), 2000);
+
+    return () => clearTimeout(timer);
+  }, [location.state, navigate, location.pathname]);
 
   const [filters, setFilters] = useState<{
     tags: string[];
@@ -205,6 +223,13 @@ const Videos: FC<VideosProps> = () => {
           )}
         </div>
       </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };
