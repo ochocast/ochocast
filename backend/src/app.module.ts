@@ -10,6 +10,7 @@ import { CommentsModule } from './comments/comments.module';
 import { TagsModule } from './tags/tags.module';
 import { VideosModule } from './videos/videos.module';
 import { S3Module } from './s3.module';
+import { ConfigManagementModule } from './config-management/config-management.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -35,6 +36,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     VideosModule,
     CommentsModule,
     S3Module,
+    ConfigManagementModule,
   ],
 })
 export class AppModule {}
