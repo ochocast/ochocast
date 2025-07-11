@@ -104,7 +104,9 @@ const MyEvents = () => {
         resPublishEvent.data.filter((e: PublicEvent) => e.canBeEditByUser),
       );
       setUnpublishEvents(resNotPublishEvent.data);
-      setCloseEvents(resClosedEvent.data);
+      setCloseEvents(
+        resClosedEvent.data.filter((e: PublicEvent) => e.canBeEditByUser),
+      );
     } catch (error) {
       logger.error(`Failed to fetch events: ${error}`);
       setFetchError('Impossible de charger vos événements');
