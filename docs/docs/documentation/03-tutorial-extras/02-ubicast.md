@@ -130,16 +130,16 @@ Le script inclut plusieurs mécanismes de gestion d’erreurs :
 
 Le script affiche des logs détaillés pour suivre l’avancement :
 
-- ✅ Connexion à la base de données réussie.
-- 🔍 Recherche avec le terme : "A"
-- 📥 Téléchargement de la vidéo : exemple.mp4
-- 📤 Upload de la vidéo sur Scaleway : exemple.mp4
-- ✅ Vidéo "exemple.mp4" uploadée avec succès.
-- ✅ Vidéo "exemple.mp4" insérée dans la base de données.
-- ✅ Migration terminée !
-- 📊 Nombre total de vidéos ajoutées en base de données : 42
-- 📊 Nombre total de vidéos uploadées dans le bucket Scaleway : 38
-- 📊 Nombre total de vidéos ayant échoué : 4
+- Connexion à la base de données réussie.
+- Recherche avec le terme : "A"
+- Téléchargement de la vidéo : exemple.mp4
+- Upload de la vidéo sur Scaleway : exemple.mp4
+- Vidéo "exemple.mp4" uploadée avec succès.
+- Vidéo "exemple.mp4" insérée dans la base de données.
+- Migration terminée !
+- Nombre total de vidéos ajoutées en base de données : 42
+- Nombre total de vidéos uploadées dans le bucket Scaleway : 38
+- Nombre total de vidéos ayant échoué : 4
 
 # Auteur
 

@@ -2,24 +2,24 @@
 
 ## Description
 
-The frontend of the streaming platform.
+Le frontend de la plateforme de streaming.
 
-The frontend of an application refers to the user interface (UI) and user experience (UX) components that users interact with directly. It's the part of the software that runs on the client side, meaning it's executed in the user's web browser or device.
+Le frontend d’une application fait référence aux composants de l'interface utilisateur (UI) et de l'expérience utilisateur (UX) avec lesquels les utilisateurs interagissent directement. C'est la partie du logiciel qui s'exécute du côté client, ce qui signifie qu'elle est exécutée dans le navigateur web ou l'appareil de l'utilisateur.
 
-## Installation and Requirements
+## Installation et Pré-requis
 
-Once you have set up the database and Keycloak, you must not forget to set up the environment variables in a `.env` file.
-You can copy the file `frontend/.env.example` into a new `.env` file in the frontend folder.
+Une fois que vous avez configuré la base de données et Keycloak, n'oubliez pas de configurer les variables d'environnement dans un fichier `.env`. Vous pouvez copier le fichier `frontend/.env.example` dans un nouveau fichier `.env` dans le dossier frontend.
 
-Now you can proceed to run the frontend and the backend (you can run both at once from the root of the project).
+Vous pouvez maintenant procéder à l'exécution du frontend et du backend (vous pouvez exécuter les deux en même temps depuis la racine du projet).
 
-From the folder `frontend`, if you have not yet installed the necessary dependencies, run:
+Depuis le dossier `frontend`, si vous n'avez pas encore installé les dépendances nécessaires, exécutez :
+
 
 ```bash
 npm install
 ```
 
-To Deploy Locally:
+Pour déployer localement :
 
 ```
 cd ./frontend
@@ -27,20 +27,20 @@ cp .env.example .env
 npm run start
 ```
 
-## Frontend Structure
+## Structure du Front
 
-In frontend/src, you will find several folders with different purposes.
+Dans frontend/src, vous trouverez plusieurs dossiers ayant des objectifs différents.
 
-Public: This folder contains static files that are served directly by the web server. These files are not processed by the build system and are accessible via the root URL of your application. Common files in this folder include index.html, favicon, and other assets that need to be publicly accessible.
+Public : Ce dossier contient des fichiers statiques qui sont servis directement par le serveur web. Ces fichiers ne sont pas traités par le système de build et sont accessibles via l'URL racine de votre application. Les fichiers courants dans ce dossier incluent index.html, favicon et d'autres ressources devant être accessibles publiquement.
 
-Assets: This folder contains every static file such as images, icons, media, and other resources that are not expected to change during the execution of the application. These are essential for the interface and design of the application.
+Assets : Ce dossier contient tous les fichiers statiques tels que des images, des icônes, des médias et d'autres ressources qui ne sont pas censés changer pendant l'exécution de l'application. Ces fichiers sont essentiels pour l'interface et le design de l'application.
 
-Components: In this folder, you can find different layouts and elements that are used in different pages of the application. They are reusable, can adapt to the different properties, and are most of the time separated into small elements.
+Components : Dans ce dossier, vous trouverez différents agencements et éléments utilisés dans les différentes pages de l'application. Ils sont réutilisables, peuvent s'adapter aux différentes propriétés et sont souvent séparés en petits éléments.
 
-Pages: Pages are also components. However, they are not to be reused and represent entire views of the application. Each file or subfolder within the pages directory typically corresponds to a specific route in your application. This structure helps maintain a clear separation between different sections of your user interface.
+Pages : Les pages sont également des composants. Cependant, elles ne sont pas destinées à être réutilisées et représentent des vues entières de l'application. Chaque fichier ou sous-dossier dans le dossier pages correspond généralement à une route spécifique de votre application. Cette structure permet de maintenir une séparation claire entre les différentes sections de votre interface utilisateur.
 
-Utils: Typically contains interfaces, utility functions, or helper modules that provide commonly used functionality throughout the application. The purpose of the folder is to centralize and organize functions that don’t belong to a specific component or module. For example, a date formatting function and/or interface.
+Utils : Ce dossier contient généralement des interfaces, des fonctions utilitaires ou des modules d'aide qui fournissent des fonctionnalités couramment utilisées dans toute l'application. Le but de ce dossier est de centraliser et organiser les fonctions qui ne sont pas liées à un composant ou à un module spécifique. Par exemple, une fonction de formatage de date ou une interface.
 
-## UX / UI Design
+## Design UX / UI
 
-The frontend application design must respect the OchoCast’s design system set in the figma.
+Le design de l'application frontend doit respecter le système de design d'OchoCast établi dans Figma.
