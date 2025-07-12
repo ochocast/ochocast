@@ -5,6 +5,7 @@ import { EventObject } from 'src/events/domain/event';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { UserObject } from 'src/users/domain/user';
 import { NotFoundException } from '@nestjs/common';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 jest.mock('uuid', () => ({
   v4: () => 'mock-uuid',
@@ -22,9 +23,26 @@ describe('CreateNewEventUsecase', () => {
 
   const creatorId = 'creator-id';
 
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
+
+  const tag2 = new TagEntity({
+    id: 'tag2-id',
+    name: 'tag2',
+    videos: [],
+    createdAt: new Date('2025-01-02T00:00:00Z'),
+    updatedAt: new Date('2025-01-02T00:00:00Z'),
+  });
+
   const createEventDto: EventDataDto = {
     name: 'Test Event',
     description: 'An event for testing',
+    tags: [tag1, tag2],
     startDate: new Date('2025-05-01T10:00:00Z'),
     endDate: new Date('2025-05-01T12:00:00Z'),
     imageSlug: 'imageSlug',
@@ -102,7 +120,7 @@ describe('CreateNewEventUsecase', () => {
     expect(createdEvent.id).toBe('mock-uuid');
     expect(createdEvent.name).toBe('Test Event');
     expect(createdEvent.description).toBe('An event for testing');
-    expect(createdEvent.tags).toEqual([]);
+    expect(createdEvent.tags).toEqual([tag1, tag2]);
     expect(createdEvent.startDate).toEqual(new Date('2025-05-01T10:00:00Z'));
     expect(createdEvent.endDate).toEqual(new Date('2025-05-01T12:00:00Z'));
     expect(createdEvent.isPrivate).toBe(true);

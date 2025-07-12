@@ -7,6 +7,7 @@ import { CreateNewTrackUsecase } from 'src/tracks/domain/usecases/createNewTrack
 import { TrackDto } from 'src/tracks/infra/controllers/dto/track.dto';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { UserObject } from 'src/users/domain/user';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 jest.mock('uuid', () => ({
   v4: () => 'mock-uuid',
@@ -25,6 +26,13 @@ describe('CreateNewTracktUsecase', () => {
   const now = new Date();
   const eventId = 'event-123';
   const validSpeakerId = 'speaker-1';
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
 
   const mockUser: UserObject = {
     id: validSpeakerId,
@@ -45,7 +53,7 @@ describe('CreateNewTracktUsecase', () => {
     eventId,
     'Halloween',
     'Spooky Event',
-    ['spooky'],
+    [tag1],
     now,
     now,
     true,

@@ -4,6 +4,7 @@ import { EventObject } from 'src/events/domain/event';
 import { UserObject } from 'src/users/domain/user';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 describe('DeleteEventUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -18,6 +19,13 @@ describe('DeleteEventUsecase', () => {
   const creatorId = 'creator-id';
   const creatorEmail = 'email@email.com';
   const userEmail = 'hohoho@gmail.com';
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
 
   const creator: UserObject = {
     id: creatorId,
@@ -53,7 +61,7 @@ describe('DeleteEventUsecase', () => {
     eventId,
     'Deleted Event',
     'This event has been deleted',
-    ['test'],
+    [tag1],
     new Date(),
     new Date(),
     false,

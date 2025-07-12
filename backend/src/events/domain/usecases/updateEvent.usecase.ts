@@ -29,8 +29,7 @@ export class UpdateEventUsecase {
    * @param eventId       ID de l’événement à mettre à jour
    * @param eventUpdate   Champs venant du formulaire (JSON ou multipart) – peut être partiel
    * @param file          Fichier miniature (undefined si pas de changement)
-   * @param userEmail     Email de l’utilisateur courant
-   */
+   * @param userEmail     Email de l’utilisateur courant      */
   async execute(
     eventId: string,
     eventUpdate: EventDataDto,
@@ -42,7 +41,6 @@ export class UpdateEventUsecase {
     const existingEvent = await this.eventGateway.getEventById(eventId);
     if (!existingEvent) throw new NotFoundException('Event not found');
     if (!existingEvent.canBeEditBy(user)) throw new UnauthorizedException();
-
     if (file) {
       if (existingEvent.imageSlug && existingEvent.imageSlug !== 'imageSlug') {
         await this.s3Client.send(
@@ -74,6 +72,7 @@ export class UpdateEventUsecase {
       existingEvent.startDate = eventUpdate.startDate;
     if (eventUpdate.endDate !== undefined)
       existingEvent.endDate = eventUpdate.endDate;
+    if (eventUpdate.tags !== undefined) existingEvent.tags = eventUpdate.tags;
 
     return await this.eventGateway.updateEvent(existingEvent);
   }

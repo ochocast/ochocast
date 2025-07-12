@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { EventEntity } from './entities/event.entity';
 import { toEventEntity, toEventObject } from 'src/common/mapper/event.mapper';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
+import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 
 export class EventGateway implements IEventGateway {
   constructor(
@@ -15,8 +17,31 @@ export class EventGateway implements IEventGateway {
   ) {}
 
   async createNewEvent(eventDetails: EventObject): Promise<EventObject> {
-    const event: EventEntity = toEventEntity(eventDetails);
+    let tags: TagEntity[] = [];
+    if (typeof eventDetails.tags === 'string') {
+      tags = JSON.parse(eventDetails.tags).map(
+        (tag: any) => new TagEntity(tag),
+      );
+    } else if (Array.isArray(eventDetails.tags)) {
+      tags = eventDetails.tags.map((tag: any) => new TagEntity(tag));
+    }
 
+    let tracks: TrackEntity[] = [];
+    if (Array.isArray(eventDetails.tracks)) {
+      tracks = eventDetails.tracks.map((track: any) => new TrackEntity(track));
+    }
+    // Exclure usersSubscribe du spread pour éviter l'erreur de type
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { usersSubscribe, ...rest } = eventDetails;
+    const event: EventEntity = new EventEntity({
+      ...rest,
+      tags,
+      tracks,
+      creator: eventDetails.creatorId
+        ? ({ id: eventDetails.creatorId } as UserEntity)
+        : undefined,
+      // usersSubscribe: [] // à gérer si besoin
+    });
     return toEventObject(await this.eventsRepository.save(event));
   }
 

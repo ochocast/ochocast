@@ -1,6 +1,7 @@
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { EventObject } from 'src/events/domain/event';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { TrackObject } from 'src/tracks/domain/track';
 import { UpdateTrackUsecase } from 'src/tracks/domain/usecases/updateTrack.usecase';
@@ -28,6 +29,13 @@ describe('UpdateTracktUsecase', () => {
   const otherSpeakerId = 'speaker-2';
   const trackId = 'idtrack1';
   const trackId2 = 'idtrack2';
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
 
   const mockUser: UserObject = {
     id: validSpeakerId,
@@ -63,7 +71,7 @@ describe('UpdateTracktUsecase', () => {
     eventId,
     'Halloween',
     'Spooky Event',
-    ['spooky'],
+    [tag1],
     now,
     now,
     true,

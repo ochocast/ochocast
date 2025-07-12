@@ -6,6 +6,7 @@ import { UserObject } from 'src/users/domain/user';
 import { PublicUserObject } from 'src/users/domain/publicUser';
 import { TrackObject } from 'src/tracks/domain/track';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 describe('GetEventsUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -17,6 +18,28 @@ describe('GetEventsUsecase', () => {
    */
   const creatorEmail = 'creator@example.com';
   const speakerEmail = 'speaker@example.com';
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
+  const tag2 = new TagEntity({
+    id: 'tag2-id',
+    name: 'tag2',
+    videos: [],
+    createdAt: new Date('2025-01-02T00:00:00Z'),
+    updatedAt: new Date('2025-01-02T00:00:00Z'),
+  });
+
+  const tag3 = new TagEntity({
+    id: 'tag3-id',
+    name: 'tag3',
+    videos: [],
+    createdAt: new Date('2025-01-03T00:00:00Z'),
+    updatedAt: new Date('2025-01-03T00:00:00Z'),
+  });
 
   const creator: UserObject = {
     id: 'creator-id',
@@ -69,7 +92,7 @@ describe('GetEventsUsecase', () => {
       'event-id-1',
       'Event 1',
       'Desc',
-      ['tag'],
+      [tag1],
       new Date(),
       new Date(),
       true,
@@ -86,7 +109,7 @@ describe('GetEventsUsecase', () => {
       'event-id-2',
       'Event 2',
       'Desc',
-      ['tag'],
+      [tag2],
       new Date(),
       new Date(),
       true,
@@ -103,7 +126,7 @@ describe('GetEventsUsecase', () => {
       'event-id-3',
       'Event 3',
       'Desc',
-      ['tag'],
+      [tag3],
       new Date(),
       new Date(),
       true,

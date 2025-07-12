@@ -2,6 +2,7 @@ import { TrackObject } from 'src/tracks/domain/track';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserObject } from 'src/users/domain/user';
 import { PublicUserObject } from 'src/users/domain/publicUser';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 export class EventObject {
   @ApiProperty({
@@ -26,7 +27,7 @@ export class EventObject {
     example: ['spooky', 'halloween'],
     description: 'The tags of the event.',
   })
-  tags: string[];
+  tags: TagEntity[];
 
   @ApiProperty({
     example: '2021-10-31T00:00:00.000Z',
@@ -109,7 +110,7 @@ export class EventObject {
     id: string,
     name: string,
     description: string,
-    tags: string[],
+    tags: TagEntity[],
     startDate: Date,
     endDate: Date,
     published: boolean = false,

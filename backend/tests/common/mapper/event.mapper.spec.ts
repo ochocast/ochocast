@@ -3,6 +3,7 @@ import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
 import { EventObject } from 'src/events/domain/event';
 import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 import { UserObject } from 'src/users/domain/user';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 jest.mock('src/common/mapper/track.mapper', () => ({
   toTrackEntity: jest.fn((t) => ({ ...t, mapped: true })),
@@ -30,11 +31,27 @@ describe('Event Mapper', () => {
     picture_id: 'pic123',
   };
 
+  const tag1 = new TagEntity({
+    id: 'tag1',
+    name: 'Tag 1',
+    videos: [],
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const tag2 = new TagEntity({
+    id: 'tag2',
+    name: 'Tag 2',
+    videos: [],
+    createdAt: now,
+    updatedAt: now,
+  });
+
   const baseEventEntity = new EventEntity({
     id: 'event1',
     name: 'Event Name',
     description: 'Event Desc',
-    tags: ['tag1', 'tag2'],
+    tags: [tag1, tag2],
     startDate: now,
     endDate: now,
     published: true,
@@ -65,7 +82,7 @@ describe('Event Mapper', () => {
       id: 'event1',
       name: 'Event Name',
       description: 'Event Desc',
-      tags: ['tag1', 'tag2'],
+      tags: [tag1, tag2],
       startDate: now,
       endDate: now,
       published: true,
@@ -94,7 +111,7 @@ describe('Event Mapper', () => {
       'event1',
       'Event Name',
       'Event Desc',
-      ['tag1', 'tag2'],
+      [tag1, tag2],
       now,
       now,
       true,

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 import { TrackEntity } from '../../../../tracks/infra/gateways/entities/track.entity';
+import { TagEntity } from '../../../../tags/infra/gateways/entities/tag.entity';
 
 @Entity()
 export class EventEntity {
@@ -21,8 +22,9 @@ export class EventEntity {
   @Column()
   description: string;
 
-  @Column('text', { array: true })
-  tags: string[];
+  @ManyToMany(() => TagEntity, { cascade: true })
+  @JoinTable()
+  tags: TagEntity[];
 
   @Column()
   startDate: Date;

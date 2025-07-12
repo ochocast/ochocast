@@ -2,6 +2,7 @@ import { PublicEventObject } from 'src/events/domain/publicEvent';
 import { EventObject } from 'src/events/domain/event';
 import { TrackObject } from 'src/tracks/domain/track';
 import { UserObject } from 'src/users/domain/user';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 jest.mock('src/users/domain/publicUser', () => ({
   PublicUserObject: jest.fn((u) => ({ ...u, isPublic: true })),
@@ -23,6 +24,22 @@ describe('PublicEventObject', () => {
     now,
     [],
   );
+
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
+
+  const tag2 = new TagEntity({
+    id: 'tag2-id',
+    name: 'tag2',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
 
   const baseCreator: UserObject = {
     id: 'u1',
@@ -58,7 +75,7 @@ describe('PublicEventObject', () => {
     'event1',
     'Spooky Night',
     'A fun spooky event',
-    ['halloween', 'night'],
+    [tag1, tag2],
     now,
     now,
     true,
@@ -79,7 +96,7 @@ describe('PublicEventObject', () => {
       id: 'event1',
       name: 'Spooky Night',
       description: 'A fun spooky event',
-      tags: ['halloween', 'night'],
+      tags: [tag1, tag2],
       startDate: now,
       endDate: now,
       published: true,

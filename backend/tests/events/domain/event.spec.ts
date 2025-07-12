@@ -1,5 +1,6 @@
 import { EventObject } from 'src/events/domain/event';
 import { TrackObject } from 'src/tracks/domain/track';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 // import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 // pas normal a changer avec ma nouvelle pr j'imagine
 
@@ -7,7 +8,13 @@ describe('EventObject', () => {
   const baseId = 'event-id-123';
   const baseName = 'Test Event';
   const baseDescription = 'An event for testing purposes';
-  const baseTags = ['test', 'event'];
+  const baseTags = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
   const baseStartDate = new Date('2025-01-01T10:00:00Z');
   const baseEndDate = new Date('2025-01-02T10:00:00Z');
   const baseImageSlug = 'test-event';
@@ -20,7 +27,7 @@ describe('EventObject', () => {
       baseId,
       baseName,
       baseDescription,
-      baseTags,
+      [baseTags],
       baseStartDate,
       baseEndDate,
       true, // published
@@ -37,7 +44,7 @@ describe('EventObject', () => {
     expect(event.id).toBe(baseId);
     expect(event.name).toBe(baseName);
     expect(event.description).toBe(baseDescription);
-    expect(event.tags).toEqual(baseTags);
+    expect(event.tags).toEqual([baseTags]);
     expect(event.startDate).toEqual(baseStartDate);
     expect(event.endDate).toEqual(baseEndDate);
     expect(event.published).toBe(true);
@@ -54,7 +61,7 @@ describe('EventObject', () => {
       baseId,
       baseName,
       baseDescription,
-      baseTags,
+      [baseTags],
       baseStartDate,
       baseEndDate,
       undefined, // published (should default to false)
@@ -78,7 +85,7 @@ describe('EventObject', () => {
       baseId,
       baseName,
       baseDescription,
-      baseTags,
+      [baseTags],
       baseStartDate,
       baseEndDate,
       false,
@@ -101,7 +108,7 @@ describe('EventObject', () => {
       baseId,
       baseName,
       baseDescription,
-      baseTags,
+      [baseTags],
       baseStartDate,
       baseEndDate,
       false,

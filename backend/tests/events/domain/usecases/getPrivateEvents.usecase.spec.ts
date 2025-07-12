@@ -7,6 +7,7 @@ import { UserObject } from 'src/users/domain/user';
 import { NotFoundException } from '@nestjs/common';
 import { TrackObject } from 'src/tracks/domain/track';
 import { PublicUserObject } from 'src/users/domain/publicUser';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 describe('GetPrivateEventsUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -19,6 +20,27 @@ describe('GetPrivateEventsUsecase', () => {
   const creatorEmail = 'email@email.com';
   const userEmail = 'hohoho@gmail.com';
   const user2Email = 'hahaha@gmail.com';
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
+  const tag2 = new TagEntity({
+    id: 'tag2-id',
+    name: 'tag2',
+    videos: [],
+    createdAt: new Date('2025-01-02T00:00:00Z'),
+    updatedAt: new Date('2025-01-02T00:00:00Z'),
+  });
+  const tag3 = new TagEntity({
+    id: 'tag3-id',
+    name: 'tag3',
+    videos: [],
+    createdAt: new Date('2025-01-03T00:00:00Z'),
+    updatedAt: new Date('2025-01-03T00:00:00Z'),
+  });
 
   const creator: UserObject = {
     id: creatorId,
@@ -72,7 +94,7 @@ describe('GetPrivateEventsUsecase', () => {
     'event-id-speaker',
     'Event for Speaker',
     'Desc',
-    ['tag'],
+    [tag1],
     new Date(),
     new Date(),
     false, // non publié
@@ -121,7 +143,7 @@ describe('GetPrivateEventsUsecase', () => {
       'event-id-1',
       'Event 1',
       'Description 1',
-      ['tag1'],
+      [tag2],
       new Date(),
       new Date(),
       false,
@@ -138,7 +160,7 @@ describe('GetPrivateEventsUsecase', () => {
       'event-id-2',
       'Event 2',
       'Description 2',
-      ['tag2'],
+      [tag3],
       new Date(),
       new Date(),
       true,
@@ -163,7 +185,7 @@ describe('GetPrivateEventsUsecase', () => {
       'event-id-2',
       'Event 2',
       'Description 2',
-      ['tag2'],
+      [tag3],
       new Date(),
       new Date(),
       false,

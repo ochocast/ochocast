@@ -5,6 +5,7 @@ import { EventObject } from 'src/events/domain/event';
 import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { UserObject } from 'src/users/domain/user';
 import { EventDataDto } from 'src/events/infra/controllers/dto/event-data.dto';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 describe('UpdateEventUsecase', () => {
   let eventGatewayMock: jest.Mocked<IEventGateway>;
@@ -20,6 +21,14 @@ describe('UpdateEventUsecase', () => {
   const creatorEmail = 'email@email.com';
   const userEmail = 'hohoho@gmail.com';
   const file = null;
+
+  const tag1 = new TagEntity({
+    id: 'tag1-id',
+    name: 'tag1',
+    videos: [],
+    createdAt: new Date('2025-01-01T00:00:00Z'),
+    updatedAt: new Date('2025-01-01T00:00:00Z'),
+  });
 
   const creator: UserObject = {
     id: creatorId,
@@ -55,7 +64,7 @@ describe('UpdateEventUsecase', () => {
     eventId,
     'Event',
     'Description',
-    [],
+    [tag1],
     new Date('2024-05-01T10:00:00Z'),
     new Date('2024-05-01T12:00:00Z'),
     false,
@@ -72,6 +81,7 @@ describe('UpdateEventUsecase', () => {
   const dataToUpdate: EventDataDto = {
     name: 'name update',
     description: 'An event for testing',
+    tags: [tag1],
     startDate: new Date('2025-05-01T10:00:00Z'),
     endDate: new Date('2025-05-01T12:00:00Z'),
     imageSlug: 'test-image.jpg',
@@ -82,7 +92,7 @@ describe('UpdateEventUsecase', () => {
     eventId,
     dataToUpdate.name,
     dataToUpdate.description,
-    [],
+    dataToUpdate.tags,
     dataToUpdate.startDate,
     dataToUpdate.endDate,
     false,
