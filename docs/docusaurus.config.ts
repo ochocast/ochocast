@@ -9,7 +9,7 @@ const config: Config = {
   url: 'https://ochocast.fr',
   baseUrl: '/',
   organizationName: 'ochocast',
-  projectName: 'ochocast',
+  projectName: 'ochocast.github.io',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
@@ -78,6 +78,8 @@ const config: Config = {
       darkTheme: prismThemes.dracula,
     },
   } satisfies Preset.ThemeConfig,
+  
+  deploymentBranch: 'main',
 };
 
 export default config;
