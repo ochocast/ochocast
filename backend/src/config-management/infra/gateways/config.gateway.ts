@@ -24,11 +24,12 @@ export class ConfigGateway implements IConfigGateway {
   }
 
   async getLatestConfigFile(): Promise<ConfigObject | null> {
-    const entity = await this.configFileRepository.findOne({
+    const entities = await this.configFileRepository.find({
       order: { createdAt: 'DESC' },
+      take: 1,
     });
 
-    return entity ? this.entityToObject(entity) : null;
+    return entities.length > 0 ? this.entityToObject(entities[0]) : null;
   }
 
   async deleteConfigFile(id: string): Promise<boolean> {

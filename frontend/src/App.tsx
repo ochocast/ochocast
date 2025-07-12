@@ -2,6 +2,7 @@ import './App.css';
 import { Routes, Route } from 'react-router-dom';
 import React from 'react';
 import { BrandingProvider } from './context/BrandingContext';
+import { UserProvider } from './context/UserContext';
 
 import Header from './components/ReworkComponents/generic/Header/Header';
 import LoginPage from './pages/Login/Login';
@@ -23,53 +24,60 @@ import EventsHomePage from './pages/eventsHome/eventsHome';
 import ProfileSetting from './pages/ProfileSettings/ProfileSettings';
 import MyEvents from './pages/myEvents/myEvents';
 import CreateEvent from './pages/CreateEvent/createEvent';
+import AdminPanel from './pages/adminPanel/adminPanel';
 
 function App() {
   return (
     <BrandingProvider>
-      <ProtectedRoutes>
-        <Header />
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/events" element={<EventsPage />} />
-          <Route path="/events-home" element={<EventsHomePage />} />
-          <Route path="/my-events" element={<MyEvents />} />
-          <Route path="/my-events/create" element={<CreateEvent />} />
-          <Route
-            path="/events/:eventId/event-settings"
-            element={<EventSettings />}
-          />
-          <Route
-            path="/events/:eventId/event-statistics"
-            element={<EventStatistic />}
-          />
-          <Route path="/events/:eventId/tracks" element={<TracksPage />} />
-          <Route
-            path="/events/:eventId/track-settings"
-            element={<TrackSettings />}
-          />
-          <Route
-            path="/events/:eventId/track-settings/:trackId"
-            element={<TrackSettings />}
-          />
-          <Route path="/tracks/:trackId" element={<LiveTrack />} />
-          <Route path="/tracks/:trackId/streaming" element={<StreamTrack />} />
-          <Route path="/video/video-settings" element={<VideoSettings />} />
-          <Route
-            path="/video/video-settings/:videoId"
-            element={<VideoSettings />}
-          />
-          <Route
-            path="/profile/profile-settings"
-            element={<ProfileSetting />}
-          />
-          <Route path="/video/:videoId" element={<VideoMedia />} />
-          <Route path="/videos" element={<Videos />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </ProtectedRoutes>
+      <UserProvider>
+        <ProtectedRoutes>
+          <Header />
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/events" element={<EventsPage />} />
+            <Route path="/events-home" element={<EventsHomePage />} />
+            <Route path="/my-events" element={<MyEvents />} />
+            <Route path="/my-events/create" element={<CreateEvent />} />
+            <Route
+              path="/events/:eventId/event-settings"
+              element={<EventSettings />}
+            />
+            <Route
+              path="/events/:eventId/event-statistics"
+              element={<EventStatistic />}
+            />
+            <Route path="/events/:eventId/tracks" element={<TracksPage />} />
+            <Route
+              path="/events/:eventId/track-settings"
+              element={<TrackSettings />}
+            />
+            <Route
+              path="/events/:eventId/track-settings/:trackId"
+              element={<TrackSettings />}
+            />
+            <Route path="/tracks/:trackId" element={<LiveTrack />} />
+            <Route
+              path="/tracks/:trackId/streaming"
+              element={<StreamTrack />}
+            />
+            <Route path="/video/video-settings" element={<VideoSettings />} />
+            <Route
+              path="/video/video-settings/:videoId"
+              element={<VideoSettings />}
+            />
+            <Route
+              path="/profile/profile-settings"
+              element={<ProfileSetting />}
+            />
+            <Route path="/video/:videoId" element={<VideoMedia />} />
+            <Route path="/videos" element={<Videos />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </ProtectedRoutes>
+      </UserProvider>
     </BrandingProvider>
   );
 }

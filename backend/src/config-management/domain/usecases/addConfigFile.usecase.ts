@@ -10,6 +10,7 @@ import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuid } from 'uuid';
+import e from 'express';
 
 @Injectable()
 export class AddConfigFileUsecase {
@@ -52,31 +53,27 @@ export class AddConfigFileUsecase {
     const uniqueFileName = `config-${Date.now()}-${uuid()}.yaml`;
 
     try {
+      const key = `config/${uniqueFileName}`;
       // Upload vers S3
       const upload = new Upload({
         client: this.s3Client,
         params: {
-          Bucket: process.env.S3_BUCKET_NAME,
-          Key: `config/${uniqueFileName}`,
+          Bucket: process.env.STOCK_MINIATURE_BUCKET, // Use the correct bucket for config files
+          Key: key,
           Body: configFile.buffer,
           ContentType: 'text/yaml',
-          Metadata: {
-            originalName: configFile.originalname,
-            uploadedBy: currentUserEmail,
-            uploadedAt: new Date().toISOString(),
-          },
         },
       });
-
       const result = await upload.done();
-      const fileUrl = result.Location || `config/${uniqueFileName}`;
 
       // Créer l'objet config
-      const configObject = new ConfigObject(uuid(), fileUrl, new Date());
+      const configObject = new ConfigObject(uuid(), key, new Date());
 
       // Sauvegarder en base de données
       return await this.configGateway.addConfigFile(configObject);
     } catch (error) {
+      console.error('Failed to upload config file:', error);
+
       throw new BadRequestException(
         `Failed to upload config file: ${error.message}`,
       );

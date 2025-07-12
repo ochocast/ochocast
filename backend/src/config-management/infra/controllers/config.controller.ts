@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { Public } from 'nest-keycloak-connect';
 import { CurrentUserEmail } from '../../../common/decorators/current-user-email.decorator';
 import { AddConfigFileUsecase } from '../../domain/usecases/addConfigFile.usecase';
 import { GetConfigFileUrlUsecase } from '../../domain/usecases/getConfigFileUrl.usecase';
@@ -57,6 +58,7 @@ export class ConfigController {
     }
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get the URL of the active config file (latest uploaded)',

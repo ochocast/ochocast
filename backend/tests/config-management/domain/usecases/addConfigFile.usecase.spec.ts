@@ -22,6 +22,7 @@ describe('AddConfigFileUsecase', () => {
   let configGatewayMock: jest.Mocked<IConfigGateway>;
   let userGatewayMock: jest.Mocked<IUserGateway>;
   let s3ClientMock: jest.Mocked<S3Client>;
+  let consoleErrorSpy: jest.SpyInstance;
 
   const mockUser: UserObject = {
     id: 'user-id',
@@ -81,11 +82,14 @@ describe('AddConfigFileUsecase', () => {
       s3ClientMock,
     );
 
-    process.env.S3_BUCKET_NAME = 'test-bucket';
+    process.env.STOCK_MINIATURE_BUCKET = 'test-bucket';
+
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy.mockRestore();
   });
 
   describe('execute', () => {
@@ -95,7 +99,7 @@ describe('AddConfigFileUsecase', () => {
       userGatewayMock.getUserByEmail.mockResolvedValue(mockUser);
 
       const mockUploadResult = {
-        Location: 'https://s3.amazonaws.com/test-bucket/config/mock-file.json',
+        Location: 'https://s3.amazonaws.com/test-bucket/config/mock-file.yaml',
       };
 
       const uploadMock = {
@@ -106,7 +110,7 @@ describe('AddConfigFileUsecase', () => {
 
       const expectedConfig = new ConfigObject(
         'mock-uuid',
-        'https://s3.amazonaws.com/test-bucket/config/mock-file.json',
+        expect.stringMatching(/^config\/config-\d+-mock-uuid\.yaml$/),
         expect.any(Date),
       );
 
@@ -127,16 +131,15 @@ describe('AddConfigFileUsecase', () => {
           Key: expect.stringMatching(/^config\/config-\d+-mock-uuid\.yaml$/),
           Body: mockConfigFile.buffer,
           ContentType: 'text/yaml',
-          Metadata: {
-            originalName: 'config.yaml',
-            uploadedBy: 'admin@example.com',
-            uploadedAt: expect.any(String),
-          },
         },
       });
       expect(configGatewayMock.addConfigFile).toHaveBeenCalledWith(
         expect.objectContaining({
-          fileUrl: 'https://s3.amazonaws.com/test-bucket/config/mock-file.json',
+          id: 'mock-uuid',
+          fileUrl: expect.stringMatching(
+            /^config\/config-\d+-mock-uuid\.yaml$/,
+          ),
+          createdAt: expect.any(Date),
         }),
       );
       expect(result).toEqual(expectedConfig);
@@ -190,6 +193,60 @@ describe('AddConfigFileUsecase', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('should accept application/x-yaml mimetype', async () => {
+      // Arrange
+      const userEmail = 'admin@example.com';
+      const yamlFile = { ...mockConfigFile, mimetype: 'application/x-yaml' };
+      userGatewayMock.getUserByEmail.mockResolvedValue(mockUser);
+
+      const uploadMock = {
+        done: jest.fn().mockResolvedValue({}),
+      };
+
+      (Upload as unknown as jest.Mock).mockImplementation(() => uploadMock);
+
+      const expectedConfig = new ConfigObject(
+        'mock-uuid',
+        expect.stringMatching(/^config\/config-\d+-mock-uuid\.yaml$/),
+        expect.any(Date),
+      );
+
+      configGatewayMock.addConfigFile.mockResolvedValue(expectedConfig);
+
+      // Act
+      const result = await addConfigFileUsecase.execute(userEmail, yamlFile);
+
+      // Assert
+      expect(result).toEqual(expectedConfig);
+    });
+
+    it('should accept text/plain mimetype', async () => {
+      // Arrange
+      const userEmail = 'admin@example.com';
+      const textFile = { ...mockConfigFile, mimetype: 'text/plain' };
+      userGatewayMock.getUserByEmail.mockResolvedValue(mockUser);
+
+      const uploadMock = {
+        done: jest.fn().mockResolvedValue({}),
+      };
+
+      (Upload as unknown as jest.Mock).mockImplementation(() => uploadMock);
+
+      const expectedConfig = new ConfigObject(
+        'mock-uuid',
+        expect.stringMatching(/^config\/config-\d+-mock-uuid\.yaml$/),
+        expect.any(Date),
+      );
+
+      configGatewayMock.addConfigFile.mockResolvedValue(expectedConfig);
+
+      // Act
+      const result = await addConfigFileUsecase.execute(userEmail, textFile);
+
+      // Assert
+      expect(result).toEqual(expectedConfig);
+    });
+
     it('should throw BadRequestException when S3 upload fails', async () => {
       // Arrange
       const userEmail = 'admin@example.com';
@@ -205,6 +262,12 @@ describe('AddConfigFileUsecase', () => {
       await expect(
         addConfigFileUsecase.execute(userEmail, mockConfigFile),
       ).rejects.toThrow(BadRequestException);
+
+      // Verify that console.error was called with the expected message
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Failed to upload config file:',
+        expect.any(Error),
+      );
     });
   });
 });

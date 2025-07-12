@@ -114,3 +114,7 @@ export const getComments = (videoId) => api.get(`/comments/${videoId}`);
 export const createComment = (commentData) =>
   api.post('/comments', commentData);
 export const deleteComment = (id) => api.delete(`/comments/${id}`);
+
+//config management
+export const getConfig = () => api.get('/config');
+export const uploadConfig = (formData) => api.post('/config', formData);

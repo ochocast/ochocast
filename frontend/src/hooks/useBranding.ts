@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import yaml from 'js-yaml';
 import { BrandingConfig } from '../branding/types';
+import { getConfig } from '../utils/api';
 
-const CONFIG_PATH = `${process.env.PUBLIC_URL}/branding/theme.yaml`;
+const DEFAULT_CONFIG_PATH = `${process.env.PUBLIC_URL}/branding/theme.yaml`;
 
 export function useBranding() {
   const [config, setConfig] = useState<BrandingConfig | null>(null);
@@ -10,17 +11,32 @@ export function useBranding() {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await (await fetch(CONFIG_PATH)).text();
+        const raw = await getConfig()
+          .then((res) => {
+            const configUrl =
+              res.status !== 200 || res.data.url === 'default-config'
+                ? DEFAULT_CONFIG_PATH
+                : res.data.url;
+
+            return configUrl;
+          })
+          .catch(() => DEFAULT_CONFIG_PATH)
+          .then((file_url) => fetch(file_url))
+          .then((file) => file.text());
         const parsed = yaml.load(raw) as BrandingConfig;
         setConfig(parsed);
 
-        // Appliquer les variables CSS
-        Object.entries(parsed.colors).forEach(([key, value]) => {
-          document.documentElement.style.setProperty(`--${key}`, value);
-        });
+        // Appliquer les variables CSS seulement si parsed et parsed.colors existent
+        if (parsed && parsed.colors) {
+          Object.entries(parsed.colors).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(`--${key}`, value);
+          });
+        }
 
-        // Mettre à jour le titre
-        document.title = parsed.appName;
+        // Mettre à jour le titre seulement si parsed et parsed.appName existent
+        if (parsed && parsed.appName) {
+          document.title = parsed.appName;
+        }
       } catch (error) {
         console.error('Erreur lors du chargement du thème:', error);
       }
