@@ -1,25 +1,27 @@
-import React from 'react';
-import { FC, ChangeEvent, useState } from 'react';
+import React, { FC, ChangeEvent, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
-import styles from './trackSettings.module.css';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
-import { useParams } from 'react-router-dom';
 import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import Modal from '../../components/ReworkComponents/generic/modal/modal';
+import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 
 import { useTrackSettings } from './useTrackSettings';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
 
-import { useTranslation } from 'react-i18next';
-import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
+import styles from './trackSettings.module.css';
 
 const TrackSettings: FC = () => {
   const { trackId, eventId } = useParams();
+  const { t } = useTranslation();
+
   const {
     allUsers,
     event,
@@ -32,14 +34,12 @@ const TrackSettings: FC = () => {
     setMessage,
     handleSubmit,
     handleDelete,
-    // loading,
     navigate,
   } = useTrackSettings();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const { t } = useTranslation();
 
   if (trackId && !track) {
     return <div className="loading">{t('LoadingTrack')}</div>;
@@ -49,6 +49,7 @@ const TrackSettings: FC = () => {
   const userId = userString ? JSON.parse(userString).id : '';
   const canEdit =
     event?.creatorId === userId || track.speakers?.some((e) => e.id === userId);
+  const closed = track.closed || event?.closed;
 
   const toggle = () => setIsOpen(!isOpen);
   const toggleDeleteModal = () => setIsDeleteModalOpen(!isDeleteModalOpen);
@@ -62,12 +63,13 @@ const TrackSettings: FC = () => {
     };
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    if (await handleSubmit(e, track, speakers)) setButtonDisabled(true);
+    e.preventDefault();
+    if (await handleSubmit(e, track, speakers)) {
+      setButtonDisabled(true);
+    }
   };
 
-  const closed = track.closed || event?.closed;
-
-  const form = (
+  const renderForm = () => (
     <form onSubmit={handleFormSubmit} className={styles.trackSettings}>
       <div className={styles.topLayout}>
         <div className={styles.titleLayout}>
@@ -83,6 +85,7 @@ const TrackSettings: FC = () => {
         )}
       </div>
       <hr />
+
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('StartLive')}</h1>
         <div className={styles.startLiveButtons}>
@@ -94,97 +97,91 @@ const TrackSettings: FC = () => {
         </div>
       </Modal>
 
-      <TextBox
-        type="text"
-        label={t('TrackName')}
-        placeholder={t('MyTrack')}
-        value={track.name || ''}
-        name={t('Name')}
-        error={!track.name}
-        disabled={closed}
-        onChange={handleInputChange('name')}
-      />
-      <TextArea
-        label={t('TrackDescription')}
-        placeholder={t('DescriptionEvent')}
-        value={track.description || ''}
-        name={t('DescriptionEvent2')}
-        error={!track.description}
-        disabled={closed}
-        onChange={handleInputChange('description')}
-      />
-
       <div className={styles.trackDateSpeakerWrapper}>
-        <div className={styles.checkBoxListContainer}>
-          <CheckBoxList
-            allUsers={allUsers}
-            category={speakers}
-            setCategory={(users: User[]) => {
-              setSpeakers(users);
-              setButtonDisabled(false);
-            }}
-            title={t('Speaker')}
-            disabled={closed !== undefined && closed}
-            userId={userId !== event?.creatorId ? userId : ''}
+        <TextBox
+          type="text"
+          label={t('TrackName')}
+          placeholder={t('MyTrack')}
+          value={track.name || ''}
+          name={t('Name')}
+          error={!track.name}
+          disabled={closed}
+          onChange={handleInputChange('name')}
+        />
+
+        <TextArea
+          label={t('TrackDescription')}
+          placeholder={t('DescriptionEvent')}
+          value={track.description || ''}
+          name={t('DescriptionEvent2')}
+          error={!track.description}
+          disabled={closed}
+          onChange={handleInputChange('description')}
+        />
+        <CheckBoxList
+          allUsers={allUsers}
+          category={speakers}
+          setCategory={(users: User[]) => {
+            setSpeakers(users);
+            setButtonDisabled(false);
+          }}
+          title={t('Speaker')}
+          disabled={!!closed}
+          userId={userId !== event?.creatorId ? userId : ''}
+        />
+
+        <div className={styles.inputWrapper}>
+          <label>{t('DateOfTheEvent')}</label>
+          <input
+            type="date"
+            name={t('Date')}
+            value={formatDateForInput(track.startDate)}
+            disabled
+            required
           />
-          <div className={styles.trackDateInputs}>
-            <div className={styles.inputWrapper}>
-              <label>{t('DateOfTheEvent')}</label>
-              <input
-                type="date"
-                name={t('Date')}
-                value={formatDateForInput(track.startDate)}
-                disabled
-                required
-              />
-            </div>
-            <div className={styles.inputWrapper}>
-              <label>{t('StartTrack')}</label>
-              <input
-                type="time"
-                name={t('Start')}
-                value={formatTimeForInput(track.startDate)}
-                onChange={(e) => {
-                  const [hours, minutes] = e.target.value
-                    .split(':')
-                    .map(Number);
-                  const current = new Date(track.startDate || new Date());
-                  current.setUTCHours(hours);
-                  current.setUTCMinutes(minutes);
-                  current.setSeconds(0);
-                  current.setMilliseconds(0);
-                  setTrack({ ...track, startDate: current });
-                  setButtonDisabled(false);
-                  setMessage('');
-                }}
-                disabled={closed}
-                required
-              />
-            </div>
-            <div className={styles.inputWrapper}>
-              <label>{t('EndOfTheTrack')}</label>
-              <input
-                type="time"
-                name={t('End')}
-                value={formatTimeForInput(track.endDate)}
-                onChange={(e) => {
-                  const [hours, minutes] = e.target.value
-                    .split(':')
-                    .map(Number);
-                  const current = new Date(track.endDate || new Date());
-                  current.setUTCHours(hours);
-                  current.setUTCMinutes(minutes);
-                  current.setSeconds(0);
-                  current.setMilliseconds(0);
-                  setTrack({ ...track, endDate: current });
-                  setButtonDisabled(false);
-                  setMessage('');
-                }}
-                disabled={closed}
-                required
-              />
-            </div>
-          </div>
+        </div>
+
+        <div className={styles.inputWrapper}>
+          <label>{t('StartTrack')}</label>
+          <input
+            type="time"
+            name={t('Start')}
+            value={formatTimeForInput(track.startDate)}
+            onChange={(e) => {
+              const [hours, minutes] = e.target.value.split(':').map(Number);
+              const current = new Date(track.startDate || new Date());
+              current.setUTCHours(hours);
+              current.setUTCMinutes(minutes);
+              current.setSeconds(0);
+              current.setMilliseconds(0);
+              setTrack({ ...track, startDate: current });
+              setButtonDisabled(false);
+              setMessage('');
+            }}
+            disabled={closed}
+            required
+          />
+        </div>
+        <div className={styles.inputWrapper}>
+          <label>{t('EndOfTheTrack')}</label>
+          <input
+            type="time"
+            name={t('End')}
+            value={formatTimeForInput(track.endDate)}
+            onChange={(e) => {
+              const [hours, minutes] = e.target.value.split(':').map(Number);
+              const current = new Date(track.endDate || new Date());
+              current.setUTCHours(hours);
+              current.setUTCMinutes(minutes);
+              current.setSeconds(0);
+              current.setMilliseconds(0);
+              setTrack({ ...track, endDate: current });
+              setButtonDisabled(false);
+              setMessage('');
+            }}
+            disabled={closed}
+            required
+          />
         </div>
       </div>
 
@@ -203,7 +200,6 @@ const TrackSettings: FC = () => {
       </div>
 
       <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
-        <h2>Êtes-vous sûr de vouloir supprimer la piste ?</h2>
         <div className={styles.confirmationButtons}>
           <Button label={t('Delete')} onClick={handleDelete} />
           <Button
@@ -215,16 +211,17 @@ const TrackSettings: FC = () => {
           />
         </div>
       </Modal>
+
       <div className="message">{message && <p>{message}</p>}</div>
     </form>
   );
 
-  const trackInfo = (
+  const renderReadOnly = () => (
     <div className={styles.trackSettings}>
       <div className={styles.topLayout}>
         <div className={styles.titleLayout}>
           <NavigateBackButton />
-          <h1>{trackId ? track.name : 'Ereur'}</h1>
+          <h1>{track.name || 'Erreur'}</h1>
         </div>
       </div>
       <hr />
@@ -235,7 +232,7 @@ const TrackSettings: FC = () => {
         value={track.name || ''}
         name={t('Name')}
         error={!track.name}
-        disabled={true}
+        disabled
         onChange={handleInputChange('name')}
       />
       <TextArea
@@ -244,56 +241,47 @@ const TrackSettings: FC = () => {
         value={track.description || ''}
         name={t('DescriptionEvent2')}
         error={!track.description}
-        disabled={true}
+        disabled
         onChange={handleInputChange('description')}
       />
 
-      <div className={styles.trackDateSpeakerWrapper}>
-        <div className={styles.checkBoxListContainer}>
-          <CheckBoxList
-            allUsers={allUsers}
-            category={speakers}
-            setCategory={(users: User[]) => {
-              setSpeakers(users);
-              setButtonDisabled(false);
-            }}
-            title={t('Speaker')}
-            disabled={true}
-            userId=""
-          />
-          <div className={styles.trackDateInputs}>
-            <div className={styles.inputWrapper}>
-              <label>{t('DateOfTheEvent')}</label>
-              <input
-                type="date"
-                name={t('Date')}
-                value={formatDateForInput(track.startDate)}
-                disabled={true}
-                required
-              />
-            </div>
-            <div className={styles.inputWrapper}>
-              <label>{t('StartTrack')}</label>
-              <input
-                type="time"
-                name={t('Start')}
-                value={formatTimeForInput(track.startDate)}
-                disabled={true}
-                required
-              />
-            </div>
-            <div className={styles.inputWrapper}>
-              <label>{t('EndOfTheTrack')}</label>
-              <input
-                type="time"
-                name={t('End')}
-                value={formatTimeForInput(track.endDate)}
-                disabled={true}
-                required
-              />
-            </div>
-          </div>
-        </div>
+      <CheckBoxList
+        allUsers={allUsers}
+        category={speakers}
+        setCategory={() => {}}
+        title={t('Speaker')}
+        disabled
+        userId=""
+      />
+      <div className={styles.inputWrapper}>
+        <label>{t('DateOfTheEvent')}</label>
+        <input
+          type="date"
+          name={t('Date')}
+          value={formatDateForInput(track.startDate)}
+          disabled
+          required
+        />
+      </div>
+      <div className={styles.inputWrapper}>
+        <label>{t('StartTrack')}</label>
+        <input
+          type="time"
+          name={t('Start')}
+          value={formatTimeForInput(track.startDate)}
+          disabled
+          required
+        />
+      </div>
+      <div className={styles.inputWrapper}>
+        <label>{t('EndOfTheTrack')}</label>
+        <input
+          type="time"
+          name={t('End')}
+          value={formatTimeForInput(track.endDate)}
+          disabled
+          required
+        />
       </div>
     </div>
   );
@@ -305,7 +293,7 @@ const TrackSettings: FC = () => {
         tracks={tracks}
         eventClosed={!closed && userId === event?.creatorId}
       />
-      {canEdit ? form : trackInfo}
+      {canEdit ? renderForm() : renderReadOnly()}
     </div>
   );
 };

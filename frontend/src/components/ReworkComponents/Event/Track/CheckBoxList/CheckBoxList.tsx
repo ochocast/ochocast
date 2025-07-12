@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-
 import { User } from '../../../../../utils/EventsProperties';
 import { useTranslation } from 'react-i18next';
 import styles from './CheckBoxList.module.css';
@@ -45,7 +44,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   const selectedUsersComp = (
     <div className={styles.usersContainer}>
       {props.category.length === 0 ? (
-        <p>{t('NoItemsSelected')}</p>
+        <p className={styles.noItemsMessage}>{t('NoItemsSelected')}</p>
       ) : (
         props.category.map((user) => (
           <div key={user.id} className={styles.user}>
@@ -71,10 +70,10 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   );
 
   return (
-    <div className={styles.container}>
-      <div className={styles.top}>
-        <h3 className={styles.title}>{props.title}</h3>
-        <div>
+    <div className={styles.inputWrapper}>
+      <label>{props.title}</label>
+      <div className={styles.speakersContent}>
+        <div className={styles.searchSection}>
           {!props.disabled && (
             <input
               type="text"
@@ -86,8 +85,8 @@ const CheckBoxList = (props: CheckBoxListProps) => {
           )}
           {searchResult}
         </div>
+        {selectedUsersComp}
       </div>
-      {selectedUsersComp}
     </div>
   );
 };
