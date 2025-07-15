@@ -26,6 +26,7 @@ import { t } from 'i18next';
 import Commentary from '../../components/ReworkComponents/video/Comments/Commentary/Commentary';
 import CommentBar from '../../components/ReworkComponents/video/Comments/CommentBar/CommentBar';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
+import { Root, RootContent } from 'mdast';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
@@ -44,6 +45,16 @@ const VideoMedia: FC = () => {
   const renewSignedUrl = async () => {
     const url_response = await getMedia(videoId);
     if (url_response) setUrl(url_response.data);
+  };
+
+  const removeH1 = () => {
+    return (tree: Root) => {
+      if (!tree || !tree.children) return;
+
+      tree.children = tree.children.filter(
+        (node: RootContent) => !(node.type === 'heading' && node.depth === 1),
+      );
+    };
   };
 
   useEffect(() => {
@@ -95,7 +106,9 @@ const VideoMedia: FC = () => {
 
       <h4 className={styles.tagList}>
         Tags :
-        {video.tags?.map((tag, id) => <Tag key={id} content={tag.name} />)}
+        {video.tags?.map((tag, id) => (
+          <Tag key={id} content={tag.name} />
+        ))}
       </h4>
 
       <div className={styles.buttonList}>
@@ -121,7 +134,9 @@ const VideoMedia: FC = () => {
           <div className={styles.video_information}>
             <h3 className={styles.video_description_title}>Description :</h3>
             <div className={styles.video_description}>
-              <ReactMarkdown>{video.description || ''}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[removeH1()]}>
+                {video.description || ''}
+              </ReactMarkdown>
             </div>
 
             <h3 className={styles.video_date}>

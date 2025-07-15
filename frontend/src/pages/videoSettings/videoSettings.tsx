@@ -200,6 +200,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (title === '') err += '- ' + t('unknownTitle') + '\n';
     if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (list_by_title.length > 0) err += '- ' + t('titleAlreadyExists') + '\n';
+    if (description.split('\n').some((line) => line.trim().startsWith('# ')))
+      err += '- ' + t('h1Error') + '\n';
     if (!miniature) err += '- ' + t('miniatureUnknown') + '\n';
     else if (
       !accepted_minature_formats.includes(
@@ -323,6 +325,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
       err += '- ' + t('titleAlreadyExists') + '\n';
+    if (description.split('\n').some((line) => line.trim().startsWith('# ')))
+      err += '- ' + t('h1Error') + '\n';
     if (
       baseVideo?.miniature_id === undefined &&
       !accepted_minature_formats.includes(
@@ -332,7 +336,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       err += '- ' + t('miniatureFormatError') + '\n';
     if (err !== '') {
       setToast({
-        message: t('oneOrManyDisrespectedConditions'),
+        message: t('oneOrManyDisrespectedConditions') + ' : \n' + err,
         type: 'error',
       });
       return;

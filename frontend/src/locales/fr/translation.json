@@ -167,5 +167,6 @@
   "publishedOn": "Publié le",
   "profileUpdated": "Profil mis à jour !",
   "profileUpdateError": "Erreur lors de la modification du profil",
-  "unknownDate": "Date non définie"
+  "unknownDate": "Date non définie",
+  "h1Error": "L'utilisation de titres H1 (#) dans la description n'est pas autorisée"
 }
