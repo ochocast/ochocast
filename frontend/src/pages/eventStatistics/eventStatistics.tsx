@@ -52,7 +52,7 @@ const EventStatistic: FC<EventStatisticProps> = () => {
     return (
       <Button
         label={t('eventUnavailableReturnPresentationPage')}
-        onClick={() => navigate('/events')}
+        onClick={() => navigate('/my-events')}
       />
     );
 

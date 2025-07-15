@@ -96,7 +96,7 @@ const CreateEventPage: React.FC = () => {
         if (res.status === 201) {
           setToast({ message: t('EventSuccessfullyCreated'), type: 'success' });
           // Ne pas réactiver le bouton en cas de succès - on reste désactivé jusqu'à la redirection
-          setTimeout(() => navigate('/events'), 1500);
+          setTimeout(() => navigate('/my-events'), 1500);
           return; // Sortir sans passer par finally
         } else {
           throw new Error('Création échouée');

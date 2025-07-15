@@ -16,7 +16,7 @@ const NavItems = () => {
         <button
           type="button"
           className={styles.navItem1}
-          onClick={() => navigate('/events')}
+          onClick={() => navigate('/events-home')}
         >
           {t('streaming')}
         </button>

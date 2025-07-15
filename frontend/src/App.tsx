@@ -6,7 +6,6 @@ import { UserProvider } from './context/UserContext';
 
 import Header from './components/ReworkComponents/generic/Header/Header';
 import LoginPage from './pages/Login/Login';
-import EventsPage from './pages/events/events';
 import TracksPage from './pages/tracks/tracks';
 import NotFoundPage from './pages/notFound/notFound';
 import TrackSettings from './pages/trackSettings/trackSettings';
@@ -35,7 +34,6 @@ function App() {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/events" element={<EventsPage />} />
             <Route path="/events-home" element={<EventsHomePage />} />
             <Route path="/my-events" element={<MyEvents />} />
             <Route path="/my-events/create" element={<CreateEvent />} />

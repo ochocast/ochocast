@@ -25,7 +25,7 @@ const HomePage: FC<HomeProps> = () => {
               title: t('searchAnEvent'),
               onClickFunction: (e) => {
                 e.stopPropagation();
-                navigate('/events');
+                navigate('/events-home');
               },
             },
           ]}

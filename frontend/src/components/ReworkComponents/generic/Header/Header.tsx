@@ -53,7 +53,7 @@ const Header: FC<HeaderProps> = () => {
         <div className={styles.MobileMenu}>
           <div
             onClick={() => {
-              navigate('/events');
+              navigate('/events-home');
               closeMenu();
             }}
           >
