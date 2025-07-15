@@ -1,11 +1,11 @@
 import { IVideoGateway } from '../../domain/gateways/videos.gateway';
 import { VideoObject } from '../../domain/video';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, Not, Repository } from 'typeorm';
 import { VideoEntity } from './entities/video.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { Inject } from '@nestjs/common';
+import { Inject, NotFoundException } from '@nestjs/common';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
 export class VideoGateway implements IVideoGateway {
@@ -108,7 +108,7 @@ export class VideoGateway implements IVideoGateway {
     return await this.videosRepository.save(existingVideo);
   }
 
-  async getVideosSuggestions(filter: any): Promise<VideoObject[]> {
+  async searchVideo(filter: any): Promise<VideoObject[]> {
     return this.videosRepository
       .createQueryBuilder('video')
       .leftJoinAndSelect('video.tags', 'tag')
@@ -132,5 +132,44 @@ export class VideoGateway implements IVideoGateway {
       )
       .take(20)
       .getMany();
+  }
+
+  async getSuggestions(videoId: string): Promise<VideoObject[]> {
+    const referenceVideo = await this.videosRepository.findOne({
+      where: { id: videoId },
+      relations: ['tags', 'creator'],
+    });
+
+    if (!referenceVideo) {
+      throw new NotFoundException(`Video with id ${videoId} not found`);
+    }
+
+    const allOtherVideos = await this.videosRepository.find({
+      where: { id: Not(videoId), archived: false },
+      relations: ['tags', 'creator'],
+    });
+
+    const referenceTagNames = referenceVideo.tags.map((tag) => tag.name);
+    const referenceUserId = referenceVideo.creator.id;
+
+    const scoredVideos = allOtherVideos.map((video) => {
+      const videoTagNames = video.tags.map((tag) => tag.name);
+      const commonTagsCount = videoTagNames.filter((tag) =>
+        referenceTagNames.includes(tag),
+      ).length;
+      const sameUser = video.creator.id === referenceUserId ? 1 : 0;
+      const recencyScore = new Date(video.createdAt).getTime(); // Timestamp = plus grand = plus récent
+
+      // Score pondéré : tags (x10), même user (x5), récence normalisée
+      const score = commonTagsCount * 10 + sameUser * 5 + recencyScore / 1e13; // légère normalisation
+      return { video, score };
+    });
+
+    const topVideos = scoredVideos
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((entry) => entry.video);
+
+    return topVideos;
   }
 }

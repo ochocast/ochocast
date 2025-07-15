@@ -28,8 +28,9 @@ import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { GetMiniatureUsecase } from 'src/videos/domain/usecases/getMiniature.usecase';
 import { ModifyVideoUsecase } from 'src/videos/domain/usecases/modifyVideo.usecase';
-import { GetVideosSuggestionsUsecase } from 'src/videos/domain/usecases/getVideosSuggestions.usecase';
+import { searchVideoUseCase } from 'src/videos/domain/usecases/searchVideo.usecase';
 import { Public } from 'nest-keycloak-connect';
+import { GetSuggestionsUsecase } from 'src/videos/domain/usecases/getSuggestions.usecase';
 @ApiTags('Videos')
 @Controller('videos')
 export class VideosController {
@@ -42,7 +43,8 @@ export class VideosController {
     private getMiniatureUseCase: GetMiniatureUsecase,
     private getVideosAdminUsecase: GetVideosAdminUsecase,
     private modifyVideoUseCase: ModifyVideoUsecase,
-    private getVideosSuggestionsUseCase: GetVideosSuggestionsUsecase,
+    private searchVideoUseCase: searchVideoUseCase,
+    private getSuggestionsUseCase: GetSuggestionsUsecase,
     //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
@@ -128,10 +130,13 @@ export class VideosController {
     return videos;
   }
 
-  @Get('/suggestions/:data')
-  async getVideosSuggestions(
-    @Param('data') data: string,
-  ): Promise<VideoObject[]> {
-    return await this.getVideosSuggestionsUseCase.execute(data);
+  @Get('/searchvideo/:data')
+  async searchVideo(@Param('data') data: string): Promise<VideoObject[]> {
+    return await this.searchVideoUseCase.execute(data);
+  }
+
+  @Get('/videoSuggestions/:id')
+  async getSuggestions(@Param('id') VideoId: string): Promise<VideoObject[]> {
+    return await this.getSuggestionsUseCase.execute(VideoId);
   }
 }

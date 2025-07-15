@@ -3,7 +3,7 @@ import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
 
 import { FC } from 'react';
-import { getVideos, getSuggestions } from '../../utils/api';
+import { getVideos, searchVideos } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
@@ -84,7 +84,7 @@ const Videos: FC<VideosProps> = () => {
   const handleSearch = async (keywords: string[]) => {
     try {
       if (keywords[0] !== '') {
-        const response = await getSuggestions(keywords[0]);
+        const response = await searchVideos(keywords[0]);
         const result = response.data || [];
         setVideos(result);
       } else {

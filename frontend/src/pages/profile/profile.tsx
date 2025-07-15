@@ -6,7 +6,7 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 import { FC } from 'react';
 import {
-  getSuggestions,
+  searchVideos,
   getUsers,
   getVideosByUser,
   deleteVideo,
@@ -80,7 +80,7 @@ const Profile: FC<ProfileProps> = () => {
   const handleSearch = async (keywords: string[]) => {
     try {
       if (keywords[0] !== '') {
-        const response = await getSuggestions(keywords[0]);
+        const response = await searchVideos(keywords[0]);
         setVideos(response.data || []);
       } else {
         const backendUser = JSON.parse(userString!);

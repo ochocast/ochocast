@@ -7,7 +7,7 @@ import { CommentEntity } from '../../../../src/comments/infra/gateways/entities/
 describe('VideosController - getVideosSuggestions', () => {
   const now = new Date();
 
-  const mockGetVideosSuggestionsUsecase = {
+  const mockSearchVideoUsecase = {
     execute: jest.fn(),
   };
 
@@ -20,7 +20,8 @@ describe('VideosController - getVideosSuggestions', () => {
     {} as any, // getMiniatureUseCase
     {} as any, // getVideosAdminUsecase
     {} as any, // modifyVideoUseCase
-    mockGetVideosSuggestionsUsecase as any, // getVideosSuggestionsUseCase
+    mockSearchVideoUsecase as any, // getVideosSuggestionsUseCase
+    {} as any,
   );
 
   const mockUser: UserEntity = {
@@ -76,9 +77,9 @@ describe('VideosController - getVideosSuggestions', () => {
   );
 
   it('should return suggested videos from usecase', async () => {
-    mockGetVideosSuggestionsUsecase.execute.mockResolvedValueOnce([mockVideo]);
+    mockSearchVideoUsecase.execute.mockResolvedValueOnce([mockVideo]);
 
-    const result = await controller.getVideosSuggestions('test-data');
+    const result = await controller.searchVideo('test-data');
 
     expect(result).toHaveLength(1);
     expect(result[0]).toBeInstanceOf(VideoObject);
@@ -98,17 +99,15 @@ describe('VideosController - getVideosSuggestions', () => {
       archived: false,
     });
 
-    expect(mockGetVideosSuggestionsUsecase.execute).toHaveBeenCalledWith(
-      'test-data',
-    );
+    expect(mockSearchVideoUsecase.execute).toHaveBeenCalledWith('test-data');
   });
 
   it('should throw if usecase throws', async () => {
-    mockGetVideosSuggestionsUsecase.execute.mockRejectedValueOnce(
+    mockSearchVideoUsecase.execute.mockRejectedValueOnce(
       new Error('Something went wrong'),
     );
 
-    await expect(controller.getVideosSuggestions('error-case')).rejects.toThrow(
+    await expect(controller.searchVideo('error-case')).rejects.toThrow(
       'Something went wrong',
     );
   });

@@ -95,7 +95,9 @@ export const getVideosByUser = (userId) => api.get(`/videos/` + userId);
 export const findTag = (name) => api.get(`/tags?name=${name}`);
 export const findTags = (tag) => api.get(`/tags/find?value=${tag}`);
 export const findUsers = (user) => api.get(`/users/find?value=${user}`);
-export const getSuggestions = (data) => api.get(`/videos/suggestions/${data}`);
+export const searchVideos = (data) => api.get(`/videos/searchvideo/${data}`);
+export const getVideoSuggestions = (id) =>
+  api.get(`/videos/videoSuggestions/${id}`);
 
 //favori
 export const addToFavorites = (videoId) =>

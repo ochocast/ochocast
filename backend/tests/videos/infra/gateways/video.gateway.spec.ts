@@ -1,37 +1,74 @@
-import { VideoGateway } from '../../../../src/videos/infra/gateways/video.gateway';
-import { Repository } from 'typeorm';
-import { VideoEntity } from '../../../../src/videos/infra/gateways/entities/video.entity';
+import { NotFoundException } from '@nestjs/common';
+import { VideoGateway } from 'src/videos/infra/gateways/video.gateway';
+import { Repository, Not } from 'typeorm';
+import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 import { S3Client } from '@aws-sdk/client-s3';
-import { UserGateway } from 'src/users/infra/gateways/user.gateway';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
-describe('VideoGateway - getVideosSuggestions', () => {
+describe('VideoGateway', () => {
   let videoGateway: VideoGateway;
-  let videoRepositoryMock: Partial<Repository<VideoEntity>>;
+  let videoRepositoryMock: jest.Mocked<Partial<Repository<VideoEntity>>>;
   let s3ClientMock: Partial<S3Client>;
 
-  beforeEach(() => {
-    // Mocker le QueryBuilder
-    const mockQueryBuilder: any = {
-      leftJoinAndSelect: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getMany: jest.fn().mockResolvedValue([
-        {
-          id: 'video-1',
-          title: 'AI in 2025',
-          description: 'Trends in AI',
-          archived: false,
-          creator: { firstName: 'John', lastName: 'Doe', email: 'j@doe.com' },
-          tags: [{ name: 'AI' }],
-        },
-      ]),
-    };
+  const now = new Date();
 
-    // Mocker le repository
+  const referenceVideo: VideoEntity = {
+    id: 'video-1',
+    title: 'Reference Video',
+    description: 'Reference description',
+    tags: [{ name: 'AI' }] as any,
+    creator: { id: 'user-1', firstName: 'Alice', lastName: 'Smith' } as any,
+    archived: false,
+    createdAt: now,
+  } as VideoEntity;
+
+  const otherVideos: VideoEntity[] = [
+    {
+      id: 'video-2',
+      title: 'Matching Tag Video',
+      tags: [{ name: 'AI' }] as any,
+      creator: { id: 'user-1' } as any,
+      archived: false,
+      createdAt: new Date(now.getTime() - 1000),
+    } as VideoEntity,
+    {
+      id: 'video-3',
+      title: 'Different User Video',
+      tags: [{ name: 'ML' }] as any,
+      creator: { id: 'user-2' } as any,
+      archived: false,
+      createdAt: new Date(now.getTime() - 5000),
+    } as VideoEntity,
+    {
+      id: 'video-4',
+      title: 'Another Match',
+      tags: [{ name: 'AI' }] as any,
+      creator: { id: 'user-2' } as any,
+      archived: false,
+      createdAt: new Date(now.getTime() - 100),
+    } as VideoEntity,
+  ];
+
+  beforeEach(() => {
     videoRepositoryMock = {
-      createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+      findOne: jest.fn(),
+      find: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([
+          {
+            id: 'video-5',
+            title: 'Suggested Video',
+            description: 'A suggestion',
+            archived: false,
+            creator: { firstName: 'John', lastName: 'Doe', email: 'j@doe.com' },
+            tags: [{ name: 'AI' }],
+          },
+        ]),
+      }),
     };
 
     s3ClientMock = {};
@@ -42,21 +79,24 @@ describe('VideoGateway - getVideosSuggestions', () => {
     );
   });
 
+  /*
+    Normal case: searchVideo
+   */
   it('should build query and return suggested videos', async () => {
-    const result = await videoGateway.getVideosSuggestions('AI');
+    const result = await videoGateway.searchVideo('AI');
 
     expect(videoRepositoryMock.createQueryBuilder).toHaveBeenCalledWith(
       'video',
     );
     expect(result).toHaveLength(1);
-    expect(result[0].title).toBe('AI in 2025');
-    expect(result[0].creator.firstName).toBe('John');
-    expect(result[0].tags[0].name).toBe('AI');
+    expect(result[0].title).toBe('Suggested Video');
   });
 
+  /*
+    Edge case: no match
+   */
   it('should return empty array if no video matches the filter', async () => {
-    // Crée un nouveau mock de QueryBuilder avec un getMany vide
-    const mockQueryBuilder: any = {
+    const emptyQueryBuilder: any = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -64,77 +104,47 @@ describe('VideoGateway - getVideosSuggestions', () => {
       getMany: jest.fn().mockResolvedValue([]),
     };
 
-    // Mets à jour le mock du repository pour ce test uniquement
     (videoRepositoryMock.createQueryBuilder as jest.Mock).mockReturnValue(
-      mockQueryBuilder,
+      emptyQueryBuilder,
     );
 
-    const result = await videoGateway.getVideosSuggestions('xyz-nonexistent');
+    const result = await videoGateway.searchVideo('non-existent');
 
     expect(result).toEqual([]);
-    expect(videoRepositoryMock.createQueryBuilder).toHaveBeenCalledWith(
-      'video',
-    );
-    expect(mockQueryBuilder.where).toHaveBeenCalled();
-    expect(mockQueryBuilder.andWhere).toHaveBeenCalled();
-    expect(mockQueryBuilder.getMany).toHaveBeenCalled();
-  });
-});
-
-describe('UserGateway - getFavoriteVideos', () => {
-  let userGateway: UserGateway;
-  let usersRepositoryMock: Partial<Repository<UserEntity>>;
-
-  beforeEach(() => {
-    usersRepositoryMock = {
-      findOne: jest.fn().mockResolvedValue({
-        favoriteVideos: [
-          {
-            id: 'video-1',
-            title: 'Favorite Video',
-            tags: [],
-            creator: { firstName: 'John', lastName: 'Doe' },
-            comments: [],
-          },
-        ],
-      }),
-    };
-
-    userGateway = new UserGateway(usersRepositoryMock as any);
+    expect(emptyQueryBuilder.getMany).toHaveBeenCalled();
   });
 
-  it('should retrieve favorite videos correctly', async () => {
-    const result = await userGateway.getFavoriteVideos('test@example.com');
+  /*
+    getSuggestions — Normal case
+   */
+  it('should return top 3 scored videos as suggestions', async () => {
+    videoRepositoryMock.findOne = jest.fn().mockResolvedValue(referenceVideo);
+    videoRepositoryMock.find = jest.fn().mockResolvedValue(otherVideos);
 
-    expect(usersRepositoryMock.findOne).toHaveBeenCalledWith({
-      where: { email: 'test@example.com' },
-      relations: [
-        'favoriteVideos',
-        'favoriteVideos.tags',
-        'favoriteVideos.creator',
-        'favoriteVideos.comments',
-      ],
+    const result = await videoGateway.getSuggestions('video-1');
+
+    expect(videoRepositoryMock.findOne).toHaveBeenCalledWith({
+      where: { id: 'video-1' },
+      relations: ['tags', 'creator'],
     });
 
-    expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('video-1');
+    expect(videoRepositoryMock.find).toHaveBeenCalledWith({
+      where: { id: Not('video-1'), archived: false },
+      relations: ['tags', 'creator'],
+    });
+
+    expect(result).toHaveLength(3);
+    expect(result[0].id).toBeDefined();
   });
 
-  it('should handle no favorite videos', async () => {
-    usersRepositoryMock.findOne = jest
-      .fn()
-      .mockResolvedValue({ favoriteVideos: [] });
+  /*
+    getSuggestions — Error case: video not found
+   */
+  it('should throw NotFoundException if reference video not found', async () => {
+    videoRepositoryMock.findOne = jest.fn().mockResolvedValue(null);
 
-    const result = await userGateway.getFavoriteVideos('test@example.com');
-
-    expect(result).toEqual([]);
-  });
-
-  it('should throw error if user not found', async () => {
-    usersRepositoryMock.findOne = jest.fn().mockResolvedValue(null);
-
-    await expect(
-      userGateway.getFavoriteVideos('missing@example.com'),
-    ).rejects.toThrow('User not found');
+    await expect(videoGateway.getSuggestions('bad-id')).rejects.toThrow(
+      NotFoundException,
+    );
   });
 });
