@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import Modal from '../../components/ReworkComponents/generic/modal/modal';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 interface EventSettingsProps {}
 
@@ -48,6 +49,11 @@ const EventSettings: FC<EventSettingsProps> = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isFetchError, setIsFetchError] = useState(false);
   const [creatorId, setCreatorId] = useState('');
+  const [isPublished, setIsPublished] = useState(false);
+  const [toast, setToast] = useState<{
+    message: string;
+    type?: 'success' | 'error' | 'info';
+  } | null>(null);
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -69,6 +75,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
           setStartHour(res.data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
           setEndHour(res.data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
           setCreatorId(res.data.creator.id);
+          setIsPublished(res.data.published);
         }
       } catch (error) {
         logger.error(`Failed to fetch event: ${error}`);
@@ -157,6 +164,40 @@ const EventSettings: FC<EventSettingsProps> = () => {
       }
     } catch (error) {
       setMessage(t('eventCouldNotClosed'));
+    }
+  };
+
+  const handleShareEvent = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+
+    if (!isPublished) {
+      setToast({
+        message: t('eventMustBePublished'),
+        type: 'info',
+      });
+      return;
+    }
+
+    const invitationLink = `${window.location.origin}/events/${eventId}/tracks`;
+
+    try {
+      await navigator.clipboard.writeText(invitationLink);
+      setToast({
+        message: t('linkCopied'),
+        type: 'success',
+      });
+    } catch (err) {
+      // Fallback pour les navigateurs qui ne supportent pas l'API clipboard
+      const textArea = document.createElement('textarea');
+      textArea.value = invitationLink;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setToast({
+        message: t('linkCopied'),
+        type: 'success',
+      });
     }
   };
 
@@ -289,9 +330,14 @@ const EventSettings: FC<EventSettingsProps> = () => {
               style={{ width: 100, height: 100, objectFit: 'cover' }}
             />
           )}
-        </div>
+        </div>{' '}
         {!eventClosed && (
           <div className={styles.confirmationButtons}>
+            <Button
+              label={t('shareEvent')}
+              onClick={handleShareEvent}
+              type={ButtonType.secondary}
+            />
             <Button
               label={t('DeleteEvent')}
               onClick={() => setisDeleteOpen(true)}
@@ -322,6 +368,13 @@ const EventSettings: FC<EventSettingsProps> = () => {
         </Modal>
         <div className={styles.message}>{message && <p>{message}</p>}</div>
       </form>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

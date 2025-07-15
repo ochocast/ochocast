@@ -168,5 +168,9 @@
   "profileUpdated": "Profil mis à jour !",
   "profileUpdateError": "Erreur lors de la modification du profil",
   "unknownDate": "Date non définie",
+  "shareEvent": "🔗 Partager",
+  "invitationLink": "Lien d'invitation",
+  "linkCopied": "Lien copié dans le presse-papier !",
+  "eventMustBePublished": "L'évènement doit être publié pour pouvoir être partagé",
   "h1Error": "L'utilisation de titres H1 (#) dans la description n'est pas autorisée"
 }

@@ -168,5 +168,9 @@
   "profileUpdated": "Profile updated!",
   "profileUpdateError": "Error updating profile",
   "unknownDate": "Date not specified",
+  "shareEvent": "🔗 Share",
+  "invitationLink": "Invitation link",
+  "linkCopied": "Link copied to clipboard!",
+  "eventMustBePublished": "Event must be published to be shared",
   "h1Error": "The use of H1 titles (#) in the description is not allowed"
 }
