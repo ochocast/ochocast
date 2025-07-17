@@ -15,7 +15,6 @@
   padding: 0 2%;
   max-width: 100vw; /* empêche le débordement */
   overflow-x: visible; /* renforce l’interdiction du scroll horizontal */
-    margin-bottom: 20px;
 }
 
 .LogoDiv {

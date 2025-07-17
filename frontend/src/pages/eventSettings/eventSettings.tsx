@@ -1,50 +1,51 @@
-import { FC, useState, ChangeEvent, FormEvent, useEffect } from 'react';
-import React from 'react';
-import styles from './eventSettings.module.css';
-import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
-import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
-import Button, {
-  ButtonType,
-} from '../../components/ReworkComponents/generic/Button/Button';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, {
+  FC,
+  useState,
+  useEffect,
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+} from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useUser } from '../../context/UserContext';
+
 import {
   getPrivateEvent,
   updateEvent,
   deleteEvent,
   closeEvent,
+  getEventsMiniature,
 } from '../../utils/api';
-import { Track } from '../../utils/EventsProperties';
-import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
+import { Track, PublicEvent, PublicUser } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
-import { useTranslation } from 'react-i18next';
-import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
+
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
+import Button, {
+  ButtonType,
+} from '../../components/ReworkComponents/generic/Button/Button';
 import Modal from '../../components/ReworkComponents/generic/modal/modal';
+import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
+import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
-interface EventSettingsProps {}
+import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { EventStatus } from '../../utils/EventStatus';
 
-const EventSettings: FC<EventSettingsProps> = () => {
-  const { t } = useTranslation();
+import styles from './eventSettings.module.css';
+
+const EventSettings: FC = () => {
   const { eventId } = useParams();
-
-  const [isButtonDisabled, setButtonDisabled] = useState(true);
-  const [eventClosed, setEventClosed] = useState(false);
-
-  const [isDeleteOpen, setisDeleteOpen] = useState(false);
-  const toggleDeleteModal = () => setisDeleteOpen(false);
-
-  const [isOpen, setisOpen] = useState(false);
-  const toggle = () => setisOpen(!isOpen);
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+  const { user } = useUser();
 
   const [name, setName] = useState('');
-  const [errorName, setErrorName] = useState(false);
   const [description, setDescription] = useState('');
-  const [errorDescription, setErrorDescription] = useState(false);
   const [date, setDate] = useState('');
   const [startHour, setStartHour] = useState('');
   const [endHour, setEndHour] = useState('');
-  const [message, setMessage] = useState('');
   const [modalMessage, setModalMessage] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isFetchError, setIsFetchError] = useState(false);
@@ -57,94 +58,113 @@ const EventSettings: FC<EventSettingsProps> = () => {
 
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [previewMiniatureUrl, setPreviewMiniatureUrl] = useState<string | null>(
+    null,
+  );
+  const [eventClosed, setEventClosed] = useState(false);
+  const [errorName, setErrorName] = useState(false);
+  const [errorDescription, setErrorDescription] = useState(false);
+  const [isButtonDisabled, setButtonDisabled] = useState(true);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
   const userString = localStorage.getItem('backendUser');
   const userId = userString ? JSON.parse(userString).id : '';
-  const navigate = useNavigate();
+
+  const fetchMiniature = useCallback(async () => {
+    if (!eventId) return;
+
+    try {
+      const res = await getEventsMiniature(eventId);
+      if (res?.data?.url && !res.data.url.includes('imageSlug')) {
+        setPreviewMiniatureUrl(res.data.url);
+      } else {
+        setPreviewMiniatureUrl(fallbackMiniature);
+      }
+    } catch (err) {
+      console.error(`Erreur récupération miniature pour event ${eventId}`, err);
+      setPreviewMiniatureUrl(fallbackMiniature);
+    }
+  }, [eventId]);
 
   useEffect(() => {
     const fetchEvent = async () => {
       try {
         const res = await getPrivateEvent(eventId);
         if (res.status === 200) {
-          if (res.data.closed) setEventClosed(true);
-          setTracks(res.data.tracks);
-          setName(res.data.name);
-          setDescription(res.data.description);
-          setDate(res.data.startDate.split('T')[0]);
-          setStartHour(res.data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
-          setEndHour(res.data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
-          setCreatorId(res.data.creator.id);
-          setIsPublished(res.data.published);
+          const data = res.data;
+          setName(data.name);
+          setDescription(data.description);
+          setDate(data.startDate.split('T')[0]);
+          setStartHour(data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
+          setEndHour(data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
+          setTracks(data.tracks);
+          setCreatorId(data.creator.id);
+          setEventClosed(data.closed);
+          setIsPublished(data.published);
         }
       } catch (error) {
-        logger.error(`Failed to fetch event: ${error}`);
+        logger.error('Error fetching event', error);
         setIsFetchError(true);
       }
     };
     fetchEvent();
-  }, [eventId]);
+    fetchMiniature();
+  }, [eventId, fetchMiniature]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSelectedImage(file);
     setButtonDisabled(false);
-    setMessage('');
-
     const reader = new FileReader();
     reader.onload = () =>
       typeof reader.result === 'string' && setImageUrl(reader.result);
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    let isError = false;
-    if (!name.trim()) {
-      setErrorName(true);
-      isError = true;
-    }
-    if (!description.trim()) {
-      setErrorDescription(true);
-      isError = true;
-    }
-    if (!isError) {
-      try {
-        if (selectedImage) {
-          const formData = new FormData();
-          formData.append('image_slug', selectedImage.name);
-          formData.append('name', name);
-          formData.append('description', description);
-          formData.append('startDate', date + 'T' + startHour + ':00.000Z');
-          formData.append('endDate', date + 'T' + endHour + ':00.000Z');
-          formData.append('miniature', selectedImage);
-          await updateEvent(eventId, formData);
-        } else {
-          await updateEvent(eventId, {
-            name,
-            description,
-            tags: [],
-            startDate: date + 'T' + startHour + ':00.000Z',
-            endDate: date + 'T' + endHour + ':00.000Z',
-            isPrivate: true,
-          });
-        }
-        setMessage(t('eventModified'));
+    setErrorName(!name.trim());
+    setErrorDescription(!description.trim());
+
+    if (!name.trim() || !description.trim()) return;
+
+    try {
+      const formData = new FormData();
+      formData.append('image_slug', selectedImage?.name || fallbackMiniature);
+      formData.append('name', name);
+      formData.append('description', description);
+      formData.append('startDate', date + 'T' + startHour + ':00.000Z');
+      formData.append('endDate', date + 'T' + endHour + ':00.000Z');
+      if (selectedImage) formData.append('miniature', selectedImage);
+
+      const res = await updateEvent(eventId, formData);
+      if (res.status === 200) {
+        setToast({
+          message: t('eventModified'),
+          type: 'success',
+        });
         setButtonDisabled(true);
-      } catch (error) {
-        logger.error(error);
-        setMessage(t('eventCouldNotBeModified'));
       }
+    } catch (error) {
+      logger.error('Error updating event', error);
+      setToast({
+        message: t('eventCouldNotBeModified'),
+        type: 'error',
+      });
     }
   };
 
   const deleteEventHandler = async () => {
     try {
       await deleteEvent(eventId);
-      navigate('/events/');
+      navigate('/events');
     } catch (error) {
-      setMessage(t('eventCouldNotBeDeleted'));
+      setToast({
+        message: t('eventCouldNotBeDeleted'),
+        type: 'error',
+      });
     }
   };
 
@@ -159,12 +179,49 @@ const EventSettings: FC<EventSettingsProps> = () => {
       const res = await closeEvent(eventId);
       if (res.status === 200) {
         setEventClosed(true);
-        toggle();
-        setMessage(t('eventClosed'));
+        setIsCloseModalOpen(false);
+        setToast({
+          message: t('eventClosed'),
+          type: 'success',
+        });
       }
-    } catch (error) {
-      setMessage(t('eventCouldNotClosed'));
+    } catch {
+      setToast({
+        message: t('eventCouldNotClosed'),
+        type: 'error',
+      });
     }
+  };
+
+  const getPreviewEvent = (): PublicEvent => {
+    const now = new Date();
+    const startDate =
+      date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
+    const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
+
+    const creator: PublicUser = {
+      id: user?.id || creatorId,
+      firstName: user?.firstName || '...',
+      lastName: user?.lastName || '...',
+    };
+
+    return {
+      id: eventId || '',
+      name: name || t('NameEvent'),
+      description,
+      tags: '',
+      startDate,
+      endDate,
+      published: false,
+      private: true,
+      closed: eventClosed,
+      imageSlug: imageUrl ? imageUrl : '',
+      tracks: [],
+      creatorId,
+      canBeEditByUser: true,
+      creator,
+      nbSubscription: 0,
+    };
   };
 
   const handleShareEvent = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -201,13 +258,14 @@ const EventSettings: FC<EventSettingsProps> = () => {
     }
   };
 
-  if (isFetchError)
+  if (isFetchError) {
     return (
       <Button
         label={t('eventUnavailableReturnPresentationPage')}
         onClick={() => navigate('/my-events')}
       />
     );
+  }
 
   return (
     <div className={styles.pageEventSettings}>
@@ -216,6 +274,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
         tracks={tracks}
         eventClosed={!eventClosed && userId === creatorId}
       />
+
       <form onSubmit={handleSubmit} className={styles.eventSettings}>
         <div className={styles.topLayout}>
           <div className={styles.titleLayout}>
@@ -225,54 +284,58 @@ const EventSettings: FC<EventSettingsProps> = () => {
           {eventClosed ? (
             <h2>{t('EventClosed')}</h2>
           ) : (
-            <Button label={t('CloseEvent')} onClick={toggle} />
+            <Button
+              label={t('CloseEvent')}
+              onClick={() => setIsCloseModalOpen(true)}
+            />
           )}
         </div>
-        <Modal isOpen={isOpen} toggle={toggle}>
+
+        <Modal
+          isOpen={isCloseModalOpen}
+          toggle={() => setIsCloseModalOpen(false)}
+        >
           <h2>{t('SureCloseEvent')}</h2>
           <div className={styles.confirmationButtons}>
             <Button label={t('Confirm')} onClick={handleCloseEvent} />
             <Button
               label={t('Cancel')}
-              onClick={() => {
-                toggle();
-                setModalMessage('');
-              }}
+              onClick={() => setIsCloseModalOpen(false)}
             />
           </div>
-          <div className={styles.message}>
-            {modalMessage && <p>{modalMessage}</p>}
-          </div>
+          {modalMessage && <p>{modalMessage}</p>}
         </Modal>
-        <TextBox
-          type="text"
-          label={t('Name')}
-          placeholder={t('NameEvent')}
-          name={name}
-          value={name}
-          error={errorName}
-          disabled={eventClosed}
-          onChange={(e) => {
-            setName(e.target.value);
-            setButtonDisabled(false);
-            setMessage('');
-          }}
-        />
+
         <div className={styles.inputWrapper}>
-          <label>{t('DateOfTheEvent')}</label>
+          <label>{t('NameEvent')}</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setButtonDisabled(false);
+            }}
+            disabled={eventClosed}
+            required
+            className={errorName ? styles.error : ''}
+          />
+        </div>
+
+        <div className={styles.inputWrapper}>
+          <label>{t('DateEvent')}</label>
           <input
             type="date"
             value={date}
-            min={new Date().toISOString().split('T')[0]}
             onChange={(e) => {
               setDate(e.target.value);
               setButtonDisabled(false);
-              setMessage('');
             }}
+            min={new Date().toISOString().split('T')[0]}
             disabled={eventClosed}
             required
           />
         </div>
+
         <div className={styles.inputWrapper}>
           <label>{t('StartEvent')}</label>
           <input
@@ -281,40 +344,26 @@ const EventSettings: FC<EventSettingsProps> = () => {
             onChange={(e) => {
               setStartHour(e.target.value);
               setButtonDisabled(false);
-              setMessage('');
             }}
             disabled={eventClosed}
             required
           />
         </div>
+
         <div className={styles.inputWrapper}>
           <label>{t('EndEvent')}</label>
           <input
             type="time"
-            min={startHour}
             value={endHour}
             onChange={(e) => {
               setEndHour(e.target.value);
               setButtonDisabled(false);
-              setMessage('');
             }}
             disabled={eventClosed}
             required
           />
         </div>
-        <TextArea
-          label={t('DescriptionEvent2')}
-          placeholder={t('EventDescription')}
-          value={description}
-          name={t('DescriptionEvent2')}
-          error={errorDescription}
-          disabled={eventClosed}
-          onChange={(e) => {
-            setDescription(e.target.value);
-            setButtonDisabled(false);
-            setMessage('');
-          }}
-        />
+
         <div className={styles.inputWrapper}>
           <label>{t('Thumbnail')}</label>
           <InputFile
@@ -323,14 +372,22 @@ const EventSettings: FC<EventSettingsProps> = () => {
             disable={eventClosed}
             required={false}
           />
-          {imageUrl && (
-            <img
-              src={imageUrl}
-              alt="preview"
-              style={{ width: 100, height: 100, objectFit: 'cover' }}
-            />
-          )}
-        </div>{' '}
+        </div>
+
+        <div className={styles.inputWrapper}>
+          <label>{t('EventDescription')}</label>
+          <textarea
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setButtonDisabled(false);
+            }}
+            className={errorDescription ? styles.error : ''}
+            disabled={eventClosed}
+            required
+          />
+        </div>
+
         {!eventClosed && (
           <div className={styles.confirmationButtons}>
             <Button
@@ -340,7 +397,7 @@ const EventSettings: FC<EventSettingsProps> = () => {
             />
             <Button
               label={t('DeleteEvent')}
-              onClick={() => setisDeleteOpen(true)}
+              onClick={() => setIsDeleteOpen(true)}
             />
             <Button
               label={t('Save')}
@@ -350,24 +407,27 @@ const EventSettings: FC<EventSettingsProps> = () => {
             />
           </div>
         )}
-        <Modal isOpen={isDeleteOpen} toggle={toggleDeleteModal}>
+
+        <Modal isOpen={isDeleteOpen} toggle={() => setIsDeleteOpen(false)}>
           <h2>{t('SureDeleteEvent')}</h2>
           <div className={styles.confirmationButtons}>
             <Button label={t('Delete')} onClick={deleteEventHandler} />
             <Button
               label={t('Cancel')}
-              onClick={() => {
-                toggleDeleteModal();
-                setModalMessage('');
-              }}
+              onClick={() => setIsDeleteOpen(false)}
             />
           </div>
-          <div className={styles.message}>
-            {modalMessage && <p>{modalMessage}</p>}
-          </div>
         </Modal>
-        <div className={styles.message}>{message && <p>{message}</p>}</div>
       </form>
+
+      <div className={styles.preview}>
+        <h2>{t('Preview')}</h2>
+        <EventBox
+          event={getPreviewEvent()}
+          imageURL={imageUrl || previewMiniatureUrl || fallbackMiniature}
+          eventStatus={EventStatus.Preview}
+        />
+      </div>
       {toast && (
         <Toast
           message={toast.message}

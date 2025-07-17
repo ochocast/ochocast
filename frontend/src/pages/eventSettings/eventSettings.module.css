@@ -1,22 +1,22 @@
 .pageEventSettings {
   display: flex;
-  height: auto;
+  flex-direction: row;
+  gap: 2rem;
+  padding-right: 1rem;
 }
 
 .eventSettings {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100%;
-  margin-left: 5%;
-  margin-right: 5%;
-  margin-top: 20px;
-  padding-top: 2%;
+  margin: 0 auto;
+  max-width: 800px;
 }
 
 .confirmationButtons {
   display: flex;
   justify-content: space-evenly;
+  margin-top: 1rem;
 }
 
 .topLayout {
@@ -27,14 +27,25 @@
 
 .titleLayout {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-}
-
-.titleLayout h1 {
-  margin-left: 10px;
+  gap: 1rem;
 }
 
 .inputWrapper {
+  display: flex;
+  flex-direction: column;
   margin-bottom: 1rem;
+}
+
+.inputWrapper label {
+  margin-bottom: 0.25rem;
+}
+
+.preview {
+  margin-top: 2rem;
+  padding: 1rem;
+}
+
+.error {
+  border: 1px solid var(--theme-color-red);
 }
