@@ -73,7 +73,8 @@ export class UpdateEventUsecase {
     if (eventUpdate.endDate !== undefined)
       existingEvent.endDate = eventUpdate.endDate;
     if (eventUpdate.tags !== undefined) existingEvent.tags = eventUpdate.tags;
-
+    console.log('\n\n\n\n\n\n\n\n', eventUpdate.tags, '\n\n\n\n\n\n\n\n');
+    console.log('\n\n\n\n\n\n\n\n', existingEvent.tags, '\n\n\n\n\n\n\n\n');
     return await this.eventGateway.updateEvent(existingEvent);
   }
 }

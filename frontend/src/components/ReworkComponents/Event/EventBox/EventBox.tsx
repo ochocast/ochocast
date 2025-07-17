@@ -115,6 +115,21 @@ const EventBox = (props: EventBoxProps) => {
               dateDisplay.getMonth() + 1
             }/${dateDisplay.getFullYear()}`}
         </div>
+        {/* Affichage des tags (max 2) */}
+        {event.tags && event.tags.length > 0 && (
+          <div className={styles.tagsWrapper}>
+            {event.tags.slice(0, 3).map((tag, index) => (
+              <span key={index} className={styles.tag}>
+                {tag.name}
+              </span>
+            ))}
+            {event.tags.length > 3 && (
+              <span className={styles.moreTagsIndicator}>
+                +{event.tags.length - 3}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className={styles.eventWrapper}>
         <div className={styles.info}>

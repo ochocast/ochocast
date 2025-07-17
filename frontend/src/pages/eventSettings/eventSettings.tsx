@@ -16,8 +16,15 @@ import {
   deleteEvent,
   closeEvent,
   getEventsMiniature,
+  createTag,
+  findTag,
 } from '../../utils/api';
-import { Track, PublicEvent, PublicUser } from '../../utils/EventsProperties';
+import {
+  Track,
+  PublicEvent,
+  PublicUser,
+  Tag_event,
+} from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
@@ -29,6 +36,14 @@ import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import Card from '../../components/ReworkComponents/generic/Cards/Card';
+import SuggestionBar, {
+  SuggestionType,
+  Suggestion,
+} from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
+import Tag, {
+  TagType,
+} from '../../components/ReworkComponents/generic/Tag/Tag';
 
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 import { EventStatus } from '../../utils/EventStatus';
@@ -48,6 +63,7 @@ const EventSettings: FC = () => {
   const [endHour, setEndHour] = useState('');
   const [modalMessage, setModalMessage] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [tags, setTags] = useState<Tag_event[]>([]);
   const [isFetchError, setIsFetchError] = useState(false);
   const [creatorId, setCreatorId] = useState('');
   const [isPublished, setIsPublished] = useState(false);
@@ -70,6 +86,65 @@ const EventSettings: FC = () => {
 
   const userString = localStorage.getItem('backendUser');
   const userId = userString ? JSON.parse(userString).id : '';
+
+  const isTagVideo = (suggestion: Suggestion): suggestion is Tag_event => {
+    return 'id' in suggestion && 'name' in suggestion;
+  };
+
+  const selectTag = (tagChoosen: Suggestion) => {
+    if (
+      isTagVideo(tagChoosen) &&
+      tags.some((tag) => tag.name === tagChoosen.name)
+    ) {
+      setToast({
+        message: t('tagAlreadyExists') + '.',
+        type: 'info',
+      });
+      return;
+    }
+    setTags([...tags, tagChoosen as Tag_event]);
+    setButtonDisabled(false);
+  };
+
+  const handleDeleteTag = (name: string) => {
+    setTags(tags.filter((tag) => tag.name !== name));
+    setButtonDisabled(false);
+  };
+
+  const addTag = (query: string) => {
+    createTag({ name: query })
+      .then(async (response) => {
+        if (
+          response.status === 202 ||
+          response.status === 201 ||
+          response.status === 204 ||
+          response.status === 200
+        ) {
+          setToast({
+            message: t('tagCreated'),
+            type: 'success',
+          });
+          const response = await findTag(query);
+          const newTag = response.data[0];
+          if (!tags.some((tag) => tag.name === newTag.name)) {
+            setTags([...tags, newTag]);
+            setButtonDisabled(false);
+          }
+        } else {
+          setToast({
+            message: t('failedLoading') + `:${response}`,
+            type: 'error',
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors de la création du tag :', error);
+        setToast({
+          message: t('failedLoadingVideo'),
+          type: 'error',
+        });
+      });
+  };
 
   const fetchMiniature = useCallback(async () => {
     if (!eventId) return;
@@ -99,6 +174,7 @@ const EventSettings: FC = () => {
           setStartHour(data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
           setEndHour(data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
           setTracks(data.tracks);
+          setTags(data.tags);
           setCreatorId(data.creator.id);
           setEventClosed(data.closed);
           setIsPublished(data.published);
@@ -123,8 +199,7 @@ const EventSettings: FC = () => {
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setErrorName(!name.trim());
     setErrorDescription(!description.trim());
 
@@ -137,6 +212,7 @@ const EventSettings: FC = () => {
       formData.append('description', description);
       formData.append('startDate', date + 'T' + startHour + ':00.000Z');
       formData.append('endDate', date + 'T' + endHour + ':00.000Z');
+      formData.append('tags', JSON.stringify(tags));
       if (selectedImage) formData.append('miniature', selectedImage);
 
       const res = await updateEvent(eventId, formData);
@@ -209,7 +285,7 @@ const EventSettings: FC = () => {
       id: eventId || '',
       name: name || t('NameEvent'),
       description,
-      tags: '',
+      tags: tags,
       startDate,
       endDate,
       published: false,
@@ -275,7 +351,7 @@ const EventSettings: FC = () => {
         eventClosed={!eventClosed && userId === creatorId}
       />
 
-      <form onSubmit={handleSubmit} className={styles.eventSettings}>
+      <div className={styles.eventSettings}>
         <div className={styles.topLayout}>
           <div className={styles.titleLayout}>
             <NavigateBackButton />
@@ -388,6 +464,38 @@ const EventSettings: FC = () => {
           />
         </div>
 
+        <div className={styles.inputWrapper}>
+          <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
+            <SuggestionBar
+              onClick={selectTag}
+              placeholder="Tags"
+              type={SuggestionType.TAG}
+              name="suggestionTag"
+              onAdd={addTag}
+            />
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: '10px',
+              }}
+            >
+              {tags.map((tag, index) => (
+                <Tag
+                  key={index}
+                  content={tag.name}
+                  type={TagType.DEFAULT}
+                  editable={!eventClosed}
+                  delete={handleDeleteTag}
+                  style={{ flex: '25%' }}
+                />
+              ))}
+            </div>
+          </Card>
+        </div>
+
         {!eventClosed && (
           <div className={styles.confirmationButtons}>
             <Button
@@ -404,6 +512,7 @@ const EventSettings: FC = () => {
               type={
                 isButtonDisabled ? ButtonType.disabled : ButtonType.secondary
               }
+              onClick={handleSubmit}
             />
           </div>
         )}
@@ -418,7 +527,7 @@ const EventSettings: FC = () => {
             />
           </div>
         </Modal>
-      </form>
+      </div>
 
       <div className={styles.preview}>
         <h2>{t('Preview')}</h2>

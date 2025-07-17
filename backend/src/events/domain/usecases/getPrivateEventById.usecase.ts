@@ -21,7 +21,6 @@ export class GetPrivateEventByIdUsecase {
     const event = await this.eventGateway.getEventById(id);
     if (!event) throw new NotFoundException('Event not found');
     if (!event.canBeReadBy(user)) throw new UnauthorizedException();
-
     return event;
   }
 }

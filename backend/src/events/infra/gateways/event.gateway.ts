@@ -51,7 +51,13 @@ export class EventGateway implements IEventGateway {
         where: {
           ...filter,
         },
-        relations: ['creator', 'tracks', 'tracks.speakers', 'usersSubscribe'],
+        relations: [
+          'creator',
+          'tracks',
+          'tracks.speakers',
+          'usersSubscribe',
+          'tags',
+        ],
       })
       .then((entities) => entities.map(toEventObject));
   }
@@ -63,6 +69,18 @@ export class EventGateway implements IEventGateway {
       },
     });
     const eventEntity = toEventEntity(eventDetails);
+
+    // Traitement des tags (comme dans createNewEvent)
+    let tags: TagEntity[] = [];
+    if (typeof eventDetails.tags === 'string') {
+      tags = JSON.parse(eventDetails.tags).map(
+        (tag: any) => new TagEntity(tag),
+      );
+    } else if (Array.isArray(eventDetails.tags)) {
+      tags = eventDetails.tags.map((tag: any) => new TagEntity(tag));
+    }
+    eventEntity.tags = tags;
+
     eventEntity.usersSubscribe = await Promise.all(
       eventDetails.usersSubscribe.map(async (publicUser) => {
         const full = await this.userRepository.findOneBy({ id: publicUser.id });
@@ -85,7 +103,13 @@ export class EventGateway implements IEventGateway {
   async getEventById(id: string): Promise<EventObject> {
     const entity = await this.eventsRepository.findOne({
       where: { id },
-      relations: ['creator', 'tracks', 'tracks.speakers', 'usersSubscribe'],
+      relations: [
+        'creator',
+        'tracks',
+        'tracks.speakers',
+        'usersSubscribe',
+        'tags',
+      ],
     });
 
     if (!entity) return null;

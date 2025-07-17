@@ -2,7 +2,7 @@ import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
-import { createEvent } from '../../utils/api';
+import { createEvent, createTag, findTag } from '../../utils/api';
 import { api } from '../../utils/api';
 import logger from '../../utils/logger';
 
@@ -15,9 +15,20 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
 import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
 import { EventStatus } from '../../utils/EventStatus';
-import { PublicEvent, PublicUser } from '../../utils/EventsProperties';
+import {
+  PublicEvent,
+  PublicUser,
+  Tag_event,
+} from '../../utils/EventsProperties';
 import styles from './createEvent.module.css';
-
+import Card from '../../components/ReworkComponents/generic/Cards/Card';
+import SuggestionBar, {
+  SuggestionType,
+  Suggestion,
+} from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
+import Tag, {
+  TagType,
+} from '../../components/ReworkComponents/generic/Tag/Tag';
 const CreateEventPage: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -48,10 +59,28 @@ const CreateEventPage: React.FC = () => {
       setSelectedImage(file);
     }
   };
+  const isTagVideo = (suggestion: Suggestion): suggestion is Tag_event => {
+    return 'id' in suggestion && 'name' in suggestion;
+  };
+  const [tags, setTags] = useState<Tag_event[]>([]);
+  const selectTag = (tagChoosen: Suggestion) => {
+    if (
+      isTagVideo(tagChoosen) &&
+      tags.some((tag) => tag.name === tagChoosen.name)
+    ) {
+      setToast({
+        message: t('tagAlreadyExists') + '.',
+        type: 'info',
+      });
+      return;
+    }
+    setTags([...tags, tagChoosen as Tag_event]);
+  };
+  const handleDeleteTag = (name: string) => {
+    setTags(tags.filter((tag) => tag.name !== name));
+  };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async () => {
     // Empêcher les double-clics
     if (isCreatingEvent) {
       return;
@@ -90,6 +119,7 @@ const CreateEventPage: React.FC = () => {
         formData.append('startDate', startDateISOString);
         formData.append('endDate', endDateISOString);
         if (selectedImage) formData.append('miniature', selectedImage);
+        formData.append('tags', JSON.stringify(tags));
 
         const res = await createEvent(formData);
 
@@ -125,7 +155,7 @@ const CreateEventPage: React.FC = () => {
       id: 'preview-id',
       name: name || t('NameEvent'),
       description,
-      tags: '',
+      tags: tags,
       startDate,
       endDate,
       published: false,
@@ -140,6 +170,40 @@ const CreateEventPage: React.FC = () => {
     };
   };
 
+  const addTag = (query: string) => {
+    createTag({ name: query })
+      .then(async (response) => {
+        if (
+          response.status === 202 ||
+          response.status === 201 ||
+          response.status === 204 ||
+          response.status === 200
+        ) {
+          setToast({
+            message: t('tagCreated'),
+            type: 'success',
+          });
+          const response = await findTag(query);
+          const newTag = response.data[0];
+          if (!tags.some((tag) => tag.name === newTag.name)) {
+            setTags([...tags, newTag]);
+          }
+        } else {
+          setToast({
+            message: t('failedLoading') + `:${response}`,
+            type: 'error',
+          });
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur lors du chargement de la vidéo :', error);
+        setToast({
+          message: t('failedLoadingVideo'),
+          type: 'error',
+        });
+      });
+  };
+
   return (
     <>
       <div className={styles.header}>
@@ -149,7 +213,7 @@ const CreateEventPage: React.FC = () => {
 
       <div className={styles.events}>
         <div className={styles.contentWrapper}>
-          <form className={styles.addEventForm} onSubmit={handleSubmit}>
+          <div className={styles.addEventForm}>
             <div className={styles.inputWrapper}>
               <label>{t('NameEvent')}</label>
               <input
@@ -213,18 +277,49 @@ const CreateEventPage: React.FC = () => {
                 required
               />
             </div>
-
+            <div className={styles.inputWrapper}>
+              <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
+                <SuggestionBar
+                  onClick={selectTag}
+                  placeholder="Tags"
+                  type={SuggestionType.TAG}
+                  name="suggestionTag"
+                  onAdd={addTag}
+                />
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    justifyContent: 'center',
+                    gap: '10px',
+                  }}
+                >
+                  {tags.map((tag, index) => (
+                    <Tag
+                      key={index}
+                      content={tag.name}
+                      type={TagType.DEFAULT}
+                      editable={true}
+                      delete={handleDeleteTag}
+                      style={{ flex: '25%' }}
+                    />
+                  ))}
+                </div>
+              </Card>
+            </div>
             <div
               className={`${styles.buttonEventCreation} ${styles.desktopOnly}`}
             >
               <Button
+                onClick={handleSubmit}
                 label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
                 type={
                   isCreatingEvent ? ButtonType.disabled : ButtonType.primary
                 }
               />
             </div>
-          </form>
+          </div>
 
           <div className={styles.preview}>
             <h2>{t('Preview')}</h2>
@@ -237,6 +332,7 @@ const CreateEventPage: React.FC = () => {
 
           <div className={`${styles.buttonEventCreation} ${styles.mobileOnly}`}>
             <Button
+              onClick={handleSubmit}
               label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
               type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
             />

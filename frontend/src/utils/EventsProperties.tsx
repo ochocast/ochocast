@@ -2,7 +2,7 @@ export default interface Event {
   id: string;
   name: string;
   description: string;
-  tags: string;
+  tags: Tag_event[];
   startDate: Date;
   endDate: Date;
   published: boolean;
@@ -15,6 +15,11 @@ export default interface Event {
   createdAt: Date;
   usersSubscribe: PublicUser[];
   // eslint-disable-next-line
+}
+
+export interface Tag_event {
+  id: string;
+  name: string;
 }
 
 export interface Track {
@@ -45,7 +50,7 @@ export interface PublicEvent {
   id: string;
   name: string;
   description: string;
-  tags: string;
+  tags: Tag_event[];
   startDate: Date;
   endDate: Date;
   published: boolean;
