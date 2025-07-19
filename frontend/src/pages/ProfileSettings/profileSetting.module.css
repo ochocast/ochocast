@@ -91,3 +91,28 @@ Button {
 .display_with_margin {
   margin: 1.5rem;
 }
+
+.descriptionTextarea {
+  margin-top: 3px;
+  border: 2px solid var(--theme-color-2000);
+  border-radius: 100px;
+  width: 500px;
+  height: 4em;
+  line-height: 1.5em;
+  text-align: left;
+  font-size: 1rem;
+  padding: 10px;
+  resize: none;
+  margin-left: -10px;
+}
+
+
+.pseudoInput {
+  border: 2px solid var(--theme-color-2000);
+  border-radius: 100px;
+  width: -webkit-fill-available;
+  height: -webkit-fill-available;
+  text-align: left;
+  padding: 8px;
+  margin-left: -10px;
+}

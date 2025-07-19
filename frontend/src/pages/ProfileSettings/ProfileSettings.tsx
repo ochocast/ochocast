@@ -224,33 +224,18 @@ const ProfileSetting = () => {
                   placeholder={currentUser?.firstName || 'Pseudo'}
                   value={pseudo}
                   onChange={(e) => setPseudo(e.target.value)}
-                  className={style.input}
-                  style={{
-                    border: '1px solid var(--theme-color-2000)',
-                    borderRadius: 'inherit',
-                    width: '-webkit-fill-available',
-                    height: '-webkit-fill-available',
-                    textAlign: 'left',
-                  }}
+                  className={`${style.input} ${style.pseudoInput}`}
                 />
               </h2>
               <h5 className={style.email}>
                 {t('Email')} {currentUser?.email}
               </h5>
               <span className={style.descriptionTitle}>{t('Description')}</span>
-              <input
-                type="text"
+              <textarea
                 placeholder={currentUser?.description || ''}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className={style.input}
-                style={{
-                  border: '1px solid var(--theme-color-2000)',
-                  borderRadius: 'inherit',
-                  width: '-webkit-fill-available',
-                  height: '-webkit-fill-available',
-                  textAlign: 'left',
-                }}
+                className={`${style.input} ${style.descriptionTextarea}`}
               />
             </div>
             <div className={style.button_line}>
