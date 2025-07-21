@@ -679,17 +679,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             onChange={handleDescriptionChange}
           />
           <div className="buttonContainer">
-            <Button
-              onClick={deleteThisVideo}
-              label={t('archive')}
-              type={ButtonType.primary}
-            ></Button>
             {videoId !== undefined ? (
-              <Button
-                onClick={updateVideo}
-                label={t('modifyVideo')}
-                type={ButtonType.primary}
-              ></Button>
+              <>
+                <Button
+                  onClick={deleteThisVideo}
+                  label={t('archive')}
+                  type={ButtonType.primary}
+                ></Button>
+                <Button
+                  onClick={updateVideo}
+                  label={t('modifyVideo')}
+                  type={ButtonType.primary}
+                ></Button>
+              </>
             ) : (
               <Button
                 onClick={publishVideo}
