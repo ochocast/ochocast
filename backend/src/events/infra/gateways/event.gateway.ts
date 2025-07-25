@@ -70,7 +70,6 @@ export class EventGateway implements IEventGateway {
     });
     const eventEntity = toEventEntity(eventDetails);
 
-    // Traitement des tags (comme dans createNewEvent)
     let tags: TagEntity[] = [];
     if (typeof eventDetails.tags === 'string') {
       tags = JSON.parse(eventDetails.tags).map(
