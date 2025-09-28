@@ -65,7 +65,7 @@ export class ConfigController {
         currentUserEmail,
         configFile,
         images,
-        imageIds,
+        typeof imageIds == 'string' ? [imageIds] : imageIds,
       );
     } catch (error) {
       throw new HttpException(
