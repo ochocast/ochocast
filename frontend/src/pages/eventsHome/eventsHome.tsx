@@ -13,7 +13,7 @@ import { PublicEvent } from '../../utils/EventsProperties';
 import { EventStatus } from '../../utils/EventStatus';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
 import { getEventsMiniature, getPublishedEvents } from '../../utils/api';
-import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../context/BrandingContext';
 import logger from '../../utils/logger';
 import { useNavigate } from 'react-router-dom';
 
@@ -39,13 +39,30 @@ const EventsHomePage = () => {
   // const userString = localStorage.getItem('backendUser');
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { getImageUrl } = useBrandingContext();
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>(
     {},
   );
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
 
   const fetchMiniatures = useCallback(async () => {
     const newURLs: Record<string, string> = {};
@@ -57,19 +74,21 @@ const EventsHomePage = () => {
           if (res?.data?.url && !res.data.url.includes('imageSlug')) {
             newURLs[event.id] = res.data.url;
           } else {
-            newURLs[event.id] = fallbackMiniature;
+            newURLs[event.id] =
+              fallbackMiniatureUrl || '/exemple/image_tuile_event.png';
           }
         } catch (err) {
           console.error(
             `Erreur récupération miniature pour event ${event.id}`,
             err,
           );
-          newURLs[event.id] = fallbackMiniature;
+          newURLs[event.id] =
+            fallbackMiniatureUrl || '/exemple/image_tuile_event.png';
         }
       }),
     );
     setMiniatureURLs(newURLs);
-  }, [events]);
+  }, [events, fallbackMiniatureUrl]);
   useEffect(() => {
     // Assurez-vous que les headers API sont configurés avec le token
     if (auth.user?.access_token) {

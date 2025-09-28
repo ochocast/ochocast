@@ -1,4 +1,4 @@
-import React, { useState, ChangeEvent } from 'react';
+import React, { useState, ChangeEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
@@ -13,7 +13,7 @@ import Button, {
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
-import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../context/BrandingContext';
 import { EventStatus } from '../../utils/EventStatus';
 import {
   PublicEvent,
@@ -33,6 +33,7 @@ const CreateEventPage: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { getImageUrl } = useBrandingContext();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -41,6 +42,9 @@ const CreateEventPage: React.FC = () => {
   const [endHour, setEndHour] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
   const [toast, setToast] = useState<{
     message: string;
     type?: 'success' | 'error' | 'info';
@@ -48,6 +52,18 @@ const CreateEventPage: React.FC = () => {
   const [errorName, setErrorName] = useState(false);
   const [errorDescription, setErrorDescription] = useState(false);
   const [isCreatingEvent, setIsCreatingEvent] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -113,7 +129,10 @@ const CreateEventPage: React.FC = () => {
         ).toISOString();
 
         const formData = new FormData();
-        formData.append('image_slug', selectedImage?.name || fallbackMiniature);
+        formData.append(
+          'image_slug',
+          selectedImage?.name || fallbackMiniatureUrl || 'default-image',
+        );
         formData.append('name', name);
         formData.append('description', description);
         formData.append('startDate', startDateISOString);
@@ -325,7 +344,11 @@ const CreateEventPage: React.FC = () => {
             <h2>{t('Preview')}</h2>
             <EventBox
               event={getPreviewEvent()}
-              imageURL={imageUrl || fallbackMiniature}
+              imageURL={
+                imageUrl ||
+                fallbackMiniatureUrl ||
+                '/exemple/image_tuile_event.png'
+              }
               eventStatus={EventStatus.Preview}
             />
           </div>

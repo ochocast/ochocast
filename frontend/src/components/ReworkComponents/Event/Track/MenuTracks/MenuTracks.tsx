@@ -1,10 +1,10 @@
 import React from 'react';
 import styles from './MenuTracks.module.css';
 import { Track } from '../../../../../utils/EventsProperties';
-import addButton from '../../../../../assets/addButton.png';
 import { useTranslation } from 'react-i18next';
 
 import { useNavigate } from 'react-router-dom';
+import BrandingImage from '../../../BrandingImage/BrandingImage';
 
 export interface MenuTracksProps {
   tracks: Track[];
@@ -23,7 +23,7 @@ const MenuTracks = (props: MenuTracksProps) => {
       type="button"
       onClick={() => navigate(`/events/${props.eventId}/track-settings`)}
     >
-      <img src={addButton} alt="buttonpng" />
+      <BrandingImage imageKey="add" alt="buttonpng" />
     </button>
   );
 

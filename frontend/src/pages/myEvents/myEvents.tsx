@@ -16,7 +16,7 @@ import {
   getUnpublishedEvents,
   publishEvent,
 } from '../../utils/api';
-import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../context/BrandingContext';
 import logger from '../../utils/logger';
 import DisableEventBox from '../../components/ReworkComponents/Event/EventBox/DisableEventBox/DisableEventBox';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
@@ -45,6 +45,8 @@ const MyEvents = () => {
   const auth = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { getImageUrl } = useBrandingContext();
+
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [publishEvents, setPublishEvents] = useState<PublicEvent[]>([]);
@@ -53,11 +55,26 @@ const MyEvents = () => {
   const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>(
     {},
   );
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState<{
     message: string;
     type?: 'success' | 'error' | 'info';
   } | null>(null);
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
 
   const fetchMiniatures = useCallback(async () => {
     const newURLs: Record<string, string> = {};
@@ -72,19 +89,21 @@ const MyEvents = () => {
             if (res?.data?.url && !res.data.url.includes('imageSlug')) {
               newURLs[event.id] = res.data.url;
             } else {
-              newURLs[event.id] = fallbackMiniature;
+              newURLs[event.id] =
+                fallbackMiniatureUrl || '/exemple/image_tuile_event.png';
             }
           } catch (err) {
             console.error(
               `Erreur récupération miniature pour event ${event.id}`,
               err,
             );
-            newURLs[event.id] = fallbackMiniature;
+            newURLs[event.id] =
+              fallbackMiniatureUrl || '/exemple/image_tuile_event.png';
           }
         }),
     );
     setMiniatureURLs(newURLs);
-  }, [publishEvents, unpublishEvents, closeEvents]);
+  }, [publishEvents, unpublishEvents, closeEvents, fallbackMiniatureUrl]);
 
   const fetchEventData = async () => {
     setIsLoading(true);

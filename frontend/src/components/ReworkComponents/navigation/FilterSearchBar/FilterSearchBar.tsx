@@ -3,10 +3,11 @@ import { Tag_video, User } from '../../../../utils/VideoProperties';
 import { findTags, findUsers } from '../../../../utils/api';
 import logger from '../../../../utils/logger';
 import React, { useState, useRef } from 'react';
+import BrandingImage from '../../BrandingImage/BrandingImage';
 
 export enum FilterSearchBarIcon {
-  SEARCH = 'plus.svg',
-  ADD = 'add.svg',
+  SEARCH = 'plus',
+  ADD = 'add',
 }
 
 export interface FilterSearchBarProps {
@@ -91,13 +92,18 @@ const FilterSearchBar = ({
           />
         )}
         <button onClick={handleClick} className={styles.searchButton}>
-          <img
+          <BrandingImage
             className={styles.searchIcon}
             alt="Search"
-            src={
+            imageKey={
               icon === FilterSearchBarIcon.ADD
                 ? FilterSearchBarIcon.ADD
                 : FilterSearchBarIcon.SEARCH
+            }
+            fallbackSrc={
+              icon === FilterSearchBarIcon.ADD
+                ? FilterSearchBarIcon.ADD + '.svg'
+                : FilterSearchBarIcon.SEARCH + '.svg'
             }
           />
         </button>

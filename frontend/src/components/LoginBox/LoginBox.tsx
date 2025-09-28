@@ -5,8 +5,6 @@ import { useTranslation } from 'react-i18next';
 
 import './LoginBox.css';
 
-import octoLogo from '../../assets/octoBichrome.png';
-
 interface LoginBoxProps {}
 
 const LoginBox: FC<LoginBoxProps> = () => {
@@ -16,7 +14,6 @@ const LoginBox: FC<LoginBoxProps> = () => {
 
   return (
     <div className="LoginBox">
-      <img className="Bichrome" src={octoLogo} alt="BichromeLogo"></img>
       <h1>{t('LogIn')}</h1>
       <hr />
       <button className="btn" onClick={() => auth.signinRedirect()}>

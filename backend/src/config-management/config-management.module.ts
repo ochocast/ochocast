@@ -8,6 +8,7 @@ import { GetConfigFileUrlUsecase } from './domain/usecases/getConfigFileUrl.usec
 import { ResetConfigUsecase } from './domain/usecases/resetConfig.usecase';
 import { UsersModule } from '../users/users.module';
 import { S3Module } from '../s3.module';
+import { GetPictureUrlUsecase } from './domain/usecases/getPictureUrlUsecase';
 
 @Module({
   imports: [
@@ -24,15 +25,7 @@ import { S3Module } from '../s3.module';
     AddConfigFileUsecase,
     GetConfigFileUrlUsecase,
     ResetConfigUsecase,
-  ],
-  exports: [
-    {
-      provide: 'ConfigGateway',
-      useClass: ConfigGateway,
-    },
-    AddConfigFileUsecase,
-    GetConfigFileUrlUsecase,
-    ResetConfigUsecase,
+    GetPictureUrlUsecase,
   ],
 })
 export class ConfigManagementModule {}

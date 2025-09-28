@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './Thumbnail.module.css';
 import Tag from '../../generic/Tag/Tag';
-import miniatureLogo from '../../../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
 import Button, { ButtonType } from '../../generic/Button/Button';
@@ -28,6 +28,11 @@ export interface PreviewMinitureProps {
 
 const Thumbnail = (props: PreviewMinitureProps) => {
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const { getImageUrl } = useBrandingContext();
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
+
   const toggleFavorite = async () => {
     try {
       if (isFavorite) {
@@ -48,6 +53,19 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   );
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
+
   useEffect(() => {
     const fetchMiniatureUrl = async () => {
       if (props.Id) {
@@ -57,7 +75,11 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           if (url?.data.includes('miniatureundefined')) {
             return;
           }
-          setMiniatureUrl(url?.data || miniatureLogo);
+          setMiniatureUrl(
+            url?.data ||
+              fallbackMiniatureUrl ||
+              '/exemple/image_tuile_event.png',
+          );
         } catch (error) {
           console.error('Error fetching miniature URL', error);
         }
@@ -75,7 +97,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
     fetchMiniatureUrl();
     fetchFavoriteStatus();
-  }, [props.Id]);
+  }, [props.Id, fallbackMiniatureUrl]);
 
   const dateDisplay = new Date(props.createdAt); // to be able to getDay..
 

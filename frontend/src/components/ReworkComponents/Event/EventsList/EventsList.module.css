@@ -4,6 +4,7 @@
   justify-content: center;
   margin: 63px;
   row-gap: 50px;
+  --arrow-color: var(--theme-color-700);
 }
 
 .title {

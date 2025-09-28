@@ -44,7 +44,7 @@ import Tag, {
   TagType,
 } from '../../components/ReworkComponents/generic/Tag/Tag';
 
-import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../context/BrandingContext';
 import { EventStatus } from '../../utils/EventStatus';
 
 import styles from './eventSettings.module.css';
@@ -54,6 +54,7 @@ const EventSettings: FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user } = useUser();
+  const { getImageUrl } = useBrandingContext();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -76,6 +77,9 @@ const EventSettings: FC = () => {
   const [previewMiniatureUrl, setPreviewMiniatureUrl] = useState<string | null>(
     null,
   );
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
   const [eventClosed, setEventClosed] = useState(false);
   const [errorName, setErrorName] = useState(false);
   const [errorDescription, setErrorDescription] = useState(false);
@@ -85,6 +89,18 @@ const EventSettings: FC = () => {
 
   const userString = localStorage.getItem('backendUser');
   const userId = userString ? JSON.parse(userString).id : '';
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
 
   const isTagVideo = (suggestion: Suggestion): suggestion is Tag_event => {
     return 'id' in suggestion && 'name' in suggestion;
@@ -153,13 +169,17 @@ const EventSettings: FC = () => {
       if (res?.data?.url && !res.data.url.includes('imageSlug')) {
         setPreviewMiniatureUrl(res.data.url);
       } else {
-        setPreviewMiniatureUrl(fallbackMiniature);
+        setPreviewMiniatureUrl(
+          fallbackMiniatureUrl || '/exemple/image_tuile_event.png',
+        );
       }
     } catch (err) {
       console.error(`Erreur récupération miniature pour event ${eventId}`, err);
-      setPreviewMiniatureUrl(fallbackMiniature);
+      setPreviewMiniatureUrl(
+        fallbackMiniatureUrl || '/exemple/image_tuile_event.png',
+      );
     }
-  }, [eventId]);
+  }, [eventId, fallbackMiniatureUrl]);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -206,7 +226,10 @@ const EventSettings: FC = () => {
 
     try {
       const formData = new FormData();
-      formData.append('image_slug', selectedImage?.name || fallbackMiniature);
+      formData.append(
+        'image_slug',
+        selectedImage?.name || fallbackMiniatureUrl || 'default-image',
+      );
       formData.append('name', name);
       formData.append('description', description);
       formData.append('startDate', date + 'T' + startHour + ':00.000Z');
@@ -532,7 +555,12 @@ const EventSettings: FC = () => {
         <h2>{t('Preview')}</h2>
         <EventBox
           event={getPreviewEvent()}
-          imageURL={imageUrl || previewMiniatureUrl || fallbackMiniature}
+          imageURL={
+            imageUrl ||
+            previewMiniatureUrl ||
+            fallbackMiniatureUrl ||
+            '/exemple/image_tuile_event.png'
+          }
           eventStatus={EventStatus.Preview}
         />
       </div>

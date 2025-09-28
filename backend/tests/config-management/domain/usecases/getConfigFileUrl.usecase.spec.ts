@@ -46,12 +46,12 @@ describe('GetConfigFileUrlUsecase', () => {
     );
 
     // Mock environment variable
-    process.env.STOCK_MINIATURE_BUCKET = 'test-bucket';
+    process.env.STOCK_BRANDING_BUCKET = 'test-bucket';
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-    delete process.env.STOCK_MINIATURE_BUCKET;
+    delete process.env.STOCK_BRANDING_BUCKET;
   });
 
   describe('execute', () => {

@@ -23,6 +23,8 @@ export class AddConfigFileUsecase {
   async execute(
     currentUserEmail: string,
     configFile: Express.Multer.File,
+    images?: Express.Multer.File[],
+    imageIds?: string[],
   ): Promise<ConfigObject> {
     // Vérifier que l'utilisateur est admin
     const user = await this.userGateway.getUserByEmail(currentUserEmail);
@@ -54,17 +56,35 @@ export class AddConfigFileUsecase {
 
     try {
       const key = `config/${uniqueFileName}`;
-      // Upload vers S3
+
+      // Upload config file to S3
       const upload = new Upload({
         client: this.s3Client,
         params: {
-          Bucket: process.env.STOCK_MINIATURE_BUCKET, // Use the correct bucket for config files
+          Bucket: process.env.STOCK_BRANDING_BUCKET,
           Key: key,
           Body: configFile.buffer,
           ContentType: 'text/yaml',
         },
       });
       const result = await upload.done();
+
+      // Upload images if provided
+      if (images && images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          const image = images[i];
+          const imageUpload = new Upload({
+            client: this.s3Client,
+            params: {
+              Bucket: process.env.STOCK_BRANDING_BUCKET,
+              Key: imageIds[i],
+              Body: image.buffer,
+              ContentType: image.mimetype,
+            },
+          });
+          await imageUpload.done();
+        }
+      }
 
       // Créer l'objet config
       const configObject = new ConfigObject(uuid(), key, new Date());

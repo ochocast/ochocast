@@ -1,9 +1,10 @@
-import React, { FC, useEffect, useState } from 'react';
+import React, { FC, useEffect, useState, ChangeEvent } from 'react';
 import styles from './adminPanel.module.css';
 import { useTranslation } from 'react-i18next';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
-import { getConfig, uploadConfig } from '../../utils/api';
+import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
+import { getConfig, uploadConfig, getBrandingPicture } from '../../utils/api';
 import yaml from 'js-yaml';
 import { BrandingConfig } from '../../branding/types';
 import { useUser } from '../../context/UserContext';
@@ -85,6 +86,10 @@ const AdminPanel: FC<AdminPanelProps> = () => {
     type: 'success' | 'error' | 'info';
   } | null>(null);
   const [iswaiting, setIswaiting] = useState<boolean>(false);
+  const [selectedImages, setSelectedImages] = useState<{ [key: string]: File }>(
+    {},
+  );
+  const [imageUrls, setImageUrls] = useState<{ [key: string]: string }>({});
 
   // Fonction pour comparer les données et détecter les changements
   const checkForChanges = (
@@ -93,6 +98,56 @@ const AdminPanel: FC<AdminPanelProps> = () => {
   ) => {
     if (!current || !original) return false;
     return JSON.stringify(current) !== JSON.stringify(original);
+  };
+
+  // Gestion des images
+  const handleImageChange =
+    (imageKey: string) => (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setSelectedImages((prev) => ({
+        ...prev,
+        [imageKey]: file,
+      }));
+
+      // Update formData with the new image filename
+      setFormData((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          images: {
+            ...prev.images,
+            [imageKey]: file.name,
+          },
+        };
+      });
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrls((prev) => ({
+            ...prev,
+            [imageKey]: reader.result as string,
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+      setHasChanges(true);
+    };
+
+  const fetchImageUrl = async (imageKey: string, imagePath: string) => {
+    try {
+      const response = await getBrandingPicture(imagePath);
+      if (response.status === 200 && response.data?.url) {
+        setImageUrls((prev) => ({
+          ...prev,
+          [imageKey]: response.data.url,
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching image ${imageKey}:`, error);
+    }
   };
 
   useEffect(() => {
@@ -110,8 +165,15 @@ const AdminPanel: FC<AdminPanelProps> = () => {
       for (const key in parsed.colors) {
         parsed.colors[key] = getColorInputValue(parsed.colors[key]);
       }
-      setFormData(parsed); // Initialiser le formulaire avec les valeurs par défaut
-      setOriginalFormData(JSON.parse(JSON.stringify(parsed))); // Sauvegarder les données originales
+      setFormData(parsed);
+      setOriginalFormData(JSON.parse(JSON.stringify(parsed)));
+
+      // Charger les images existantes
+      if (parsed.images) {
+        Object.entries(parsed.images).forEach(([key, imagePath]) => {
+          fetchImageUrl(key, imagePath);
+        });
+      }
     };
 
     fetchConfig();
@@ -177,6 +239,23 @@ const AdminPanel: FC<AdminPanelProps> = () => {
       const yamlBlob = new Blob([yamlString], { type: 'application/x-yaml' });
       formDataToSend.append('file', yamlBlob, 'theme.yaml');
 
+      // Add selected images to FormData
+      const imageFiles = Object.values(selectedImages);
+      const imageIds = Object.keys(selectedImages);
+
+      imageFiles.forEach((file, index) => {
+        formDataToSend.append('images', file);
+      });
+
+      imageIds.forEach((imageId) => {
+        formDataToSend.append(
+          'imageIds',
+          formData.images?.[imageId] || imageId,
+        );
+      });
+
+      console.log('FormData to send:', formData);
+
       // Send the config to the backend
       const response = await uploadConfig(formDataToSend);
 
@@ -233,6 +312,37 @@ const AdminPanel: FC<AdminPanelProps> = () => {
     );
   };
 
+  const renderImageField = (imageKey: string) => {
+    const currentImageUrl = imageUrls[imageKey];
+
+    return (
+      <div key={imageKey} className={styles.formField}>
+        <label htmlFor={imageKey} className={styles.label}>
+          {imageKey}
+        </label>
+        {currentImageUrl && (
+          <div className={styles.imagePreview}>
+            <img
+              src={currentImageUrl}
+              alt={`Preview of ${imageKey}`}
+              style={{
+                maxWidth: '200px',
+                maxHeight: '100px',
+                objectFit: 'contain',
+              }}
+            />
+          </div>
+        )}
+        <InputFile
+          placeholder={t('ChooseThumbnail')}
+          onChange={handleImageChange(imageKey)}
+          disable={false}
+          required={false}
+        />
+      </div>
+    );
+  };
+
   return (
     <div className={styles.adminPanel}>
       {toast && (
@@ -270,21 +380,6 @@ const AdminPanel: FC<AdminPanelProps> = () => {
                       className={styles.textInput}
                     />
                   </div>
-
-                  <div className={styles.formField}>
-                    <label htmlFor="logo" className={styles.label}>
-                      {t('logoPath')}
-                    </label>
-                    <input
-                      type="text"
-                      id="logo"
-                      value={formData.logo}
-                      onChange={(e) =>
-                        handleInputChange('logo', e.target.value)
-                      }
-                      className={styles.textInput}
-                    />
-                  </div>
                 </div>
 
                 {/* Couleurs */}
@@ -293,6 +388,16 @@ const AdminPanel: FC<AdminPanelProps> = () => {
                   <div className={styles.colorGrid}>
                     {Object.entries(formData.colors).map(([key, value]) =>
                       renderColorField(key, value),
+                    )}
+                  </div>
+                </div>
+
+                {/* Images de branding */}
+                <div className={styles.formSection}>
+                  <h3>Images de branding</h3>
+                  <div className={styles.imageGrid}>
+                    {(formData.images ? Object.keys(formData.images) : []).map(
+                      (imageKey) => renderImageField(imageKey),
                     )}
                   </div>
                 </div>

@@ -22,8 +22,6 @@ export class GetMiniatureUsecase {
 
     // Generate a signed URL valid for 1 hour
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
-    console.log(url);
-    console.log(`Miniature url: ${url}`);
 
     return url;
   }

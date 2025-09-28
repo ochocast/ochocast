@@ -25,6 +25,7 @@ Assurez-vous que les variables d’environnement suivantes sont définies dans l
 STOCK_MEDIA_BUCKET=media
 STOCK_MINIATURE_BUCKET=miniature
 STOCK_PROFILE_PICTURE_BUCKET=picture
+STOCK_BRANDING_BUCKET=branding
 ```
 
 ### Création des Buckets Locaux
@@ -34,6 +35,7 @@ Pour stocker les fichiers de médias et d'images (miniatures, photos de profil),
 - `media`
 - `miniature`
 - `picture`
+- `branding`
 
 ### Accéder à la Console MinIO
 

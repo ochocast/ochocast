@@ -8,7 +8,7 @@ import styles from './tracks.module.css';
 import { getEventsMiniature, getPublicEvent } from '../../utils/api';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import { useTranslation } from 'react-i18next';
-import fallbackMiniature from '../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../context/BrandingContext';
 
 export interface tracksProps {}
 
@@ -25,9 +25,26 @@ const TracksPage: FC<tracksProps> = () => {
   const [event, setEvent] = useState<PublicEvent | undefined>(undefined);
   const { eventId } = useParams();
   const { t } = useTranslation();
+  const { getImageUrl } = useBrandingContext();
+
   const [miniatureURL, setMiniatureURL] = useState<string | undefined>(
     undefined,
   );
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
 
   useEffect(() => {
     const fetchEventData = async () => {
@@ -49,20 +66,24 @@ const TracksPage: FC<tracksProps> = () => {
           if (res?.data?.url && !res.data.url.includes('imageSlug')) {
             setMiniatureURL(res.data.url);
           } else {
-            setMiniatureURL(fallbackMiniature);
+            setMiniatureURL(
+              fallbackMiniatureUrl || '/exemple/image_tuile_event.png',
+            );
           }
         } catch (err) {
           console.error(
             `Erreur récupération miniature pour event ${event.id}`,
             err,
           );
-          setMiniatureURL(fallbackMiniature);
+          setMiniatureURL(
+            fallbackMiniatureUrl || '/exemple/image_tuile_event.png',
+          );
         }
       }
     };
 
     fetchEventData();
-  }, [eventId]);
+  }, [eventId, fallbackMiniatureUrl]);
 
   const tracklist = event?.tracks?.length ? (
     <div className={styles.tracksContainer}>

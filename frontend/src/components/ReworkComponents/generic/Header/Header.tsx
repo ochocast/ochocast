@@ -7,6 +7,7 @@ import { UserBadge } from './UserBadge/UserBadge';
 import NavItems from './NavItems/NavItems';
 import LanguageSwitcher from '../../../Language/LanguageSwitcher';
 import { useBrandingContext } from '../../../../context/BrandingContext';
+import BrandingImage from '../../BrandingImage/BrandingImage';
 
 export interface HeaderProps {}
 
@@ -24,11 +25,12 @@ const Header: FC<HeaderProps> = () => {
   return (
     <div className={styles.Header}>
       <div className={styles.LogoDiv}>
-        <img
-          className={styles.Logo}
-          src={branding.logo}
+        <BrandingImage
+          imageKey="logo"
           alt={`${branding.appName} logo`}
+          className={styles.Logo}
           onClick={() => navigate('/')}
+          fallbackSrc={`ochoIconFull.svg`}
         />
       </div>
 

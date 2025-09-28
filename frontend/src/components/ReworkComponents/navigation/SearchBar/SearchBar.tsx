@@ -4,10 +4,11 @@ import { findTags, findUsers } from '../../../../utils/api';
 import logger from '../../../../utils/logger';
 import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import BrandingImage from '../../BrandingImage/BrandingImage';
 
 export enum SearchBarIcon {
-  SEARCH = 'search.svg',
-  ADD = 'add.svg',
+  SEARCH = 'search',
+  ADD = 'add',
 }
 
 export interface SearchBarProps {
@@ -133,13 +134,18 @@ const SearchBar = ({
           />
         )}
         <button onClick={handleClick} className={styles.searchButton}>
-          <img
+          <BrandingImage
             className={styles.searchIcon}
             alt="Search"
-            src={
+            imageKey={
               icon === SearchBarIcon.ADD
                 ? SearchBarIcon.ADD
                 : SearchBarIcon.SEARCH
+            }
+            fallbackSrc={
+              icon === SearchBarIcon.ADD
+                ? SearchBarIcon.ADD + '.svg'
+                : SearchBarIcon.SEARCH + '.svg'
             }
           />
         </button>

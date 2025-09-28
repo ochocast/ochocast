@@ -82,7 +82,7 @@ describe('AddConfigFileUsecase', () => {
       s3ClientMock,
     );
 
-    process.env.STOCK_MINIATURE_BUCKET = 'test-bucket';
+    process.env.STOCK_BRANDING_BUCKET = 'test-bucket';
 
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });

@@ -1,8 +1,7 @@
 import React, { FC } from 'react';
 
 import styles from './Tag.module.css';
-
-const DELETE_ICON = '/cross.svg';
+import BrandingImage from '../../BrandingImage/BrandingImage';
 
 export enum TagType {
   DEFAULT,
@@ -53,10 +52,10 @@ const Tag: FC<TagProps> = ({
         <span>{content}</span>
       </div>
       {editable && (
-        <img
+        <BrandingImage
           className={styles.icons}
           alt="delete"
-          src={DELETE_ICON}
+          imageKey="cross"
           onClick={onClick}
         />
       )}

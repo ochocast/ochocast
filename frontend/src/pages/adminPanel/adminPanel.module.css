@@ -127,6 +127,28 @@
   gap: 1rem;
 }
 
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.imagePreview {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  background-color: var(--theme-color-100);
+  text-align: center;
+}
+
+.imagePreview img {
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
 .submitButton {
   background-color: var(--theme-color-500);
   color: var(--theme-color-white);

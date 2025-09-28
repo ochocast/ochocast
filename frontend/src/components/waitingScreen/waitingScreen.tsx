@@ -1,18 +1,18 @@
 import React from 'react';
 import styles from './waitingScreen.module.css';
 import { useTranslation } from 'react-i18next';
-
-const LOGO_IMAGE = '/ochoIconFull.svg';
+import BrandingImage from '../ReworkComponents/BrandingImage/BrandingImage';
 
 const WaitingScreen = () => {
   const { t } = useTranslation();
 
   return (
     <div className={styles.waitingScreen}>
-      <img
-        src={LOGO_IMAGE}
-        alt="Waiting illustration"
+      <BrandingImage
+        imageKey="logo"
+        alt={'Waiting illustration'}
         className={styles.waitingIllustration}
+        fallbackSrc={`ochoIconFull.svg`}
       />
       <p className={styles.waitingText}>
         {t('Please wait')}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { EventStatus } from '../../../../utils/EventStatus';
@@ -10,7 +10,7 @@ import { PublicEvent } from '../../../../utils/EventsProperties';
 import { subscribeEvent } from '../../../../utils/api';
 import { t } from 'i18next';
 
-import defaultLogo from '../../../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../../../context/BrandingContext';
 
 interface EventBoxProps {
   event: PublicEvent;
@@ -24,6 +24,20 @@ const EventBox = (props: EventBoxProps) => {
   const dateDisplay = new Date(event.startDate);
   const navigate = useNavigate();
   const [nbSubscribe, setNbSubscribe] = useState(event.nbSubscription);
+  const { getImageUrl } = useBrandingContext();
+  const [defaultLogoUrl, setDefaultLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDefaultLogo = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setDefaultLogoUrl(url);
+      } catch (error) {
+        console.error('Error fetching default logo:', error);
+      }
+    };
+    fetchDefaultLogo();
+  }, [getImageUrl]);
 
   const editButton = (
     <div className={styles.editButton}>
@@ -96,10 +110,13 @@ const EventBox = (props: EventBoxProps) => {
       <div className={styles.imgWrapper}>
         <img
           className={styles.img}
-          src={props.imageURL || defaultLogo}
+          src={
+            props.imageURL || defaultLogoUrl || '/exemple/image_tuile_event.png'
+          }
           onError={(e) => {
             e.currentTarget.onerror = null;
-            e.currentTarget.src = defaultLogo;
+            e.currentTarget.src =
+              defaultLogoUrl || '/exemple/image_tuile_event.png';
           }}
           alt="img"
         ></img>

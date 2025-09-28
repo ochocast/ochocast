@@ -2,14 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PublicEvent } from '../../../../utils/EventsProperties';
 import { EventStatus } from '../../../../utils/EventStatus';
 
-import leftButton from '../../../../assets/gauche.png';
-import rightButton from '../../../../assets/droite.png';
-
 import EventBox from '../EventBox/EventBox';
+import ArrowIcon from './ArrowIcon';
 
 import styles from './EventsList.module.css';
 import { getEventsMiniature } from '../../../../utils/api';
-import fallbackMiniature from '../../../../assets/logo_2lignes_crop.png';
+import { useBrandingContext } from '../../../../context/BrandingContext';
 interface EventsListProps {
   eventStatus: EventStatus;
   title: string;
@@ -23,6 +21,22 @@ const EventsList = (props: EventsListProps) => {
   const [miniatureURLs, setMiniatureURLs] = useState<Record<string, string>>(
     {},
   );
+  const { getImageUrl } = useBrandingContext();
+  const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    const fetchFallbackMiniature = async () => {
+      try {
+        const url = await getImageUrl('default_miniature_image');
+        setFallbackMiniatureUrl(url);
+      } catch (error) {
+        console.error('Error fetching fallback miniature:', error);
+      }
+    };
+    fetchFallbackMiniature();
+  }, [getImageUrl]);
 
   const getEventsToShow = useCallback(() => {
     const events = props.events;
@@ -53,13 +67,14 @@ const EventsList = (props: EventsListProps) => {
     setIndex(i);
   };
 
-  const buttonGen = (img: string, onClick: () => void) => (
-    <img
+  const buttonGen = (direction: 'left' | 'right', onClick: () => void) => (
+    <ArrowIcon
+      direction={direction}
+      color="var(--arrow-color)"
+      size={128}
       className={styles.arrow}
-      src={img}
-      alt="Button"
       onClick={onClick}
-    ></img>
+    />
   );
 
   const fetchMiniatures = useCallback(async () => {
@@ -72,19 +87,21 @@ const EventsList = (props: EventsListProps) => {
           if (res?.data?.url && !res.data.url.includes('imageSlug')) {
             newURLs[event.id] = res.data.url;
           } else {
-            newURLs[event.id] = fallbackMiniature;
+            newURLs[event.id] =
+              fallbackMiniatureUrl || '/exemple/image_tuile_event.png';
           }
         } catch (err) {
           console.error(
             `Erreur récupération miniature pour event ${event.id}`,
             err,
           );
-          newURLs[event.id] = fallbackMiniature;
+          newURLs[event.id] =
+            fallbackMiniatureUrl || '/exemple/image_tuile_event.png';
         }
       }),
     );
     setMiniatureURLs(newURLs);
-  }, [props.events]);
+  }, [props.events, fallbackMiniatureUrl]);
 
   useEffect(() => {
     fetchMiniatures();
@@ -95,7 +112,7 @@ const EventsList = (props: EventsListProps) => {
       <div className={styles.title}>{props.title}</div>
       <div className={styles.list}>
         {props.events.length > 3 &&
-          buttonGen(leftButton, () => onArrowClick(false))}
+          buttonGen('left', () => onArrowClick(false))}
         <div className={styles.container}>
           {eventsShown.map((event) => (
             <EventBox
@@ -108,7 +125,7 @@ const EventsList = (props: EventsListProps) => {
           ))}
         </div>
         {props.events.length > 3 &&
-          buttonGen(rightButton, () => onArrowClick(true))}
+          buttonGen('right', () => onArrowClick(true))}
       </div>
     </div>
   );

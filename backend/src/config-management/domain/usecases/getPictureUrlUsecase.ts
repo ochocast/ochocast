@@ -4,7 +4,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 @Injectable()
-export class GetConfigFileUrlUsecase {
+export class GetPictureUrlUsecase {
   constructor(
     @Inject('ConfigGateway')
     private configGateway: IConfigGateway,
@@ -12,16 +12,10 @@ export class GetConfigFileUrlUsecase {
     private s3Client: S3Client,
   ) {}
 
-  async execute(): Promise<string> {
-    const latestConfig = await this.configGateway.getLatestConfigFile();
-
-    if (!latestConfig) {
-      return 'default-config';
-    }
-
+  async execute(key: string): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: process.env.STOCK_BRANDING_BUCKET,
-      Key: latestConfig.fileUrl,
+      Key: key,
     });
 
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });

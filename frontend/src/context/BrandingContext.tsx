@@ -1,20 +1,60 @@
-import React, { createContext, useContext } from 'react';
-import { BrandingConfig } from '../branding/types';
+import React, { createContext, useContext, useCallback } from 'react';
+import { BrandingContextType } from '../branding/types';
 import { useBranding } from '../hooks/useBranding';
+import { getBrandingPicture } from '../utils/api';
 
-const BrandingContext = createContext<BrandingConfig | null>(null);
+const DEFAULT_PATH = `${process.env.PUBLIC_URL}/`;
+
+const BrandingContext = createContext<BrandingContextType | null>(null);
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const branding = useBranding();
 
+  const getImageUrl = useCallback(
+    async (imageKey: string): Promise<string | null> => {
+      if (!branding?.images || !branding.images[imageKey]) {
+        console.warn(`Image key "${imageKey}" not found in branding config`);
+        return null;
+      }
+
+      if (branding.images[imageKey].startsWith('::default::')) {
+        return (
+          DEFAULT_PATH + branding.images[imageKey].replace('::default::', '')
+        );
+      }
+
+      try {
+        const imagePath = branding.images[imageKey];
+        const response = await getBrandingPicture(imagePath);
+        if (response.status === 200 && response.data?.url) {
+          return response.data.url;
+        } else {
+          console.error(`Failed to fetch image URL for key "${imageKey}"`);
+          return null;
+        }
+      } catch (error) {
+        console.error(`Error fetching image URL for key "${imageKey}":`, error);
+        return null;
+      }
+    },
+    [branding],
+  );
+
+  const contextValue: BrandingContextType | null = branding
+    ? {
+        ...branding,
+        getImageUrl,
+      }
+    : null;
+
   return (
-    <BrandingContext.Provider value={branding}>
-      {branding ? children : <div>Loading theme...</div>}
+    <BrandingContext.Provider value={contextValue}>
+      {contextValue ? children : <div>Loading theme...</div>}
     </BrandingContext.Provider>
   );
 }
 
-export function useBrandingContext() {
+export function useBrandingContext(): BrandingContextType {
   const context = useContext(BrandingContext);
   if (context === null) {
     throw new Error(

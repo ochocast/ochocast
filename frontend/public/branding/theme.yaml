@@ -1,5 +1,4 @@
 appName: "OchoCast"
-logo: "/ochoIconFull.svg"
 
 colors:
   theme-color-50: "#edfcf4"
@@ -37,3 +36,12 @@ colors:
   theme-color-black: "#000000"
   theme-color-gray: "#cccccc"
   theme-color-red: "#db4437"
+
+images:
+  logo: "::default::ochoIconFull.svg"
+  default_miniature_image: "::default::exemple/image_tuile_event.png"
+  add: "::default::add.svg"
+  plus: "::default::plus.svg"
+  search: "::default::search.svg"
+  cross: "::default::cross.svg"
+  user_placeholder: "::default::persona.png"

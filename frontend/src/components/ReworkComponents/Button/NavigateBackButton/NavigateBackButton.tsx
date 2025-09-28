@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './NavigateBackButton.module.css';
 
-import defaultImageUrl from '../../../../assets/gaucheAigu.svg';
+import ArrowIcon from '../../Event/EventsList/ArrowIcon';
 
 export interface NavigateBackButtonProps {
   className?: string;
@@ -23,14 +23,11 @@ const NavigateBackButton = (props: NavigateBackButtonProps) => {
 
   return (
     <div className={styles.NavigateBackButtonContainer}>
-      <img
+      <ArrowIcon
+        direction="left"
+        color="var(--navigate-back-arrow-color)"
+        size={24}
         className={styles.NavigateBackImage}
-        src={defaultImageUrl}
-        alt="iconeSelect"
-      />
-      <button
-        className={styles.NavigateBackButton}
-        type="button"
         onClick={handleClick}
       />
     </div>
