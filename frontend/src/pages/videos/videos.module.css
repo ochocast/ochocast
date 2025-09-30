@@ -138,3 +138,18 @@ display: flex;
 justify-content: center;
 pointer-events: auto;
 }
+
+.sharedButtonIcon {
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.sharedButtonIcon:hover {
+  opacity: 0.7;
+}
+
+.smallButton {
+  width: 30px;
+  height: 30px;
+}

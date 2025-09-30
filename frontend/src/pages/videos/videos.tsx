@@ -18,8 +18,68 @@ import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import { useLocation, useNavigate } from 'react-router-dom';
+import SharedButtonIcon from '../../assets/sharedButton.svg';
 
 interface VideosProps {}
+
+interface SearchState {
+  q: string;
+  tags: string[];
+  users: string[];
+  dateFrom: string | null;
+  dateTo: string | null;
+  favoris: boolean;
+}
+
+const parseQueryParams = (search: string): SearchState => {
+  const params = new URLSearchParams(search);
+
+  return {
+    q: params.get('q') || '',
+    tags: params.get('tags')?.split(',').filter(Boolean) || [],
+    users: params.get('users')?.split(',').filter(Boolean) || [],
+    dateFrom: params.get('dateFrom') || null,
+    dateTo: params.get('dateTo') || null,
+    favoris: params.get('favoris') === 'true',
+  };
+};
+
+const serializeSearchState = (state: SearchState): string => {
+  const params = new URLSearchParams();
+
+  if (state.q) params.set('q', state.q);
+  if (state.tags.length > 0) params.set('tags', state.tags.join(','));
+  if (state.users.length > 0) params.set('users', state.users.join(','));
+  if (state.dateFrom) params.set('dateFrom', state.dateFrom);
+  if (state.dateTo) params.set('dateTo', state.dateTo);
+  if (state.favoris) params.set('favoris', 'true');
+
+  return params.toString();
+};
+
+const useUrlStateSync = (initialState: SearchState) => {
+  const [state, setState] = useState<SearchState>(initialState);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const parsedState = parseQueryParams(location.search);
+    setState(parsedState);
+  }, [location.search]);
+
+  const updateUrl = (newState: SearchState) => {
+    const queryString = serializeSearchState(newState);
+    navigate(`${location.pathname}?${queryString}`, { replace: true });
+  };
+
+  const setSearchState = (newState: Partial<SearchState>) => {
+    const updatedState = { ...state, ...newState };
+    setState(updatedState);
+    updateUrl(updatedState);
+  };
+
+  return [state, setSearchState] as const;
+};
 
 const Videos: FC<VideosProps> = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -59,10 +119,62 @@ const Videos: FC<VideosProps> = () => {
   });
 
   const [showFilters, setShowFilters] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [searchState, setSearchState] = useUrlStateSync({
+    q: '',
+    tags: [],
+    users: [],
+    dateFrom: null,
+    dateTo: null,
+    favoris: false,
+  });
+
+  const handleSearch = React.useCallback(async (keywords: string[]) => {
+    try {
+      if (keywords[0] !== '') {
+        const response = await searchVideos(keywords[0]);
+        const result = response.data || [];
+        setVideos(result);
+      } else {
+        const response = await getVideos();
+        const result = response.data || [];
+        setVideos(result);
+      }
+    } catch (error) {
+      logger.error('Error fetching suggestions:', error);
+    }
+  }, []);
 
   useEffect(() => {
     applyFilters(filters);
   });
+
+  // Synchroniser les filtres avec l'état URL
+  useEffect(() => {
+    const updatedFilters = {
+      tags: searchState.tags,
+      users: searchState.users,
+      startDate: searchState.dateFrom ? new Date(searchState.dateFrom) : null,
+      endDate: searchState.dateTo ? new Date(searchState.dateTo) : null,
+    };
+    setFilters(updatedFilters);
+    setShowFavorites(searchState.favoris);
+    setSearchQuery(searchState.q);
+
+    if (searchState.q !== searchQuery) {
+      handleSearch([searchState.q]);
+    }
+  }, [
+    searchState.q,
+    searchState.tags,
+    searchState.users,
+    searchState.dateFrom,
+    searchState.dateTo,
+    searchState.favoris,
+    searchQuery,
+    handleSearch,
+  ]);
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -80,22 +192,6 @@ const Videos: FC<VideosProps> = () => {
 
     fetchVideos();
   }, [userString]);
-
-  const handleSearch = async (keywords: string[]) => {
-    try {
-      if (keywords[0] !== '') {
-        const response = await searchVideos(keywords[0]);
-        const result = response.data || [];
-        setVideos(result);
-      } else {
-        const response = await getVideos();
-        const result = response.data || [];
-        setVideos(result);
-      }
-    } catch (error) {
-      logger.error('Error fetching suggestions:', error);
-    }
-  };
 
   const applyFilters = (newFilters = filters) => {
     let result = [...videos];
@@ -128,18 +224,32 @@ const Videos: FC<VideosProps> = () => {
     const updated = { ...filters, tags };
     setFilters(updated);
     applyFilters(updated);
+    setSearchState({
+      tags,
+      dateFrom: updated.startDate?.toISOString() || null,
+      dateTo: updated.endDate?.toISOString() || null,
+    });
   };
 
   const handleUsersChange = (users: string[]) => {
     const updated = { ...filters, users };
     setFilters(updated);
     applyFilters(updated);
+    setSearchState({
+      users,
+      dateFrom: updated.startDate?.toISOString() || null,
+      dateTo: updated.endDate?.toISOString() || null,
+    });
   };
 
   const handleDateFilter = (startDate: Date | null, endDate: Date | null) => {
     const updated = { ...filters, startDate, endDate };
     setFilters(updated);
     applyFilters(updated);
+    setSearchState({
+      dateFrom: startDate?.toISOString() || null,
+      dateTo: endDate?.toISOString() || null,
+    });
   };
 
   const handleToggleFavorites = async () => {
@@ -147,6 +257,7 @@ const Videos: FC<VideosProps> = () => {
 
     const nextState = !showFavorites;
     setShowFavorites(nextState);
+    setSearchState({ favoris: nextState });
 
     try {
       const response = nextState
@@ -159,6 +270,22 @@ const Videos: FC<VideosProps> = () => {
     }
   };
 
+  const handleSearchWithUrl = (query: string) => {
+    setSearchQuery(query);
+    setSearchState({ q: query });
+    handleSearch([query]);
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+      setToast({
+        message: 'Lien copié dans le presse-papiers',
+        type: 'success',
+      });
+      setTimeout(() => setToast(null), 500);
+    });
+  };
+
   if (isLoading) {
     return <LoadingCircle />;
   }
@@ -169,7 +296,7 @@ const Videos: FC<VideosProps> = () => {
         <div className={style.display1}>
           <div className={style.searchBarRow}>
             <SearchBar
-              onClick={(query) => handleSearch([query])}
+              onClick={(query) => handleSearchWithUrl(query)}
               needInput={true}
               placeholder={t('exemple')}
               icon={SearchBarIcon.SEARCH}
@@ -187,6 +314,12 @@ const Videos: FC<VideosProps> = () => {
               }
               onClick={handleToggleFavorites}
               alt="Filtrer par favoris"
+            />
+            <img
+              className={`${style.sharedButtonIcon} ${style.smallButton}`}
+              src={SharedButtonIcon}
+              alt="Partager les filtres"
+              onClick={handleShare}
             />
           </div>
           {showFilters && (
