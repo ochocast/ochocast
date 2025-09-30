@@ -156,7 +156,6 @@ const VideoMedia: FC = () => {
               lastname=""
               email={video.creator.email}
               description={video.creator.description}
-              image="/persona.png"
               state={ProfileDescriptionState.standard}
             />
           </div>
@@ -205,6 +204,7 @@ const VideoMedia: FC = () => {
                   content={comment.content}
                   firstname={comment.creator.firstName}
                   lastname={comment.creator.lastName}
+                  email={comment.creator.email}
                   created_at={comment.createdAt}
                 />
               ))}

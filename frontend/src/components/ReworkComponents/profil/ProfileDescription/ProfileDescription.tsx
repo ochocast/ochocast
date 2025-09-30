@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './ProfileDescription.module.css';
 import Card from '../../generic/Cards/Card';
 import CSS from 'csstype';
@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { getUsers, getProfilePicture } from '../../../../utils/api';
 import { User } from '../../../../utils/VideoProperties';
 import LoadingCircle from '../../LoadingCircle/LoadingCircle';
-import BrandingImage from '../../BrandingImage/BrandingImage';
 
 export enum ProfileDescriptionState {
   tiny = 'tiny',
@@ -18,7 +17,7 @@ export enum ProfileDescriptionState {
   large = 'large',
 }
 
-// const DEFAULT_PERSONA_IMAGE = '/persona.png';
+const DEFAULT_PERSONA_IMAGE = '/persona.png';
 
 type ProfileDescriptionProps = {
   firstname: string;
@@ -30,52 +29,41 @@ type ProfileDescriptionProps = {
 };
 
 const ProfileDescription = (props: ProfileDescriptionProps) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [pictureUrl, setPictureUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const userString = localStorage.getItem('backendUser');
+
   const navigate = useNavigate();
   const auth = useAuth();
   const { t } = useTranslation();
 
-  const getMe = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const backendUser = JSON.parse(userString!);
-
-      const userResponse = await getUsers();
-      const user = userResponse.data.find((u: User) => u.id === backendUser.id);
-      setCurrentUser(user || null);
-    } catch (error) {
-      console.error('Error fetching videos:', error);
-    }
-    setIsLoading(false);
-  }, [userString]);
-
-  useEffect(() => {
-    getMe();
-  }, [getMe]);
-
-  const [pictureUrl, setPictureUrl] = useState<string | null>(null);
-
   useEffect(() => {
     const fetchMiniatureUrl = async () => {
       setIsLoading(true);
-      if (currentUser && currentUser.email) {
-        try {
-          const url = await getProfilePicture(currentUser.id);
-          // TODO: rework this condition
-          if (url?.data.includes('miniatureundefined')) {
-            return;
+      try {
+        const userResponse = await getUsers();
+        const user: User | undefined = userResponse.data.find(
+          (u: User) => u.email === props.email,
+        );
+
+        if (user) {
+          const url = await getProfilePicture(user.id);
+          if (url?.data && !url.data.includes('miniatureundefined')) {
+            setPictureUrl(url.data);
+          } else {
+            setPictureUrl(DEFAULT_PERSONA_IMAGE);
           }
-          setPictureUrl(url?.data || null);
-        } catch (error) {
-          console.error('Error fetching miniature URL', error);
+        } else {
+          setPictureUrl(DEFAULT_PERSONA_IMAGE);
         }
+      } catch (error) {
+        console.error('Error fetching profile picture', error);
+        setPictureUrl(DEFAULT_PERSONA_IMAGE);
       }
+      setIsLoading(false);
     };
+
     fetchMiniatureUrl();
-    setIsLoading(false);
-  }, [currentUser]);
+  }, [props.email, props.image]);
 
   if (isLoading) {
     return <LoadingCircle />;
@@ -94,15 +82,12 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
             <span>{props.firstname}</span>
             <span>{props.lastname}</span>
           </h3>
-          {pictureUrl !== null ? (
-            <img className={styles.imageSmall} alt="" src={pictureUrl} />
-          ) : (
-            <BrandingImage
-              className={styles.imageSmall}
-              alt=""
-              imageKey={'user_placeholder'}
-            />
-          )}
+
+          <img
+            className={styles.imageSmall}
+            alt=""
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+          />
         </div>
       </Card>
     );
@@ -112,15 +97,11 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainerCol}>
-          {pictureUrl !== null ? (
-            <img className={styles.imageSmall} alt="" src={pictureUrl} />
-          ) : (
-            <BrandingImage
-              className={styles.imageSmall}
-              alt=""
-              imageKey={'user_placeholder'}
-            />
-          )}
+          <img
+            className={styles.image}
+            alt=""
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+          />
           <div className={styles.titlesCenter}>
             <h2 className={styles.name}>{props.firstname}</h2>
             <h5 className={styles.email}>
@@ -135,15 +116,11 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainer}>
-          {pictureUrl !== null ? (
-            <img className={styles.imageSmall} alt="" src={pictureUrl} />
-          ) : (
-            <BrandingImage
-              className={styles.imageSmall}
-              alt=""
-              imageKey={'user_placeholder'}
-            />
-          )}
+          <img
+            className={styles.image}
+            alt=""
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+          />
           <div>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.firstname}</h2>
@@ -167,15 +144,11 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <Card>
         <div className={styles.profileContainer}>
-          {pictureUrl !== null ? (
-            <img className={styles.imageSmall} alt="" src={pictureUrl} />
-          ) : (
-            <BrandingImage
-              className={styles.imageSmall}
-              alt=""
-              imageKey={'user_placeholder'}
-            />
-          )}
+          <img
+            className={styles.image}
+            alt=""
+            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+          />
           <div className={styles.description}>
             <div className={styles.titles}>
               <h2 className={styles.name}>{props.firstname}</h2>

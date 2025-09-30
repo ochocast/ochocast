@@ -8,6 +8,7 @@ export interface CommentaryProps {
   content: string;
   firstname: string;
   lastname: string;
+  email: string;
   created_at: Date;
 }
 
@@ -24,9 +25,9 @@ const Commentary = (props: CommentaryProps) => {
         <ProfileDescription
           firstname={props.firstname}
           lastname={props.lastname}
-          email=""
+          email={props.email}
           description=""
-          image="/persona.png"
+          image=""
           state={ProfileDescriptionState.tiny}
         />
       </div>

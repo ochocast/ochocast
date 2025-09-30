@@ -8,10 +8,9 @@ export interface CommentaryProps {
   content: string;
   firstname: string;
   lastname: string;
+  email: string;
   created_at: Date;
 }
-
-const PERSONA_IMAGE = '/persona.png';
 
 const Commentary = (props: CommentaryProps) => {
   return (
@@ -26,9 +25,9 @@ const Commentary = (props: CommentaryProps) => {
         <ProfileDescription
           firstname={props.firstname}
           lastname={props.lastname}
-          email=""
+          email={props.email}
           description=""
-          image={PERSONA_IMAGE}
+          image=""
           state={ProfileDescriptionState.tiny}
         />
       </div>
