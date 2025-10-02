@@ -9,6 +9,8 @@ import Button from '../../components/ReworkComponents/generic/Button/Button';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import WaitingScreen from '../../components/waitingScreen/waitingScreen';
 import { useTranslation } from 'react-i18next';
+import Chat from '../../components/Chat/Chat';
+import { useUser } from '../../context/UserContext';
 
 // const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
@@ -36,6 +38,7 @@ const LiveTrack = () => {
   const [track, setTrack] = useState<Track>();
   const [url, setUrl] = useState<string>();
   const navigate = useNavigate();
+  const { user } = useUser();
 
   if (track?.closed) {
     navigate(`/events/${track?.event.id}/tracks`);
@@ -83,52 +86,67 @@ const LiveTrack = () => {
             </div>
             <Button label={t('CloseTrack')} onClick={fetchCloseTrack()} />
           </div>
-          <div className={styles.playerWrapper}>
-            {/* {url ? ( */}
-            {/* <div>
-              <ReactPlayer
-                width="100%"
-                height="auto"
-                url={url}
-                playing
-                controls
-                config={{
-                  file: {
-                    forceHLS: true,
-                    hlsOptions: {
-                      liveSyncDurationCount: 2,
-                      liveMaxLatencyDurationCount: 3,
-                    },
-                  },
-                }}
-              />
-            </div> */}
-            {/* ) : ( */}
-            <WaitingScreen />
-            {/* )} */}
-          </div>
-          <div>
-            <button onClick={() => changeQuality('_low')}>Low</button>
-            <button onClick={() => changeQuality('_mid')}>Medium</button>
-            <button onClick={() => changeQuality('_high')}>High</button>
-            <button onClick={() => changeQuality('_hd720')}>HD</button>
-            <button onClick={() => changeQuality('_src')}>Source</button>
-            <button onClick={() => changeQuality('')}>Auto</button>
-          </div>
 
-          <div className={styles.trackInfo}>
-            <div className={styles.trackTitle}>
-              <h2>{track.name}</h2>
-              <Button
-                label={t('settings')}
-                onClick={() =>
-                  navigate(
-                    `/events/${track.event.id}/track-settings/${trackId}`,
-                  )
-                }
-              />
+          <div className={styles.liveContent}>
+            <div className={styles.liveLeft}>
+              <div className={styles.playerWrapper}>
+                {/* {url ? ( */}
+                {/* <div>
+                  <ReactPlayer
+                    width="100%"
+                    height="auto"
+                    url={url}
+                    playing
+                    controls
+                    config={{
+                      file: {
+                        forceHLS: true,
+                        hlsOptions: {
+                          liveSyncDurationCount: 2,
+                          liveMaxLatencyDurationCount: 3,
+                        },
+                      },
+                    }}
+                  />
+                </div> */}
+                {/* ) : ( */}
+                <WaitingScreen />
+                {/* )} */}
+              </div>
+              <div>
+                <button onClick={() => changeQuality('_low')}>Low</button>
+                <button onClick={() => changeQuality('_mid')}>Medium</button>
+                <button onClick={() => changeQuality('_high')}>High</button>
+                <button onClick={() => changeQuality('_hd720')}>HD</button>
+                <button onClick={() => changeQuality('_src')}>Source</button>
+                <button onClick={() => changeQuality('')}>Auto</button>
+              </div>
+
+              <div className={styles.trackInfo}>
+                <div className={styles.trackTitle}>
+                  <h2>{track.name}</h2>
+                  <Button
+                    label={t('settings')}
+                    onClick={() =>
+                      navigate(
+                        `/events/${track.event.id}/track-settings/${trackId}`,
+                      )
+                    }
+                  />
+                </div>
+                <div className={styles.description}>{track.description}</div>
+              </div>
             </div>
-            <div className={styles.description}>{track.description}</div>
+
+            <div className={styles.chatWrapper}>
+              {user && trackId && (
+                <Chat
+                  trackId={trackId}
+                  userId={user.id}
+                  username={`${user.firstName} ${user.lastName}`}
+                />
+              )}
+            </div>
           </div>
         </>
       ) : (

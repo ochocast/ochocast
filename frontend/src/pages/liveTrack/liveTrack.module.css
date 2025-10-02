@@ -6,6 +6,7 @@
   display: flex;
   justify-content: space-between;
   padding: 1%;
+  margin-bottom: 20px;
 }
 
 .liveHeaderLeft {
@@ -29,6 +30,27 @@
 .live-box {
   background-color: var(--theme-color-black);
   height: 500px;
+}
+
+.liveContent {
+  display: flex;
+  gap: 20px;
+  height: calc(100vh - 200px);
+}
+
+.liveLeft {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  overflow-y: auto;
+}
+
+.chatWrapper {
+  width: 400px;
+  min-width: 350px;
+  max-width: 500px;
+  height: 100%;
 }
 
 .trackTitle {
@@ -70,4 +92,18 @@
   padding-right: 2%;
   display: flex;
   justify-content: center;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 1024px) {
+  .liveContent {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .chatWrapper {
+    width: 100%;
+    max-width: 100%;
+    height: 500px;
+  }
 }

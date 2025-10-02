@@ -172,5 +172,12 @@
   "invitationLink": "Lien d'invitation",
   "linkCopied": "Lien copié dans le presse-papier !",
   "eventMustBePublished": "L'évènement doit être publié pour pouvoir être partagé",
-  "h1Error": "L'utilisation de titres H1 (#) dans la description n'est pas autorisée"
+  "h1Error": "L'utilisation de titres H1 (#) dans la description n'est pas autorisée",
+  "liveChat": "Chat en direct",
+  "connected": "Connecté",
+  "disconnected": "Déconnecté",
+  "noChatMessages": "Aucun message pour le moment. Soyez le premier à écrire !",
+  "writeMessage": "Écrivez un message...",
+  "connecting": "Connexion en cours...",
+  "send": "Envoyer"
 }
