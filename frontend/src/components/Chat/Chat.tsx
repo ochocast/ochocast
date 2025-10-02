@@ -37,37 +37,28 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
   };
 
   return (
-    <div className={styles.chatContainer}>
-      <div className={styles.chatHeader}>
-        <h3>{t('liveChat')}</h3>
-        <div className={styles.connectionStatus}>
-          <span
-            className={`${styles.statusDot} ${isConnected ? styles.connected : styles.disconnected}`}
-          ></span>
-          {isConnected ? t('connected') : t('disconnected')}
-        </div>
-      </div>
-
-      <div className={styles.messagesContainer}>
-        {messages.length === 0 ? (
-          <div className={styles.emptyState}>{t('noChatMessages')}</div>
-        ) : (
-          messages.map((msg: ChatMessage, index: number) => (
-            <div
-              key={index}
-              className={`${styles.message} ${msg.userId === userId ? styles.ownMessage : ''}`}
-            >
-              <div className={styles.messageHeader}>
-                <span className={styles.username}>{msg.username}</span>
-                <span className={styles.timestamp}>
-                  {formatTimestamp(msg.timestamp)}
-                </span>
+    <div className={styles.chatWrapper}>
+      <div className={styles.chatContainer}>
+        <div className={styles.messagesContainer}>
+          {messages.length === 0 ? (
+            <div className={styles.emptyState}>{t('noChatMessages')}</div>
+          ) : (
+            messages.map((msg: ChatMessage, index: number) => (
+              <div
+                key={index}
+                className={`${styles.message} ${msg.userId === userId ? styles.ownMessage : ''}`}
+              >
+                <div className={styles.messageHeader}>
+                  <span className={styles.username}>
+                    {msg.userId === userId ? 'Moi' : msg.username}
+                  </span>
+                </div>
+                <div className={styles.messageContent}>{msg.message}</div>
               </div>
-              <div className={styles.messageContent}>{msg.message}</div>
-            </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className={styles.inputContainer}>
@@ -84,8 +75,21 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
           type="submit"
           disabled={!isConnected || !inputMessage.trim()}
           className={styles.sendButton}
+          aria-label={t('send')}
         >
-          {t('send')}
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
         </button>
       </form>
     </div>
