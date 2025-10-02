@@ -52,6 +52,9 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
                   <span className={styles.username}>
                     {msg.userId === userId ? 'Moi' : msg.username}
                   </span>
+                  <span className={styles.timestamp}>
+                    {formatTimestamp(msg.timestamp)}
+                  </span>
                 </div>
                 <div className={styles.messageContent}>{msg.message}</div>
               </div>
