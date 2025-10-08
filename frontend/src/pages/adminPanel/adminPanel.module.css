@@ -185,6 +185,18 @@
   cursor: pointer;
 }
 
+/* Styles pour la section de prévisualisation des couleurs */
+.colorPreviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+  background-color: var(--theme-color-white, #fff);
+  border: 1px solid var(--theme-color-70, #e0e0e0);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
 @media (max-width: 768px) {
   .colorGrid {
     grid-template-columns: 1fr;
@@ -193,5 +205,9 @@
   .colorInputWrapper {
     flex-direction: column;
     align-items: stretch;
+  }
+  
+  .colorPreviewSection {
+    padding: 0.5rem;
   }
 }

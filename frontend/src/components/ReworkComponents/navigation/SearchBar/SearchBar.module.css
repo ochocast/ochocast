@@ -61,7 +61,7 @@
 
 .suggestions_list li:hover {
   background-color: var(--theme-color-200);
-  color: var(--theme-color-1150);
+  color: var(--accent-color);
 }
 
 .suggestions_list li:active {

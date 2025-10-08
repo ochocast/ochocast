@@ -1,0 +1,48 @@
+.colorPreview {
+  margin-bottom: 2rem;
+}
+
+.title {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--secondary-color, #333);
+}
+
+.colorSwatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+  margin: 0.5rem;
+  padding: 0.5rem;
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.colorBox {
+  width: 50px;
+  height: 50px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  margin-bottom: 0.5rem;
+}
+
+.colorLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  color: var(--secondary-color, #333);
+  text-align: center;
+}
+
+.colorValue {
+  font-size: 0.7rem;
+  font-family: inherit;
+  font-weight: normal;
+  color: var(--theme-color-600, #666);
+  text-align: center;
+  word-break: break-all;
+  max-width: 70px;
+}

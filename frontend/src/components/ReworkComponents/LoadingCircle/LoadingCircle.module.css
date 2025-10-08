@@ -7,7 +7,7 @@
 
 .loader {
   border: 20px solid var(--theme-color-150); /* light grey */
-  border-top: 20px solid var(--theme-color-450); /* green */
+  border-top: 20px solid var(--accent-color); /* accent color for loading indicator */
   border-radius: 50%;
   width: 100px;
   height: 100px;

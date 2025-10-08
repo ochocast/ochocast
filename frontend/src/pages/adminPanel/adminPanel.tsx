@@ -13,6 +13,7 @@ import NotFoundPage from '../notFound/notFound';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
+import ColorPreview from '../../components/ReworkComponents/generic/ColorPreview/ColorPreview';
 
 export interface AdminPanelProps {}
 
@@ -267,6 +268,11 @@ const AdminPanel: FC<AdminPanelProps> = () => {
         // Réinitialiser l'état de changements après succès
         setOriginalFormData(JSON.parse(JSON.stringify(formData)));
         setHasChanges(false);
+
+        // Recharger la page après un court délai pour appliquer les nouveaux styles
+        setTimeout(() => {
+          window.location.reload();
+        }, 200); // Délai de 200 millisecondes pour laisser voir le message de succès
       } else {
         setToast({
           message: t('configurationUpdateError'),
@@ -391,6 +397,22 @@ const AdminPanel: FC<AdminPanelProps> = () => {
                     )}
                   </div>
                 </div>
+                {/* Prévisualisation des couleurs générées */}
+                <div className={styles.formSection}>
+                  <h3>{t('colorPreview')}</h3>
+                  <div className={styles.colorPreviewSection}>
+                    <ColorPreview
+                      titleKey="primaryColor"
+                      baseVariableName="--theme-color"
+                      previewColor={formData.colors.primary}
+                    />
+                    <ColorPreview
+                      titleKey="backgroundColor"
+                      baseVariableName="--bg-color"
+                      previewColor={formData.colors.background}
+                    />
+                  </div>
+                </div>
 
                 {/* Images de branding */}
                 <div className={styles.formSection}>
@@ -401,6 +423,7 @@ const AdminPanel: FC<AdminPanelProps> = () => {
                     )}
                   </div>
                 </div>
+
                 <Button
                   label={
                     iswaiting ? t('savingInProgress') : t('saveConfiguration')

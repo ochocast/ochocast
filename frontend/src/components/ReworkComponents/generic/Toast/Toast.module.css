@@ -13,15 +13,15 @@
 }
 
 .toast_success {
-  background-color: var(--theme-color-500);
+  background-color: var(--accent-color);
 }
 
 .toast_error {
-  background-color: var(--theme-color-red);
+  background-color: var(--error-color);
 }
 
 .toast_info {
-  background-color:  var(--theme-color-2050);
+  background-color: var(--theme-color-500);
 }
 
 @keyframes fadein {

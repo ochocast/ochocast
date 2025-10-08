@@ -10,7 +10,7 @@
 
 .notFound h1 {
   font-size: 2em;
-  color: var(--theme-color-red) !important; /* Red color for the heading */
+  color: var(--error-color) !important; /* Error color from YAML for the heading */
 }
 
 .notFound p {

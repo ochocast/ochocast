@@ -9,7 +9,7 @@
   justify-content: flex-start;
   color: var(--theme-color-950);
   padding: 1rem 1rem;
-  box-shadow: 9px 10px 20px 0px color-mix(in srgb, var(--theme-color-950) 45%, transparent);
-  -webkit-box-shadow: 9px 10px 20px 0px color-mix(in srgb, var(--theme-color-950) 45%, transparent);
-  -moz-box-shadow: 9px 10px 20px 0px color-mix(in srgb, var(--theme-color-950) 45%, transparent);
+  box-shadow: 9px 10px 20px 0px var(--theme-color-3400);
+  -webkit-box-shadow: 9px 10px 20px 0px var(--theme-color-3400);
+  -moz-box-shadow: 9px 10px 20px 0px var(--theme-color-3400);
 }
