@@ -31,6 +31,7 @@ import { ModifyVideoUsecase } from 'src/videos/domain/usecases/modifyVideo.useca
 import { searchVideoUseCase } from 'src/videos/domain/usecases/searchVideo.usecase';
 import { Public } from 'nest-keycloak-connect';
 import { GetSuggestionsUsecase } from 'src/videos/domain/usecases/getSuggestions.usecase';
+import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 @ApiTags('Videos')
 @Controller('videos')
 export class VideosController {
@@ -92,17 +93,23 @@ export class VideosController {
   @Post('/modify')
   @UseInterceptors(AnyFilesInterceptor())
   @UsePipes(new ValidationPipe({ transform: true }))
-  async modifyVideo(@Body() video: ModifyVideoDto) {
-    return this.modifyVideoUseCase.execute(video);
+  async modifyVideo(
+    @Body() video: ModifyVideoDto,
+    @CurrentUserEmail() email: string,
+  ) {
+    return this.modifyVideoUseCase.execute(video, email);
   }
 
   @Delete(':id')
-  async deleteVideo(@Param('id') id: string): Promise<VideoObject> {
+  async deleteVideo(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<VideoObject> {
     if (!isUUID(id)) {
       throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
     }
 
-    return await this.deleteVideoUsecase.execute(id);
+    return await this.deleteVideoUsecase.execute(id, email);
   }
 
   @Delete('/admin/:id')

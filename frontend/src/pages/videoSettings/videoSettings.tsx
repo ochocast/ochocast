@@ -1,6 +1,7 @@
 import './videoSettings.css';
 
 import { useState, ChangeEvent, FC, useEffect } from 'react';
+import type { ApiResponse } from 'apisauce';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
@@ -47,6 +48,9 @@ import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/Loadi
 // import { useAuth } from 'react-oidc-context';
 
 const IMAGE_TUILE_EVENT = '/exemple/image_tuile_event.png';
+type BackendMsgKey = 'videonotallowdeleted' | 'videonotallowmodify';
+const isBackendMsgKey = (val: unknown): val is BackendMsgKey =>
+  val === 'videonotallowdeleted' || val === 'videonotallowmodify';
 interface VideoSettingsProps {}
 
 const VideoSettings: FC<VideoSettingsProps> = () => {
@@ -278,7 +282,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const deleteThisVideo = async () => {
     await deleteVideo(videoId)
-      .then((response) => {
+      .then((response: ApiResponse<unknown>) => {
         if (
           response.status === 202 ||
           response.status === 201 ||
@@ -291,16 +295,26 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           });
           navigate('/videos');
         } else {
+          const backendMsg = (
+            response?.data as { message?: string } | undefined
+          )?.message;
           setToast({
-            message: t('failedLoading') + `:${response}`,
+            message: isBackendMsgKey(backendMsg)
+              ? t(backendMsg)
+              : `${t('failedLoading')} (${response.status})`,
             type: 'error',
           });
         }
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
+        const backendMsg =
+          (error as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || (error as Error)?.message;
         setToast({
-          message: t('failedLoadingVideo'),
+          message: isBackendMsgKey(backendMsg)
+            ? t(backendMsg)
+            : t('failedLoadingVideo'),
           type: 'error',
         });
       });
@@ -383,7 +397,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     );
 
     await modifyVideo(form)
-      .then((response) => {
+      .then((response: ApiResponse<unknown>) => {
         if (
           response.status === 202 ||
           response.status === 201 ||
@@ -399,16 +413,26 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             },
           });
         } else {
+          const backendMsg = (
+            response?.data as { message?: string } | undefined
+          )?.message;
           setToast({
-            message: t('failedLoading') + `:${response}`,
+            message: isBackendMsgKey(backendMsg)
+              ? t(backendMsg)
+              : `${t('failedLoading')} (${response.status})`,
             type: 'error',
           });
         }
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
+        const backendMsg =
+          (error as { response?: { data?: { message?: string } } })?.response
+            ?.data?.message || (error as Error)?.message;
         setToast({
-          message: t('failedLoading'),
+          message: isBackendMsgKey(backendMsg)
+            ? t(backendMsg)
+            : t('failedLoading'),
           type: 'error',
         });
       });

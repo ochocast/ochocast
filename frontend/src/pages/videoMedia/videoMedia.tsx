@@ -93,6 +93,10 @@ const VideoMedia: FC = () => {
   if (!video) return <NotFoundPage />;
 
   const formattedDate = new Date(video.createdAt);
+  // Determine if the current user is the owner of the video
+  const backendUser = localStorage.getItem('backendUser');
+  const currentUserId = backendUser ? JSON.parse(backendUser).id : null;
+  const canEdit = currentUserId === video.creator.id;
 
   return (
     <div className={styles.containerGlobal}>
@@ -112,11 +116,13 @@ const VideoMedia: FC = () => {
       </h4>
 
       <div className={styles.buttonList}>
-        <Button
-          type={ButtonType.primary}
-          label={t('modifyVideo')}
-          onClick={() => navigate(`/video/video-settings/${video.id}`)}
-        />
+        {canEdit && (
+          <Button
+            type={ButtonType.primary}
+            label={t('modifyVideo')}
+            onClick={() => navigate(`/video/video-settings/${video.id}`)}
+          />
+        )}
       </div>
 
       <div className={styles.containerPlayer}>

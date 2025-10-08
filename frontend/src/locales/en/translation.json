@@ -182,5 +182,8 @@
   "noChatMessages": "No messages yet. Be the first to write!",
   "writeMessage": "Write a message...",
   "connecting": "Connecting...",
-  "send": "Send"
+  "send": "Send",
+  "h1Error": "The use of H1 titles (#) in the description is not allowed",
+  "videonotallowdeleted": "You are not allowed to delete this video",
+  "videonotallowmodify": "You are not allowed to modify this video"
 }

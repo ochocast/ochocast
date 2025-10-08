@@ -14,11 +14,12 @@ import { GetVideosAdminUsecase } from './domain/usecases/getVideosAdmin.usecase'
 import { ModifyVideoUsecase } from './domain/usecases/modifyVideo.usecase';
 import { searchVideoUseCase } from './domain/usecases/searchVideo.usecase';
 import { GetSuggestionsUsecase } from './domain/usecases/getSuggestions.usecase';
+import { UsersModule } from 'src/users/users.module';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VideoEntity]), S3Module],
+  imports: [TypeOrmModule.forFeature([VideoEntity]), S3Module, UsersModule],
   controllers: [VideosController],
   providers: [
     {
