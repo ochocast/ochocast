@@ -34,7 +34,8 @@ const LiveTrack = () => {
   const { user } = useUser();
 
   // Hardcoded WHIP server URL for MVP
-  const WHIP_SERVER_URL = 'http://51.158.104.60:8090/viewer';
+  const WHIP_SERVER_URL =
+    'https://35b32e24-b50b-4145-946c-9102346dec0c.pub.instances.scw.cloud/viewer';
 
   const connection_to_stream = () => {
     let peerConnection: RTCPeerConnection | null = null;
