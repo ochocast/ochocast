@@ -12,7 +12,6 @@ import TrackSettings from './pages/trackSettings/trackSettings';
 import EventSettings from './pages/eventSettings/eventSettings';
 import VideoSettings from './pages/videoSettings/videoSettings';
 import LiveTrack from './pages/liveTrack/liveTrack';
-import StreamTrack from './pages/streamingTrack/streamTrack';
 import VideoMedia from './pages/videoMedia/videoMedia';
 import Videos from './pages/videos/videos';
 import HomePage from './pages/home/Home';
@@ -55,10 +54,10 @@ function App() {
               element={<TrackSettings />}
             />
             <Route path="/tracks/:trackId" element={<LiveTrack />} />
-            <Route
+            {/* <Route
               path="/tracks/:trackId/streaming"
               element={<StreamTrack />}
-            />
+            /> */}
             <Route path="/video/video-settings" element={<VideoSettings />} />
             <Route
               path="/video/video-settings/:videoId"

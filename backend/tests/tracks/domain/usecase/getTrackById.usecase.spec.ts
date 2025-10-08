@@ -1,5 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { EventObject } from 'src/events/domain/event';
+import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
+import { PublicEventObject } from 'src/events/domain/publicEvent';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { TrackObject } from 'src/tracks/domain/track';
@@ -13,7 +15,7 @@ jest.mock('uuid', () => ({
 describe('getTracktByIdUsecase', () => {
   let getTrackByIdUsecase: GetTrackByIdUsecase;
   let trackGatewayMock: jest.Mocked<ITrackGateway>;
-
+  let eventGatewayMock: jest.Mocked<IEventGateway>;
   /*
     Data Test 
    */
@@ -93,6 +95,7 @@ describe('getTracktByIdUsecase', () => {
       now,
       now,
       [mockUser],
+      new PublicEventObject(mockEvent, null),
     ),
     new TrackObject(
       trackId2,
@@ -106,6 +109,7 @@ describe('getTracktByIdUsecase', () => {
       now,
       now,
       [mockUser2],
+      new PublicEventObject(mockEvent, null),
     ),
   ];
 
@@ -117,7 +121,18 @@ describe('getTracktByIdUsecase', () => {
       deleteTrack: jest.fn(),
     };
 
-    getTrackByIdUsecase = new GetTrackByIdUsecase(trackGatewayMock);
+    eventGatewayMock = {
+      createNewEvent: jest.fn(),
+      getEvents: jest.fn(),
+      updateEvent: jest.fn(),
+      deleteEvent: jest.fn(),
+      getEventById: jest.fn(),
+    };
+
+    getTrackByIdUsecase = new GetTrackByIdUsecase(
+      trackGatewayMock,
+      eventGatewayMock,
+    );
 
     /*
     Expected Moke 
@@ -129,6 +144,11 @@ describe('getTracktByIdUsecase', () => {
           return item[key] === value;
         });
       });
+    });
+
+    eventGatewayMock.getEventById.mockImplementation(async (id: string) => {
+      if (id === eventId) return mockEvent;
+      return null;
     });
   });
 

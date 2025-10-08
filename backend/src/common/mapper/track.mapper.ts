@@ -2,6 +2,7 @@ import { TrackEntity } from '../../tracks/infra/gateways/entities/track.entity';
 import { TrackObject } from '../../tracks/domain/track';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
 import { toUserObject } from './user.mapper';
+import { toEventObject } from './event.mapper';
 
 export function toTrackObject(entity: TrackEntity): TrackObject {
   return new TrackObject(
@@ -16,6 +17,7 @@ export function toTrackObject(entity: TrackEntity): TrackObject {
     entity.startDate,
     entity.endDate,
     entity.speakers ? entity.speakers.map((e) => toUserObject(e)) : [],
+    null,
   );
 }
 

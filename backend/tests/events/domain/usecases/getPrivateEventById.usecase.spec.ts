@@ -97,6 +97,7 @@ describe('GetPrivateEventByIdUsecase', () => {
     new Date(),
     new Date(),
     [new PublicUserObject(speaker)],
+    undefined,
   );
 
   const speakerEvent = new EventObject(

@@ -108,6 +108,7 @@ describe('UpdateTracktUsecase', () => {
       now,
       now,
       [mockUser],
+      undefined,
     ),
     new TrackObject(
       trackId2,
@@ -121,6 +122,7 @@ describe('UpdateTracktUsecase', () => {
       now,
       now,
       [mockUser2],
+      undefined,
     ),
   ];
 

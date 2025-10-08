@@ -30,7 +30,7 @@ export interface Track {
   streamKey: string;
   closed: boolean;
   speakers: PublicUser[];
-  event: Event;
+  event: PublicEvent;
   createdAt: Date;
   startDate: Date;
   endDate: Date;

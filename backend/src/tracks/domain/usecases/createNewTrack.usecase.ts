@@ -52,6 +52,7 @@ export class CreateNewTrackUsecase {
       trackToCreate.startDate,
       trackToCreate.endDate,
       speakers,
+      null,
     );
 
     return this.trackGateway.createNewTrack(track);

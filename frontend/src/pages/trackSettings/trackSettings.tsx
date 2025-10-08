@@ -34,7 +34,6 @@ const TrackSettings: FC = () => {
     setMessage,
     handleSubmit,
     handleDelete,
-    navigate,
   } = useTrackSettings();
 
   const [isButtonDisabled, setButtonDisabled] = useState(true);
@@ -90,10 +89,10 @@ const TrackSettings: FC = () => {
         <h1>{t('StartLive')}</h1>
         <div className={styles.startLiveButtons}>
           <Button label={t('StartLiveOBS')} />
-          <Button
+          {/* <Button
             label={t('StartLiveOCHOCast')}
             onClick={() => navigate(`/tracks/${trackId}/streaming`)}
-          />
+          /> */}
         </div>
       </Modal>
 

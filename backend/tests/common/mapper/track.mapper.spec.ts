@@ -76,6 +76,7 @@ describe('Track Mapper', () => {
       now,
       now,
       [mockUserObject],
+      undefined,
     );
 
     const result = toTrackEntity(trackObject);
@@ -106,6 +107,7 @@ describe('Track Mapper', () => {
       now,
       now,
       now,
+      undefined,
       undefined,
     );
     const result = toTrackEntity(trackObject);

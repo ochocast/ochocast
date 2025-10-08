@@ -97,6 +97,7 @@ describe('CloseTracktUsecase', () => {
       now,
       now,
       [mockUser],
+      undefined,
     ),
     new TrackObject(
       trackId2,
@@ -110,6 +111,7 @@ describe('CloseTracktUsecase', () => {
       now,
       now,
       [mockUser2],
+      undefined,
     ),
   ];
 

@@ -85,6 +85,7 @@ describe('GetEventsUsecase', () => {
     new Date(),
     new Date(),
     [speaker_pub],
+    undefined,
   );
 
   const eventList: EventObject[] = [

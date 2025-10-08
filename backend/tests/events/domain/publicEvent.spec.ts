@@ -23,6 +23,7 @@ describe('PublicEventObject', () => {
     now,
     now,
     [],
+    undefined,
   );
 
   const tag1 = new TagEntity({
