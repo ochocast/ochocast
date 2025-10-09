@@ -1,4 +1,11 @@
 {
+  "replyTo": "Reply to",
+  "cancelReply": "Cancel reply",
+  "conversation": "Conversation",
+  "yourReplyPlaceholder": "Your reply ...",
+  "send": "Send",
+  "openDiscussion": "Open discussion",
+  "reply": "Reply",
   "welcome": "Welcome",
   "videos": "Videos",
   "streaming": "Streaming",
@@ -182,8 +189,6 @@
   "noChatMessages": "No messages yet. Be the first to write!",
   "writeMessage": "Write a message...",
   "connecting": "Connecting...",
-  "send": "Send",
-  "h1Error": "The use of H1 titles (#) in the description is not allowed",
   "videonotallowdeleted": "You are not allowed to delete this video",
   "videonotallowmodify": "You are not allowed to modify this video"
 }

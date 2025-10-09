@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ProfileDescription.module.css';
 import Card from '../../generic/Cards/Card';
-import CSS from 'csstype';
 import { useAuth } from 'react-oidc-context';
 import Button from '../../generic/Button/Button';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +14,7 @@ export enum ProfileDescriptionState {
   minimal = 'minimal',
   standard = 'standard',
   large = 'large',
+  reply = 'reply',
 }
 
 const DEFAULT_PERSONA_IMAGE = '/persona.png';
@@ -69,27 +69,20 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return <LoadingCircle />;
   }
 
-  const tinyPading: CSS.Properties = {
-    padding: '1rem',
-    maxWidth: 'min-content',
-  };
-
   if (props.state === ProfileDescriptionState.tiny) {
     return (
-      <Card styleAddon={tinyPading}>
-        <div className={styles.profileContainer}>
-          <h3 className={styles.namesmall}>
-            <span>{props.firstname}</span>
-            <span>{props.lastname}</span>
-          </h3>
+      <div className={styles.profileContainer}>
+        <h3 className={styles.namesmall}>
+          <span>{props.firstname}</span>
+          <span>{props.lastname}</span>
+        </h3>
 
-          <img
-            className={styles.imageSmall}
-            alt=""
-            src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
-          />
-        </div>
-      </Card>
+        <img
+          className={styles.imageSmall}
+          alt=""
+          src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+        />
+      </div>
     );
   }
 
@@ -112,6 +105,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
       </Card>
     );
   }
+
   if (props.state === ProfileDescriptionState.standard) {
     return (
       <Card>
@@ -173,6 +167,16 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           </div>
         </div>
       </Card>
+    );
+  }
+
+  if (props.state === ProfileDescriptionState.reply) {
+    return (
+      <img
+        className={styles.imageReply}
+        alt=""
+        src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
+      />
     );
   }
 

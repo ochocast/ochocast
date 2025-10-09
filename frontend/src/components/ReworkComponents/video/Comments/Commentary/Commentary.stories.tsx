@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import '../../../../index.css';
-import Commentary from './Commentary';
+import Commentary, { CommentaryDescriptionState } from './Commentary';
 
 const meta = {
   title: 'Video/Commentary',
@@ -21,6 +21,7 @@ const meta = {
     created_at: undefined,
     content:
       'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc scelerisque nisi convallis nisl iaculis vehicula. Vivamus non vestibulum dui, sed eleifend augue. Fusce imperdiet dolor eu rhoncus interdum.',
+    state: CommentaryDescriptionState.reply,
   },
 } satisfies Meta<typeof Commentary>;
 

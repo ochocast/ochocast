@@ -33,12 +33,11 @@
 }
 
 .namesmall {
-  margin: 0;
+  margin-top: 1rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 1;
-  justify-content: center;
   text-align: center;
   margin-right: 3rem;
 }
@@ -54,6 +53,8 @@
 }
 
 .profileContainer {
+  position: relative;
+  align-items: center;
   display: flex;
   min-width: 175px;
   flex-direction: row;
@@ -98,4 +99,10 @@
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
+}
+
+.imageReply {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
 }

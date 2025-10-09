@@ -31,6 +31,7 @@ export interface Tag_video {
 
 export interface CommentObject {
   id: string;
+  parentid: string;
   creator: User;
   video: Video;
   content: string;

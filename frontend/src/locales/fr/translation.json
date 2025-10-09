@@ -1,4 +1,11 @@
 {
+  "replyTo": "Répondre à",
+  "cancelReply": "Annuler la réponse",
+  "conversation": "Conversation",
+  "yourReplyPlaceholder": "Votre réponse ...",
+  "send": "Envoyer",
+  "openDiscussion": "Ouvrir la discussion",
+  "reply": "Répondre",
   "welcome": "Bienvenue",
   "videos": "Vidéos",
   "streaming": "Streaming",
@@ -182,7 +189,6 @@
   "noChatMessages": "Aucun message pour le moment. Soyez le premier à écrire !",
   "writeMessage": "Écrivez un message...",
   "connecting": "Connexion en cours...",
-  "send": "Envoyer",
   "videonotallowdeleted": "Vous n'êtes pas autorisé à supprimer cette vidéo",
   "videonotallowmodify": "Vous n'êtes pas autorisé à modifier cette vidéo"
 }

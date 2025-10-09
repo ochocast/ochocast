@@ -14,6 +14,7 @@ export class CreateNewCommentUsecase {
   async execute(commentToCreate: CreateCommentDto): Promise<CommentObject> {
     const comment = new CommentObject(
       uuid(),
+      commentToCreate.parentid,
       commentToCreate.creator,
       commentToCreate.video,
       commentToCreate.content,

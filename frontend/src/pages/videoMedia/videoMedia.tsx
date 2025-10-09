@@ -7,11 +7,12 @@ import {
   createComment,
   getComments,
   getMedia,
+  getUsers,
   getVideo,
   getVideoSuggestions,
 } from '../../utils/api';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CommentObject, Video } from '../../utils/VideoProperties';
+import { CommentObject, User, Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
@@ -23,7 +24,10 @@ import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
 import { t } from 'i18next';
-import Commentary from '../../components/ReworkComponents/video/Comments/Commentary/Commentary';
+import Commentary, {
+  CommentaryDescriptionState,
+} from '../../components/ReworkComponents/video/Comments/Commentary/Commentary';
+import CommentReplyPanel from '../../components/ReworkComponents/video/Comments/Commentary/CommentReplyPanel';
 import CommentBar from '../../components/ReworkComponents/video/Comments/CommentBar/CommentBar';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import { Root, RootContent } from 'mdast';
@@ -31,6 +35,22 @@ import { Root, RootContent } from 'mdast';
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const VideoMedia: FC = () => {
+  const [replyPanelOpen, setReplyPanelOpen] = useState(false);
+  const [activeCommentIndex, setActiveCommentIndex] = useState<number | null>(
+    null,
+  );
+  const [parentCommentId, setParentCommentId] = useState<string | null>(null);
+  const [activeParent, setActiveParent] = useState<CommentObject | null>(null);
+  const [conversations, setConversations] = useState<{
+    [key: number]: Array<{
+      sender: string;
+      content: string;
+      avatar?: string;
+      created_at?: Date;
+      email?: string;
+    }>;
+  }>({});
+
   const { videoId } = useParams();
   const [url, setUrl] = useState<string>('');
   const [video, setVideo] = useState<Video>();
@@ -38,9 +58,12 @@ const VideoMedia: FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [commentaryList, setCommentaryList] = useState<CommentObject[]>([]);
   const navigate = useNavigate();
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const userString = localStorage.getItem('backendUser');
 
   const linkExpirationTime = 3600;
   const renewalThreshold = 300;
+  const PERSONA_IMAGE = '/persona.png';
 
   const renewSignedUrl = async () => {
     const url_response = await getMedia(videoId);
@@ -50,7 +73,6 @@ const VideoMedia: FC = () => {
   const removeH1 = () => {
     return (tree: Root) => {
       if (!tree || !tree.children) return;
-
       tree.children = tree.children.filter(
         (node: RootContent) => !(node.type === 'heading' && node.depth === 1),
       );
@@ -60,6 +82,12 @@ const VideoMedia: FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+
+      const backendUser = JSON.parse(userString!);
+      const userResponse = await getUsers();
+      const users: User[] = userResponse.data.users || [];
+      const user = users.find((u) => u.id === backendUser.id);
+      setCurrentUser(user || null);
 
       const [videoRes, mediaRes, commentsRes] = await Promise.all([
         getVideo(videoId),
@@ -85,9 +113,94 @@ const VideoMedia: FC = () => {
 
     fetchData();
     window.scrollTo(0, 0);
-  }, [videoId]);
+  }, [userString, videoId]);
 
   setTimeout(renewSignedUrl, (linkExpirationTime - renewalThreshold) * 1000);
+
+  const handleReplyClick = (index: number) => {
+    const parent = commentaryList.filter((c) => c.parentid === null)[index];
+    if (!parent) return;
+
+    setActiveCommentIndex(index);
+    setParentCommentId(parent.id);
+    setActiveParent(parent); // On garde le parent pour l’afficher en haut du panel
+
+    const childComments = commentaryList
+      .filter((c) => c.parentid === parent.id)
+      .map((c) => ({
+        sender: `${c.creator.firstName} ${c.creator.lastName}`,
+        content: c.content,
+        avatar: `${
+          currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE
+        }`,
+        created_at: c.createdAt,
+        email: c.creator.email,
+      }));
+
+    setConversations((prev) => ({
+      ...prev,
+      [index]: childComments,
+    }));
+
+    setReplyPanelOpen(true);
+  };
+
+  const handleCloseReplyPanel = () => {
+    setReplyPanelOpen(false);
+    setActiveCommentIndex(null);
+    setParentCommentId(null);
+    setActiveParent(null);
+  };
+
+  const handleSendReply = async (msg: string) => {
+    if (activeCommentIndex === null || !videoId || !video) return;
+    const backendUser = localStorage.getItem('backendUser');
+    if (!backendUser) {
+      alert('Vous devez être connecté pour répondre à un commentaire.');
+      return;
+    }
+    const user = JSON.parse(backendUser);
+    if (!user.id) {
+      alert('Erreur utilisateur : id manquant.');
+      return;
+    }
+
+    await createComment({
+      video: video,
+      content: msg,
+      creator: user.id,
+      parentid: parentCommentId,
+    });
+
+    const refreshed = await getComments(videoId);
+    if (refreshed) {
+      setCommentaryList(refreshed.data);
+
+      const parent = refreshed.data.filter(
+        (c: CommentObject) => c.parentid === null,
+      )[activeCommentIndex];
+      if (parent) {
+        const childComments = refreshed.data
+          .filter((c: CommentObject) => c.parentid === parent.id)
+          .map((c: CommentObject) => ({
+            sender: `${c.creator.firstName} ${c.creator.lastName}`,
+            content: c.content,
+            avatar: `${
+              currentUser
+                ? currentUser.picture_id || PERSONA_IMAGE
+                : PERSONA_IMAGE
+            }`,
+            created_at: c.createdAt,
+            email: c.creator.email,
+          }));
+
+        setConversations((prev) => ({
+          ...prev,
+          [activeCommentIndex]: childComments,
+        }));
+      }
+    }
+  };
 
   if (isLoading) return <LoadingCircle />;
   if (!video) return <NotFoundPage />;
@@ -169,6 +282,22 @@ const VideoMedia: FC = () => {
       </div>
 
       <div className={styles.containerOther}>
+        <CommentReplyPanel
+          open={replyPanelOpen}
+          onClose={handleCloseReplyPanel}
+          conversation={conversations[activeCommentIndex || 0] || []}
+          parentComment={
+            activeParent
+              ? {
+                  content: activeParent.content,
+                  firstname: activeParent.creator.firstName,
+                  lastname: activeParent.creator.lastName,
+                }
+              : undefined
+          }
+          onSend={handleSendReply}
+        />
+
         <div className={styles.suggestionSide}>
           <div className={styles.miniatureList}>
             {suggestedVideos.map((vid) => (
@@ -193,6 +322,7 @@ const VideoMedia: FC = () => {
               const backendUser = localStorage.getItem('backendUser');
               if (backendUser) {
                 await createComment({
+                  parentid: null,
                   video: video,
                   content: text,
                   creator: JSON.parse(backendUser).id,
@@ -204,16 +334,20 @@ const VideoMedia: FC = () => {
           />
           <div className={styles.commentaryContainer}>
             {Array.isArray(commentaryList) &&
-              commentaryList.map((comment, index) => (
-                <Commentary
-                  key={index}
-                  content={comment.content}
-                  firstname={comment.creator.firstName}
-                  lastname={comment.creator.lastName}
-                  email={comment.creator.email}
-                  created_at={comment.createdAt}
-                />
-              ))}
+              commentaryList
+                .filter((comment) => comment.parentid === null)
+                .map((comment, index) => (
+                  <Commentary
+                    key={comment.id}
+                    content={comment.content}
+                    firstname={comment.creator.firstName}
+                    lastname={comment.creator.lastName}
+                    email={comment.creator.email}
+                    created_at={comment.createdAt}
+                    onReplyClick={() => handleReplyClick(index)}
+                    state={CommentaryDescriptionState.standard}
+                  />
+                ))}
           </div>
         </div>
       </div>

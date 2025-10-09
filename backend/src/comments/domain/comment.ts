@@ -10,6 +10,13 @@ export class CommentObject {
   id: string;
 
   @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The identifier of the parent comment.',
+    nullable: true,
+  })
+  parentid?: string | null;
+
+  @ApiProperty({
     example: 'A spooky comment',
     description: 'The content of the comment.',
   })
@@ -41,6 +48,7 @@ export class CommentObject {
 
   constructor(
     id: string,
+    parentid: string,
     creator: UserEntity,
     video: VideoEntity,
     content: string,
@@ -48,6 +56,7 @@ export class CommentObject {
     updatedAt: Date,
   ) {
     this.id = id;
+    this.parentid = parentid;
     this.creator = creator;
     this.video = video;
     this.content = content;

@@ -52,6 +52,7 @@ describe('CommentGateway', () => {
 
   const mockCommentObject: CommentObject = new CommentObject(
     'comment1',
+    'parentId',
     mockUser,
     mockVideo,
     'This is a comment',
