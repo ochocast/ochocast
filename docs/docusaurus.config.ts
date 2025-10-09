@@ -55,21 +55,15 @@ const config: Config = {
       },
       items: [
         {
+          href: 'https://demo.ochocast.fr',
+          label: 'Accéder au produit',
+          position: 'right',
+        },
+        {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'Documentation',
-        },
-        {
-          type: 'docSidebar',
-          position: 'left',
-          sidebarId: 'contribution',
-          label: 'Contribution'
-        },
-        {
-          href: 'https://github.com/ochocast/octocast-webapp',
-          label: 'GitHub',
           position: 'right',
+          label: 'Documentation',
         },
       ],
     },

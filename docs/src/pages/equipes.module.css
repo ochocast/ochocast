@@ -1,0 +1,98 @@
+.yearBlock {
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border-left: 4px solid #4A90E2;
+}
+
+.yearTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #4A90E2;
+  margin-bottom: 2rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #4A90E2;
+}
+
+.teamGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+}
+
+.teamGrid2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+.teamColumn {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.teamSubtitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.teamLabel {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 1rem;
+}
+
+.memberList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.memberList li {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #495057;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.memberList li::before {
+  content: "→";
+  color: #4A90E2;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+@media screen and (max-width: 996px) {
+  .yearBlock {
+    padding: 1.5rem;
+  }
+
+  .teamGrid,
+  .teamGrid2 {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .teamColumn {
+    padding: 1rem;
+  }
+
+  .yearTitle {
+    font-size: 1.75rem;
+  }
+
+  .teamSubtitle {
+    font-size: 1.125rem;
+  }
+}

@@ -1,0 +1,147 @@
+.main {
+  background: white;
+  min-height: calc(100vh - 60px);
+  padding: 3rem 2rem;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  gap: 3rem;
+  position: relative;
+}
+
+.content {
+  max-width: 900px;
+}
+
+.toc {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.tocTitle {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #6c757d;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+  letter-spacing: 0.5px;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tocList li {
+  margin-bottom: 0.5rem;
+}
+
+.tocList a {
+  color: #495057;
+  text-decoration: none;
+  font-size: 0.9rem;
+  display: block;
+  padding: 0.25rem 0;
+  transition: color 0.2s ease;
+}
+
+.tocList a:hover {
+  color: #4A90E2;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid #4A90E2;
+}
+
+.intro {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: #495057;
+  margin-bottom: 3rem;
+}
+
+.section {
+  margin-bottom: 3rem;
+}
+
+.sectionTitle {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.text {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #495057;
+  margin-bottom: 1rem;
+}
+
+.list {
+  list-style: none;
+  padding-left: 0;
+  margin: 1.5rem 0;
+}
+
+.list li {
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #495057;
+  padding-left: 2rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+}
+
+.list li::before {
+  content: "•";
+  color: #4A90E2;
+  font-weight: bold;
+  font-size: 1.5rem;
+  position: absolute;
+  left: 0.5rem;
+  top: -0.25rem;
+}
+
+@media screen and (max-width: 996px) {
+  .main {
+    padding: 2rem 1.5rem;
+  }
+
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .toc {
+    display: none;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.5rem;
+  }
+
+  .intro,
+  .text {
+    font-size: 1rem;
+  }
+}
