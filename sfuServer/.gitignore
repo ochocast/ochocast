@@ -1,2 +1,4 @@
 server*
 go.sum
+__pycache__
+
