@@ -35,6 +35,12 @@ class StreamTrack(MediaStreamTrack):
         self.special_frame_sequence_number = 0
         
         self._task = None
+        
+        # End/exit info
+        self.start_time = None
+        self.end_time = None
+        self.exit_error = False
+        self.exit_reason = None
 
     def start(self):
         self._task = asyncio.create_task(self._run())
@@ -42,70 +48,81 @@ class StreamTrack(MediaStreamTrack):
 
     async def _run(self):
         self.start_time = time.time()
-        
-        while not self._stopped and not self.host.stop_event.is_set():
-            t0 = time.time()
-            current_time = t0 - self.start_time
-            
-            # Determine if we should send red frame (only if latency check is active)
-            should_be_red = False
-            if self.host.check_latency:
-                should_be_red = (current_time - self.last_red_time) >= self.host.red_interval
+        try:
+            while not self._stopped and not self.host.stop_event.is_set():
+                t0 = time.time()
+                current_time = t0 - self.start_time
+                
+                # Determine if we should send red frame (only if latency check is active)
+                should_be_red = False
+                if self.host.check_latency:
+                    should_be_red = (current_time - self.last_red_time) >= self.host.red_interval
 
-            arr = np.zeros((self.host.height, self.host.width, 3), np.uint8)
-            if should_be_red:
-                # "Red" frame with sequence number
-                self.special_frame_sequence_number += 1
-                arr[..., 0] = 255  # R
-                arr[..., 1] = self.special_frame_sequence_number  # G = sequence
-                arr[..., 2] = 0    # B
-                self.red_timestamps.append({
-                    'frame': self.frame_count,
-                    'timestamp': t0,
-                    'relative_time': current_time,
-                    'sequence_number': self.special_frame_sequence_number
-                })
-                self.last_red_time = current_time
-                # print(f"[Host] 🔴 RED FRAME sent at {t0:.6f} (frame {self.frame_count})")
-            else:
-                # Blue frame (sequence 0)
-                arr[..., 0] = 0    # R
-                arr[..., 1] = 0    # G
-                arr[..., 2] = 255  # B
+                arr = np.zeros((self.host.height, self.host.width, 3), np.uint8)
+                if should_be_red:
+                    # "Red" frame with sequence number
+                    self.special_frame_sequence_number += 1
+                    arr[..., 0] = 255  # R
+                    arr[..., 1] = self.special_frame_sequence_number  # G = sequence
+                    arr[..., 2] = 0    # B
+                    self.red_timestamps.append({
+                        'frame': self.frame_count,
+                        'timestamp': t0,
+                        'relative_time': current_time,
+                        'sequence_number': self.special_frame_sequence_number
+                    })
+                    self.last_red_time = current_time
+                    # print(f"[Host] 🔴 RED FRAME sent at {t0:.6f} (frame {self.frame_count})")
+                else:
+                    # Blue frame (sequence 0)
+                    arr[..., 0] = 0    # R
+                    arr[..., 1] = 0    # G
+                    arr[..., 2] = 255  # B
 
-            frame = av.VideoFrame.from_ndarray(arr, format="rgb24")
-            frame.pts = self._pts
-            frame.time_base = Fraction(1, self.host.fps)
-            self._pts += 1
-            self.frame_count += 1
+                frame = av.VideoFrame.from_ndarray(arr, format="rgb24")
+                frame.pts = self._pts
+                frame.time_base = Fraction(1, self.host.fps)
+                self._pts += 1
+                self.frame_count += 1
 
-            if self._queue.full():
-                _ = self._queue.get_nowait()  # drop si backlog
-            await self._queue.put(frame)
+                if self._queue.full():
+                    _ = self._queue.get_nowait()  # drop si backlog
+                await self._queue.put(frame)
 
-            elapsed = time.time() - t0
-            await asyncio.sleep(max(0, self._interval - elapsed))
-
-        # Save timestamps when stopping (if latency check was active)
-        if self.host.check_latency and not hasattr(self, '_timestamps_saved'):
-            self._save_timestamps()
-            self._timestamps_saved = True
-        print("[Host] Stream track stopped")
+                elapsed = time.time() - t0
+                await asyncio.sleep(max(0, self._interval - elapsed))
+        except Exception as e:
+            self.exit_error = True
+            self.exit_reason = str(e)
+            self.end_time = time.time()
+            print(f"[Host] ⚠️ Error in stream track: {e}")
+        finally:
+            # Save timestamps when stopping (if latency check was active)
+            if self.host.check_latency and not hasattr(self, '_timestamps_saved'):
+                # ensure end_time is set
+                if not self.end_time:
+                    self.end_time = time.time()
+                self._save_timestamps()
+                self._timestamps_saved = True
+            print("[Host] Stream track stopped")
 
     def _save_timestamps(self):
         """Save red frame timestamps to JSON file"""
         timestamp_file = os.path.join(self.host.output, "host_timestamps.json")
         data = {
             'session_info': {
-                'start_time': datetime.fromtimestamp(self.start_time).isoformat(),
+                'start_time': datetime.fromtimestamp(self.start_time).isoformat() if self.start_time else None,
+                'end_time': datetime.fromtimestamp(self.end_time).isoformat() if self.end_time else None,
                 'red_interval': self.host.red_interval,
                 'fps': self.host.fps,
                 'resolution': f"{self.host.width}x{self.host.height}",
-                'total_red_frames': len(self.red_timestamps)
+                'total_red_frames': len(self.red_timestamps),
+                'exit_error': bool(self.exit_error),
+                'exit_reason': str(self.exit_reason) if self.exit_reason else None,
+                'total_frames': self.frame_count
             },
             'red_timestamps': self.red_timestamps
         }
-        
         with open(timestamp_file, 'w') as f:
             json.dump(data, f, indent=2)
         print(f"[Host] 💾 Saved {len(self.red_timestamps)} red frame timestamps to {timestamp_file}")
@@ -119,6 +136,8 @@ class StreamTrack(MediaStreamTrack):
             self._task.cancel()
         # Save timestamps when stopping
         if self.host.check_latency and not hasattr(self, '_timestamps_saved'):
+            if not self.end_time:
+                self.end_time = time.time()
             self._save_timestamps()
             self._timestamps_saved = True
         super().stop()

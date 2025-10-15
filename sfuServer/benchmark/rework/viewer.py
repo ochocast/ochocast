@@ -64,6 +64,11 @@ class Viewer:
         self._last_save_time = 0
         self._save_interval = 5.0  # Save every 5 seconds
 
+        # End/exit info
+        self.end_time = None
+        self.exit_error = False
+        self.exit_reason = None
+
         os.makedirs(output, exist_ok=True)
         if not os.path.isdir(output) or not os.access(output, os.W_OK):
             raise Exception(f"Output directory {output} is not writable")
@@ -96,7 +101,7 @@ class Viewer:
             'sequence_number': sequence_number
         }
         self.red_detections.append(detection)
-        print(f"[Viewer {self.viewer_id}] 🔴 RED DETECTED (Seq: {sequence_number}) at {timestamp:.6f} (frame {self.frame_count}) BGR=({mean_color[0]:.1f}, {mean_color[1]:.1f}, {mean_color[2]:.1f})")
+        # print(f"[Viewer {self.viewer_id}] 🔴 RED DETECTED (Seq: {sequence_number}) at {timestamp:.6f} (frame {self.frame_count}) BGR=({mean_color[0]:.1f}, {mean_color[1]:.1f}, {mean_color[2]:.1f})")
     
     def save_timestamps(self):
         """Save red frame detections to JSON file"""
@@ -106,6 +111,9 @@ class Viewer:
                 'viewer_id': self.viewer_id,
                 'start_time': datetime.fromtimestamp(self.start_time).isoformat() if self.start_time else None,
                 'first_frame_timestamp': datetime.fromtimestamp(self.first_frame_timestamp).isoformat() if self.first_frame_timestamp else None,
+                'end_time': datetime.fromtimestamp(self.end_time).isoformat() if self.end_time else None,
+                'exit_error': bool(self.exit_error),
+                'exit_reason': str(self.exit_reason) if self.exit_reason else None,
                 'red_threshold': self.red_threshold,
                 'total_red_detections': len(self.red_detections)
             },
@@ -113,7 +121,7 @@ class Viewer:
         }
         with open(timestamp_file, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"[Viewer {self.viewer_id}] 💾 Saved {len(self.red_detections)} red detections to {timestamp_file}")
+        # print(f"[Viewer {self.viewer_id}] 💾 Saved {len(self.red_detections)} red detections to {timestamp_file}")
 
     def start(self):
         """Start the viewer task - creates its own event loop in a thread if needed"""
@@ -221,8 +229,14 @@ class Viewer:
 
             except Exception as e:
                 print(f"[Viewer {self.viewer_id}] ⚠️ Error in video loop: {e}")
+                # mark exit as error and record reason
+                self.exit_error = True
+                self.exit_reason = str(e)
+                self.end_time = time.time()
             finally:
                 print(f"[Viewer {self.viewer_id}] 🧹 Cleaning up viewer")
+                if not self.end_time:
+                    self.end_time = time.time()
                 self.save_timestamps()
                 self.stop_event.set()
 
@@ -276,7 +290,7 @@ class Viewer:
         # Wait until stopped
         await self.stop_event.wait()
         
-        if not self.pc.isClosed:
+        if self.pc.connectionState not in ("closed", "failed"):
             await self.pc.close()
         print(f"[Viewer {self.viewer_id}] ✅ Viewer closed")
 
@@ -291,6 +305,9 @@ class Viewer:
             except asyncio.CancelledError:
                 pass
         # Final save
+        if not self.end_time:
+            self.end_time = time.time()
+        self.exit_error = self.exit_error or False
         self.save_timestamps()
         print(f"[Viewer {self.viewer_id}] Viewer stopped")
 
@@ -316,6 +333,8 @@ class Viewer:
                 print(f"[Viewer {self.viewer_id}] Warning: Thread did not stop within timeout")
         
         # Final save
+        if not self.end_time:
+            self.end_time = time.time()
         self.save_timestamps()
         print(f"[Viewer {self.viewer_id}] Viewer stopped synchronously")
 

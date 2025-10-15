@@ -5,13 +5,14 @@ from viewer import Viewer
 
 def main():
     parser = argparse.ArgumentParser(description="Industrialized WebRTC benchmark script.")
+    parser.add_argument("--url", type=str, default="http://localhost:8090", help="url of the sfu server.")
     parser.add_argument("--viewers", type=int, default=1, help="Number of viewers to launch.")
     parser.add_argument("--duration", type=int, default=300, help="Duration of the test in seconds after latency check starts.")
     args = parser.parse_args()
 
     # Créer une instance de l'hôte
     host = Host(
-        url="http://localhost:8090/whip",
+        url=args.url + "/whip",
         stun_url="stun:stun.l.google.com:19302",
         output="./benchmark_data",
         red_interval=3.0,  # Images rouges toutes les 3 secondes
@@ -25,7 +26,7 @@ def main():
             viewer_id=f"viewer_{i+1}",
             red_threshold=128.0,
             output="./benchmark_data",
-            url="http://localhost:8090/viewer",
+            url=args.url + "/viewer",
             stun_url="stun:stun.l.google.com:19302"
         )
         viewers.append(viewer)
