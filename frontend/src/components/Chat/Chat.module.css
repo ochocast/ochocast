@@ -55,10 +55,11 @@
   flex-direction: column;
   width: 100%;
   word-wrap: break-word;
+  max-width: 70%;
 }
 
 .message.ownMessage {
-  align-self: stretch;
+  align-self: flex-end;
 }
 
 .messageWrapper {
@@ -72,11 +73,11 @@
   align-items: center;
   gap: 8px;
   padding: 0 4px;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .message.ownMessage .messageHeader {
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
 .username {
@@ -92,23 +93,27 @@
 
 .messageContent {
   padding: 12px 16px;
-  background: var(--theme-color-100);
+  background: var(--theme-color-white);
   border-radius: 20px;
   font-size: 14px;
   line-height: 1.4;
-  color: var(--theme-color-1050);
-  border: none;
+  color: var(--theme-color-black);
+  border: 1px solid var(--theme-color-200);
+  max-width: 100%;
+  word-wrap: break-word;
+  white-space: pre-wrap;
 }
 
 .message.ownMessage .messageContent {
-  background: var(--theme-color-white);
-  border: 1px solid var(--theme-color-200);
+  background: var(--theme-color-200);
+  color: var(--theme-color-black);
+  border: none;
 }
 
 .inputContainer {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .messageInput {
@@ -120,6 +125,14 @@
   outline: none;
   transition: border-color 0.2s;
   background: var(--theme-color-white);
+  resize: none;
+  font-family: 'Outfit', sans-serif;
+  min-height: 20px;
+  max-height: 120px;
+  line-height: 1.4;
+  overflow-y: hidden;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .messageInput:focus {
@@ -155,4 +168,53 @@
 .sendButton:disabled {
   color: var(--theme-color-1100);
   cursor: not-allowed;
+}
+
+/* Media queries pour la responsivité */
+@media (max-width: 768px) {
+  .message {
+    max-width: 85%;
+  }
+  
+  .messageContent {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .messageInput {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-height: 18px;
+  }
+  
+  .sendButton {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .message {
+    max-width: 90%;
+  }
+  
+  .messageContent {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  
+  .messageInput {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 16px;
+  }
+  
+  .chatWrapper {
+    gap: 10px;
+  }
+  
+  .messagesContainer {
+    padding: 10px;
+    gap: 8px;
+  }
 }

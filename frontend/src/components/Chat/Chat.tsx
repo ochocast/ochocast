@@ -14,6 +14,7 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
   const { t } = useTranslation();
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { messages, isConnected, sendMessage } = useSocket({
     trackId,
     username,
@@ -31,6 +32,44 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
       setInputMessage('');
     }
   };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (inputMessage.trim() && isConnected) {
+        sendMessage(inputMessage, userId);
+        setInputMessage('');
+      }
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputMessage(e.target.value);
+
+    // Auto-resize textarea
+    const textarea = textareaRef.current;
+    if (textarea) {
+      // Reset height first to get proper scrollHeight
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 120);
+      textarea.style.height = newHeight + 'px';
+
+      // Show/hide scroll based on content height
+      if (textarea.scrollHeight > 120) {
+        textarea.style.overflowY = 'auto';
+      } else {
+        textarea.style.overflowY = 'hidden';
+      }
+    }
+  };
+
+  // Reset textarea height when message is sent
+  useEffect(() => {
+    if (inputMessage === '' && textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.overflowY = 'hidden';
+    }
+  }, [inputMessage]);
 
   const formatTimestamp = (timestamp: Date) => {
     return format(new Date(timestamp), 'HH:mm');
@@ -65,14 +104,16 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
       </div>
 
       <form onSubmit={handleSubmit} className={styles.inputContainer}>
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          placeholder={isConnected ? t('writeMessage') : t('connecting')}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder={isConnected ? `${t('writeMessage')}` : t('connecting')}
           disabled={!isConnected}
           className={styles.messageInput}
           maxLength={500}
+          rows={1}
         />
         <button
           type="submit"

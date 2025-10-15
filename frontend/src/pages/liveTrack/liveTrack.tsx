@@ -328,7 +328,7 @@ const LiveTrack = () => {
           </div>
           <div className={styles.trackInfo}>
             <div className={styles.trackTitle}>
-              <h2>{track.name}</h2>main
+              <h2>{track.name}</h2>
             </div>
           </div>
         </>

@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
 import { Logger } from '@nestjs/common';
+import { ChatService } from './core/chat.service';
 
 @WebSocketGateway({
   cors: {
@@ -26,8 +27,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
-  // Store messages in memory per track (lost on server restart)
-  private messages: Map<string, ChatMessageDto[]> = new Map();
+
+  constructor(private readonly chatService: ChatService) {}
 
   handleConnection(client: Socket) {
     this.logger.log(`Client connected: ${client.id}`);
@@ -38,7 +39,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinTrackRoom')
-  handleJoinRoom(
+  async handleJoinRoom(
     @MessageBody() data: { trackId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
@@ -48,8 +49,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `Client ${client.id} (${username}) joined track room: ${trackId}`,
     );
 
-    // Send existing messages to the newly joined client
-    const existingMessages = this.messages.get(trackId) || [];
+    // Send existing messages from database to the newly joined client
+    const existingMessages = await this.chatService.getTrackMessages(trackId);
     client.emit('messageHistory', existingMessages);
 
     // Notify others in the room
@@ -78,7 +79,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('sendMessage')
-  handleMessage(
+  async handleMessage(
     @MessageBody() messageDto: ChatMessageDto,
     @ConnectedSocket() client: Socket,
   ) {
@@ -87,23 +88,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // Add timestamp
     messageDto.timestamp = new Date();
 
-    // Store message in memory
-    if (!this.messages.has(trackId)) {
-      this.messages.set(trackId, []);
+    try {
+      // Save message to database
+      await this.chatService.saveMessage(messageDto);
+
+      // Broadcast message to all clients in the room (including sender)
+      this.server.to(trackId).emit('receiveMessage', messageDto);
+
+      this.logger.log(
+        `Message sent in track ${trackId} by ${messageDto.username}: ${messageDto.message}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to save message for track ${trackId}: ${error.message}`,
+      );
+      // Still broadcast the message even if save fails to maintain real-time experience
+      this.server.to(trackId).emit('receiveMessage', messageDto);
     }
-    this.messages.get(trackId).push(messageDto);
-
-    // Broadcast message to all clients in the room (including sender)
-    this.server.to(trackId).emit('receiveMessage', messageDto);
-
-    this.logger.log(
-      `Message sent in track ${trackId} by ${messageDto.username}: ${messageDto.message}`,
-    );
   }
 
-  // Optional: Clean up old messages to prevent memory leak
-  clearTrackMessages(trackId: string) {
-    this.messages.delete(trackId);
-    this.logger.log(`Messages cleared for track: ${trackId}`);
+  // Optional: Clean up messages from database
+  async clearTrackMessages(trackId: string) {
+    try {
+      await this.chatService.clearTrackMessages(trackId);
+      this.logger.log(`Messages cleared for track: ${trackId}`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to clear messages for track ${trackId}: ${error.message}`,
+      );
+    }
   }
 }

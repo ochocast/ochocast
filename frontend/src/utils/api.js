@@ -121,3 +121,11 @@ export const deleteComment = (id) => api.delete(`/comments/${id}`);
 export const getConfig = () => api.get('/config');
 export const uploadConfig = (formData) => api.post('/config', formData);
 export const getBrandingPicture = (key) => api.get(`/config/picture/${key}`);
+
+//Chat
+export const getTrackMessages = (trackId) =>
+  api.get(`/chat/tracks/${trackId}/messages`);
+export const clearTrackMessages = (trackId) =>
+  api.delete(`/chat/tracks/${trackId}/messages`);
+export const deleteMessage = (messageId) =>
+  api.delete(`/chat/messages/${messageId}`);
