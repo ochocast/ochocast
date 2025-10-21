@@ -217,7 +217,7 @@ class Host:
             print("[Host] Stream is already running")
 
     async def _run_stream(self):
-        """Main streaming coroutine based on host_benchmark.py"""
+        """Main streaming coroutine optimized for low-latency VP8 benchmark"""
         config = RTCConfiguration(iceServers=[RTCIceServer(self.stun_url)])
         self.pc = RTCPeerConnection(configuration=config)
 
@@ -233,32 +233,99 @@ class Host:
         async def _c():
             print("[Host] PC state:", self.pc.connectionState)
 
-        # Create and start track
+        # Create and start track (custom StreamTrack class)
         self.track = StreamTrack(self)
         self.track.start()
 
+        # Add transceiver in sendonly mode
         transceiver = self.pc.addTransceiver(self.track, direction="sendonly")
 
-        # Préférer AV1 en tête
+        # 🔹 Prefer VP8 (simple, robust, no B-frames)
         video_caps = RTCRtpSender.getCapabilities("video").codecs
-        av1_first = [c for c in video_caps if c.mimeType.lower() == "video/av01"]
-        others = [c for c in video_caps if c.mimeType.lower() != "video/av01"]
-        transceiver.setCodecPreferences(av1_first + others)
+        vp8 = [c for c in video_caps if c.mimeType.lower() == "video/vp8"]
+        h264_cb = [c for c in video_caps
+                   if c.mimeType.lower() == "video/h264"
+                   and c.parameters.get("profile-level-id", "").lower() == "42e01f"]
+        others = [c for c in video_caps if c not in vp8 + h264_cb]
+        transceiver.setCodecPreferences(vp8 + h264_cb + others)
 
+        # Note: aiortc doesn't support RTCRtpEncodingParameters/RTCRtpSendParameters
+        # Bitrate/framerate control will be done via SDP patching below
+
+        # Patch SDP hints for bitrate control
+        def patch_sdp_bitrates(sdp: str) -> str:
+            # Build PT->codec map from a=rtpmap
+            import re
+            rtpmap = {}
+            for line in sdp.splitlines():
+                m = re.match(r"a=rtpmap:(\d+)\s+([A-Za-z0-9\-]+)/90000", line)
+                if m:
+                    rtpmap[m.group(1)] = m.group(2).upper()
+
+            print(f"[Host] 🔍 Found codecs: {rtpmap}")
+
+            # Prepare extra fmtp lines
+            extra = []
+            for pt, codec in rtpmap.items():
+                if codec == "VP8":
+                    extra.append(f"a=fmtp:{pt} x-google-start-bitrate=600;x-google-max-bitrate=800;x-google-min-bitrate=300")
+                    print(f"[Host] 🎯 Adding VP8 bitrate control for PT {pt}")
+                elif codec == "H264":
+                    # Only add H264 fmtp if constrained-baseline shows up in SDP already
+                    if "profile-level-id=42e01f" in sdp.lower():
+                        extra.append(f"a=fmtp:{pt} level-asymmetry-allowed=1;packetization-mode=1;"
+                                     f"profile-level-id=42e01f;x-google-start-bitrate=600;"
+                                     f"x-google-max-bitrate=800;x-google-min-bitrate=300")
+                        print(f"[Host] 🎯 Adding H264 bitrate control for PT {pt}")
+
+            if not extra:
+                print("[Host] ⚠️ No codecs to patch")
+                return sdp
+
+            # Append immediately after each corresponding a=rtpmap line
+            out = []
+            for line in sdp.splitlines():
+                out.append(line)
+                m = re.match(r"a=rtpmap:(\d+)\s+([A-Za-z0-9\-]+)/90000", line)
+                if m:
+                    pt = m.group(1)
+                    for ex in list(extra):
+                        if ex.startswith(f"a=fmtp:{pt} "):
+                            out.append(ex)
+                            extra.remove(ex)  # Remove to avoid duplicates
+            return "\r\n".join(out)
+
+        # Create and apply offer
         offer = await self.pc.createOffer()
         await self.pc.setLocalDescription(offer)
 
+        # Wait for ICE gathering
         while self.pc.iceGatheringState != "complete":
             await asyncio.sleep(0.05)
 
+        # For now, skip SDP patching to test basic connectivity
+        original_sdp = self.pc.localDescription.sdp
+        # sdp_patched = patch_sdp_bitrates(original_sdp)
+        sdp_patched = original_sdp  # Use original SDP for now
+        
+        print(f"[Host] 📄 Using original SDP ({len(sdp_patched)} bytes)")
+        
+        # Debug: print first few lines of SDP
+        sdp_lines = sdp_patched.split('\r\n')[:5]
+        print(f"[Host] 🔍 SDP preview: {'; '.join(sdp_lines)}")
+
         print(f"[Host] ➡️  POST offer to WHIP: {self.url}")
-        headers = {"Content-Type": "application/sdp", "Accept": "application/sdp", "User-Agent": "Host-Stream/1.0"}
+        headers = {
+            "Content-Type": "application/sdp",
+            "Accept": "application/sdp",
+            "User-Agent": "Host-Stream/1.0",
+        }
         if self.token:
             headers["Authorization"] = self.token if self.token.lower().startswith("bearer ") else f"Bearer {self.token}"
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(self.url, data=self.pc.localDescription.sdp.encode("utf-8"), headers=headers) as resp:
+                async with session.post(self.url, data=sdp_patched.encode("utf-8"), headers=headers) as resp:
                     body = await resp.text()
                     if resp.status not in (200, 201):
                         print(f"[Host] ❌ WHIP POST failed: {resp.status} {body}")
@@ -275,7 +342,7 @@ class Host:
                     return
 
                 print("[Host] 🎥 Connected — streaming blue frames (red frames when latency check active)")
-                
+
                 # Keep alive until stopped
                 while not self.stop_event.is_set() and self.pc.connectionState == "connected":
                     await asyncio.sleep(1.0)
@@ -283,12 +350,12 @@ class Host:
         except Exception as e:
             print(f"[Host] ❌ Error during streaming: {e}")
         finally:
-            # Cleanup
             if self.track:
                 self.track.stop()
             if self.pc:
                 await self.pc.close()
             print("[Host] ✅ Stream closed")
+
 
     async def stop(self):
         """Stop the streaming"""
