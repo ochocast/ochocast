@@ -31,27 +31,40 @@ def fix_sequence_number_decoding(viewer_data):
     """
     fixed_detections = []
     
-    for detection in viewer_data['red_detections']:
-        # Récupérer les valeurs BGR
-        b, g, r = detection['mean_bgr']
-        
-        # Vérifier si c'est bien une frame rouge
-        if r > 128 and r > b + 50 and r > g + 50:
-            # Décoder le numéro de séquence selon la logique du host
-            seq_low = int(round(g))
-            seq_high = int(round(b))
-            correct_sequence = seq_low + (seq_high << 8)
+    red_detections = viewer_data.get('red_detections', [])
+    if not red_detections:
+        return fixed_detections
+    
+    for detection in red_detections:
+        try:
+            # Vérifier que mean_bgr existe et est valide
+            mean_bgr = detection.get('mean_bgr')
+            if not mean_bgr or len(mean_bgr) != 3:
+                continue
             
-            # Valider le numéro de séquence
-            if 1 <= correct_sequence <= 65535:
-                # Mettre à jour avec le bon numéro de séquence
-                detection['sequence_number'] = correct_sequence
-                detection['original_sequence'] = detection.get('sequence_number', 0)  # Garder l'original pour debug
-                fixed_detections.append(detection)
+            # Récupérer les valeurs BGR
+            b, g, r = mean_bgr
+            
+            # Vérifier si c'est bien une frame rouge
+            if r > 128 and r > b + 50 and r > g + 50:
+                # Décoder le numéro de séquence selon la logique du host
+                seq_low = int(round(g))
+                seq_high = int(round(b))
+                correct_sequence = seq_low + (seq_high << 8)
+                
+                # Valider le numéro de séquence
+                if 1 <= correct_sequence <= 65535:
+                    # Mettre à jour avec le bon numéro de séquence
+                    detection['sequence_number'] = correct_sequence
+                    detection['original_sequence'] = detection.get('sequence_number', 0)  # Garder l'original pour debug
+                    fixed_detections.append(detection)
+                else:
+                    print(f"[Debug] Invalid sequence number {correct_sequence} from BGR({b:.1f}, {g:.1f}, {r:.1f})")
             else:
-                print(f"[Debug] Invalid sequence number {correct_sequence} from BGR({b:.1f}, {g:.1f}, {r:.1f})")
-        else:
-            print(f"[Debug] Not a red frame: BGR({b:.1f}, {g:.1f}, {r:.1f})")
+                print(f"[Debug] Not a red frame: BGR({b:.1f}, {g:.1f}, {r:.1f})")
+        except (TypeError, ValueError, KeyError) as e:
+            print(f"[Debug] Error processing detection: {e}")
+            continue
     
     return fixed_detections
 
@@ -64,8 +77,13 @@ def analyze_latencies(host_data, viewers_data):
     all_latencies = []
     latencies_per_viewer = {}
     connection_times = []
-    errors = {'missing_frames': {}, 'duplicate_frames': {}, 'invalid_latency_frames': {}, 'decoding_errors': {}}
+    errors = {'missing_frames': {}, 'duplicate_frames': {}, 'invalid_latency_frames': {}, 'decoding_errors': {}, 'crashed_viewers': {}}
 
+    # Validate host data
+    if not host_data.get('session_info', {}).get('start_time'):
+        print("[Error] Host session_info missing or invalid start_time")
+        return 0, 0, {}, errors
+    
     host_start_time = datetime.fromisoformat(host_data['session_info']['start_time'])
     host_sequences = set(host_timestamps.keys())
 
@@ -74,27 +92,61 @@ def analyze_latencies(host_data, viewers_data):
     for viewer_id, viewer_data in viewers_data.items():
         print(f"\n[Debug] Analyzing viewer {viewer_id}")
         
-        viewer_latencies = []
+        # Initialize viewer error tracking
         latencies_per_viewer[viewer_id] = []
         errors['missing_frames'][viewer_id] = []
         errors['duplicate_frames'][viewer_id] = []
         errors['invalid_latency_frames'][viewer_id] = []
         errors['decoding_errors'][viewer_id] = []
+        errors['crashed_viewers'][viewer_id] = False
         
-        # Temps de connexion
-        viewer_start_time = datetime.fromisoformat(viewer_data['session_info']['start_time'])
-        connection_time = (viewer_start_time - host_start_time).total_seconds()
-        connection_times.append(connection_time)
+        # Validate viewer session info
+        session_info = viewer_data.get('session_info', {})
+        start_time_str = session_info.get('start_time')
+        
+        if not start_time_str or not isinstance(start_time_str, str):
+            print(f"[Warning] Viewer {viewer_id} has invalid or missing start_time: {start_time_str}")
+            errors['crashed_viewers'][viewer_id] = True
+            # Set all frames as missing for crashed viewer
+            errors['missing_frames'][viewer_id] = list(host_sequences)
+            continue
+        
+        try:
+            viewer_start_time = datetime.fromisoformat(start_time_str)
+            connection_time = (viewer_start_time - host_start_time).total_seconds()
+            connection_times.append(connection_time)
+        except (ValueError, TypeError) as e:
+            print(f"[Warning] Viewer {viewer_id} has invalid start_time format '{start_time_str}': {e}")
+            errors['crashed_viewers'][viewer_id] = True
+            errors['missing_frames'][viewer_id] = list(host_sequences)
+            continue
+        
+        # Check if viewer has red_detections
+        red_detections = viewer_data.get('red_detections', [])
+        if not red_detections:
+            print(f"[Warning] Viewer {viewer_id} has no red_detections")
+            errors['missing_frames'][viewer_id] = list(host_sequences)
+            continue
+
+        viewer_latencies = []
 
         # Corriger le décodage des numéros de séquence
-        fixed_detections = fix_sequence_number_decoding(viewer_data)
+        try:
+            fixed_detections = fix_sequence_number_decoding(viewer_data)
+        except Exception as e:
+            print(f"[Error] Failed to fix sequence numbers for viewer {viewer_id}: {e}")
+            errors['decoding_errors'][viewer_id].append(str(e))
+            errors['missing_frames'][viewer_id] = list(host_sequences)
+            continue
         
-        print(f"[Debug] Original detections: {len(viewer_data['red_detections'])}, Fixed: {len(fixed_detections)}")
+        print(f"[Debug] Original detections: {len(red_detections)}, Fixed: {len(fixed_detections)}")
         
         # Regrouper les détections par numéro de séquence pour gérer les doublons
         detections_by_seq = {}
         for detection in fixed_detections:
-            seq = detection['sequence_number']
+            seq = detection.get('sequence_number')
+            if seq is None:
+                continue
             if seq not in detections_by_seq:
                 detections_by_seq[seq] = []
             detections_by_seq[seq].append(detection)
@@ -116,14 +168,19 @@ def analyze_latencies(host_data, viewers_data):
             # Trouver la première latence valide
             latency_found = False
             for item in detections_by_seq[seq]:
-                if 'timestamp' in item:
-                    latency = item['timestamp'] - host_timestamps[seq]
-                    if latency > 0:
-                        viewer_latencies.append(latency)
-                        latencies_per_viewer[viewer_id].append({'sequence': seq, 'latency': latency})
-                        latency_found = True
-                        print(f"[Debug] Seq {seq}: latency = {latency*1000:.1f}ms")
-                        break # On a trouvé une latence valide, on passe à la séquence suivante
+                timestamp = item.get('timestamp')
+                if timestamp is not None and seq in host_timestamps:
+                    try:
+                        latency = timestamp - host_timestamps[seq]
+                        if latency > 0:
+                            viewer_latencies.append(latency)
+                            latencies_per_viewer[viewer_id].append({'sequence': seq, 'latency': latency})
+                            latency_found = True
+                            print(f"[Debug] Seq {seq}: latency = {latency*1000:.1f}ms")
+                            break # On a trouvé une latence valide, on passe à la séquence suivante
+                    except (TypeError, ValueError) as e:
+                        print(f"[Debug] Invalid timestamp for seq {seq}: {e}")
+                        continue
             
             if not latency_found:
                 errors['invalid_latency_frames'][viewer_id].append(seq)
@@ -135,6 +192,7 @@ def analyze_latencies(host_data, viewers_data):
         print(f"  - Valid latencies: {len(viewer_latencies)}")
         print(f"  - Missing frames: {len(errors['missing_frames'][viewer_id])}")
         print(f"  - Duplicate frames: {len(errors['duplicate_frames'][viewer_id])}")
+        print(f"  - Crashed: {errors['crashed_viewers'][viewer_id]}")
 
     avg_latency = np.mean(all_latencies) if all_latencies else 0
     avg_connection_time = np.mean(connection_times) if connection_times else 0
@@ -312,6 +370,9 @@ def generate_detailed_report(host_data, viewers_data, latencies_per_viewer, erro
             f.write(f"  - Latence médiane globale: {np.median(all_latencies):.1f}ms\n")
             f.write(f"  - Latence min/max globale: {np.min(all_latencies):.1f}ms / {np.max(all_latencies):.1f}ms\n")
             f.write(f"  - Écart-type global: {np.std(all_latencies):.1f}ms\n\n")
+        else:
+            f.write("GLOBAL (tous viewers):\n")
+            f.write("  - Aucune latence valide mesurée\n\n")
         
         # Erreurs
         f.write("3. ANALYSE DES ERREURS\n")
@@ -319,19 +380,23 @@ def generate_detailed_report(host_data, viewers_data, latencies_per_viewer, erro
         
         total_missing = sum(len(frames) for frames in errors['missing_frames'].values())
         total_duplicates = sum(len(frames) for frames in errors['duplicate_frames'].values())
+        crashed_viewers = sum(1 for crashed in errors.get('crashed_viewers', {}).values() if crashed)
         
         f.write(f"Total frames manquantes: {total_missing}\n")
-        f.write(f"Total frames dupliquées: {total_duplicates}\n\n")
+        f.write(f"Total frames dupliquées: {total_duplicates}\n")
+        f.write(f"Viewers crashés: {crashed_viewers}\n\n")
         
         for viewer_id in viewers_data.keys():
             missing = len(errors['missing_frames'][viewer_id])
             duplicates = len(errors['duplicate_frames'][viewer_id])
+            crashed = errors.get('crashed_viewers', {}).get(viewer_id, False)
             
             f.write(f"Viewer {viewer_id}:\n")
             f.write(f"  - Frames manquantes: {missing}\n")
             f.write(f"  - Frames dupliquées: {duplicates}\n")
+            f.write(f"  - Crashé: {'Oui' if crashed else 'Non'}\n")
             
-            if missing > 0:
+            if missing > 0 and not crashed:
                 f.write(f"  - Séquences manquantes: {sorted(errors['missing_frames'][viewer_id])}\n")
             if duplicates > 0:
                 f.write(f"  - Séquences dupliquées: {sorted(errors['duplicate_frames'][viewer_id])}\n")
@@ -340,12 +405,23 @@ def generate_detailed_report(host_data, viewers_data, latencies_per_viewer, erro
         # Précision du timing host
         f.write("4. PRÉCISION DU TIMING HOST\n")
         f.write("-" * 40 + "\n")
-        timing_errors = host_data['performance_stats']['timing_errors_ms']
-        f.write(f"Erreur moyenne de timing: {np.mean(timing_errors):.1f}ms\n")
-        f.write(f"Erreur max de timing: {np.max(timing_errors):.1f}ms\n")
-        f.write(f"Écart-type des erreurs: {np.std(timing_errors):.1f}ms\n")
-        f.write(f"Frames droppées: {host_data['session_info']['frames_dropped']}\n")
-        f.write(f"Taux de drop: {host_data['performance_stats']['frame_drop_rate']:.2f}%\n")
+        
+        # Safety check for timing errors
+        timing_errors = host_data.get('performance_stats', {}).get('timing_errors_ms', [])
+        if timing_errors:
+            f.write(f"Erreur moyenne de timing: {np.mean(timing_errors):.1f}ms\n")
+            f.write(f"Erreur max de timing: {np.max(timing_errors):.1f}ms\n")
+            f.write(f"Écart-type des erreurs: {np.std(timing_errors):.1f}ms\n")
+        else:
+            f.write("Aucune donnée d'erreur de timing disponible\n")
+        
+        # Safety check for frame stats
+        session_info = host_data.get('session_info', {})
+        frames_dropped = session_info.get('frames_dropped', 0)
+        frame_drop_rate = host_data.get('performance_stats', {}).get('frame_drop_rate', 0)
+        
+        f.write(f"Frames droppées: {frames_dropped}\n")
+        f.write(f"Taux de drop: {frame_drop_rate:.2f}%\n")
 
     print(f"Rapport détaillé sauvegardé: {report_path}")
 
@@ -379,17 +455,25 @@ def main():
     
     total_missing = sum(len(frames) for frames in errors['missing_frames'].values())
     total_duplicates = sum(len(frames) for frames in errors['duplicate_frames'].values())
+    crashed_viewers = sum(1 for crashed in errors.get('crashed_viewers', {}).values() if crashed)
     
-    if total_missing == 0 and total_duplicates == 0:
+    if total_missing == 0 and total_duplicates == 0 and crashed_viewers == 0:
         print("✅ Aucune erreur de mesure détectée.")
     else:
         print(f"❌ Total frames manquantes: {total_missing}")
         print(f"⚠️  Total frames dupliquées: {total_duplicates}")
+        print(f"💥 Viewers crashés: {crashed_viewers}")
+        
+        if crashed_viewers > 0:
+            print("\nViewers crashés:")
+            for viewer_id, crashed in errors.get('crashed_viewers', {}).items():
+                if crashed:
+                    print(f"  - Viewer {viewer_id}: session incomplète ou corrompue")
         
         if errors['missing_frames']:
             print("\nFrames manquantes par viewer:")
             for viewer, frames in errors['missing_frames'].items():
-                if frames:
+                if frames and not errors.get('crashed_viewers', {}).get(viewer, False):
                     print(f"  - Viewer {viewer}: {len(frames)} frames manquantes")
         
         if errors['duplicate_frames']:
