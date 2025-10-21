@@ -24,9 +24,15 @@ class StreamTrack(MediaStreamTrack):
         super().__init__()
         self.host = host_instance
         self._interval = 1.0 / host_instance.fps
-        self._queue = asyncio.Queue(maxsize=2)
+        # Amélioration : Queue plus grande pour éviter les pertes
+        self._queue = asyncio.Queue(maxsize=5)  # Au lieu de 2
         self._stopped = False
         self._pts = 0
+        
+        # Amélioration : Statistiques de performance
+        self.frames_generated = 0
+        self.frames_dropped = 0
+        self.timing_errors = 0
         
         # Latency check specifics
         self.red_timestamps = []
@@ -48,35 +54,51 @@ class StreamTrack(MediaStreamTrack):
 
     async def _run(self):
         self.start_time = time.time()
+        last_red_check = self.start_time  # Nouveau: référence fixe pour le timing
+        
         try:
             while not self._stopped and not self.host.stop_event.is_set():
                 t0 = time.time()
                 current_time = t0 - self.start_time
                 
-                # Determine if we should send red frame (only if latency check is active)
+                # Amélioration 1: Timing basé sur l'horloge absolue
                 should_be_red = False
                 if self.host.check_latency:
-                    should_be_red = (current_time - self.last_red_time) >= self.host.red_interval
+                    # Calculer le prochain moment où une frame rouge devrait être envoyée
+                    next_red_time = last_red_check + self.host.red_interval
+                    should_be_red = t0 >= next_red_time
+                    
+                    if should_be_red:
+                        last_red_check = t0  # Mettre à jour la référence
 
                 arr = np.zeros((self.host.height, self.host.width, 3), np.uint8)
                 if should_be_red:
-                    # "Red" frame with sequence number
+                    # Amélioration 2: Meilleur encodage de la séquence
                     self.special_frame_sequence_number += 1
-                    arr[..., 0] = 255  # R
-                    arr[..., 1] = self.special_frame_sequence_number  # G = sequence
-                    arr[..., 2] = 0    # B
+                    
+                    # Utiliser le canal vert pour encoder le numéro de séquence (0-255)
+                    # Et le canal bleu pour les bits hauts si nécessaire (256-65535)
+                    seq_low = self.special_frame_sequence_number & 0xFF
+                    seq_high = (self.special_frame_sequence_number >> 8) & 0xFF
+                    
+                    arr[..., 0] = 255      # R = 255 (rouge pur)
+                    arr[..., 1] = seq_low  # G = séquence (bits 0-7)
+                    arr[..., 2] = seq_high # B = séquence (bits 8-15)
+                    
                     self.red_timestamps.append({
                         'frame': self.frame_count,
                         'timestamp': t0,
                         'relative_time': current_time,
-                        'sequence_number': self.special_frame_sequence_number
+                        'sequence_number': self.special_frame_sequence_number,
+                        'expected_time': next_red_time - self.start_time,
+                        'timing_error': t0 - next_red_time
                     })
                     self.last_red_time = current_time
-                    # print(f"[Host] 🔴 RED FRAME sent at {t0:.6f} (frame {self.frame_count})")
+                    print(f"[Host] 🔴 RED FRAME sent (Seq: {self.special_frame_sequence_number}) at {t0:.6f} (error: {(t0-next_red_time)*1000:.1f}ms)")
                 else:
-                    # Blue frame (sequence 0)
+                    # Frame bleue standard
                     arr[..., 0] = 0    # R
-                    arr[..., 1] = 0    # G
+                    arr[..., 1] = 0    # G  
                     arr[..., 2] = 255  # B
 
                 frame = av.VideoFrame.from_ndarray(arr, format="rgb24")
@@ -85,12 +107,31 @@ class StreamTrack(MediaStreamTrack):
                 self._pts += 1
                 self.frame_count += 1
 
-                if self._queue.full():
-                    _ = self._queue.get_nowait()  # drop si backlog
-                await self._queue.put(frame)
+                # Amélioration 3: Gestion de queue non-bloquante
+                try:
+                    if self._queue.full():
+                        try:
+                            dropped = self._queue.get_nowait()
+                            self.frames_dropped += 1
+                            print(f"[Host] ⚠️ Dropped frame {self.frame_count-1} (queue full)")
+                        except asyncio.QueueEmpty:
+                            pass
+                    
+                    self._queue.put_nowait(frame)
+                    self.frames_generated += 1
+                except asyncio.QueueFull:
+                    self.frames_dropped += 1
+                    print(f"[Host] ⚠️ Failed to queue frame {self.frame_count} (queue full)")
 
+                # Amélioration 4: Timing plus précis et constant
                 elapsed = time.time() - t0
-                await asyncio.sleep(max(0, self._interval - elapsed))
+                sleep_time = max(0, self._interval - elapsed)
+                
+                if sleep_time > 0:
+                    await asyncio.sleep(sleep_time)
+                elif elapsed > self._interval * 2:
+                    self.timing_errors += 1
+                    print(f"[Host] ⚠️ Frame generation too slow: {elapsed:.3f}s (target: {self._interval:.3f}s)")
         except Exception as e:
             self.exit_error = True
             self.exit_reason = str(e)
@@ -107,8 +148,18 @@ class StreamTrack(MediaStreamTrack):
             print("[Host] Stream track stopped")
 
     def _save_timestamps(self):
-        """Save red frame timestamps to JSON file"""
+        """Save red frame timestamps to JSON file with performance stats"""
         timestamp_file = os.path.join(self.host.output, "host_timestamps.json")
+        
+        # Calculer les statistiques de timing
+        timing_errors = []
+        if len(self.red_timestamps) > 1:
+            for i in range(1, len(self.red_timestamps)):
+                expected_interval = self.host.red_interval
+                actual_interval = self.red_timestamps[i]['timestamp'] - self.red_timestamps[i-1]['timestamp']
+                error = actual_interval - expected_interval
+                timing_errors.append(error)
+        
         data = {
             'session_info': {
                 'start_time': datetime.fromtimestamp(self.start_time).isoformat() if self.start_time else None,
@@ -117,15 +168,25 @@ class StreamTrack(MediaStreamTrack):
                 'fps': self.host.fps,
                 'resolution': f"{self.host.width}x{self.host.height}",
                 'total_red_frames': len(self.red_timestamps),
+                'total_frames': self.frame_count,
+                'frames_generated': self.frames_generated,
+                'frames_dropped': self.frames_dropped,
+                'timing_errors': self.timing_errors,
+                'avg_timing_error': sum(timing_errors) / len(timing_errors) if timing_errors else 0,
+                'max_timing_error': max(timing_errors) if timing_errors else 0,
                 'exit_error': bool(self.exit_error),
                 'exit_reason': str(self.exit_reason) if self.exit_reason else None,
-                'total_frames': self.frame_count
             },
-            'red_timestamps': self.red_timestamps
+            'red_timestamps': self.red_timestamps,
+            'performance_stats': {
+                'timing_errors_ms': [e * 1000 for e in timing_errors],
+                'frame_drop_rate': self.frames_dropped / max(1, self.frames_generated) * 100
+            }
         }
+        
         with open(timestamp_file, 'w') as f:
             json.dump(data, f, indent=2)
-        print(f"[Host] 💾 Saved {len(self.red_timestamps)} red frame timestamps to {timestamp_file}")
+        print(f"[Host] 💾 Saved {len(self.red_timestamps)} red frames, {self.frames_dropped} drops, {self.timing_errors} timing errors")
 
     async def recv(self):
         return await self._queue.get()
@@ -216,6 +277,60 @@ class Host:
         else:
             print("[Host] Stream is already running")
 
+    # Amélioration des paramètres WebRTC
+    def patch_sdp_bitrates(self, sdp: str) -> str:
+        import re
+        
+        lines = sdp.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+        
+        rtpmap = {}
+        for line in lines:
+            m = re.match(r"a=rtpmap:(\d+)\s+([A-Za-z0-9\-]+)/90000", line)
+            if m:
+                rtpmap[m.group(1)] = m.group(2).upper()
+
+        extra = []
+        for pt, codec in rtpmap.items():
+            if codec == "VP8":
+                # Paramètres optimisés pour faible latence
+                extra.append(f"a=fmtp:{pt} "
+                            f"x-google-start-bitrate=2000;"
+                            f"x-google-max-bitrate=4000;"
+                            f"x-google-min-bitrate=1000;"
+                            f"x-google-cpu-overuse-detection=false;"
+                            f"max-fr=30")
+            elif codec == "H264":
+                extra.append(f"a=fmtp:{pt} "
+                            f"level-asymmetry-allowed=1;"
+                            f"packetization-mode=1;"
+                            f"profile-level-id=42e01f;"
+                            f"x-google-start-bitrate=2000;"
+                            f"x-google-max-bitrate=4000")
+
+        # Insérer les paramètres + ajouter des paramètres de latence
+        out = []
+        for line in lines:
+            out.append(line)
+            if line.startswith("m=video"):
+                # Ajouter des paramètres de latence après la ligne m=video
+                out.append("a=rtcp-fb:* nack")
+                out.append("a=rtcp-fb:* ccm fir") 
+                out.append("a=rtcp-fb:* goog-remb")
+            
+            m = re.match(r"a=rtpmap:(\d+)\s+([A-Za-z0-9\-]+)/90000", line)
+            if m:
+                pt = m.group(1)
+                for ex in list(extra):
+                    if ex.startswith(f"a=fmtp:{pt} "):
+                        out.append(ex)
+                        extra.remove(ex)
+        
+        result = "\r\n".join(line for line in out if line.strip())
+        if not result.endswith('\r\n'):
+            result += '\r\n'
+        
+        return result
+
     async def _run_stream(self):
         """Main streaming coroutine optimized for low-latency VP8 benchmark"""
         config = RTCConfiguration(iceServers=[RTCIceServer(self.stun_url)])
@@ -249,52 +364,6 @@ class Host:
         others = [c for c in video_caps if c not in vp8 + h264_cb]
         transceiver.setCodecPreferences(vp8 + h264_cb + others)
 
-        # Note: aiortc doesn't support RTCRtpEncodingParameters/RTCRtpSendParameters
-        # Bitrate/framerate control will be done via SDP patching below
-
-        # Patch SDP hints for bitrate control
-        def patch_sdp_bitrates(sdp: str) -> str:
-            # Build PT->codec map from a=rtpmap
-            import re
-            rtpmap = {}
-            for line in sdp.splitlines():
-                m = re.match(r"a=rtpmap:(\d+)\s+([A-Za-z0-9\-]+)/90000", line)
-                if m:
-                    rtpmap[m.group(1)] = m.group(2).upper()
-
-            print(f"[Host] 🔍 Found codecs: {rtpmap}")
-
-            # Prepare extra fmtp lines
-            extra = []
-            for pt, codec in rtpmap.items():
-                if codec == "VP8":
-                    extra.append(f"a=fmtp:{pt} x-google-start-bitrate=600;x-google-max-bitrate=800;x-google-min-bitrate=300")
-                    print(f"[Host] 🎯 Adding VP8 bitrate control for PT {pt}")
-                elif codec == "H264":
-                    # Only add H264 fmtp if constrained-baseline shows up in SDP already
-                    if "profile-level-id=42e01f" in sdp.lower():
-                        extra.append(f"a=fmtp:{pt} level-asymmetry-allowed=1;packetization-mode=1;"
-                                     f"profile-level-id=42e01f;x-google-start-bitrate=600;"
-                                     f"x-google-max-bitrate=800;x-google-min-bitrate=300")
-                        print(f"[Host] 🎯 Adding H264 bitrate control for PT {pt}")
-
-            if not extra:
-                print("[Host] ⚠️ No codecs to patch")
-                return sdp
-
-            # Append immediately after each corresponding a=rtpmap line
-            out = []
-            for line in sdp.splitlines():
-                out.append(line)
-                m = re.match(r"a=rtpmap:(\d+)\s+([A-Za-z0-9\-]+)/90000", line)
-                if m:
-                    pt = m.group(1)
-                    for ex in list(extra):
-                        if ex.startswith(f"a=fmtp:{pt} "):
-                            out.append(ex)
-                            extra.remove(ex)  # Remove to avoid duplicates
-            return "\r\n".join(out)
-
         # Create and apply offer
         offer = await self.pc.createOffer()
         await self.pc.setLocalDescription(offer)
@@ -303,16 +372,42 @@ class Host:
         while self.pc.iceGatheringState != "complete":
             await asyncio.sleep(0.05)
 
-        # For now, skip SDP patching to test basic connectivity
+        # Get original SDP
         original_sdp = self.pc.localDescription.sdp
-        # sdp_patched = patch_sdp_bitrates(original_sdp)
-        sdp_patched = original_sdp  # Use original SDP for now
         
-        print(f"[Host] 📄 Using original SDP ({len(sdp_patched)} bytes)")
+        # Try to send original SDP first, fall back to patched if needed
+        use_patched = False
+        try:
+            # Validate original SDP format
+            if not original_sdp.strip().endswith('\r\n'):
+                original_sdp = original_sdp.strip() + '\r\n'
+            
+            # Try patching only if specifically needed
+            if any(codec.mimeType.lower() in ["video/vp8", "video/h264"] for codec in video_caps):
+                sdp_to_send = self.patch_sdp_bitrates(original_sdp)
+                use_patched = True
+                print(f"[Host] 📄 Using patched SDP ({len(sdp_to_send)} bytes)")
+            else:
+                sdp_to_send = original_sdp
+                print(f"[Host] 📄 Using original SDP ({len(sdp_to_send)} bytes)")
+                
+        except Exception as e:
+            print(f"[Host] ⚠️ SDP patching failed: {e}, using original")
+            sdp_to_send = original_sdp
+            use_patched = False
         
-        # Debug: print first few lines of SDP
-        sdp_lines = sdp_patched.split('\r\n')[:5]
-        print(f"[Host] 🔍 SDP preview: {'; '.join(sdp_lines)}")
+        # Debug: validate SDP format
+        if not sdp_to_send.startswith('v=0'):
+            print(f"[Host] ⚠️ Invalid SDP format: doesn't start with v=0")
+        if not sdp_to_send.endswith('\r\n'):
+            print(f"[Host] ⚠️ SDP doesn't end with CRLF")
+            sdp_to_send = sdp_to_send.rstrip() + '\r\n'
+        
+        # Debug: print SDP structure
+        sdp_lines = sdp_to_send.split('\r\n')
+        print(f"[Host] 🔍 SDP has {len(sdp_lines)} lines, patched: {use_patched}")
+        print(f"[Host] 🔍 First 3 lines: {sdp_lines[:3]}")
+        print(f"[Host] 🔍 Last 3 lines: {[line for line in sdp_lines[-5:] if line.strip()]}")
 
         print(f"[Host] ➡️  POST offer to WHIP: {self.url}")
         headers = {
@@ -325,13 +420,30 @@ class Host:
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post(self.url, data=sdp_patched.encode("utf-8"), headers=headers) as resp:
+                # Send SDP as bytes to avoid encoding issues
+                sdp_bytes = sdp_to_send.encode("utf-8")
+                print(f"[Host] 📤 Sending {len(sdp_bytes)} bytes")
+                
+                async with session.post(self.url, data=sdp_bytes, headers=headers) as resp:
                     body = await resp.text()
                     if resp.status not in (200, 201):
                         print(f"[Host] ❌ WHIP POST failed: {resp.status} {body}")
-                        return
-                    print(f"[Host] ✅ Got answer (status {resp.status})")
-                    await self.pc.setRemoteDescription(RTCSessionDescription(body, "answer"))
+                        # If patched SDP failed, try original
+                        if use_patched and resp.status == 500:
+                            print(f"[Host] 🔄 Retrying with original SDP...")
+                            original_bytes = original_sdp.encode("utf-8")
+                            async with session.post(self.url, data=original_bytes, headers=headers) as resp2:
+                                body = await resp2.text()
+                                if resp2.status not in (200, 201):
+                                    print(f"[Host] ❌ Original SDP also failed: {resp2.status} {body}")
+                                    return
+                                print(f"[Host] ✅ Original SDP worked (status {resp2.status})")
+                                await self.pc.setRemoteDescription(RTCSessionDescription(body, "answer"))
+                        else:
+                            return
+                    else:
+                        print(f"[Host] ✅ Got answer (status {resp.status})")
+                        await self.pc.setRemoteDescription(RTCSessionDescription(body, "answer"))
 
                 print("[Host] ⏳ Waiting for WebRTC connected...")
                 while self.pc.connectionState not in ("connected", "failed", "closed") and not self.stop_event.is_set():
@@ -349,13 +461,14 @@ class Host:
 
         except Exception as e:
             print(f"[Host] ❌ Error during streaming: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             if self.track:
                 self.track.stop()
             if self.pc:
                 await self.pc.close()
             print("[Host] ✅ Stream closed")
-
 
     async def stop(self):
         """Stop the streaming"""

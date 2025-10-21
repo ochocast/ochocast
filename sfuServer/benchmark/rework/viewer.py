@@ -79,29 +79,49 @@ class Viewer:
         mean_color = img.mean(axis=(0, 1))  # BGR format
         b, g, r = mean_color
         
-        # Red detection: red component significantly higher than blue and green
-        is_red = (r > self.red_threshold)
-
+        # Amélioration 1: Seuil plus strict
+        is_red = (r > self.red_threshold) and (r > b + 100) and (r > g + 100)
+        
         sequence_number = 0
         if is_red:
-            # The sequence number is encoded in the green channel for red frames
-            sequence_number = int(round(g))
+            # Amélioration 2: Décodage amélioré du numéro de séquence
+            seq_low = int(round(g))
+            seq_high = int(round(b))
+            sequence_number = seq_low + (seq_high << 8)
+            
+            # Validation du numéro de séquence
+            if sequence_number <= 0 or sequence_number > 65535:
+                print(f"[Viewer {self.viewer_id}] ⚠️ Invalid sequence number: {sequence_number} (g={g}, b={b})")
+                is_red = False
+                sequence_number = 0
         
         return is_red, (b, g, r), sequence_number
     
     def log_red_detection(self, timestamp, mean_color, sequence_number):
-        """Log a red frame detection"""
+        """Log a red frame detection with improved duplicate prevention"""
         relative_time = timestamp - self.start_time if self.start_time else 0
-        detection = {
-            'frame': self.frame_count,
-            'timestamp': timestamp,
-            'relative_time': relative_time,
-            'mean_bgr': list(mean_color),
-            'viewer_id': self.viewer_id,
-            'sequence_number': sequence_number
-        }
-        self.red_detections.append(detection)
-        # print(f"[Viewer {self.viewer_id}] 🔴 RED DETECTED (Seq: {sequence_number}) at {timestamp:.6f} (frame {self.frame_count}) BGR=({mean_color[0]:.1f}, {mean_color[1]:.1f}, {mean_color[2]:.1f})")
+        
+        # Amélioration 3: Prévention des doublons avec fenêtre temporelle
+        duplicate = False
+        for detection in self.red_detections[-10:]:  # Vérifier les 10 dernières
+            if detection['sequence_number'] == sequence_number:
+                time_diff = abs(timestamp - detection['timestamp'])
+                if time_diff < 0.1:  # Moins de 100ms = probable doublon
+                    print(f"[Viewer {self.viewer_id}] ⚠️ Duplicate sequence {sequence_number} ignored (Δt={time_diff*1000:.1f}ms)")
+                    duplicate = True
+                    break
+        
+        if not duplicate:
+            detection = {
+                'frame': self.frame_count,
+                'timestamp': timestamp,
+                'relative_time': relative_time,
+                'mean_bgr': list(mean_color),
+                'viewer_id': self.viewer_id,
+                'sequence_number': sequence_number
+            }
+            self.red_detections.append(detection)
+            print(f"[Viewer {self.viewer_id}] 🔴 RED DETECTED (Seq: {sequence_number}) at {timestamp:.6f}")
     
     def save_timestamps(self):
         """Save red frame detections to JSON file"""
@@ -193,15 +213,22 @@ class Viewer:
                 return
 
             self.start_time = time.time()
-            print(f"[Viewer {self.viewer_id}] Benchmark started - detecting red frames (threshold: {self.red_threshold})")
+            frame_receive_times = []  # Pour analyser la régularité
             
             try:
                 while True:
-                    # Check stop_event but don't block on it
                     if self.stop_event.is_set():
                         break
                     
+                    frame_start = time.time()
                     frame = await track.recv()
+                    frame_receive_times.append(frame_start)
+                    
+                    # Analyse de la régularité des frames
+                    if len(frame_receive_times) > 1:
+                        interval = frame_receive_times[-1] - frame_receive_times[-2]
+                        if interval > 0.1:  # Plus de 100ms entre frames
+                            print(f"[Viewer {self.viewer_id}] ⚠️ Long interval: {interval:.3f}s")
                     
                     # Set timestamp for the very first frame
                     if self.first_frame_timestamp is None:
