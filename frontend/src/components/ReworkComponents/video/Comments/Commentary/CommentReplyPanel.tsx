@@ -43,7 +43,6 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   }>(null);
   const { t } = useTranslation();
 
-  // 🔒 Bloquer le scroll du body + html quand le panel est ouvert
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -60,12 +59,9 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
 
   if (!open) return null;
 
-  // 🔧 Fonction pour extraire le contenu réel du message sans la preview
   const extractMessageContent = (content: string): string => {
     const lines = content.split('\n');
-    // Si la première ligne commence par @, on la supprime (c'est la preview)
     if (lines[0].trim().startsWith('@')) {
-      // Supprime aussi les lignes vides suivantes
       let startIdx = 1;
       while (startIdx < lines.length && lines[startIdx].trim() === '') {
         startIdx++;
@@ -75,7 +71,6 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
     return content;
   };
 
-  // 🔧 Fonction pour extraire la preview du message
   const extractReplyPreview = (
     content: string,
   ): { mention: string; snippet: string } | null => {

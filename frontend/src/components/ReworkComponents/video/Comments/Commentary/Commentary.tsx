@@ -4,6 +4,7 @@ import styles from './Commentary.module.css';
 import ProfileDescription, {
   ProfileDescriptionState,
 } from '../../../profil/ProfileDescription/ProfileDescription';
+import { useNavigate } from 'react-router-dom';
 
 export enum CommentaryDescriptionState {
   standard = 'standard',
@@ -22,6 +23,9 @@ export interface CommentaryProps {
 }
 
 const Commentary = (props: CommentaryProps) => {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
+
   const createdAtDate =
     props.created_at instanceof Date
       ? props.created_at
@@ -35,11 +39,20 @@ const Commentary = (props: CommentaryProps) => {
     minute: '2-digit',
   });
 
-  const { t } = useTranslation();
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // empêche le clic de se propager à d'autres boutons
+    navigate(`/profile/${props.firstname}`);
+  };
+
   if (props.state === CommentaryDescriptionState.standard) {
     return (
       <div className={styles.commentaryStandard}>
-        <div className={styles.profileSide}>
+        <div
+          className={styles.profileSide}
+          onClick={handleProfileClick}
+          style={{ cursor: 'pointer' }}
+          title={`Voir le profil de ${props.firstname} ${props.lastname}`}
+        >
           <ProfileDescription
             firstname={props.firstname}
             lastname={props.lastname}
@@ -49,6 +62,7 @@ const Commentary = (props: CommentaryProps) => {
             state={ProfileDescriptionState.tiny}
           />
         </div>
+
         <div className={styles.commentBox}>
           <div className={styles.commentHeader}>
             <span className={styles.date}>{formattedDate}</span>
@@ -67,7 +81,12 @@ const Commentary = (props: CommentaryProps) => {
   if (props.state === CommentaryDescriptionState.reply) {
     return (
       <div className={styles.commentaryReply}>
-        <div className={styles.profileSide}>
+        <div
+          className={styles.profileSide}
+          onClick={handleProfileClick}
+          style={{ cursor: 'pointer' }}
+          title={`Voir le profil de ${props.firstname} ${props.lastname}`}
+        >
           <ProfileDescription
             firstname={props.firstname}
             lastname={props.lastname}
@@ -77,6 +96,7 @@ const Commentary = (props: CommentaryProps) => {
             state={ProfileDescriptionState.reply}
           />
         </div>
+
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className={styles.replyMeta}>
             <strong className={styles.replyAuthor}>
@@ -85,6 +105,7 @@ const Commentary = (props: CommentaryProps) => {
             <span style={{ margin: '0 0.5em' }} />
             <span className={styles.replyDate}>{formattedDate}</span>
           </div>
+
           <div className={styles.replyContentBox}>
             {props.replyPreview && (
               <div className={styles.replyDiscordBox}>
@@ -96,7 +117,9 @@ const Commentary = (props: CommentaryProps) => {
                 </span>
               </div>
             )}
+
             <p className={styles.text}>{props.content}</p>
+
             {props.onReplyClick && (
               <button
                 className={styles.discreetButton}

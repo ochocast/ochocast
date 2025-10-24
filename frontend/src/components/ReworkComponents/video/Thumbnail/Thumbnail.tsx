@@ -24,6 +24,7 @@ export interface PreviewMinitureProps {
   createdAt: string;
   tags: string[];
   onArchived?: (id: string) => void;
+  showEditButton?: boolean;
 }
 
 const Thumbnail = (props: PreviewMinitureProps) => {
@@ -116,9 +117,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       />
       <div
         className={
-          props.onArchived !== undefined
-            ? styles.descriptionNoButton
-            : styles.description
+          props.showEditButton ? styles.descriptionNoButton : styles.description
         }
       >
         <h2
@@ -141,7 +140,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           {props.tags &&
             props.tags.map((tag) => <Tag key={tag} content={tag} />)}
         </div>
-        {props.onArchived !== undefined ? (
+        {props.showEditButton ? (
           <div className={styles.buttonList}>
             <Button
               type={ButtonType.primary}

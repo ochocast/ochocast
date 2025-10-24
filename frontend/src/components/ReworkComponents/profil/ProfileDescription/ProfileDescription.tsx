@@ -26,6 +26,7 @@ type ProfileDescriptionProps = {
   description: string;
   image?: string;
   state: ProfileDescriptionState;
+  isCurrentUser?: boolean;
 };
 
 const ProfileDescription = (props: ProfileDescriptionProps) => {
@@ -154,16 +155,18 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
               </span>
               <span>{props.description}</span>
             </div>
-            <div className={styles.logout}>
-              <Button
-                onClick={() => navigate(`/profile/profile-settings`)}
-                label={t('modifyProfile')}
-              ></Button>
-              <Button
-                label={t('disconnection')}
-                onClick={() => auth.signoutRedirect()}
-              />
-            </div>
+            {props.isCurrentUser && (
+              <div className={styles.logout}>
+                <Button
+                  onClick={() => navigate(`/profile/profile-settings`)}
+                  label={t('modifyProfile')}
+                ></Button>
+                <Button
+                  label={t('disconnection')}
+                  onClick={() => auth.signoutRedirect()}
+                />
+              </div>
+            )}
           </div>
         </div>
       </Card>

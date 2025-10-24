@@ -157,3 +157,10 @@
   color: var(--theme-color-900);
   text-decoration: none;
 }
+
+.profileSide {
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 1;
+}
+

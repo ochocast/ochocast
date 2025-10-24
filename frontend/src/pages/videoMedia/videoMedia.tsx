@@ -123,16 +123,14 @@ const VideoMedia: FC = () => {
 
     setActiveCommentIndex(index);
     setParentCommentId(parent.id);
-    setActiveParent(parent); // On garde le parent pour l’afficher en haut du panel
+    setActiveParent(parent);
 
     const childComments = commentaryList
       .filter((c) => c.parentid === parent.id)
       .map((c) => ({
         sender: `${c.creator.firstName} ${c.creator.lastName}`,
         content: c.content,
-        avatar: `${
-          currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE
-        }`,
+        avatar: `${currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE}`,
         created_at: c.createdAt,
         email: c.creator.email,
       }));
@@ -185,11 +183,7 @@ const VideoMedia: FC = () => {
           .map((c: CommentObject) => ({
             sender: `${c.creator.firstName} ${c.creator.lastName}`,
             content: c.content,
-            avatar: `${
-              currentUser
-                ? currentUser.picture_id || PERSONA_IMAGE
-                : PERSONA_IMAGE
-            }`,
+            avatar: `${currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE}`,
             created_at: c.createdAt,
             email: c.creator.email,
           }));
@@ -206,10 +200,13 @@ const VideoMedia: FC = () => {
   if (!video) return <NotFoundPage />;
 
   const formattedDate = new Date(video.createdAt);
-  // Determine if the current user is the owner of the video
   const backendUser = localStorage.getItem('backendUser');
   const currentUserId = backendUser ? JSON.parse(backendUser).id : null;
   const canEdit = currentUserId === video.creator.id;
+
+  const handleProfileClick = () => {
+    navigate(`/profile/${video.creator.firstName}`);
+  };
 
   return (
     <div className={styles.containerGlobal}>
@@ -269,7 +266,12 @@ const VideoMedia: FC = () => {
             </h3>
           </div>
 
-          <div className={styles.profileDescription}>
+          <div
+            className={styles.profileDescription}
+            onClick={handleProfileClick}
+            style={{ cursor: 'pointer' }}
+            title={`Voir le profil de ${video.creator.firstName} ${video.creator.lastName}`}
+          >
             <ProfileDescription
               firstname={`${video.creator.firstName} ${video.creator.lastName}`}
               lastname=""

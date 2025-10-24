@@ -3,6 +3,7 @@ import styles from './Commentary.module.css';
 import ProfileDescription, {
   ProfileDescriptionState,
 } from '../../profil/ProfileDescription/ProfileDescription';
+import { useNavigate } from 'react-router-dom';
 
 export interface CommentaryProps {
   content: string;
@@ -13,15 +14,27 @@ export interface CommentaryProps {
 }
 
 const Commentary = (props: CommentaryProps) => {
+  const navigate = useNavigate();
+
+  const handleProfileClick = () => {
+    navigate(`/profile/${props.firstname}`);
+  };
+
   return (
     <div className={styles.commentary1}>
       <div className={styles.lesPlaceholderSontRarementParent}>
         <p className={styles.lesPlaceholderSont}>{props.content}</p>
         <div className={styles.rponses}>
-          {new Date(props.created_at).toLocaleDateString('en-US')}
+          {new Date(props.created_at).toLocaleDateString('fr-FR')}
         </div>
       </div>
-      <div className={styles.profileContainer}>
+
+      <div
+        className={styles.profileContainer}
+        onClick={handleProfileClick}
+        style={{ cursor: 'pointer' }}
+        title={`Voir le profil de ${props.firstname} ${props.lastname}`}
+      >
         <ProfileDescription
           firstname={props.firstname}
           lastname={props.lastname}

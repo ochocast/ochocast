@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import style from './profile.module.css';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 import { FC } from 'react';
@@ -40,22 +40,54 @@ const Profile: FC<ProfileProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { username } = useParams<{ username?: string }>();
+
+  const fetchUserData = useCallback(
+    async (userId: string) => {
+      try {
+        const videosResponse = await getVideosByUser(userId);
+        setVideos(videosResponse.data || []);
+
+        const userResponse = await getUsers();
+        const user = userResponse.data.find((u: User) => u.id === userId);
+        setCurrentUser(user || null);
+
+        // Si l'utilisateur a un firstName, on met à jour l'URL
+        if (user?.firstName && !username) {
+          navigate(`/profile/${user.firstName}`, { replace: true });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    },
+    [username, navigate],
+  );
 
   const getMe = useCallback(async () => {
     setIsLoading(true);
     try {
-      const backendUser = JSON.parse(userString!);
-      const videosResponse = await getVideosByUser(backendUser.id);
-      setVideos(videosResponse.data || []);
-
-      const userResponse = await getUsers();
-      const user = userResponse.data.find((u: User) => u.id === backendUser.id);
-      setCurrentUser(user || null);
+      if (username) {
+        // Si on a un username dans l'URL, on cherche l'utilisateur correspondant
+        const userResponse = await getUsers();
+        const user = userResponse.data.find(
+          (u: User) => u.firstName?.toLowerCase() === username.toLowerCase(),
+        );
+        if (user) {
+          await fetchUserData(user.id);
+        } else {
+          // Si l'utilisateur n'est pas trouvé, on redirige vers la page 404
+          navigate('/404', { replace: true });
+        }
+      } else if (userString) {
+        // Si pas de username dans l'URL mais utilisateur connecté, on utilise son ID
+        const backendUser = JSON.parse(userString);
+        await fetchUserData(backendUser.id);
+      }
     } catch (error) {
-      console.error('Error fetching videos:', error);
+      console.error('Error fetching user:', error);
     }
     setIsLoading(false);
-  }, [userString]);
+  }, [userString, username, fetchUserData, navigate]);
 
   useEffect(() => {
     getMe();
@@ -92,13 +124,18 @@ const Profile: FC<ProfileProps> = () => {
     }
   };
 
-  if (userString === null) {
+  if (!userString && !username) {
     return <NotFoundPage />;
   }
 
   if (isLoading) {
     return <LoadingCircle />;
   }
+
+  // Vérifier si c'est l'utilisateur courant
+  const isCurrentUser = userString
+    ? JSON.parse(userString).id === currentUser?.id
+    : false;
 
   return (
     <div className={style.videos}>
@@ -116,6 +153,7 @@ const Profile: FC<ProfileProps> = () => {
               : PERSONA_IMAGE
           }
           state={ProfileDescriptionState.large}
+          isCurrentUser={isCurrentUser}
         />
 
         <div className={style.display1}>
@@ -141,6 +179,7 @@ const Profile: FC<ProfileProps> = () => {
                 createdAt={video.createdAt.toString()}
                 tags={video.tags && video.tags?.map((tag) => tag.name)}
                 onArchived={ArchivedVideo}
+                showEditButton={isCurrentUser}
               />
             ))
           ) : (
