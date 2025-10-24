@@ -31,7 +31,7 @@ This Git repository and documentation aim to transmit the project's memory, faci
 
 ## Installation
 
-Please consult this [page](documentation/02-installation.md) to get started and contribute to the project.
+Please consult this [page](documentation/02-get-started/01-installation.md) to get started and contribute to the project.
 
 ## Infrastructure Scaleway
 
