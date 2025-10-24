@@ -13,13 +13,22 @@ const config: Config = {
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
-  scripts: [
-    {
-      src: 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit',
-      async: true,
+  i18n: {
+    defaultLocale: 'fr',
+    locales: ['fr', 'en'],
+    localeConfigs: {
+      fr: {
+        label: 'Français',
+        direction: 'ltr',
+        htmlLang: 'fr-FR',
+      },
+      en: {
+        label: 'English',
+        direction: 'ltr',
+        htmlLang: 'en-US',
+      },
     },
-    '/js/google-translate.js',
-  ],
+  },
 
   presets: [
     [
@@ -64,6 +73,10 @@ const config: Config = {
           sidebarId: 'tutorialSidebar',
           position: 'right',
           label: 'Documentation',
+        },
+        {
+          type: 'localeDropdown',
+          position: 'right',
         },
       ],
     },

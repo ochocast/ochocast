@@ -31,7 +31,7 @@ Ce dépôt Git et cette documentation visent à transmettre la mémoire du proje
 
 ## Installation
 
-Veuillez consulter cette [page](./02-installation.md) pour faire vos premiers pas et contribuer au projet.
+Veuillez consulter cette [page](documentation/02-installation.md) pour faire vos premiers pas et contribuer au projet.
 
 ## Infrastructure Scaleway
 
