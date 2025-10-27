@@ -41,7 +41,7 @@ Keycloak est utilisé pour l'authentification des utilisateurs.
 1. Accédez au dossier **localkeycloak** :
 
    ```bash
-   cd localkeycloak
+   cd localKeycloak
    cp .env.example .env
    ```
 
