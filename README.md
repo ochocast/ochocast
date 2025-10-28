@@ -23,7 +23,7 @@ The documentation command `npm run doc` will generate documentation for `/fronte
 
 ### `cd docs/ && open index.html`
 
-###  How to document code example:
+### How to document code example:
 
 ```js
 /**
