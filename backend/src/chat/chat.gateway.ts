@@ -16,7 +16,8 @@ import { ChatService } from './core/chat.service';
   cors: {
     origin: [
       'http://localhost:3000',
-      'https://prod-frontend.s3-website.fr-par.scw.cloud',
+      //'https://prod-frontend.s3-website.fr-par.scw.cloud',
+      'https://demo.ochocast.fr',
     ],
     methods: ['GET', 'POST'],
     credentials: true,
