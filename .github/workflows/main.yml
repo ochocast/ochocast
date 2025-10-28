@@ -34,17 +34,31 @@ jobs:
           name: build-front
           path: ./frontend/build/
           retention-days: 2
-
+  
   deploy-demo:
-    name: deploy-demo
+    name: build-and-deploy-demo
     runs-on: ubuntu-latest
-    needs: build-front
-
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      REACT_APP_API_URL: ${{ secrets.API_URL }}
+      REACT_APP_API_PORT: ${{ secrets.API_PORT }}
+      REACT_APP_AUTHORIZATION_ENDPOINT: ${{ vars.AUTHORIZATION_ENDPOINT }}
+      REACT_APP_CLIENT_ID: ${{ vars.CLIENT_ID }}
+      REACT_APP_REDIRECT_URI: ${{ vars.REDIRECT_URI }}
+      REACT_APP_STREAM_URL: ${{ vars.STREAM_URL }}
+      REACT_APP_SERVER_IP: ${{ vars.WEBSOCKET_SERVER_IP }}
     steps:
-      - name: Download front artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
         with:
-          name: build-front
+          node-version: '18.x'
+          cache: 'npm'
+          cache-dependency-path: ./frontend
+      - run: npm ci
+      - run: npm run build --if-present
 
       - name: Install config Scaleway scw CLI
         uses: jawher/action-scw@v2.21.0
@@ -62,25 +76,20 @@ jobs:
 
       - run: mv /home/runner/work/_temp/_github_home/.s3cfg "$GITHUB_WORKSPACE/.s3cfg"
       - run: sudo chown runner:docker ./.s3cfg
-      - name: Debug config
-        run: cat .s3cfg | head -n 20
-
       - name: Set up S3cmd cli tool
         uses: s3-actions/s3cmd@v1.5.0
 
       - name: Sync files to demo bucket
         run: |
-          cd frontend/build
           s3cmd -c "$GITHUB_WORKSPACE/.s3cfg" sync --delete-removed \
             --exclude=.s3cfg --exclude=scw.output \
             --exclude=static/css/*.css --exclude=static/js/*.js \
-            ./ s3://demo.ochocast.fr
+            ./build/ s3://demo.ochocast.fr
 
-      - name: Upload CSS with proper mime type
-        run: s3cmd -c "$GITHUB_WORKSPACE/.s3cfg" put --recursive --exclude=* --include=*.css -m 'text/css' static/css/ s3://demo.ochocast.fr/static/css/
-
-      - name: Upload JS with proper mime type
-        run: s3cmd -c "$GITHUB_WORKSPACE/.s3cfg" put --recursive --exclude=* --include=*.js -m 'text/javascript' static/js/ s3://demo.ochocast.fr/static/js/
+      - name: Upload CSS and JS with correct MIME types
+        run: |
+          s3cmd -c "$GITHUB_WORKSPACE/.s3cfg" put --recursive --exclude=* --include=*.css -m 'text/css' build/static/css/ s3://demo.ochocast.fr/static/css/
+          s3cmd -c "$GITHUB_WORKSPACE/.s3cfg" put --recursive --exclude=* --include=*.js -m 'text/javascript' build/static/js/ s3://demo.ochocast.fr/static/js/
 
   build-and-push-back:
     name: build-and-push-back
@@ -119,7 +128,7 @@ jobs:
           scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
           scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
           scw_registry: ${{ secrets.SCW_CONTAINER }}
-
+      
       - name: deploy-new-serverless
         uses: philibea/scaleway-containers-deploy@v1.1.0
         with:
