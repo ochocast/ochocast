@@ -79,9 +79,12 @@ jobs:
         uses: s3-actions/s3cmd@v1.5.0
 
       # Déploiement sur ton bucket DEMO
-      - run: s3cmd -c "./.s3cfg" sync --delete-removed \
-          --exclude=.s3cfg --exclude=scw.output \
-          --exclude=./static/css/*.css --exclude=./static/js/*.js \
+      - run: |
+          s3cmd -c "./.s3cfg" sync --delete-removed \
+          --exclude=.s3cfg \
+          --exclude=scw.output \
+          --exclude=static/css/*.css \
+          --exclude=static/js/*.js \
           ./ s3://demo.ochocast.fr
 
       - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.css -m 'text/css' ./static/css/ s3://demo.ochocast.fr/static/css/
