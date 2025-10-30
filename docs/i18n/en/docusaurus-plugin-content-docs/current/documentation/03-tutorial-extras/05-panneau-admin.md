@@ -263,6 +263,9 @@ This section allows you to customize all images used in the application.
 - Visible on all pages
 - Used as favicon
 
+![Main logo](../../../../../../docs/documentation/img/logo_main.png)
+*Main logo used in the navigation bar*
+
 **How to Modify**:
 1. Click "Choose file" under the current preview
 2. Select your new logo
@@ -322,6 +325,9 @@ This section allows you to customize all images used in the application.
 - Quick add actions
 - Dropdown menus
 
+![Plus icon](../../../../../../docs/documentation/img/logo_plus.png)
+*Plus icon used in the navigation bar*
+
 ### 4.5 Search Icon
 
 **Field**: `search`
@@ -337,6 +343,9 @@ This section allows you to customize all images used in the application.
 - Search fields in lists
 - Search filters
 
+![Search icon](../../../../../../docs/documentation/img/logo_search.png)
+*Search icon used in the navigation bar*
+
 ### 4.6 Close Icon
 
 **Field**: `cross`
@@ -351,6 +360,9 @@ This section allows you to customize all images used in the application.
 - Modal close button
 - Tag deletion
 - Action cancellation
+
+![Close icon](../../../../../../docs/documentation/img/logo_cross.png)
+*Close icon used in the navigation bar*
 
 ### 4.7 User Placeholder Image
 

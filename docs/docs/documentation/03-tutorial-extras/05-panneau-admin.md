@@ -263,6 +263,9 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Visible sur toutes les pages
 - Utilisé comme favicon
 
+![Logo principal](../img/logo_main.png)
+*Logo affiché dans la barre de navigation*
+
 **Comment modifier** :
 1. Cliquez sur "Choisir un fichier" sous l'aperçu actuel
 2. Sélectionnez votre nouveau logo
@@ -322,6 +325,9 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Actions d'ajout rapide
 - Menus déroulants
 
+![Icône plus](../img/logo_plus.png)
+*Icône d'ajout utilisée dans l'interface*
+
 ### 4.5 Icône de Recherche
 
 **Champ** : `search`
@@ -337,6 +343,9 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Champs de recherche dans les listes
 - Filtres de recherche
 
+![Icône de recherche](../img/logo_search.png)
+*Icône de recherche dans la barre de navigation*
+
 ### 4.6 Icône de Fermeture
 
 **Champ** : `cross`
@@ -349,8 +358,11 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 
 **Effet visible** :
 - Bouton de fermeture des modales
-- Suppression de tags
+- Suppression d'éléments
 - Annulation d'actions
+
+![Icône de fermeture](../img/logo_cross.png)
+*Icône de fermeture utilisée dans les fenêtres modales*
 
 ### 4.7 Image Placeholder Utilisateur
 
