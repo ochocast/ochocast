@@ -190,5 +190,17 @@
   "writeMessage": "Write a message...",
   "connecting": "Connecting...",
   "videonotallowdeleted": "You are not allowed to delete this video",
-  "videonotallowmodify": "You are not allowed to modify this video"
+  "videonotallowmodify": "You are not allowed to modify this video",
+  "filterPanel": {
+    "tag": "Tag",
+    "user": "User",
+    "date": "Date",
+    "start": "Start",
+    "end": "End",
+    "validate": "Validate",
+    "tagPlaceholder": "Example: Tags",
+    "userPlaceholder": "Example: Marie",
+    "startDatePlaceholder": "Select a start date",
+    "endDatePlaceholder": "Select an end date"
+  }
 }

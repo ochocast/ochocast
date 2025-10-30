@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import style from './FilterPanel.module.css';
@@ -33,6 +34,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
   const [nextTag, setNextTag] = useState<string | null>(null);
   const [nextUser, setNextUser] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const handleTagClick = (query: string) => {
     if (nextTag === query) {
@@ -98,11 +100,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   return (
     <div className={style.panel}>
       <div className={style.section}>
-        <h3 className={style.title}>Tag</h3>
+        <h3 className={style.title}>{t('filterPanel.tag')}</h3>
         <div>
           <FilterSearchBar
             onClick={handleTagClick}
-            placeholder="Exemple: Tags"
+            placeholder={t('filterPanel.tagPlaceholder')}
             type="tag"
             icon={FilterSearchBarIcon.SEARCH}
             onSelect={handleTagSelect}
@@ -124,11 +126,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       </div>
 
       <div className={style.section}>
-        <h3 className={style.title}>User</h3>
+        <h3 className={style.title}>{t('filterPanel.user')}</h3>
         <div>
           <FilterSearchBar
             onClick={handleUserClick}
-            placeholder="Exemple: Marie"
+            placeholder={t('filterPanel.userPlaceholder')}
             type="user"
             icon={FilterSearchBarIcon.SEARCH}
             onSelect={handleUserSelect}
@@ -150,17 +152,17 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       </div>
 
       <div className={style.section}>
-        <h3 className={style.title}>Date</h3>
+        <h3 className={style.title}>{t('filterPanel.date')}</h3>
         <div className={style.dateInputs}>
           <div className={style.dateInput}>
-            <label className={style.label}>Début</label>
+            <label className={style.label}>{t('filterPanel.start')}</label>
             <DatePicker
               selected={startDate}
               onChange={(date) => setStartDate(date)}
               selectsStart
               startDate={startDate}
               endDate={endDate}
-              placeholderText="Choisir une date de début"
+              placeholderText={t('filterPanel.startDatePlaceholder')}
               showMonthDropdown
               showYearDropdown
               dropdownMode="select"
@@ -169,7 +171,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
             />
           </div>
           <div className={style.dateInput}>
-            <label className={style.label}>Fin</label>
+            <label className={style.label}>{t('filterPanel.end')}</label>
             <DatePicker
               selected={endDate}
               onChange={(date) => setEndDate(date)}
@@ -177,7 +179,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
               startDate={startDate}
               endDate={endDate}
               minDate={startDate ?? undefined}
-              placeholderText="Choisir une date de fin"
+              placeholderText={t('filterPanel.endDatePlaceholder')}
               showMonthDropdown
               showYearDropdown
               dropdownMode="select"
@@ -187,7 +189,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           </div>
         </div>
         <button onClick={handleDateSearch} className={style.validateButton}>
-          Valider
+          {t('filterPanel.validate')}
         </button>
       </div>
     </div>

@@ -190,5 +190,17 @@
   "writeMessage": "Écrivez un message...",
   "connecting": "Connexion en cours...",
   "videonotallowdeleted": "Vous n'êtes pas autorisé à supprimer cette vidéo",
-  "videonotallowmodify": "Vous n'êtes pas autorisé à modifier cette vidéo"
+  "videonotallowmodify": "Vous n'êtes pas autorisé à modifier cette vidéo",
+  "filterPanel": {
+    "tag": "Tag",
+    "user": "Utilisateur",
+    "date": "Date",
+    "start": "Début",
+    "end": "Fin",
+    "validate": "Valider",
+    "tagPlaceholder": "Exemple: Tags",
+    "userPlaceholder": "Exemple: Marie",
+    "startDatePlaceholder": "Choisir une date de début",
+    "endDatePlaceholder": "Choisir une date de fin"
+  }
 }
