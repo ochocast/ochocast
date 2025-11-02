@@ -87,7 +87,7 @@ class WorkerClient:
                         return await resp.json()
         except Exception as e:
             print(f"[WorkerClient] Get status failed for {self.ip}: {e}")
-        return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": str(e)}
     
     async def get_metrics(self) -> Dict[str, Any]:
         """Récupère les métriques des viewers"""
@@ -101,7 +101,7 @@ class WorkerClient:
                         return await resp.json()
         except Exception as e:
             print(f"[WorkerClient] Get metrics failed for {self.ip}: {e}")
-        return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": str(e)}
     
     async def get_timestamps(self, viewer_id: str) -> Optional[Dict[str, Any]]:
         """Récupère les timestamps d'un viewer spécifique"""
