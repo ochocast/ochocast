@@ -40,10 +40,10 @@ const Profile: FC<ProfileProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const { username } = useParams<{ username?: string }>();
+  const { firstName } = useParams<{ firstName?: string }>();
 
   const fetchUserData = useCallback(
-    async (userId: string) => {
+    async (userId: string, isCurrentUserProfile: boolean = false) => {
       try {
         const videosResponse = await getVideosByUser(userId);
         setVideos(videosResponse.data || []);
@@ -52,42 +52,42 @@ const Profile: FC<ProfileProps> = () => {
         const user = userResponse.data.find((u: User) => u.id === userId);
         setCurrentUser(user || null);
 
-        // Si l'utilisateur a un firstName, on met à jour l'URL
-        if (user?.firstName && !username) {
+        // Si c'est le profil de l'utilisateur connecté et qu'il a un firstName, on met à jour l'URL
+        if (user?.firstName && !firstName && isCurrentUserProfile) {
           navigate(`/profile/${user.firstName}`, { replace: true });
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
       }
     },
-    [username, navigate],
+    [firstName, navigate],
   );
 
   const getMe = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (username) {
-        // Si on a un username dans l'URL, on cherche l'utilisateur correspondant
+      if (firstName) {
+        // Si on a un firstName dans l'URL, on cherche l'utilisateur correspondant
         const userResponse = await getUsers();
         const user = userResponse.data.find(
-          (u: User) => u.firstName?.toLowerCase() === username.toLowerCase(),
+          (u: User) => u.firstName?.toLowerCase() === firstName.toLowerCase(),
         );
         if (user) {
-          await fetchUserData(user.id);
+          await fetchUserData(user.id, false);
         } else {
           // Si l'utilisateur n'est pas trouvé, on redirige vers la page 404
           navigate('/404', { replace: true });
         }
       } else if (userString) {
-        // Si pas de username dans l'URL mais utilisateur connecté, on utilise son ID
+        // Si pas de firstName dans l'URL mais utilisateur connecté, on utilise son ID
         const backendUser = JSON.parse(userString);
-        await fetchUserData(backendUser.id);
+        await fetchUserData(backendUser.id, true);
       }
     } catch (error) {
       console.error('Error fetching user:', error);
     }
     setIsLoading(false);
-  }, [userString, username, fetchUserData, navigate]);
+  }, [userString, firstName, fetchUserData, navigate]);
 
   useEffect(() => {
     getMe();
@@ -124,7 +124,7 @@ const Profile: FC<ProfileProps> = () => {
     }
   };
 
-  if (!userString && !username) {
+  if (!userString && !firstName) {
     return <NotFoundPage />;
   }
 
