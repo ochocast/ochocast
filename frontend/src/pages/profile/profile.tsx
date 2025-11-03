@@ -24,7 +24,7 @@ import SearchBar, {
   SearchBarIcon,
 } from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
 
-const PERSONA_IMAGE = '/persona.png';
+const PERSONA_IMAGE = '/branding/persona.png';
 
 interface ProfileProps {}
 

@@ -17,7 +17,8 @@ const CheckBoxList = (props: CheckBoxListProps) => {
   const { t } = useTranslation();
 
   const filteredUsers = props.allUsers.filter((user) => {
-    if (searchTerm.length === 0 || props.category.includes(user)) return false;
+    if (searchTerm.length === 0 || props.category.some((u) => u.id === user.id))
+      return false;
     const fullName = `${user.firstName} ${user.lastName}`;
     return fullName.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -28,7 +29,7 @@ const CheckBoxList = (props: CheckBoxListProps) => {
         <button
           key={user.id}
           onClick={() => {
-            if (!props.category.includes(user)) {
+            if (!props.category.some((u) => u.id === user.id)) {
               props.setCategory([...props.category, user]);
             }
             setSearchTerm('');

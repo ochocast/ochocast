@@ -85,7 +85,7 @@
 .replyToCloseBtn:hover {
   background: #e5e7eb;
   color: #374151;
-  border-color: transparent
+  border-color: transparent;
 }
 
 .replyPanelOverlay {
@@ -94,7 +94,7 @@
   right: 0;
   width: 40.2vw;
   height: 100vh;
-  background: rgba(0,0,0,0.05);
+  background: rgba(0, 0, 0, 0.05);
   z-index: 2000;
   display: flex;
   justify-content: flex-end;

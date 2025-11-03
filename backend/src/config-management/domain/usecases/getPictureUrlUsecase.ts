@@ -13,6 +13,13 @@ export class GetPictureUrlUsecase {
   ) {}
 
   async execute(key: string): Promise<string> {
+    // Si la clé utilise le préfixe ::default::, retourner l'URL directe
+    if (key.startsWith('::default::')) {
+      const defaultImagePath = key.replace('::default::', '');
+      return `/branding/${defaultImagePath}`;
+    }
+
+    // Sinon, récupérer depuis S3
     const command = new GetObjectCommand({
       Bucket: process.env.STOCK_BRANDING_BUCKET,
       Key: key,

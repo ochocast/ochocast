@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
-import { getConfig, uploadConfig, getBrandingPicture } from '../../utils/api';
+import { uploadConfig, getBrandingPicture } from '../../utils/api';
 import yaml from 'js-yaml';
 import { BrandingConfig } from '../../branding/types';
 import { useUser } from '../../context/UserContext';
@@ -16,8 +16,6 @@ import Button, {
 import ColorPreview from '../../components/ReworkComponents/generic/ColorPreview/ColorPreview';
 
 export interface AdminPanelProps {}
-
-const DEFAULT_CONFIG_PATH = `${process.env.PUBLIC_URL}/branding/theme.yaml`;
 
 function isValidHexColor(hex: string): boolean {
   if (!hex || typeof hex !== 'string') {
@@ -139,6 +137,18 @@ const AdminPanel: FC<AdminPanelProps> = () => {
 
   const fetchImageUrl = async (imageKey: string, imagePath: string) => {
     try {
+      // Si c'est une image default, construire l'URL directement
+      if (imagePath.startsWith('::default::')) {
+        const imageName = imagePath.replace('::default::', '');
+        const url = `${window.location.origin}/branding/${imageName}`;
+        setImageUrls((prev) => ({
+          ...prev,
+          [imageKey]: url,
+        }));
+        return;
+      }
+
+      // Sinon, récupérer depuis l'API
       const response = await getBrandingPicture(imagePath);
       if (response.status === 200 && response.data?.url) {
         setImageUrls((prev) => ({
@@ -153,27 +163,70 @@ const AdminPanel: FC<AdminPanelProps> = () => {
 
   useEffect(() => {
     const fetchConfig = async () => {
-      const raw = await getConfig()
-        .then((res) =>
-          res.status !== 200 || res.data.url === 'default-config'
-            ? DEFAULT_CONFIG_PATH
-            : res.data.url,
-        )
-        .catch(() => DEFAULT_CONFIG_PATH)
-        .then((file_url) => fetch(file_url))
-        .then((file) => file.text());
-      const parsed = yaml.load(raw) as BrandingConfig;
-      for (const key in parsed.colors) {
-        parsed.colors[key] = getColorInputValue(parsed.colors[key]);
-      }
-      setFormData(parsed);
-      setOriginalFormData(JSON.parse(JSON.stringify(parsed)));
+      try {
+        // First, try to load config from backend API
+        console.log('Admin: Trying to load config from backend API');
 
-      // Charger les images existantes
-      if (parsed.images) {
-        Object.entries(parsed.images).forEach(([key, imagePath]) => {
-          fetchImageUrl(key, imagePath);
-        });
+        // If that fails, try to fetch from the backend's config endpoint
+        let configUrl: string | null = null;
+        try {
+          const configRes = await fetch('http://localhost:3001/api/config');
+          if (configRes.ok) {
+            const configData = await configRes.json();
+            configUrl = configData.url;
+            console.log('Got config URL from backend:', configUrl);
+          }
+        } catch (e) {
+          console.log('Failed to get config URL from backend');
+        }
+
+        let raw: string;
+        if (configUrl && configUrl !== 'default-config') {
+          console.log('Loading config from:', configUrl);
+          try {
+            const response = await fetch(configUrl);
+            if (response.ok) {
+              raw = await response.text();
+              console.log('Loaded config from backend URL');
+            } else {
+              throw new Error('Backend config URL returned 404');
+            }
+          } catch (e) {
+            console.log(
+              'Failed to load from backend URL, falling back to default',
+            );
+            const defaultPath = `${process.env.PUBLIC_URL}/branding/theme.yaml`;
+            const response = await fetch(defaultPath);
+            if (!response.ok) throw new Error('Failed to load default config');
+            raw = await response.text();
+          }
+        } else {
+          // Use default config
+          const defaultPath = `${process.env.PUBLIC_URL}/branding/theme.yaml`;
+          console.log('Loading default config from:', defaultPath);
+          const response = await fetch(defaultPath);
+          if (!response.ok) throw new Error('Failed to load default config');
+          raw = await response.text();
+        }
+
+        const parsed = yaml.load(raw) as BrandingConfig;
+        console.log('Parsed config:', parsed);
+
+        // Convert color formats
+        for (const key in parsed.colors) {
+          parsed.colors[key] = getColorInputValue(parsed.colors[key]);
+        }
+        setFormData(parsed);
+        setOriginalFormData(JSON.parse(JSON.stringify(parsed)));
+
+        // Load existing images
+        if (parsed.images) {
+          Object.entries(parsed.images).forEach(([key, imagePath]) => {
+            fetchImageUrl(key, imagePath);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading config:', error);
       }
     };
 

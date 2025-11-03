@@ -11,6 +11,12 @@ export class GetEventByIdUsecase {
   async execute(id: string): Promise<PublicEventObject> {
     const event = await this.eventGateway.getEventById(id);
     if (!event) throw new NotFoundException('Event not found');
+
+    // Vérifier que l'événement est publié (pour accès public non authentifié)
+    if (!event.published) {
+      throw new NotFoundException('Event not found');
+    }
+
     return new PublicEventObject(event, null);
   }
 }

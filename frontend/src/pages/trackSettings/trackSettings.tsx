@@ -10,6 +10,7 @@ import Button, {
 import CheckBoxList from '../../components/ReworkComponents/Event/Track/CheckBoxList/CheckBoxList';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import Modal from '../../components/ReworkComponents/generic/modal/modal';
+import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 
 import { useTrackSettings } from './useTrackSettings';
@@ -39,6 +40,11 @@ const TrackSettings: FC = () => {
   const [isButtonDisabled, setButtonDisabled] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [touched, setTouched] = useState({ name: false, description: false });
+  const [toast, setToast] = useState<{
+    message: string;
+    type: 'success' | 'error';
+  } | null>(null);
 
   if (trackId && !track) {
     return <div className="loading">{t('LoadingTrack')}</div>;
@@ -59,12 +65,37 @@ const TrackSettings: FC = () => {
       setTrack({ ...track, [field]: e.target.value });
       setButtonDisabled(false);
       setMessage('');
+      setTouched({ ...touched, [field]: true });
     };
 
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (await handleSubmit(e, track, speakers)) {
       setButtonDisabled(true);
+      setToast({
+        message: trackId ? t('TrackModified') : t('TrackCreated'),
+        type: 'success',
+      });
+    } else {
+      setToast({
+        message: message || t('ErrorSavingTrack'),
+        type: 'error',
+      });
+    }
+  };
+
+  const handleTrackDelete = async () => {
+    try {
+      await handleDelete();
+      setToast({
+        message: t('TrackDeletedSuccessfully'),
+        type: 'success',
+      });
+    } catch (error) {
+      setToast({
+        message: t('DeleteTrackError'),
+        type: 'error',
+      });
     }
   };
 
@@ -97,13 +128,15 @@ const TrackSettings: FC = () => {
       </Modal>
 
       <div className={styles.trackDateSpeakerWrapper}>
+        <h3>{t('BasicInformation') || 'Basic Information'}</h3>
+
         <TextBox
           type="text"
           label={t('TrackName')}
           placeholder={t('MyTrack')}
           value={track.name || ''}
           name={t('Name')}
-          error={!track.name}
+          error={!track.name && touched.name}
           disabled={closed}
           onChange={handleInputChange('name')}
         />
@@ -113,10 +146,15 @@ const TrackSettings: FC = () => {
           placeholder={t('DescriptionEvent')}
           value={track.description || ''}
           name={t('DescriptionEvent2')}
-          error={!track.description}
+          error={!track.description && touched.description}
           disabled={closed}
           onChange={handleInputChange('description')}
         />
+      </div>
+
+      <div className={styles.trackDateSpeakerWrapper}>
+        <h3>{t('Speaker') || 'Speakers'}</h3>
+
         <CheckBoxList
           allUsers={allUsers}
           category={speakers}
@@ -124,10 +162,14 @@ const TrackSettings: FC = () => {
             setSpeakers(users);
             setButtonDisabled(false);
           }}
-          title={t('Speaker')}
+          title=""
           disabled={!!closed}
           userId={userId !== event?.creatorId ? userId : ''}
         />
+      </div>
+
+      <div className={styles.trackDateSpeakerWrapper}>
+        <h3>{t('Schedule') || 'Schedule'}</h3>
 
         <div className={styles.inputWrapper}>
           <label>{t('DateOfTheEvent')}</label>
@@ -200,7 +242,7 @@ const TrackSettings: FC = () => {
 
       <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
         <div className={styles.confirmationButtons}>
-          <Button label={t('Delete')} onClick={handleDelete} />
+          <Button label={t('Delete')} onClick={handleTrackDelete} />
           <Button
             label={t('Cancel')}
             onClick={() => {
@@ -230,7 +272,7 @@ const TrackSettings: FC = () => {
         placeholder={t('MyTrack')}
         value={track.name || ''}
         name={t('Name')}
-        error={!track.name}
+        error={false}
         disabled
         onChange={handleInputChange('name')}
       />
@@ -239,7 +281,7 @@ const TrackSettings: FC = () => {
         placeholder="Description..."
         value={track.description || ''}
         name={t('DescriptionEvent2')}
-        error={!track.description}
+        error={false}
         disabled
         onChange={handleInputChange('description')}
       />
@@ -293,6 +335,14 @@ const TrackSettings: FC = () => {
         eventClosed={!closed && userId === event?.creatorId}
       />
       {canEdit ? renderForm() : renderReadOnly()}
+      {toast && (
+        <Toast
+          key={`${toast.message}-${toast.type}`}
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 };

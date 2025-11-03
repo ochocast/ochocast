@@ -85,7 +85,9 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
             messages.map((msg: ChatMessage, index: number) => (
               <div
                 key={index}
-                className={`${styles.message} ${msg.userId === userId ? styles.ownMessage : ''}`}
+                className={`${styles.message} ${
+                  msg.userId === userId ? styles.ownMessage : ''
+                }`}
               >
                 <div className={styles.messageHeader}>
                   <span className={styles.username}>

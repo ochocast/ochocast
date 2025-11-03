@@ -23,7 +23,7 @@ import Button, {
 import ImagePlus from '../../assets/image_plus.svg';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
-const DEFAULT_PROFILE_IMAGE = '/persona.png';
+const DEFAULT_PROFILE_IMAGE = '/branding/persona.png';
 const UNDEFINED_MINIATURE_IDENTIFIER = 'miniatureundefined';
 
 const ProfileSetting = () => {

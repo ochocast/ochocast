@@ -3,8 +3,6 @@ import { BrandingContextType } from '../branding/types';
 import { useBranding } from '../hooks/useBranding';
 import { getBrandingPicture } from '../utils/api';
 
-const DEFAULT_PATH = `${process.env.PUBLIC_URL}/`;
-
 const BrandingContext = createContext<BrandingContextType | null>(null);
 
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
@@ -17,10 +15,11 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
+      // Si l'image utilise le préfixe ::default::, la servir depuis /branding/
       if (branding.images[imageKey].startsWith('::default::')) {
-        return (
-          DEFAULT_PATH + branding.images[imageKey].replace('::default::', '')
-        );
+        const imageName = branding.images[imageKey].replace('::default::', '');
+        const url = `${window.location.origin}/branding/${imageName}`;
+        return url;
       }
 
       try {

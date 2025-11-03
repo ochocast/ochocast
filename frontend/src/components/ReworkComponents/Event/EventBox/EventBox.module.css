@@ -97,8 +97,8 @@
 }
 
 .tag {
-  background-color: #f0f0f0;
-  color: #333;
+  background-color: var(--theme-color-150);
+  color: var(--theme-color-1000);
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
@@ -106,10 +106,35 @@
 }
 
 .moreTagsIndicator {
-  background-color: #e0e0e0;
-  color: #666;
+  background-color: var(--theme-color-100);
+  color: var(--theme-color-700);
   padding: 4px 8px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
+}
+
+.subscribedContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.organizerBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  background-color: var(--theme-color-150);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--theme-color-1000);
+  border: 1px solid var(--theme-color-2000);
+}
+
+.organizerContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

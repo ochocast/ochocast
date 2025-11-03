@@ -3,7 +3,7 @@
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap : 2em;
+  gap: 2em;
   width: 100%;
   padding-top: 20px;
 }
@@ -23,10 +23,10 @@
 }
 
 .closeTitle {
-    font-size: 36px;
-    margin-left: 213px;
-    text-shadow: 0 4px 4px var(--theme-color-3400);
-    margin-bottom: 1em;
+  font-size: 36px;
+  margin-left: 213px;
+  text-shadow: 0 4px 4px var(--theme-color-3400);
+  margin-bottom: 1em;
 }
 
 .wrapperCloseEvents {

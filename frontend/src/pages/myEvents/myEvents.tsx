@@ -3,6 +3,7 @@ import { useAuth } from 'react-oidc-context';
 import { api } from '../../utils/api';
 
 import styles from './myEvents.module.css';
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
@@ -202,6 +203,7 @@ const MyEvents = () => {
         eventStatus={EventStatus.Finished}
         key={event.id}
         imageURL={miniatureURLs[event.id]}
+        onSubscriptionChange={fetchEventData}
       />
     );
   });
@@ -209,6 +211,7 @@ const MyEvents = () => {
   return (
     <>
       <div className={styles.header}>
+        <NavigateBackButton />
         <div className={styles.searchContainer}>
           <SearchBar
             onClick={handleSearch}
@@ -236,6 +239,7 @@ const MyEvents = () => {
                   eventStatus={EventStatus.Published}
                   title={t('PublicEvents')}
                   events={filteredPublishEvents}
+                  onSubscriptionChange={fetchEventData}
                 />
               )}
               {filteredUnpublishEvents.length > 0 && (
@@ -244,6 +248,7 @@ const MyEvents = () => {
                   title={t('UnpublishedEvents')}
                   events={filteredUnpublishEvents}
                   onPublish={onPublish}
+                  onSubscriptionChange={fetchEventData}
                 />
               )}
               {filteredClosedEvents.length > 0 && (

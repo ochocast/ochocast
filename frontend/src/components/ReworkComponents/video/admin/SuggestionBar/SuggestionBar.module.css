@@ -3,7 +3,8 @@
   width: 100%;
 }
 
-.searchBar { /* Correspond à la classe 'searchBar' utilisée dans l'input */
+.searchBar {
+  /* Correspond à la classe 'searchBar' utilisée dans l'input */
   width: 100%;
   padding: 10px;
   box-sizing: border-box;
@@ -12,7 +13,8 @@
   border-radius: 4px;
 }
 
-.suggestions_list { /* Correspond à l'id et la classe 'suggestions_list' */
+.suggestions_list {
+  /* Correspond à l'id et la classe 'suggestions_list' */
   display: none;
   list-style-type: none;
   margin: 0;
@@ -40,7 +42,7 @@
 }
 
 /* Bouton pour ajouter une suggestion */
-.addbutton { 
+.addbutton {
   background-color: #007bff; /* Bleu de base */
   color: white;
   border: none;

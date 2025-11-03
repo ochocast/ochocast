@@ -64,18 +64,25 @@ export const useTrackSettings = () => {
         if (!trck.endDate) trck.endDate = eventEnd;
 
         setTrack(trck);
-        setSpeakers(
-          allUsers.filter((user) =>
-            trck.speakers.map((e: PublicUser) => e.id).includes(user.id),
-          ),
-        );
+
+        // If allUsers is loaded, filter speakers by ID
+        if (allUsers.length > 0) {
+          setSpeakers(
+            allUsers.filter((user) =>
+              trck.speakers.map((e: PublicUser) => e.id).includes(user.id),
+            ),
+          );
+        } else if (trck.speakers.length > 0) {
+          // If allUsers is not loaded yet, use speakers directly as fallback
+          setSpeakers(trck.speakers as User[]);
+        }
       })
       .catch((err) => {
         logger.error(`Failed to fetch track ${trackId}: ${err}`);
         navigate('/my-events');
       })
       .finally(() => setLoading(false));
-  }, [trackId, allUsers, event, navigate]);
+  }, [trackId, event, navigate, allUsers]);
 
   useEffect(() => {
     if (!trackId && event) {

@@ -17,7 +17,7 @@ export enum ProfileDescriptionState {
   reply = 'reply',
 }
 
-const DEFAULT_PERSONA_IMAGE = '/persona.png';
+const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
 
 type ProfileDescriptionProps = {
   firstname: string;

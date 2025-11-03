@@ -62,7 +62,6 @@
   line-height: 1.5;
 }
 
-
 .tracksDescription {
   justify-content: center;
   background-color: var(--theme-color-white);
@@ -79,8 +78,8 @@
 
 .tracksContainer {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); 
-  gap: 60px 105px; 
+  grid-template-columns: repeat(2, 1fr);
+  gap: 60px 105px;
   justify-content: center;
   margin: 80px auto 40px auto;
   max-width: 1000px;
@@ -129,7 +128,6 @@
     transparent 0 3px,
     var(--theme-color-black) 0 6px
   );
-  
 }
 
 @media (max-width: 768px) {

@@ -75,8 +75,8 @@
   font-weight: 500;
 }
 
-.MobileMenu >div:last-child  {
-  color : var(--theme-color-black)
+.MobileMenu > div:last-child {
+  color: var(--theme-color-black);
 }
 /* Responsive */
 @media (max-width: 768px) {

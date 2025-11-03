@@ -3,7 +3,7 @@
   width: -webkit-fill-available;
   position: relative;
 
-  input[type=file] {
+  input[type='file'] {
     position: absolute;
     top: 0;
     left: 0;
@@ -25,12 +25,12 @@
     background: var(--theme-color-3000);
   }
 
-  input[type=file]:focus+.fileDummy {
+  input[type='file']:focus + .fileDummy {
     outline: 2px solid var(--theme-color-3100);
     outline: -webkit-focus-ring-color auto 5px;
   }
 
-  input[type=file]:valid+.fileDummy {
+  input[type='file']:valid + .fileDummy {
     border-color: var(--theme-color-3300);
     background-color: var(--theme-color-3200);
   }

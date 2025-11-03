@@ -62,6 +62,7 @@ export interface PublicEvent {
   canBeEditByUser: boolean;
   creator: PublicUser;
   nbSubscription: number;
+  subscribedUserIds?: string[];
 }
 
 export interface PublicUser {

@@ -3,7 +3,7 @@ import { EventObject } from '../../domain/event';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEntity } from './entities/event.entity';
-import { toEventEntity, toEventObject } from 'src/common/mapper/event.mapper';
+import { toEventObject } from 'src/common/mapper/event.mapper';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
@@ -67,8 +67,28 @@ export class EventGateway implements IEventGateway {
       where: {
         id: eventDetails.id,
       },
+      relations: [
+        'creator',
+        'tracks',
+        'tracks.speakers',
+        'usersSubscribe',
+        'tags',
+      ],
     });
-    const eventEntity = toEventEntity(eventDetails);
+
+    if (!event) {
+      throw new Error(`Event ${eventDetails.id} not found`);
+    }
+
+    // Update basic event properties
+    event.name = eventDetails.name;
+    event.description = eventDetails.description;
+    event.startDate = eventDetails.startDate;
+    event.endDate = eventDetails.endDate;
+    event.published = eventDetails.published;
+    event.isPrivate = eventDetails.isPrivate;
+    event.closed = eventDetails.closed;
+    event.imageSlug = eventDetails.imageSlug;
 
     let tags: TagEntity[] = [];
     if (typeof eventDetails.tags === 'string') {
@@ -78,9 +98,10 @@ export class EventGateway implements IEventGateway {
     } else if (Array.isArray(eventDetails.tags)) {
       tags = eventDetails.tags.map((tag: any) => new TagEntity(tag));
     }
-    eventEntity.tags = tags;
+    event.tags = tags;
 
-    eventEntity.usersSubscribe = await Promise.all(
+    // Update subscribers relationship
+    event.usersSubscribe = await Promise.all(
       eventDetails.usersSubscribe.map(async (publicUser) => {
         const full = await this.userRepository.findOneBy({ id: publicUser.id });
         if (!full) throw new Error(`User ${publicUser.id} not found`);
@@ -88,9 +109,19 @@ export class EventGateway implements IEventGateway {
       }),
     );
 
-    const updatedEntity = this.eventsRepository.merge(event, eventEntity);
-    const saved = await this.eventsRepository.save(updatedEntity);
-    return toEventObject(saved);
+    // Save and reload to ensure all relations are persisted
+    const saved = await this.eventsRepository.save(event);
+    const reloaded = await this.eventsRepository.findOne({
+      where: { id: saved.id },
+      relations: [
+        'creator',
+        'tracks',
+        'tracks.speakers',
+        'usersSubscribe',
+        'tags',
+      ],
+    });
+    return toEventObject(reloaded);
   }
 
   async deleteEvent(eventId: string): Promise<EventObject> {

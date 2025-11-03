@@ -201,12 +201,12 @@
   .colorGrid {
     grid-template-columns: 1fr;
   }
-  
+
   .colorInputWrapper {
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .colorPreviewSection {
     padding: 0.5rem;
   }

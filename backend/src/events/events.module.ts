@@ -15,6 +15,7 @@ import { PublishEventUsecase } from './domain/usecases/publishEvent.usecase';
 import { CloseEventUsecase } from './domain/usecases/closeEvent.usecase';
 import { GetPrivateEventByIdUsecase } from './domain/usecases/getPrivateEventById.usecase';
 import { SubscribeToEventUsecase } from './domain/usecases/subscribeToEvent.usecase';
+import { UnsubscribeFromEventUsecase } from './domain/usecases/unsubscribeFromEvent.usecase';
 import { S3Module } from 'src/s3.module';
 import { GetEventMiniatureUsecase } from './domain/usecases/getEventsMiniature.usecase';
 import { CloseExpiredEventsScheduler } from './closeExpiredEvents.scheduler';
@@ -42,6 +43,7 @@ import { CloseExpiredEventsUsecase } from './domain/usecases/closeExpiredEvents.
     CloseEventUsecase,
     GetPrivateEventByIdUsecase,
     SubscribeToEventUsecase,
+    UnsubscribeFromEventUsecase,
     GetEventMiniatureUsecase,
     CloseExpiredEventsUsecase,
     CloseExpiredEventsScheduler,

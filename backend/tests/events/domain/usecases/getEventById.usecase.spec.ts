@@ -37,7 +37,7 @@ describe('GetEventByIdUsecase', () => {
     [],
     new Date('2024-05-01T10:00:00Z'),
     new Date('2024-05-01T12:00:00Z'),
-    false,
+    true, // published: true for public access
     false,
     false,
     'image.jpg',

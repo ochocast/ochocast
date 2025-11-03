@@ -155,8 +155,10 @@ describe('SubcribeToEventUsecase', () => {
   it('should return a the event with the user subscribe', async () => {
     const result = await subscribeToEventUsecase.execute(eventId, userEmail);
 
-    publicEvent.nbSubscription += 1;
-    expect(result).toEqual(publicEvent);
+    expect(result.id).toEqual(eventId);
+    expect(result.name).toEqual('Event');
+    expect(result.nbSubscription).toEqual(1);
+    expect(result.subscribedUserIds).toContain(userId);
     expect(eventGatewayMock.getEventById).toHaveBeenCalledTimes(1);
     expect(userGatewayMock.getUserByEmail).toHaveBeenCalledTimes(1);
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(1);

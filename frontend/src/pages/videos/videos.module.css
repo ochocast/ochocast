@@ -128,15 +128,15 @@ Button {
 }
 
 .filterPanelWrapper {
-position: absolute;
-top: 56px;
-z-index: 1000;
-width: 100%;
-max-width: 900px;
-margin: 0 auto;
-display: flex;
-justify-content: center;
-pointer-events: auto;
+  position: absolute;
+  top: 56px;
+  z-index: 1000;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
 }
 
 .sharedButtonIcon {

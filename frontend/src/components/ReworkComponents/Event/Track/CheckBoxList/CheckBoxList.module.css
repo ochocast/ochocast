@@ -15,7 +15,9 @@
   border-radius: 6px;
   padding: 0.75rem;
   background-color: var(--theme-color-white);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   min-height: 120px;
 }
 
@@ -144,11 +146,11 @@
   .speakersContent {
     padding: 0.5rem;
   }
-  
+
   .searchBar {
     padding: 0.5rem;
   }
-  
+
   .user {
     padding: 0.5rem;
   }

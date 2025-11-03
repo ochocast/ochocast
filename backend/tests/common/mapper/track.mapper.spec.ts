@@ -2,6 +2,7 @@ import { toTrackEntity, toTrackObject } from 'src/common/mapper/track.mapper';
 import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 import { TrackObject } from 'src/tracks/domain/track';
 import { UserObject } from 'src/users/domain/user';
+import { PublicUserObject } from 'src/users/domain/publicUser';
 
 jest.mock('src/common/mapper/user.mapper', () => ({
   toUserObject: jest.fn((u) => ({ ...u, fromEntity: true })),
@@ -57,9 +58,11 @@ describe('Track Mapper', () => {
       startDate: now,
       endDate: now,
       eventId: 'e1',
-      speakers: [{ ...mockUserEntity, fromEntity: true }],
     });
 
+    expect(result.speakers).toHaveLength(1);
+    expect(result.speakers[0]).toBeInstanceOf(PublicUserObject);
+    expect(result.speakers[0].id).toBe('u1');
     expect(toUserObject).toHaveBeenCalledWith(mockUserEntity);
   });
 

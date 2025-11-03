@@ -175,18 +175,18 @@
   .message {
     max-width: 85%;
   }
-  
+
   .messageContent {
     padding: 10px 12px;
     font-size: 13px;
   }
-  
+
   .messageInput {
     padding: 10px 16px;
     font-size: 13px;
     min-height: 18px;
   }
-  
+
   .sendButton {
     width: 40px;
     height: 40px;
@@ -197,22 +197,22 @@
   .message {
     max-width: 90%;
   }
-  
+
   .messageContent {
     padding: 8px 12px;
     font-size: 12px;
   }
-  
+
   .messageInput {
     padding: 8px 12px;
     font-size: 12px;
     min-height: 16px;
   }
-  
+
   .chatWrapper {
     gap: 10px;
   }
-  
+
   .messagesContainer {
     padding: 10px;
     gap: 8px;

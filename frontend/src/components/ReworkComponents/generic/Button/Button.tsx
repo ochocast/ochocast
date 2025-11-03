@@ -31,7 +31,9 @@ const Button = (props: HomeCardButtonProps) => (
             props.onClick(e);
           }
         }}
-        className={`${styles.homeCardButton} ${props.type === ButtonType.primary ? styles.primary : styles.secondary}`}
+        className={`${styles.homeCardButton} ${
+          props.type === ButtonType.primary ? styles.primary : styles.secondary
+        }`}
       >
         {props.label}
       </button>

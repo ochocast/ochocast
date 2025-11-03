@@ -63,7 +63,7 @@ const VideoMedia: FC = () => {
 
   const linkExpirationTime = 3600;
   const renewalThreshold = 300;
-  const PERSONA_IMAGE = '/persona.png';
+  const PERSONA_IMAGE = '/branding/persona.png';
 
   const renewSignedUrl = async () => {
     const url_response = await getMedia(videoId);
@@ -130,7 +130,9 @@ const VideoMedia: FC = () => {
       .map((c) => ({
         sender: `${c.creator.firstName} ${c.creator.lastName}`,
         content: c.content,
-        avatar: `${currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE}`,
+        avatar: `${
+          currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE
+        }`,
         created_at: c.createdAt,
         email: c.creator.email,
       }));
@@ -183,7 +185,11 @@ const VideoMedia: FC = () => {
           .map((c: CommentObject) => ({
             sender: `${c.creator.firstName} ${c.creator.lastName}`,
             content: c.content,
-            avatar: `${currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE}`,
+            avatar: `${
+              currentUser
+                ? currentUser.picture_id || PERSONA_IMAGE
+                : PERSONA_IMAGE
+            }`,
             created_at: c.createdAt,
             email: c.creator.email,
           }));

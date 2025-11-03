@@ -17,6 +17,7 @@ import {
   getEventsMiniature,
   createTag,
   findTag,
+  publishEvent,
 } from '../../utils/api';
 import {
   Track,
@@ -35,7 +36,6 @@ import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
-import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import SuggestionBar, {
   SuggestionType,
   Suggestion,
@@ -222,7 +222,25 @@ const EventSettings: FC = () => {
     setErrorName(!name.trim());
     setErrorDescription(!description.trim());
 
-    if (!name.trim() || !description.trim()) return;
+    if (!name.trim() || !description.trim()) {
+      setToast({
+        message: t('NameDescriptionRequired'),
+        type: 'error',
+      });
+      return;
+    }
+
+    // Validate date/time
+    const startDateTime = new Date(`${date}T${startHour}:00Z`);
+    const endDateTime = new Date(`${date}T${endHour}:00Z`);
+
+    if (startDateTime >= endDateTime) {
+      setToast({
+        message: t('StartTimeError'),
+        type: 'error',
+      });
+      return;
+    }
 
     try {
       const formData = new FormData();
@@ -239,11 +257,21 @@ const EventSettings: FC = () => {
 
       const res = await updateEvent(eventId, formData);
       if (res.status === 200) {
+        // Refresh event data to ensure tracks are up-to-date with speaker info
+        const refreshedEvent = await getPrivateEvent(eventId);
+        if (refreshedEvent.status === 200) {
+          setTracks(refreshedEvent.data.tracks);
+        }
         setToast({
           message: t('eventModified'),
           type: 'success',
         });
         setButtonDisabled(true);
+      } else {
+        setToast({
+          message: t('eventCouldNotBeModified'),
+          type: 'error',
+        });
       }
     } catch (error) {
       logger.error('Error updating event', error);
@@ -256,8 +284,16 @@ const EventSettings: FC = () => {
 
   const deleteEventHandler = async () => {
     try {
-      await deleteEvent(eventId);
-      navigate('/events');
+      const res = await deleteEvent(eventId);
+      if (res.status === 200) {
+        setToast({
+          message: t('eventDeletedSuccessfully'),
+          type: 'success',
+        });
+        setTimeout(() => {
+          navigate('/my-events');
+        }, 1000);
+      }
     } catch (error) {
       setToast({
         message: t('eventCouldNotBeDeleted'),
@@ -286,6 +322,24 @@ const EventSettings: FC = () => {
     } catch {
       setToast({
         message: t('eventCouldNotClosed'),
+        type: 'error',
+      });
+    }
+  };
+
+  const handlePublishEvent = async () => {
+    try {
+      const res = await publishEvent(eventId);
+      if (res.status === 200) {
+        setIsPublished(true);
+        setToast({
+          message: t('EventPublished'),
+          type: 'success',
+        });
+      }
+    } catch (error) {
+      setToast({
+        message: t('EventCouldNotBePublished'),
         type: 'error',
       });
     }
@@ -379,14 +433,6 @@ const EventSettings: FC = () => {
             <NavigateBackButton />
             <h1>{t('EditEvent')}</h1>
           </div>
-          {eventClosed ? (
-            <h2>{t('EventClosed')}</h2>
-          ) : (
-            <Button
-              label={t('CloseEvent')}
-              onClick={() => setIsCloseModalOpen(true)}
-            />
-          )}
         </div>
 
         <Modal
@@ -404,90 +450,105 @@ const EventSettings: FC = () => {
           {modalMessage && <p>{modalMessage}</p>}
         </Modal>
 
-        <div className={styles.inputWrapper}>
-          <label>{t('NameEvent')}</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setButtonDisabled(false);
-            }}
-            disabled={eventClosed}
-            required
-            className={errorName ? styles.error : ''}
-          />
+        {/* BASIC INFORMATION SECTION */}
+        <div className={styles.formSection}>
+          <h3>{t('BasicInformation') || 'Basic Information'}</h3>
+
+          <div className={styles.inputWrapper}>
+            <label>{t('NameEvent')}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setButtonDisabled(false);
+              }}
+              disabled={eventClosed}
+              required
+              className={errorName ? styles.error : ''}
+            />
+          </div>
+
+          <div className={styles.inputWrapper}>
+            <label>{t('EventDescription')}</label>
+            <textarea
+              value={description}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setButtonDisabled(false);
+              }}
+              className={errorDescription ? styles.error : ''}
+              disabled={eventClosed}
+              required
+            />
+          </div>
+
+          <div className={styles.inputWrapper}>
+            <label>{t('Thumbnail')}</label>
+            <InputFile
+              placeholder={t('ChooseThumbnail')}
+              onChange={handleImageChange}
+              disable={eventClosed}
+              required={false}
+            />
+          </div>
         </div>
 
-        <div className={styles.inputWrapper}>
-          <label>{t('DateEvent')}</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              setButtonDisabled(false);
-            }}
-            min={new Date().toISOString().split('T')[0]}
-            disabled={eventClosed}
-            required
-          />
+        {/* SCHEDULE SECTION */}
+        <div className={styles.formSection}>
+          <h3>{t('Schedule') || 'Schedule'}</h3>
+
+          <div className={styles.inputWrapper}>
+            <label>{t('DateEvent')}</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => {
+                setDate(e.target.value);
+                setButtonDisabled(false);
+              }}
+              min={new Date().toISOString().split('T')[0]}
+              disabled={eventClosed}
+              required
+            />
+          </div>
+
+          <div className={styles.inputWrapper}>
+            <label>{t('StartEvent')}</label>
+            <input
+              type="time"
+              value={startHour}
+              onChange={(e) => {
+                setStartHour(e.target.value);
+                setButtonDisabled(false);
+              }}
+              disabled={eventClosed}
+              required
+            />
+          </div>
+
+          <div className={styles.inputWrapper}>
+            <label>{t('EndEvent')}</label>
+            <input
+              type="time"
+              value={endHour}
+              onChange={(e) => {
+                setEndHour(e.target.value);
+                setButtonDisabled(false);
+              }}
+              disabled={eventClosed}
+              required
+            />
+          </div>
         </div>
 
-        <div className={styles.inputWrapper}>
-          <label>{t('StartEvent')}</label>
-          <input
-            type="time"
-            value={startHour}
-            onChange={(e) => {
-              setStartHour(e.target.value);
-              setButtonDisabled(false);
-            }}
-            disabled={eventClosed}
-            required
-          />
-        </div>
+        {/* TAGS & METADATA SECTION */}
+        <div className={styles.formSection}>
+          <h3>{t('Tags') || 'Tags'}</h3>
 
-        <div className={styles.inputWrapper}>
-          <label>{t('EndEvent')}</label>
-          <input
-            type="time"
-            value={endHour}
-            onChange={(e) => {
-              setEndHour(e.target.value);
-              setButtonDisabled(false);
-            }}
-            disabled={eventClosed}
-            required
-          />
-        </div>
-
-        <div className={styles.inputWrapper}>
-          <label>{t('Thumbnail')}</label>
-          <InputFile
-            placeholder={t('ChooseThumbnail')}
-            onChange={handleImageChange}
-            disable={eventClosed}
-            required={false}
-          />
-        </div>
-
-        <div className={styles.inputWrapper}>
-          <label>{t('EventDescription')}</label>
-          <textarea
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              setButtonDisabled(false);
-            }}
-            className={errorDescription ? styles.error : ''}
-            disabled={eventClosed}
-            required
-          />
-        </div>
-
-        <div className={styles.inputWrapper}>
-          <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          >
             <SuggestionBar
               onClick={selectTag}
               placeholder="Tags"
@@ -500,7 +561,7 @@ const EventSettings: FC = () => {
                 display: 'flex',
                 flexDirection: 'row',
                 flexWrap: 'wrap',
-                justifyContent: 'center',
+                justifyContent: 'flex-start',
                 gap: '10px',
               }}
             >
@@ -515,27 +576,51 @@ const EventSettings: FC = () => {
                 />
               ))}
             </div>
-          </Card>
+          </div>
         </div>
 
         {!eventClosed && (
-          <div className={styles.confirmationButtons}>
-            <Button
-              label={t('shareEvent')}
-              onClick={handleShareEvent}
-              type={ButtonType.secondary}
-            />
-            <Button
-              label={t('DeleteEvent')}
-              onClick={() => setIsDeleteOpen(true)}
-            />
-            <Button
-              label={t('Save')}
-              type={
-                isButtonDisabled ? ButtonType.disabled : ButtonType.secondary
-              }
-              onClick={handleSubmit}
-            />
+          <div className={styles.formSection}>
+            <h3>{t('Actions') || 'Actions'}</h3>
+            <div className={styles.confirmationButtons}>
+              {!isPublished ? (
+                <Button
+                  label={t('PublishEvent')}
+                  onClick={handlePublishEvent}
+                  type={ButtonType.primary}
+                />
+              ) : (
+                <Button
+                  label={t('CloseEvent')}
+                  onClick={() => setIsCloseModalOpen(true)}
+                  type={ButtonType.primary}
+                />
+              )}
+              <Button
+                label={t('shareEvent')}
+                onClick={handleShareEvent}
+                type={ButtonType.secondary}
+              />
+              <Button
+                label={t('Save')}
+                type={
+                  isButtonDisabled ? ButtonType.disabled : ButtonType.secondary
+                }
+                onClick={handleSubmit}
+              />
+              <Button
+                label={t('DeleteEvent')}
+                onClick={() => setIsDeleteOpen(true)}
+              />
+            </div>
+          </div>
+        )}
+
+        {eventClosed && (
+          <div className={styles.formSection}>
+            <h2 style={{ color: 'var(--theme-color-700, #666)', margin: 0 }}>
+              {t('EventClosed')}
+            </h2>
           </div>
         )}
 
@@ -566,6 +651,7 @@ const EventSettings: FC = () => {
       </div>
       {toast && (
         <Toast
+          key={`${toast.message}-${toast.type}`}
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}

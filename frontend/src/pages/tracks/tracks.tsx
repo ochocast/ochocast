@@ -13,11 +13,13 @@ import { useBrandingContext } from '../../context/BrandingContext';
 export interface tracksProps {}
 
 const fetchEvent = async (eventId?: string) => {
+  if (!eventId) return undefined;
   try {
     const res = await getPublicEvent(eventId);
     return await res.data;
   } catch (error) {
     console.error(`Failed to fetch event: ${error}`);
+    return undefined;
   }
 };
 

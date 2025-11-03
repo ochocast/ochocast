@@ -6,9 +6,8 @@ import {
 import { IEventGateway } from '../gateways/events.gateway';
 import { PublicEventObject } from '../publicEvent';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
-import { PublicUserObject } from 'src/users/domain/publicUser';
 
-export class SubscribeToEventUsecase {
+export class UnsubscribeFromEventUsecase {
   constructor(
     @Inject('EventGateway')
     private eventGateway: IEventGateway,
@@ -19,22 +18,19 @@ export class SubscribeToEventUsecase {
   async execute(id: string, email: string): Promise<PublicEventObject> {
     const event = await this.eventGateway.getEventById(id);
     if (!event) throw new NotFoundException('Event not found');
-    if (!event.published)
-      throw new UnauthorizedException(
-        'subscibe to not publish event is not possible',
-      );
+
     const currentUser = await this.userGateway.getUserByEmail(email);
     if (!currentUser) throw new NotFoundException('User not found');
 
-    // Prevent the event creator from subscribing to their own event
-    if (event.creator.id === currentUser.id)
-      throw new UnauthorizedException(
-        'Event creator cannot subscribe to their own event',
-      );
+    // Check if user is subscribed to this event
+    const userIndex = event.usersSubscribe.findIndex(
+      (u) => u.id === currentUser.id,
+    );
+    if (userIndex === -1)
+      throw new UnauthorizedException('User is not subscribed to this event');
 
-    if (!event.usersSubscribe.some((e) => e.id === currentUser.id))
-      event.usersSubscribe.push(new PublicUserObject(currentUser));
-    else throw new UnauthorizedException('User can not subscribe 2 time');
+    // Remove user from subscribers
+    event.usersSubscribe.splice(userIndex, 1);
 
     return this.eventGateway
       .updateEvent(event)

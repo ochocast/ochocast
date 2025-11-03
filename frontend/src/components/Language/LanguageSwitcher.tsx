@@ -51,7 +51,9 @@ const LanguageSelector: React.FC = () => {
           {LANGUAGES.map((lang) => (
             <li
               key={lang.code}
-              className={`${styles.item} ${currentLang === lang.code ? 'active' : ''}`}
+              className={`${styles.item} ${
+                currentLang === lang.code ? 'active' : ''
+              }`}
               onClick={() => handleLanguageChange(lang.code)}
             >
               {lang.label}

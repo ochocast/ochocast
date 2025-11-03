@@ -13,6 +13,7 @@ interface EventsListProps {
   title: string;
   events: PublicEvent[];
   onPublish?: (eventId: string) => void;
+  onSubscriptionChange?: () => void;
   viewerID?: string;
 }
 
@@ -121,6 +122,7 @@ const EventsList = (props: EventsListProps) => {
               key={event.id}
               imageURL={miniatureURLs[event.id]}
               onPublish={props.onPublish}
+              onSubscriptionChange={props.onSubscriptionChange}
             />
           ))}
         </div>

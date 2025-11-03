@@ -18,6 +18,9 @@
 }
 
 .NavigateBackImage:hover {
-  color: var(--navigate-back-arrow-hover-color, var(--navigate-back-arrow-color));
+  color: var(
+    --navigate-back-arrow-hover-color,
+    var(--navigate-back-arrow-color)
+  );
   opacity: 0.8;
 }

@@ -2,15 +2,15 @@
   /* ===== LAYOUT VARIABLES (non-color) ===== */
   --width-profile-picture: 192px;
   --height-profile-picture: 180px;
-  
+
   /* ===== FALLBACK COLORS (will be overridden by useBranding) ===== */
-  --theme-color: #0056D2;
+  --theme-color: #0056d2;
   --secondary-color: #800080;
-  --bg-color: #F8F9FA;
-  --accent-color: #FFC107;
-  --error-color: #DC3545;
+  --bg-color: #f8f9fa;
+  --accent-color: #ffc107;
+  --error-color: #dc3545;
   --text-color: #800080;
-  
+
   /* Basic colors */
   --theme-color-white: #ffffff;
   --theme-color-black: #000000;

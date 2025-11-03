@@ -65,6 +65,8 @@ export const publishEvent = (eventId) => api.put('/events/publish/' + eventId);
 export const closeEvent = (eventId) => api.put('/events/close/' + eventId);
 export const subscribeEvent = (eventId) =>
   api.put('/events/subscribe/' + eventId);
+export const unsubscribeEvent = (eventId) =>
+  api.delete('/events/unsubscribe/' + eventId);
 export const getEventsMiniature = (event_id) =>
   api.get(`/events/miniature/${event_id}`);
 

@@ -96,6 +96,12 @@ export class PublicEventObject {
   })
   nbSubscription: number;
 
+  @ApiProperty({
+    example: ['user1-id', 'user2-id'],
+    description: 'List of user IDs that are subscribed to the event.',
+  })
+  subscribedUserIds: string[];
+
   constructor(event: EventObject, currentUser: UserObject) {
     this.id = event.id;
     this.name = event.name;
@@ -117,5 +123,6 @@ export class PublicEventObject {
         ));
     this.creator = new PublicUserObject(event.creator);
     this.nbSubscription = event.usersSubscribe?.length;
+    this.subscribedUserIds = event.usersSubscribe?.map((user) => user.id) || [];
   }
 }

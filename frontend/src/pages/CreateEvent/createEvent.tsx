@@ -51,6 +51,10 @@ const CreateEventPage: React.FC = () => {
   } | null>(null);
   const [errorName, setErrorName] = useState(false);
   const [errorDescription, setErrorDescription] = useState(false);
+  const [errorDate, setErrorDate] = useState(false);
+  const [errorStartHour, setErrorStartHour] = useState(false);
+  const [errorEndHour, setErrorEndHour] = useState(false);
+  const [errorTimeOrder, setErrorTimeOrder] = useState(false);
   const [isCreatingEvent, setIsCreatingEvent] = useState<boolean>(false);
 
   useEffect(() => {
@@ -103,11 +107,47 @@ const CreateEventPage: React.FC = () => {
     }
 
     let isError = false;
-    setErrorName(!name.trim());
-    setErrorDescription(!description.trim());
 
-    if (!name.trim() || !description.trim()) {
+    // Valider tous les champs obligatoires
+    const hasNameError = !name.trim();
+    const hasDescriptionError = !description.trim();
+    const hasDateError = !date.trim();
+    const hasStartHourError = !startHour.trim();
+    const hasEndHourError = !endHour.trim();
+
+    // Vérifier que endHour > startHour
+    let hasTimeOrderError = false;
+    if (startHour && endHour) {
+      const [startH, startM] = startHour.split(':').map(Number);
+      const [endH, endM] = endHour.split(':').map(Number);
+      const startTotalMinutes = startH * 60 + startM;
+      const endTotalMinutes = endH * 60 + endM;
+      hasTimeOrderError = endTotalMinutes <= startTotalMinutes;
+    }
+
+    setErrorName(hasNameError);
+    setErrorDescription(hasDescriptionError);
+    setErrorDate(hasDateError);
+    setErrorStartHour(hasStartHourError);
+    setErrorEndHour(hasEndHourError);
+    setErrorTimeOrder(hasTimeOrderError);
+
+    if (
+      hasNameError ||
+      hasDescriptionError ||
+      hasDateError ||
+      hasStartHourError ||
+      hasEndHourError ||
+      hasTimeOrderError
+    ) {
       isError = true;
+      const message = hasTimeOrderError
+        ? 'End time must be after start time'
+        : t('ErrorCreatingEvent');
+      setToast({
+        message,
+        type: 'error',
+      });
     }
 
     if (!isError) {
@@ -186,6 +226,7 @@ const CreateEventPage: React.FC = () => {
       canBeEditByUser: true,
       creator: mockUser,
       nbSubscription: 12,
+      subscribedUserIds: [],
     };
   };
 
@@ -234,7 +275,10 @@ const CreateEventPage: React.FC = () => {
         <div className={styles.contentWrapper}>
           <div className={styles.addEventForm}>
             <div className={styles.inputWrapper}>
-              <label>{t('NameEvent')}</label>
+              <label>
+                {t('NameEvent')}
+                <span className={styles.required}>*</span>
+              </label>
               <input
                 type="text"
                 value={name}
@@ -243,37 +287,74 @@ const CreateEventPage: React.FC = () => {
                 className={errorName ? styles.error : ''}
                 required
               />
+              {errorName && (
+                <span className={styles.errorMessage}>
+                  This field is required
+                </span>
+              )}
             </div>
 
             <div className={styles.inputWrapper}>
-              <label>{t('DateEvent')}</label>
+              <label>
+                {t('DateEvent')}
+                <span className={styles.required}>*</span>
+              </label>
               <input
                 type="date"
                 value={date}
                 min={new Date().toISOString().split('T')[0]}
                 onChange={(e) => setDate(e.target.value)}
+                className={errorDate ? styles.error : ''}
                 required
               />
+              {errorDate && (
+                <span className={styles.errorMessage}>
+                  This field is required
+                </span>
+              )}
             </div>
 
             <div className={styles.inputWrapper}>
-              <label>{t('StartEvent')}</label>
+              <label>
+                {t('StartEvent')}
+                <span className={styles.required}>*</span>
+              </label>
               <input
                 type="time"
                 value={startHour}
                 onChange={(e) => setStartHour(e.target.value)}
+                className={errorStartHour ? styles.error : ''}
                 required
               />
+              {errorStartHour && (
+                <span className={styles.errorMessage}>
+                  This field is required
+                </span>
+              )}
             </div>
 
             <div className={styles.inputWrapper}>
-              <label>{t('EndEvent')}</label>
+              <label>
+                {t('EndEvent')}
+                <span className={styles.required}>*</span>
+              </label>
               <input
                 type="time"
                 value={endHour}
                 onChange={(e) => setEndHour(e.target.value)}
+                className={errorEndHour || errorTimeOrder ? styles.error : ''}
                 required
               />
+              {errorEndHour && (
+                <span className={styles.errorMessage}>
+                  This field is required
+                </span>
+              )}
+              {errorTimeOrder && (
+                <span className={styles.errorMessage}>
+                  End time must be after start time
+                </span>
+              )}
             </div>
 
             <div className={styles.inputWrapper}>
@@ -287,7 +368,10 @@ const CreateEventPage: React.FC = () => {
             </div>
 
             <div className={styles.inputWrapper}>
-              <label>{t('EventDescription')}</label>
+              <label>
+                {t('EventDescription')}
+                <span className={styles.required}>*</span>
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -295,6 +379,11 @@ const CreateEventPage: React.FC = () => {
                 className={errorDescription ? styles.error : ''}
                 required
               />
+              {errorDescription && (
+                <span className={styles.errorMessage}>
+                  This field is required
+                </span>
+              )}
             </div>
             <div className={styles.inputWrapper}>
               <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>

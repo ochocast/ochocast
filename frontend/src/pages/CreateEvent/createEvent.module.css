@@ -15,7 +15,7 @@
   flex: 1;
   min-width: 350px;
   width: 100%;
-  max-width: 600px; 
+  max-width: 600px;
 }
 
 .inputWrapper {
@@ -37,6 +37,7 @@
   border: 1px solid var(--theme-color-1100);
   border-radius: 8px;
   box-sizing: border-box;
+  background-color: var(--bg-color);
 }
 
 .inputWrapper label {
@@ -44,6 +45,27 @@
   margin-bottom: 0.25rem;
 }
 
+.required {
+  color: var(--error-color);
+  margin-left: 0.25rem;
+  font-weight: bold;
+}
+
+.inputWrapper textarea.error,
+.inputWrapper select.error,
+.inputWrapper input[type='date'].error,
+.inputWrapper input[type='time'].error,
+.inputWrapper input[type='text'].error {
+  border-color: var(--error-color);
+  background-color: var(--error-color-100);
+}
+
+.errorMessage {
+  color: var(--error-color);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: block;
+}
 
 .contentWrapper {
   display: flex;

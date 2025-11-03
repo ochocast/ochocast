@@ -19,7 +19,7 @@
 }
 
 .searchInput::placeholder {
-  color: var(--theme-color-700); 
+  color: var(--theme-color-700);
   opacity: 0.7;
 }
 
@@ -36,8 +36,6 @@
   width: 1.375rem;
   height: 1.375rem;
 }
-
-
 
 .suggestions_list li {
   display: flex;

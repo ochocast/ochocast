@@ -24,12 +24,14 @@ import { isUUID } from 'class-validator';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUserEmail } from '../../../common/decorators/current-user-email.decorator';
 import { PublicEventObject } from 'src/events/domain/publicEvent';
+import { Public } from 'nest-keycloak-connect';
 import { GetEventByIdUsecase } from 'src/events/domain/usecases/getEventById.usecase';
 import { GetPrivateEventsUsecase } from 'src/events/domain/usecases/getPrivateEvents.usecase';
 import { PublishEventUsecase } from 'src/events/domain/usecases/publishEvent.usecase';
 import { CloseEventUsecase } from 'src/events/domain/usecases/closeEvent.usecase';
 import { GetPrivateEventByIdUsecase } from 'src/events/domain/usecases/getPrivateEventById.usecase';
 import { SubscribeToEventUsecase } from 'src/events/domain/usecases/subscribeToEvent.usecase';
+import { UnsubscribeFromEventUsecase } from 'src/events/domain/usecases/unsubscribeFromEvent.usecase';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GetEventMiniatureUsecase } from 'src/events/domain/usecases/getEventsMiniature.usecase';
 
@@ -47,6 +49,7 @@ export class EventsController {
     private closeEventUseCase: CloseEventUsecase,
     private getPrivateEventByIdUsecase: GetPrivateEventByIdUsecase,
     private subscribeToEventUsecase: SubscribeToEventUsecase,
+    private unsubscribeFromEventUsecase: UnsubscribeFromEventUsecase,
     private getEventMiniatureUsecase: GetEventMiniatureUsecase,
   ) {}
 
@@ -86,12 +89,13 @@ export class EventsController {
     return this.getPrivateEventUsecase.execute(filter, email);
   }
 
-  @Get(':id')
-  getEvent(@Param('id') id: string): Promise<PublicEventObject> {
-    if (!isUUID(id)) {
-      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
-    }
-    return this.getEventByIdUsecase.execute(id);
+  @Get('miniature/:id')
+  async getEventMiniature(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<{ url: string }> {
+    const url = await this.getEventMiniatureUsecase.execute(id, email);
+    return { url };
   }
 
   @Get('private/:id')
@@ -103,6 +107,15 @@ export class EventsController {
       throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
     }
     return this.getPrivateEventByIdUsecase.execute(id, email);
+  }
+
+  @Public()
+  @Get(':id')
+  getEvent(@Param('id') id: string): Promise<PublicEventObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+    return this.getEventByIdUsecase.execute(id);
   }
 
   @Put(':id')
@@ -156,6 +169,18 @@ export class EventsController {
     return this.subscribeToEventUsecase.execute(id, email);
   }
 
+  @Delete('unsubscribe/:id')
+  async unsubscribeFromEvent(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<PublicEventObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return this.unsubscribeFromEventUsecase.execute(id, email);
+  }
+
   @Delete(':id')
   async deleteEvent(
     @Param('id') id: string,
@@ -166,14 +191,5 @@ export class EventsController {
     }
 
     return await this.deleteEventUsecase.execute(id, email);
-  }
-
-  @Get('miniature/:id')
-  async getEventMiniature(
-    @Param('id') id: string,
-    @CurrentUserEmail() email: string,
-  ): Promise<{ url: string }> {
-    const url = await this.getEventMiniatureUsecase.execute(id, email);
-    return { url };
   }
 }

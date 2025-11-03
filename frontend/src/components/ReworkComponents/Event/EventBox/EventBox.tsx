@@ -7,16 +7,18 @@ import styles from './EventBox.module.css';
 
 import Button, { ButtonType } from '../../generic/Button/Button';
 import { PublicEvent } from '../../../../utils/EventsProperties';
-import { subscribeEvent } from '../../../../utils/api';
+import { subscribeEvent, unsubscribeEvent } from '../../../../utils/api';
 import { t } from 'i18next';
 
 import { useBrandingContext } from '../../../../context/BrandingContext';
+import { useUser } from '../../../../context/UserContext';
 
 interface EventBoxProps {
   event: PublicEvent;
   imageURL?: string;
   eventStatus: EventStatus;
   onPublish?: (eventId: string) => void;
+  onSubscriptionChange?: () => void;
 }
 
 const EventBox = (props: EventBoxProps) => {
@@ -25,7 +27,9 @@ const EventBox = (props: EventBoxProps) => {
   const navigate = useNavigate();
   const [nbSubscribe, setNbSubscribe] = useState(event.nbSubscription);
   const { getImageUrl } = useBrandingContext();
+  const { user } = useUser();
   const [defaultLogoUrl, setDefaultLogoUrl] = useState<string | null>(null);
+  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchDefaultLogo = async () => {
@@ -39,6 +43,16 @@ const EventBox = (props: EventBoxProps) => {
     fetchDefaultLogo();
   }, [getImageUrl]);
 
+  // Check if current user is subscribed to this event
+  useEffect(() => {
+    if (user && event.subscribedUserIds) {
+      setIsSubscribed(event.subscribedUserIds.includes(user.id));
+    }
+  }, [user, event]);
+
+  // Check if current user is the event creator
+  const isEventCreator = user && event.creatorId === user.id;
+
   const editButton = (
     <div className={styles.editButton}>
       <Button
@@ -51,14 +65,39 @@ const EventBox = (props: EventBoxProps) => {
 
   const buttonsPublished = (
     <div className={styles.subscribeWrapper}>
-      <Button
-        label={t('Register')}
-        type={ButtonType.primary}
-        onClick={async () => {
-          if ((await subscribeEvent(event.id)).status === 200)
-            setNbSubscribe(nbSubscribe + 1);
-        }}
-      />
+      {isEventCreator ? (
+        <div className={styles.organizerBadge}>
+          <span>{`${t('Organizer')}`}</span>
+        </div>
+      ) : !isSubscribed ? (
+        <Button
+          label={t('Register')}
+          type={ButtonType.primary}
+          onClick={async (e) => {
+            e.stopPropagation();
+            if ((await subscribeEvent(event.id)).status === 200) {
+              setNbSubscribe(nbSubscribe + 1);
+              setIsSubscribed(true);
+              props.onSubscriptionChange?.();
+            }
+          }}
+        />
+      ) : (
+        <div className={styles.subscribedContainer}>
+          <Button
+            label={t('Registered')}
+            type={ButtonType.secondary}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if ((await unsubscribeEvent(event.id)).status === 200) {
+                setNbSubscribe(nbSubscribe - 1);
+                setIsSubscribed(false);
+                props.onSubscriptionChange?.();
+              }
+            }}
+          />
+        </div>
+      )}
       <div className={styles.subscriptionsWrapper}>
         <span className={styles.dot}></span>
         <span className={styles.subscritpions}>
