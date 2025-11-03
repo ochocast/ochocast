@@ -204,6 +204,9 @@
   "connecting": "Connexion en cours...",
   "videonotallowdeleted": "Vous n'êtes pas autorisé à supprimer cette vidéo",
   "videonotallowmodify": "Vous n'êtes pas autorisé à modifier cette vidéo",
+  "community": "Communauté",
+  "searchUsers": "Rechercher un utilisateur",
+  "noUserFound": "Aucun utilisateur trouvé",
   "filterPanel": {
     "tag": "Tag",
     "user": "Utilisateur",

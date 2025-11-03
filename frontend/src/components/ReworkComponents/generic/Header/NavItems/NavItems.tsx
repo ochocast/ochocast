@@ -16,6 +16,15 @@ const NavItems = () => {
         <button
           type="button"
           className={styles.navItem1}
+          onClick={() => navigate('/community')}
+        >
+          {t('community')}
+        </button>
+      </div>
+      <div className={styles.navItem}>
+        <button
+          type="button"
+          className={styles.navItem1}
           onClick={() => navigate('/events-home')}
         >
           {t('streaming')}
