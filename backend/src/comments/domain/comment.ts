@@ -46,6 +46,13 @@ export class CommentObject {
   })
   updatedAt: Date;
 
+  @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The identifier of the parent comment.',
+    nullable: true,
+  })
+  likes?: number;
+
   constructor(
     id: string,
     parentid: string,
@@ -54,6 +61,7 @@ export class CommentObject {
     content: string,
     createdAt: Date,
     updatedAt: Date,
+    likes: number,
   ) {
     this.id = id;
     this.parentid = parentid;
@@ -62,6 +70,7 @@ export class CommentObject {
     this.content = content;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
+    this.likes = likes;
   }
 }
 

@@ -37,4 +37,6 @@ export interface CommentObject {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  likes?: number;
+  isLiked?: boolean;
 }

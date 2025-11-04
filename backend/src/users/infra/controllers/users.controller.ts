@@ -28,6 +28,9 @@ import { GetFavoriteVideosUsecase } from 'src/users/domain/usecases/getFavoriteV
 import { UpdateProfileUseCase } from 'src/users/domain/usecases/updateProfile.usecase';
 import { UpdateProfileUseCaseWithoutImage } from 'src/users/domain/usecases/updateProfileWithoutImage.usecase';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AddLikedCommentUsecase } from 'src/users/domain/usecases/addLikedComment.usecase';
+import { RemoveLikedCommentUsecase } from 'src/users/domain/usecases/removeLikedComment.usecase';
+import { GetLikedCommentUsecase } from 'src/users/domain/usecases/getLikeComments.usecase';
 
 @ApiTags('Users')
 @Controller('users')
@@ -44,6 +47,9 @@ export class UsersController {
     private readonly getFavoriteVideosUsecase: GetFavoriteVideosUsecase,
     private updateProfileUsecase: UpdateProfileUseCase,
     private updateProfileWithoutImageUsecase: UpdateProfileUseCaseWithoutImage,
+    private addLikedCommentUsecase: AddLikedCommentUsecase,
+    private removeLikedCommentUsecase: RemoveLikedCommentUsecase,
+    private getLikedCommentUsecase: GetLikedCommentUsecase,
   ) {}
 
   @Post()
@@ -137,5 +143,28 @@ export class UsersController {
   ): Promise<{ success: boolean }> {
     await this.updateProfileWithoutImageUsecase.execute(user.email, newProfile);
     return { success: true };
+  }
+
+  @Post('/like/:commentId')
+  async addLike(
+    @AuthenticatedUser() user: any,
+    @Param('commentId') commentId: string,
+  ): Promise<{ success: boolean }> {
+    await this.addLikedCommentUsecase.execute(user.email, commentId);
+    return { success: true };
+  }
+
+  @Delete('/like/:commentId')
+  async removeLike(
+    @AuthenticatedUser() user: any,
+    @Param('commentId') commentId: string,
+  ): Promise<{ success: boolean }> {
+    await this.removeLikedCommentUsecase.execute(user.email, commentId);
+    return { success: true };
+  }
+
+  @Get('/like')
+  async getLikedCommentsByEmail(@AuthenticatedUser() user: any) {
+    return this.getLikedCommentUsecase.execute(user.email);
   }
 }

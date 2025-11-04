@@ -21,6 +21,8 @@ describe('CreateNewCommentUsecase', () => {
       createNewComment: jest.fn(),
       getComments: jest.fn(),
       deleteComment: jest.fn(),
+      likeComment: jest.fn(),
+      deletelikeComment: jest.fn(),
     };
 
     usecase = new CreateNewCommentUsecase(mockCommentGateway);

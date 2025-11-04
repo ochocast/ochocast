@@ -6,6 +6,7 @@ import { ReactPlayerProps } from 'react-player/types/lib';
 import {
   createComment,
   getComments,
+  getLikedComments,
   getMedia,
   getUsers,
   getVideo,
@@ -36,18 +37,18 @@ const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const VideoMedia: FC = () => {
   const [replyPanelOpen, setReplyPanelOpen] = useState(false);
-  const [activeCommentIndex, setActiveCommentIndex] = useState<number | null>(
-    null,
-  );
   const [parentCommentId, setParentCommentId] = useState<string | null>(null);
   const [activeParent, setActiveParent] = useState<CommentObject | null>(null);
   const [conversations, setConversations] = useState<{
-    [key: number]: Array<{
+    [key: string]: Array<{
+      id?: string;
       sender: string;
       content: string;
       avatar?: string;
       created_at?: Date;
       email?: string;
+      likes?: number;
+      isLiked?: boolean;
     }>;
   }>({});
 
@@ -64,6 +65,28 @@ const VideoMedia: FC = () => {
   const linkExpirationTime = 3600;
   const renewalThreshold = 300;
   const PERSONA_IMAGE = '/branding/persona.png';
+
+  const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
+    const parentComments = comments.filter(
+      (c: CommentObject) => c.parentid === null,
+    );
+    const childComments = comments.filter(
+      (c: CommentObject) => c.parentid !== null,
+    );
+
+    parentComments.sort((a: CommentObject, b: CommentObject) => {
+      const likesA = a.likes || 0;
+      const likesB = b.likes || 0;
+
+      if (likesB !== likesA) {
+        return likesB - likesA;
+      }
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
+    return [...parentComments, ...childComments];
+  };
 
   const renewSignedUrl = async () => {
     const url_response = await getMedia(videoId);
@@ -89,11 +112,13 @@ const VideoMedia: FC = () => {
       const user = users.find((u) => u.id === backendUser.id);
       setCurrentUser(user || null);
 
-      const [videoRes, mediaRes, commentsRes] = await Promise.all([
-        getVideo(videoId),
-        getMedia(videoId),
-        getComments(videoId),
-      ]);
+      const [videoRes, mediaRes, commentsRes, likedCommentsRes] =
+        await Promise.all([
+          getVideo(videoId),
+          getMedia(videoId),
+          getComments(videoId),
+          getLikedComments(),
+        ]);
 
       if (videoRes) {
         const currentVideo = videoRes.data[0];
@@ -106,8 +131,25 @@ const VideoMedia: FC = () => {
       }
 
       if (mediaRes) setUrl(mediaRes.data);
-      if (commentsRes) setCommentaryList(commentsRes.data);
 
+      if (commentsRes && likedCommentsRes) {
+        const likedComments = Array.isArray(likedCommentsRes.data)
+          ? likedCommentsRes.data
+          : [];
+        const likedCommentIds = new Set(
+          likedComments.map((c: CommentObject) => c.id),
+        );
+        const commentsWithLikedStatus = commentsRes.data.map(
+          (comment: CommentObject) => ({
+            ...comment,
+            isLiked: likedCommentIds.has(comment.id),
+          }),
+        );
+
+        setCommentaryList(sortCommentsByLikes(commentsWithLikedStatus));
+      } else if (commentsRes) {
+        setCommentaryList(commentsRes.data);
+      }
       setIsLoading(false);
     };
 
@@ -121,13 +163,13 @@ const VideoMedia: FC = () => {
     const parent = commentaryList.filter((c) => c.parentid === null)[index];
     if (!parent) return;
 
-    setActiveCommentIndex(index);
     setParentCommentId(parent.id);
     setActiveParent(parent);
 
     const childComments = commentaryList
       .filter((c) => c.parentid === parent.id)
       .map((c) => ({
+        id: c.id,
         sender: `${c.creator.firstName} ${c.creator.lastName}`,
         content: c.content,
         avatar: `${
@@ -135,11 +177,13 @@ const VideoMedia: FC = () => {
         }`,
         created_at: c.createdAt,
         email: c.creator.email,
+        likes: c.likes || 0,
+        isLiked: c.isLiked || false,
       }));
 
     setConversations((prev) => ({
       ...prev,
-      [index]: childComments,
+      [parent.id]: childComments,
     }));
 
     setReplyPanelOpen(true);
@@ -147,13 +191,65 @@ const VideoMedia: FC = () => {
 
   const handleCloseReplyPanel = () => {
     setReplyPanelOpen(false);
-    setActiveCommentIndex(null);
     setParentCommentId(null);
     setActiveParent(null);
   };
 
+  const handleReplyPanelLikeChange = async () => {
+    if (!parentCommentId || !videoId) return;
+
+    const commentsRes = await getComments(videoId);
+    const likedCommentsRes = await getLikedComments();
+
+    if (
+      commentsRes &&
+      likedCommentsRes &&
+      Array.isArray(likedCommentsRes.data)
+    ) {
+      const likedCommentIds = new Set(
+        likedCommentsRes.data.map((c: CommentObject) => c.id),
+      );
+      const commentsWithLikedStatus = commentsRes.data.map(
+        (comment: CommentObject) => ({
+          ...comment,
+          isLiked: likedCommentIds.has(comment.id),
+        }),
+      );
+
+      const sortedComments = sortCommentsByLikes(commentsWithLikedStatus);
+      setCommentaryList(sortedComments);
+
+      const parent = sortedComments.find(
+        (c: CommentObject) => c.id === parentCommentId,
+      );
+      if (parent) {
+        const parentChildComments = commentsWithLikedStatus
+          .filter((c: CommentObject) => c.parentid === parent.id)
+          .map((c: CommentObject) => ({
+            id: c.id,
+            sender: `${c.creator.firstName} ${c.creator.lastName}`,
+            content: c.content,
+            avatar: `${
+              currentUser
+                ? currentUser.picture_id || PERSONA_IMAGE
+                : PERSONA_IMAGE
+            }`,
+            created_at: c.createdAt,
+            email: c.creator.email,
+            likes: c.likes || 0,
+            isLiked: c.isLiked || false,
+          }));
+
+        setConversations((prev) => ({
+          ...prev,
+          [parentCommentId]: parentChildComments,
+        }));
+      }
+    }
+  };
+
   const handleSendReply = async (msg: string) => {
-    if (activeCommentIndex === null || !videoId || !video) return;
+    if (!parentCommentId || !videoId || !video) return;
     const backendUser = localStorage.getItem('backendUser');
     if (!backendUser) {
       alert('Vous devez être connecté pour répondre à un commentaire.');
@@ -174,15 +270,17 @@ const VideoMedia: FC = () => {
 
     const refreshed = await getComments(videoId);
     if (refreshed) {
-      setCommentaryList(refreshed.data);
+      const sortedComments = sortCommentsByLikes(refreshed.data);
+      setCommentaryList(sortedComments);
 
-      const parent = refreshed.data.filter(
-        (c: CommentObject) => c.parentid === null,
-      )[activeCommentIndex];
+      const parent = sortedComments.find(
+        (c: CommentObject) => c.id === parentCommentId,
+      );
       if (parent) {
-        const childComments = refreshed.data
+        const parentChildComments = refreshed.data
           .filter((c: CommentObject) => c.parentid === parent.id)
           .map((c: CommentObject) => ({
+            id: c.id,
             sender: `${c.creator.firstName} ${c.creator.lastName}`,
             content: c.content,
             avatar: `${
@@ -192,11 +290,13 @@ const VideoMedia: FC = () => {
             }`,
             created_at: c.createdAt,
             email: c.creator.email,
+            likes: c.likes || 0,
+            isLiked: c.isLiked || false,
           }));
 
         setConversations((prev) => ({
           ...prev,
-          [activeCommentIndex]: childComments,
+          [parentCommentId]: parentChildComments,
         }));
       }
     }
@@ -293,7 +393,7 @@ const VideoMedia: FC = () => {
         <CommentReplyPanel
           open={replyPanelOpen}
           onClose={handleCloseReplyPanel}
-          conversation={conversations[activeCommentIndex || 0] || []}
+          conversation={conversations[parentCommentId || ''] || []}
           parentComment={
             activeParent
               ? {
@@ -304,6 +404,7 @@ const VideoMedia: FC = () => {
               : undefined
           }
           onSend={handleSendReply}
+          onLikeChange={handleReplyPanelLikeChange}
         />
 
         <div className={styles.suggestionSide}>
@@ -336,8 +437,23 @@ const VideoMedia: FC = () => {
                   creator: JSON.parse(backendUser).id,
                 });
               }
-              const refreshed = await getComments(videoId);
-              if (refreshed) setCommentaryList(refreshed.data);
+              const [refreshed, likedCommentsRes] = await Promise.all([
+                getComments(videoId),
+                getLikedComments(),
+              ]);
+              if (refreshed && likedCommentsRes) {
+                const likedCommentIds = new Set(
+                  likedCommentsRes.data.map((c: CommentObject) => c.id),
+                );
+                const commentsWithLikedStatus = refreshed.data.map(
+                  (comment: CommentObject) => ({
+                    ...comment,
+                    isLiked: likedCommentIds.has(comment.id),
+                  }),
+                );
+
+                setCommentaryList(sortCommentsByLikes(commentsWithLikedStatus));
+              }
             }}
           />
           <div className={styles.commentaryContainer}>
@@ -347,6 +463,7 @@ const VideoMedia: FC = () => {
                 .map((comment, index) => (
                   <Commentary
                     key={comment.id}
+                    id={comment.id}
                     content={comment.content}
                     firstname={comment.creator.firstName}
                     lastname={comment.creator.lastName}
@@ -354,6 +471,8 @@ const VideoMedia: FC = () => {
                     created_at={comment.createdAt}
                     onReplyClick={() => handleReplyClick(index)}
                     state={CommentaryDescriptionState.standard}
+                    likes={comment.likes || 0}
+                    isLiked={comment.isLiked || false}
                   />
                 ))}
           </div>

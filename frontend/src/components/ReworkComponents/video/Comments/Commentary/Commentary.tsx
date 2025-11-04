@@ -1,6 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './Commentary.module.css';
+import { ReactComponent as HeartIcon } from '../../../../../assets/heart.svg';
+import {
+  likeComment,
+  unlikeComment,
+  userLikeComment,
+  userUnlikeComment,
+} from '../../../../../utils/api';
+
 import ProfileDescription, {
   ProfileDescriptionState,
 } from '../../../profil/ProfileDescription/ProfileDescription';
@@ -12,6 +20,7 @@ export enum CommentaryDescriptionState {
 }
 
 export interface CommentaryProps {
+  id?: string;
   content: string;
   firstname: string;
   lastname: string;
@@ -20,11 +29,22 @@ export interface CommentaryProps {
   onReplyClick?: () => void;
   state: CommentaryDescriptionState;
   replyPreview?: { mention: string; snippet: string } | null;
+  likes?: number;
+  isLiked?: boolean;
+  onLikeChange?: () => void;
 }
 
 const Commentary = (props: CommentaryProps) => {
+  const [isLiked, setIsLiked] = useState(props.isLiked || false);
+  const [likeCount, setLikeCount] = useState(props.likes || 0);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  useEffect(() => {
+    setIsLiked(props.isLiked || false);
+    setLikeCount(props.likes || 0);
+  }, [props.isLiked, props.likes]);
 
   const createdAtDate =
     props.created_at instanceof Date
@@ -38,6 +58,51 @@ const Commentary = (props: CommentaryProps) => {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  const handleLikeClick = async () => {
+    if (isLoading || !props.id) return;
+
+    const previousIsLiked = isLiked;
+    const previousLikeCount = likeCount;
+
+    setIsLiked(!isLiked);
+    setLikeCount(isLiked ? Math.max(0, likeCount - 1) : likeCount + 1);
+    setIsLoading(true);
+
+    try {
+      if (previousIsLiked) {
+        const [commentResponse, userResponse] = await Promise.all([
+          unlikeComment(props.id),
+          userUnlikeComment(props.id),
+        ]);
+        if (!commentResponse.ok || !userResponse.ok) {
+          setIsLiked(previousIsLiked);
+          setLikeCount(previousLikeCount);
+          console.error('Failed to unlike comment');
+        } else if (props.onLikeChange) {
+          props.onLikeChange();
+        }
+      } else {
+        const [commentResponse, userResponse] = await Promise.all([
+          likeComment(props.id),
+          userLikeComment(props.id),
+        ]);
+        if (!commentResponse.ok || !userResponse.ok) {
+          setIsLiked(previousIsLiked);
+          setLikeCount(previousLikeCount);
+          console.error('Failed to like comment');
+        } else if (props.onLikeChange) {
+          props.onLikeChange();
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      setIsLiked(previousIsLiked);
+      setLikeCount(previousLikeCount);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleProfileClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // empêche le clic de se propager à d'autres boutons
@@ -68,11 +133,32 @@ const Commentary = (props: CommentaryProps) => {
             <span className={styles.date}>{formattedDate}</span>
           </div>
           <p className={styles.text}>{props.content}</p>
-          {props.onReplyClick && (
-            <button className={styles.replyButton} onClick={props.onReplyClick}>
-              {t('openDiscussion')}
-            </button>
-          )}
+          <div className={styles.commentActions}>
+            <div className={styles.actionsLeft}>
+              {props.onReplyClick && (
+                <button
+                  className={styles.replyButton}
+                  onClick={props.onReplyClick}
+                >
+                  {t('openDiscussion')}
+                </button>
+              )}
+            </div>
+            <div className={styles.likeSection}>
+              <span className={styles.likeCount}>{likeCount}</span>
+              <button
+                className={styles.likeButton}
+                onClick={handleLikeClick}
+                disabled={isLoading}
+              >
+                <div
+                  className={`${styles.heartWrapper} ${isLiked ? styles.liked : ''}`}
+                >
+                  <HeartIcon className={styles.heartIcon} />
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -107,6 +193,22 @@ const Commentary = (props: CommentaryProps) => {
           </div>
 
           <div className={styles.replyContentBox}>
+            <div className={styles.replyTopBar}>
+              <div className={styles.likeSection}>
+                <span className={styles.likeCount}>{likeCount}</span>
+                <button
+                  className={styles.likeButton}
+                  onClick={handleLikeClick}
+                  disabled={isLoading}
+                >
+                  <div
+                    className={`${styles.heartWrapper} ${isLiked ? styles.liked : ''}`}
+                  >
+                    <HeartIcon className={styles.heartIcon} />
+                  </div>
+                </button>
+              </div>
+            </div>
             {props.replyPreview && (
               <div className={styles.replyDiscordBox}>
                 <span className={styles.replyMention}>

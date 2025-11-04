@@ -19,6 +19,9 @@ describe('GetFavoriteVideosUsecase', () => {
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
       updateUserProfile: jest.fn(),
+      addLikedComment: jest.fn(),
+      removeLikedComment: jest.fn(),
+      getLikedComment: jest.fn(),
     };
 
     usecase = new GetFavoriteVideosUsecase(userGatewayMock);
@@ -49,6 +52,7 @@ describe('GetFavoriteVideosUsecase', () => {
           speakingTracks: [],
           favoriteVideos: [],
           eventsSubscribe: [],
+          likedComments: [],
         },
         createdAt: new Date(),
         updatedAt: new Date(),

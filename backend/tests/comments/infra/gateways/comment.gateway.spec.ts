@@ -58,6 +58,7 @@ describe('CommentGateway', () => {
     'This is a comment',
     now,
     now,
+    0,
   );
 
   beforeEach(async () => {

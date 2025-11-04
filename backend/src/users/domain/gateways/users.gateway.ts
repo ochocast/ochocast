@@ -1,5 +1,6 @@
 import { VideoObject } from 'src/videos/domain/video';
 import { UserObject } from '../user';
+import { CommentObject } from 'src/comments/domain/comment';
 
 export interface IUserGateway {
   createNewUser: (user: UserObject) => Promise<UserObject>;
@@ -18,4 +19,7 @@ export interface IUserGateway {
     newDescription: string,
     newProfilePictureId: string,
   ): Promise<void>;
+  addLikedComment(userId: string, commentId: string): Promise<void>;
+  removeLikedComment(userId: string, commentId: string): Promise<void>;
+  getLikedComment(email: string): Promise<CommentObject[]>;
 }

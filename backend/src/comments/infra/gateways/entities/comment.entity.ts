@@ -1,4 +1,10 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  ManyToMany,
+} from 'typeorm';
 import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 
@@ -24,6 +30,12 @@ export class CommentEntity {
 
   @Column()
   updatedAt: Date;
+
+  @Column({ default: 0 })
+  likes: number;
+
+  @ManyToMany(() => UserEntity, (user) => user.likedComments)
+  usersWhoLiked: UserEntity[];
 
   constructor(comment: Partial<CommentEntity>) {
     Object.assign(this, comment);

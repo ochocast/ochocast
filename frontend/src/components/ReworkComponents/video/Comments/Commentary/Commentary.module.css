@@ -93,6 +93,98 @@
   background: var(--theme-color-800);
 }
 
+.commentBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.commentActions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.actionsLeft {
+  flex: 0 0 auto;
+}
+
+.likeSection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.likeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.likeButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.heartWrapper {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+}
+
+.heartWrapper.liked {
+  animation: heartBeat 0.3s ease-out;
+}
+
+.heartIcon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  transition: all 0.3s ease;
+  fill: none;
+}
+
+.liked .heartIcon {
+  fill: var(--theme-color-700);
+  fill-opacity: 0.7;
+}
+
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.likeCount {
+  font-size: 0.75rem;
+  color: var(--theme-color-600);
+  font-weight: 500;
+}
+
+/* Make sure the comment text doesn't go behind the like button */
+.text {
+  margin-bottom: 0.5rem;
+}
+
 /* === Reply (dans le panel) === */
 .commentaryReply {
   width: 100%;
@@ -123,6 +215,12 @@
     display: none;
   }
   margin-top: 1px;
+}
+
+.replyTopBar {
+  position: absolute;
+  top: 0.9rem;
+  right: 1.2rem;
 }
 
 .discreetButton {

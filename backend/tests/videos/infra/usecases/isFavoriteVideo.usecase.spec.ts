@@ -38,6 +38,9 @@ describe('IsFavoriteVideoUsecase', () => {
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
       updateUserProfile: jest.fn(),
+      addLikedComment: jest.fn(),
+      removeLikedComment: jest.fn(),
+      getLikedComment: jest.fn(),
     };
 
     usecase = new IsFavoriteVideoUsecase(userGatewayMock);

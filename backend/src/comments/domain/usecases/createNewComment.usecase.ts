@@ -20,6 +20,7 @@ export class CreateNewCommentUsecase {
       commentToCreate.content,
       new Date(),
       new Date(),
+      0,
     );
 
     await this.commentGateway.createNewComment(comment);

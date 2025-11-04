@@ -6,6 +6,7 @@ import { UserEntity } from './entities/user.entity';
 import { toEventEntity } from 'src/common/mapper/event.mapper';
 import { toUserObject } from 'src/common/mapper/user.mapper';
 import { VideoObject } from 'src/videos/domain/video';
+import { CommentObject } from 'src/comments/domain/comment';
 
 export class UserGateway implements IUserGateway {
   constructor(
@@ -149,5 +150,36 @@ export class UserGateway implements IUserGateway {
         picture_id: newProfilePictureId || '',
       });
     }
+  }
+
+  async addLikedComment(userId: string, commentId: string): Promise<void> {
+    const user = await this.usersRepository.findOne({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+    await this.usersRepository
+      .createQueryBuilder()
+      .relation(UserEntity, 'likedComments')
+      .of(userId)
+      .add(commentId);
+  }
+
+  async removeLikedComment(userId: string, commentId: string): Promise<void> {
+    await this.usersRepository
+      .createQueryBuilder()
+      .relation(UserEntity, 'likedComments')
+      .of(userId)
+      .remove(commentId);
+  }
+
+  async getLikedComment(email: string): Promise<CommentObject[]> {
+    const user = await this.usersRepository.findOne({
+      where: { email },
+      relations: ['likedComments'],
+    });
+
+    if (!user) throw new Error('User not found');
+
+    if (!user.likedComments) return [];
+
+    return user.likedComments;
   }
 }

@@ -18,6 +18,8 @@ import { GetCommentsUsecase } from '../../domain/usecases/getComments.usecase';
 import { DeleteCommentUsecase } from 'src/comments/domain/usecases/deleteComment.usecase';
 import { isUUID } from 'class-validator';
 import { ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { LikeCommentsUsecase } from 'src/comments/domain/usecases/likeComment.usecase';
+import { DeleteLikeCommentsUsecase } from 'src/comments/domain/usecases/deleteLikeComment.usecase';
 
 @ApiTags('Comments')
 @Controller('comments')
@@ -26,6 +28,8 @@ export class CommentsController {
     private createNewCommentUsecase: CreateNewCommentUsecase,
     private getCommentsUsecase: GetCommentsUsecase,
     private deleteCommentUsecase: DeleteCommentUsecase,
+    private likeCommentUsecase: LikeCommentsUsecase,
+    private deletelikeCommentUsecase: DeleteLikeCommentsUsecase,
   ) {}
 
   @Post()
@@ -49,5 +53,23 @@ export class CommentsController {
     }
 
     return await this.deleteCommentUsecase.execute(id);
+  }
+
+  @Post('like/:id')
+  async like(@Param('id') id: string): Promise<CommentObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.likeCommentUsecase.execute(id);
+  }
+
+  @Delete('like/:id')
+  async unlike(@Param('id') id: string): Promise<CommentObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.deletelikeCommentUsecase.execute(id);
   }
 }

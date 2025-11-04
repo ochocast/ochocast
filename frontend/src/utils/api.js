@@ -118,6 +118,17 @@ export const getComments = (videoId) => api.get(`/comments/${videoId}`);
 export const createComment = (commentData) =>
   api.post('/comments', commentData);
 export const deleteComment = (id) => api.delete(`/comments/${id}`);
+export const likeComment = (commentId) =>
+  api.post(`/comments/like/${commentId}`);
+export const unlikeComment = (commentId) =>
+  api.delete(`/comments/like/${commentId}`);
+
+//User likes
+export const userLikeComment = (commentId) =>
+  api.post(`/users/like/${commentId}`);
+export const userUnlikeComment = (commentId) =>
+  api.delete(`/users/like/${commentId}`);
+export const getLikedComments = () => api.get('/users/like');
 
 //config management
 export const getConfig = () => api.get('/config');

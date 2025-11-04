@@ -10,6 +10,7 @@ import { EventEntity } from '../../../../events/infra/gateways/entities/event.en
 import { CommentEntity } from '../../../../comments/infra/gateways/entities/comment.entity';
 import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
 import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
+import { Comment } from 'typedoc';
 
 @Entity()
 export class UserEntity {
@@ -72,6 +73,20 @@ export class UserEntity {
     },
   })
   favoriteVideos: VideoEntity[];
+
+  @ManyToMany(() => CommentEntity, (comment) => comment.usersWhoLiked)
+  @JoinTable({
+    name: 'user_liked_videos',
+    joinColumn: {
+      name: 'user_id',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'comment_id',
+      referencedColumnName: 'id',
+    },
+  })
+  likedComments: CommentEntity[];
 
   constructor(user: Partial<UserEntity>) {
     Object.assign(this, user);

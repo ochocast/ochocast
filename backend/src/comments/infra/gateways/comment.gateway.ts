@@ -35,4 +35,26 @@ export class CommentGateway implements ICommentGateway {
 
     return await this.commentsRepository.remove(comment);
   }
+
+  async likeComment(commentId: string): Promise<CommentObject> {
+    const comment = await this.commentsRepository.findOneBy({ id: commentId });
+    if (!comment) {
+      throw new Error(`Comment with id ${commentId} not found`);
+    }
+    comment.likes += 1;
+    await this.commentsRepository.save(comment);
+
+    return comment;
+  }
+
+  async deletelikeComment(commentId: string): Promise<CommentObject> {
+    const comment = await this.commentsRepository.findOneBy({ id: commentId });
+    if (!comment) {
+      throw new Error(`Comment with id ${commentId} not found`);
+    }
+    comment.likes -= 1;
+    await this.commentsRepository.save(comment);
+
+    return comment;
+  }
 }

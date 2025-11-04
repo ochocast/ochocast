@@ -40,6 +40,7 @@ describe('VideosController - getVideosSuggestions', () => {
     speakingTracks: [],
     favoriteVideos: [],
     eventsSubscribe: [],
+    likedComments: [],
   };
 
   const mockTag: TagEntity = {
@@ -57,6 +58,8 @@ describe('VideosController - getVideosSuggestions', () => {
     updatedAt: now,
     creator: mockUser,
     video: null as any,
+    likes: 0,
+    usersWhoLiked: [],
   };
 
   const mockVideo = new VideoObject(

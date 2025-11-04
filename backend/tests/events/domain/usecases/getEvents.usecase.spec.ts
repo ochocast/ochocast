@@ -163,6 +163,9 @@ describe('GetEventsUsecase', () => {
       isVideoFavorite: jest.fn(),
       getFavoriteVideos: jest.fn(),
       updateUserProfile: jest.fn(),
+      addLikedComment: jest.fn(),
+      removeLikedComment: jest.fn(),
+      getLikedComment: jest.fn(),
     };
 
     getEventsUsecase = new GetEventsUsecase(eventGatewayMock, userGatewayMock);

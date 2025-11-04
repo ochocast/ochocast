@@ -7,6 +7,7 @@ export interface CommentReplyPanelProps {
   open: boolean;
   onClose: () => void;
   conversation: Array<{
+    id?: string;
     sender: string;
     content: string;
     firstname?: string;
@@ -20,12 +21,15 @@ export interface CommentReplyPanelProps {
       lastname: string;
       content: string;
     };
+    likes?: number;
+    isLiked?: boolean;
   }>;
   parentComment?: { content: string; firstname: string; lastname: string };
   onSend: (
     message: string,
     replyTo?: { firstname: string; lastname: string; content: string },
   ) => void;
+  onLikeChange?: () => void;
 }
 
 const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
@@ -34,6 +38,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   conversation,
   parentComment,
   onSend,
+  onLikeChange,
 }) => {
   const [message, setMessage] = useState('');
   const [replyTo, setReplyTo] = useState<null | {
@@ -56,7 +61,6 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
       document.documentElement.style.overflow = '';
     };
   }, [open]);
-
   if (!open) return null;
 
   const extractMessageContent = (content: string): string => {
@@ -144,6 +148,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
             return (
               <div key={idx} className={styles.commentWrapper}>
                 <Commentary
+                  id={realMsg.id}
                   content={actualContent}
                   firstname={
                     realMsg.firstname || realMsg.sender.split(' ')[0] || ''
@@ -168,6 +173,9 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
                   }
                   state={CommentaryDescriptionState.reply}
                   replyPreview={replyPreview}
+                  likes={realMsg.likes || 0}
+                  isLiked={realMsg.isLiked || false}
+                  onLikeChange={onLikeChange}
                 />
               </div>
             );
