@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 """
-Controller pour le benchmark distribué WebSocket.
-Le cerveau qui gère le Host et la flotte de Workers via WebSocket.
+Controller pour le benchmark distribué.
+Lance le host localement et distribue les viewers sur les workers distants.
+
+ROOM SYSTEM:
+Le système utilise maintenant un système de rooms pour gérer les connexions:
+1. Création de la room via POST /room/create avec body: {room_id: "XXX"}
+   - Response: {room_id: "XXX", key: "YYY"}
+2. Le host se connecte avec les paramètres: ?room_id=XXX&key=YYY
+3. Les viewers se connectent avec le paramètre: ?room_id=XXX
 
 Usage:
     python controller.py --config config.yaml
@@ -9,430 +16,550 @@ Usage:
 import asyncio
 import argparse
 import time
-import json
-import yaml
-import os
 import sys
+import os
+import yaml
+import signal
 from datetime import datetime
-from typing import Dict, List, Optional
-from dataclasses import dataclass, asdict
 
-try:
-    import websockets
-except ImportError:
-    print("❌ websockets package not found. Install with: pip install websockets")
-    sys.exit(1)
-
-# Importer le Host
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Importer le Host du benchmark original
 from host import Host
 
 
-@dataclass 
-class WorkerInfo:
-    """Information d'un worker connecté"""
-    worker_id: str
-    ip: str
-    connected_at: float
-    websocket: object  # websockets.WebSocketServerProtocol
-    viewers_count: int = 0
-    status: str = "connected"  # connected, disconnected, error
-    last_ping: Optional[float] = None
-
-
-class BenchmarkController:
-    """Controller simple et cohérent pour le benchmark distribué"""
+class DistributedBenchmarkController:
+    """Controller pour orchestrer le benchmark distribué"""
     
     def __init__(self, config_path: str):
-        # Charger la configuration
-        with open(config_path, 'r') as f:
-            self.config = yaml.safe_load(f)
+        self.config = self.load_config(config_path)
+        self.host = None
+        self.worker_pool = None
+        self.metrics_collector = None
+        self.viewer_distribution = {}
+        self.viewer_ids_by_worker = {}
+        self.errors = []
         
-        # ID unique du benchmark
-        self.benchmark_id = f"bench_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        # Room management
+        self.room_id = None
+        self.room_key = None
         
-        # Host (objet géré par le controller)
-        self.host: Optional[Host] = None
-        self.host_task: Optional[asyncio.Task] = None
-        
-        # Workers via WebSocket
-        self.workers: Dict[str, WorkerInfo] = {}
+        # Serveur WebSocket pour recevoir les rapports des workers
         self.ws_server = None
         self.ws_server_task = None
         
-        # État du benchmark
-        self.benchmark_running = False
-        self.first_frame_received = False
-        self.benchmark_start_time = None
-        
-        # Données collectées
-        self.host_data = {
-            "benchmark_id": self.benchmark_id,
-            "start_time": None,
-            "end_time": None,
-            "status": "created",
-            "config": self.config
-        }
-        
-        # Sauvegarde
-        self.output_dir = self.config['metrics']['output_dir']
-        os.makedirs(self.output_dir, exist_ok=True)
-        
-        # Sauvegarde périodique
-        self.save_task = None
-        self.save_interval = 5.0  # Toutes les 5s
-        
-        print(f"[Controller] 🧠 Initialized benchmark {self.benchmark_id}")
+    def load_config(self, config_path: str) -> dict:
+        """Charge la configuration depuis le fichier YAML"""
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        print(f"[Controller] ✅ Loaded configuration from {config_path}")
+        return config
     
-    async def start_websocket_server(self):
-        """Démarre le serveur WebSocket pour les workers"""
-        host = "0.0.0.0"
-        port = 8080  # Port fixe pour simplifier
+    async def check_workers_availability(self) -> bool:
+        """Vérifie que tous les workers sont disponibles"""
+        print("\n[Controller] 🔍 Checking workers availability...")
         
-        print(f"[Controller] 🔌 Starting WebSocket server on {host}:{port}")
+        ping_results = await self.worker_pool.ping_all()
         
-        async def handle_client(websocket, path):
-            await self.handle_worker_connection(websocket, path)
+        all_available = True
+        for worker_ip, available in ping_results.items():
+            if available:
+                print(f"  ✅ Worker {worker_ip}: available")
+            else:
+                print(f"  ❌ Worker {worker_ip}: NOT available")
+                all_available = False
+                self.errors.append(f"Worker {worker_ip} is not available")
         
-        self.ws_server = await websockets.serve(handle_client, host, port)
-        print(f"[Controller] ✅ WebSocket server started on ws://{host}:{port}")
+        return all_available
     
-    async def handle_worker_connection(self, websocket, path):
-        """Gère la connexion d'un worker"""
-        worker_id = None
+    async def check_time_synchronization(self) -> bool:
+        """Vérifie la synchronisation temporelle des workers"""
+        if not self.config['sync'].get('ntp_check', True):
+            print("[Controller] ⏭️  NTP check disabled")
+            return True
         
-        try:
-            async for message in websocket:
-                data = json.loads(message)
-                
-                if data.get("type") == "worker_connected":
-                    worker_id = data["worker_id"]
-                    worker_ip = data["ip"]
-                    
-                    # Enregistrer le worker
-                    self.workers[worker_id] = WorkerInfo(
-                        worker_id=worker_id,
-                        ip=worker_ip,
-                        connected_at=time.time(),
-                        websocket=websocket
-                    )
-                    
-                    print(f"[Controller] 🤖 Worker {worker_id} connected from {worker_ip}")
-                    await self.save_host_data()
-                
-                elif data.get("type") == "first_frame_received":
-                    await self.handle_first_frame(data)
-                
-                elif data.get("type") == "detections":
-                    await self.handle_detections(data)
-                
-                elif data.get("type") == "viewers_started":
-                    worker_id = data["worker_id"]
-                    if worker_id in self.workers:
-                        self.workers[worker_id].viewers_count = len(data["viewers"])
-                        print(f"[Controller] ✅ Worker {worker_id} started {len(data['viewers'])} viewers")
-                
-                elif data.get("type") == "viewers_stopped":
-                    worker_id = data["worker_id"]
-                    if worker_id in self.workers:
-                        self.workers[worker_id].viewers_count = 0
-                        print(f"[Controller] 🛑 Worker {worker_id} stopped all viewers")
+        print("\n[Controller] ⏰ Checking time synchronization...")
         
-        except websockets.exceptions.ConnectionClosed:
-            if worker_id and worker_id in self.workers:
-                print(f"[Controller] 🔌 Worker {worker_id} disconnected")
-                self.workers[worker_id].status = "disconnected"
-        except Exception as e:
-            if worker_id:
-                print(f"[Controller] ❌ Error with worker {worker_id}: {e}")
-                if worker_id in self.workers:
-                    self.workers[worker_id].status = "error"
+        max_drift = self.config['sync'].get('max_time_drift', 1.0)
+        drifts = await self.worker_pool.check_time_sync(max_drift)
+        
+        all_synced = True
+        for worker_ip, drift in drifts.items():
+            if drift == float('inf'):
+                print(f"  ❌ Worker {worker_ip}: cannot get time")
+                all_synced = False
+                self.errors.append(f"Cannot get time from worker {worker_ip}")
+            elif drift > max_drift:
+                print(f"  ⚠️  Worker {worker_ip}: drift = {drift:.3f}s (max: {max_drift}s)")
+                all_synced = False
+                self.errors.append(f"Time drift too high for worker {worker_ip}: {drift:.3f}s")
+            else:
+                print(f"  ✅ Worker {worker_ip}: drift = {drift:.3f}s")
+        
+        if not all_synced:
+            print("\n⚠️  WARNING: Some workers have time synchronization issues!")
+            print("This may affect latency measurements. Consider synchronizing clocks with NTP.")
+            response = input("Continue anyway? (y/n): ")
+            return response.lower() == 'y'
+        
+        return True
     
-    async def handle_first_frame(self, data):
-        """Gère la réception de la première frame par un viewer"""
-        if not self.first_frame_received:
-            self.first_frame_received = True
-            print(f"[Controller] 🎯 First frame received! Starting red frames...")
-            
-            # Démarrer les frames rouges du host
-            if self.host:
-                self.host.start_check_latency()
-                self.benchmark_start_time = time.time()
-                self.host_data["benchmark_start_time"] = self.benchmark_start_time
-                await self.save_host_data()
+    def calculate_distribution(self) -> dict:
+        """Calcule la distribution des viewers entre les workers"""
+        total_viewers = self.config['benchmark']['total_viewers']
+        worker_ips = [w['ip'] for w in self.config['workers'] if w.get('enabled', True)]
+        
+        distribution = distribute_viewers(total_viewers, len(worker_ips), worker_ips)
+        
+        print("\n[Controller] 📊 Viewer distribution:")
+        for worker_ip, count in distribution.items():
+            print(f"  Worker {worker_ip}: {count} viewers")
+        
+        return distribution
     
-    async def handle_detections(self, data):
-        """Sauvegarde les détections des viewers"""
-        worker_id = data["worker_id"]
-        detections = data["detections"]
-        timestamp = data["timestamp"]
+    async def create_room(self) -> bool:
+        """Crée une room sur le serveur SFU"""
+        import aiohttp
+        import uuid
         
-        # Créer le dossier du worker si nécessaire
-        worker_dir = os.path.join(self.output_dir, worker_id)
-        os.makedirs(worker_dir, exist_ok=True)
-        
-        # Nom du fichier basé sur le timestamp
-        filename = f"detections_{int(timestamp)}.json"
-        filepath = os.path.join(worker_dir, filename)
-        
-        # Sauvegarder les détections
-        detection_data = {
-            "worker_id": worker_id,
-            "timestamp": timestamp,
-            "count": len(detections),
-            "detections": detections
-        }
-        
-        with open(filepath, 'w') as f:
-            json.dump(detection_data, f, indent=2)
-        
-        print(f"[Controller] 📊 Saved {len(detections)} detections from {worker_id}")
-    
-    async def start_host(self):
-        """Démarre le host (objet)"""
-        print(f"[Controller] 🎥 Starting host...")
+        # Générer un room_id unique
+        room_id = f"benchmark_{uuid.uuid4().hex[:8]}"
         
         sfu_config = self.config['sfu']
-        host_config = self.config['benchmark']['host']
+        create_room_url = f"{sfu_config['url']}/room/create"
         
-        # Créer l'objet Host
+        print(f"\n[Controller] 🏠 Creating room: {room_id}")
+        
+        try:
+            timeout = aiohttp.ClientTimeout(total=10.0)
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                payload = {"room_id": room_id}
+                async with session.post(create_room_url, json=payload) as resp:
+                    if resp.status not in (200, 201):
+                        body = await resp.text()
+                        print(f"[Controller] ❌ Failed to create room: {resp.status} {body}")
+                        self.errors.append(f"Failed to create room: {resp.status}")
+                        return False
+                    
+                    data = await resp.json()
+                    self.room_id = data.get('room_id')
+                    self.room_key = data.get('key')
+                    
+                    if not self.room_id or not self.room_key:
+                        print(f"[Controller] ❌ Invalid response from room creation: {data}")
+                        self.errors.append("Invalid room creation response")
+                        return False
+                    
+                    print(f"[Controller] ✅ Room created: {self.room_id}")
+                    print(f"[Controller] 🔑 Room key: {self.room_key}")
+                    return True
+                    
+        except Exception as e:
+            print(f"[Controller] ❌ Error creating room: {e}")
+            self.errors.append(f"Room creation error: {e}")
+            return False
+    
+    def start_host(self):
+        """Démarre le host (streamer)"""
+        print("\n[Controller] 🎥 Starting host (streamer)...")
+        
+        if not self.room_id or not self.room_key:
+            raise RuntimeError("Room must be created before starting host")
+        
+        sfu_config = self.config['sfu']
+        bench_config = self.config['benchmark']
+        host_config = bench_config['host']
+        metrics_config = self.config['metrics']
+        
+        # Construire l'URL WHIP avec les paramètres room_id et key
+        whip_url = f"{sfu_config['url']}{sfu_config['whip_endpoint']}?room_id={self.room_id}&key={self.room_key}"
+        
         self.host = Host(
-            url=sfu_config['url'] + sfu_config['whip_endpoint'],
+            url=whip_url,
             stun_url=sfu_config['stun_url'],
-            output=self.output_dir,
+            output=metrics_config['output_dir'],
             width=host_config['width'],
             height=host_config['height'],
             fps=host_config['fps'],
-            red_interval=self.config['benchmark']['red_interval'],
-            token=host_config.get('token'),
-            encoding_method=self.config['benchmark'].get('encoding_method', 'diagonal')
+            red_interval=bench_config['red_interval'],
+            token=host_config.get('token')
         )
         
-        # Démarrer le host en async
-        self.host_task = asyncio.create_task(self.host.start_async())
+        self.host.start()
+        print("[Controller] ✅ Host started")
+    
+    async def wait_for_host_ready(self):
+        """Attend que le host soit prêt"""
+        startup_delay = self.config['sync'].get('startup_delay', 10)
+        print(f"\n[Controller] ⏳ Waiting {startup_delay}s for host to be ready...")
+        await asyncio.sleep(startup_delay)
+    
+    async def start_viewers_on_workers(self):
+        """Démarre les viewers sur tous les workers"""
+        print("\n[Controller] 🚀 Starting viewers on workers...")
         
-        # Attendre quelques secondes que la connexion s'établisse
-        await asyncio.sleep(3)
+        if not self.room_id:
+            raise RuntimeError("Room must be created before starting viewers")
         
-        self.host_data["start_time"] = time.time()
-        self.host_data["status"] = "running"
+        sfu_config = self.config['sfu']
+        bench_config = self.config['benchmark']
         
-        print(f"[Controller] ✅ Host started")
-        await self.save_host_data()
+        # Construire l'URL viewer avec le paramètre room_id
+        viewer_url = f"{sfu_config['url']}{sfu_config['viewer_endpoint']}?room_id={self.room_id}"
+        stun_url = sfu_config['stun_url']
+        red_threshold = bench_config['red_threshold']
+        
+        results = await self.worker_pool.start_all_viewers(
+            distribution=self.viewer_distribution,
+            viewer_url=viewer_url,
+            stun_url=stun_url,
+            red_threshold=red_threshold
+        )
+        
+        # Construire la map viewer_id -> worker_ip
+        for worker_ip, result in results.items():
+            if result.get('status') == 'started':
+                viewer_ids = result.get('viewer_ids', [])
+                self.viewer_ids_by_worker[worker_ip] = viewer_ids
+                print(f"  ✅ Worker {worker_ip}: {len(viewer_ids)} viewers started")
+            else:
+                print(f"  ❌ Worker {worker_ip}: failed to start viewers")
+                self.errors.append(f"Failed to start viewers on worker {worker_ip}")
+    
+    async def wait_for_first_frame(self):
+        """Attend qu'au moins un viewer reçoive une frame (sans timeout)"""
+        print("\n[Controller] 🎬 Waiting for first frame to be received...")
+        
+        while True:
+            statuses = await self.worker_pool.get_all_status()
+            
+            for worker_ip, status in statuses.items():
+                if status.get('status') == 'ok':
+                    viewers = status.get('viewers', [])
+                    for viewer in viewers:
+                        if viewer.get('first_frame_received'):
+                            viewer_id = viewer.get('viewer_id')
+                            print(f"[Controller] ✅ First frame received by {viewer_id}")
+                            return True
+            
+            await asyncio.sleep(0.5)
+    
+    def start_latency_check(self):
+        """Démarre la vérification de latence (frames rouges)"""
+        print("\n[Controller] 🔴 Starting latency check (red frames)...")
+        self.host.start_check_latency()
+        print("[Controller] ✅ Latency check started")
+    
+    async def monitor_test(self, duration: int):
+        """Monitore le test en temps réel"""
+        print(f"\n[Controller] 📊 Monitoring test for {duration} seconds...")
+        
+        collection_interval = self.config['metrics'].get('collection_interval', 5)
+        iterations = duration // collection_interval
+        
+        for i in range(iterations):
+            await asyncio.sleep(collection_interval)
+            
+            # Collecter les métriques
+            metrics = await self.worker_pool.get_all_metrics()
+            self.metrics_collector.add_metrics_snapshot(metrics)
+            self.metrics_collector.print_metrics_summary(metrics)
+            
+            # Vérifier les erreurs
+            for worker_ip, metric in metrics.items():
+                if metric.get('status') == 'error':
+                    error_msg = f"Worker {worker_ip} error: {metric.get('message', 'unknown')}"
+                    if error_msg not in self.errors:
+                        self.errors.append(error_msg)
+                        print(f"⚠️  {error_msg}")
+    
+    async def stop_all_viewers(self):
+        """Arrête tous les viewers"""
+        print("\n[Controller] 🛑 Stopping all viewers...")
+        results = await self.worker_pool.stop_all()
+        
+        for worker_ip, result in results.items():
+            if result.get('status') == 'stopped':
+                count = result.get('count', 0)
+                print(f"  ✅ Worker {worker_ip}: {count} viewers stopped")
+            else:
+                print(f"  ⚠️  Worker {worker_ip}: stop failed")
     
     async def stop_host(self):
         """Arrête le host"""
+        print("\n[Controller] 🛑 Stopping host...")
         if self.host:
-            print(f"[Controller] 🛑 Stopping host...")
-            self.host.stop()
+            # S'assurer que le stop_event est set
+            if self.host.stop_event:
+                self.host.stop_event.set()
             
-            if self.host_task:
+            # Si le host tourne dans le même event loop
+            if self.host.task and not self.host.task.done():
                 try:
-                    await self.host_task
-                except:
-                    pass
+                    # Attendre que la tâche se termine avec timeout
+                    await asyncio.wait_for(self.host.task, timeout=5.0)
+                except asyncio.TimeoutError:
+                    print("[Controller] ⚠️  Host task timeout, cancelling...")
+                    self.host.task.cancel()
+                    try:
+                        await self.host.task
+                    except asyncio.CancelledError:
+                        pass
+                except Exception as e:
+                    print(f"[Controller] ⚠️  Error stopping host: {e}")
             
-            self.host_data["end_time"] = time.time()
-            self.host_data["status"] = "stopped"
-            await self.save_host_data()
+            # Fermer la connexion PeerConnection si elle existe
+            if self.host.pc and self.host.pc.connectionState not in ("closed", "failed"):
+                await self.host.pc.close()
             
-            print(f"[Controller] ✅ Host stopped")
+            print("[Controller] ✅ Host stopped")
     
-    async def start_viewers_on_workers(self):
-        """Commande tous les workers de démarrer leurs viewers"""
-        if not self.workers:
-            print(f"[Controller] ⚠️  No workers connected")
-            return
+    async def collect_all_timestamps(self):
+        """Collecte tous les timestamps de tous les viewers"""
+        print("\n[Controller] 💾 Collecting timestamps from all viewers...")
         
-        print(f"[Controller] 🚀 Starting viewers on {len(self.workers)} workers...")
+        all_timestamps = await self.worker_pool.collect_all_timestamps(self.viewer_ids_by_worker)
         
-        sfu_config = self.config['sfu']
-        total_viewers = self.config['benchmark']['total_viewers']
+        # Sauvegarder chaque viewer
+        for viewer_id, timestamps in all_timestamps.items():
+            self.metrics_collector.save_timestamps(viewer_id, timestamps)
         
-        # Distribution simple : répartir équitablement
-        viewers_per_worker = total_viewers // len(self.workers)
-        remaining_viewers = total_viewers % len(self.workers)
+        print(f"[Controller] ✅ Collected timestamps from {len(all_timestamps)} viewers")
         
-        # Envoyer les commandes à tous les workers
-        for i, (worker_id, worker_info) in enumerate(self.workers.items()):
-            # Les premiers workers prennent +1 viewer s'il y a un reste
-            count = viewers_per_worker + (1 if i < remaining_viewers else 0)
+        # Copier aussi les timestamps du host
+        if self.host and self.host.track:
+            # Calculer les timing errors
+            timing_errors = []
+            if len(self.host.track.red_timestamps) > 1:
+                for i in range(1, len(self.host.track.red_timestamps)):
+                    expected_interval = self.host.red_interval
+                    actual_interval = self.host.track.red_timestamps[i]['timestamp'] - self.host.track.red_timestamps[i-1]['timestamp']
+                    error = actual_interval - expected_interval
+                    timing_errors.append(error)
             
-            command = {
-                "type": "start_viewers",
-                "count": count,
-                "config": {
-                    "url": sfu_config['url'] + sfu_config['viewer_endpoint'],
-                    "stun_url": sfu_config['stun_url'],
-                    "encoding_method": self.config['benchmark'].get('encoding_method', 'diagonal')
+            host_data = {
+                'session_info': {
+                    'start_time': datetime.fromtimestamp(self.host.track.start_time).isoformat() if self.host.track.start_time else None,
+                    'end_time': datetime.fromtimestamp(self.host.track.end_time).isoformat() if self.host.track.end_time else None,
+                    'red_interval': self.host.red_interval,
+                    'fps': self.host.fps,
+                    'resolution': f"{self.host.width}x{self.host.height}",
+                    'total_red_frames': len(self.host.track.red_timestamps),
+                    'total_frames': self.host.track.frame_count,
+                    'frames_generated': self.host.track.frames_generated,
+                    'frames_dropped': self.host.track.frames_dropped,
+                    'timing_errors': self.host.track.timing_errors,
+                    'avg_timing_error': sum(timing_errors) / len(timing_errors) if timing_errors else 0,
+                    'max_timing_error': max(timing_errors) if timing_errors else 0,
+                    'exit_error': bool(self.host.track.exit_error),
+                    'exit_reason': str(self.host.track.exit_reason) if self.host.track.exit_reason else None,
+                },
+                'red_timestamps': self.host.track.red_timestamps,
+                'performance_stats': {
+                    'timing_errors_ms': [e * 1000 for e in timing_errors],
+                    'frame_drop_rate': self.host.track.frames_dropped / max(1, self.host.track.frames_generated) * 100
                 }
             }
-            
-            try:
-                await worker_info.websocket.send(json.dumps(command))
-                print(f"[Controller] 📤 Sent start command to {worker_id} ({count} viewers)")
-            except Exception as e:
-                print(f"[Controller] ❌ Failed to send command to {worker_id}: {e}")
-                worker_info.status = "error"
-        
-        await self.save_host_data()
+            self.metrics_collector.save_host_timestamps(host_data)
     
-    async def stop_viewers_on_workers(self):
-        """Commande tous les workers d'arrêter leurs viewers"""
-        print(f"[Controller] 🛑 Stopping viewers on all workers...")
+    def generate_final_report(self):
+        """Génère le rapport final"""
+        print("\n[Controller] 📝 Generating final report...")
         
-        command = {"type": "stop_viewers"}
-        
-        for worker_id, worker_info in self.workers.items():
-            try:
-                await worker_info.websocket.send(json.dumps(command))
-                worker_info.viewers_count = 0
-                print(f"[Controller] 📤 Sent stop command to {worker_id}")
-            except Exception as e:
-                print(f"[Controller] ❌ Failed to send stop command to {worker_id}: {e}")
-        
-        await self.save_host_data()
-    
-    async def save_host_data(self):
-        """Sauvegarde les données du host et workers"""
-        # Ajouter l'état des workers
-        workers_data = {}
-        for worker_id, worker_info in self.workers.items():
-            workers_data[worker_id] = {
-                "ip": worker_info.ip,
-                "connected_at": worker_info.connected_at,
-                "viewers_count": worker_info.viewers_count,
-                "status": worker_info.status,
-                "last_ping": worker_info.last_ping
-            }
-        
-        # Ajouter l'état du host si disponible
-        host_status = {}
-        if self.host:
-            try:
-                # Récupérer quelques stats basiques du host
-                host_status = {
-                    "running": self.host.stop_event is not None and not self.host.stop_event.is_set(),
-                    "check_latency": self.host.check_latency if hasattr(self.host, 'check_latency') else False
-                }
-            except:
-                host_status = {"error": "Could not get host status"}
-        
-        # Données complètes
-        complete_data = {
-            **self.host_data,
-            "timestamp": time.time(),
-            "benchmark_running": self.benchmark_running,
-            "first_frame_received": self.first_frame_received,
-            "host_status": host_status,
-            "workers": workers_data
+        test_info = {
+            'start_time': datetime.now().isoformat(),
+            'end_time': datetime.now().isoformat(),
+            'duration': self.config['benchmark']['duration'],
+            'total_viewers': self.config['benchmark']['total_viewers'],
+            'num_workers': len([w for w in self.config['workers'] if w.get('enabled', True)]),
+            'distribution': self.viewer_distribution,
+            'sfu_url': self.config['sfu']['url'],
+            'red_interval': self.config['benchmark']['red_interval'],
+            'room_id': self.room_id,
+            'errors': self.errors
         }
         
-        # Sauvegarder
-        filepath = os.path.join(self.output_dir, "benchmark_info.json")
-        with open(filepath, 'w') as f:
-            json.dump(complete_data, f, indent=2)
+        self.metrics_collector.save_final_report(test_info)
+        self.metrics_collector.save_metrics_history()
+        
+        print("[Controller] ✅ Final report generated")
     
-    async def periodic_save(self):
-        """Sauvegarde périodique des données"""
-        while self.benchmark_running:
-            await self.save_host_data()
-            await asyncio.sleep(self.save_interval)
-    
-    async def run_benchmark(self):
+    async def run(self):
         """Lance le benchmark complet"""
-        print(f"[Controller] 🚀 Starting benchmark {self.benchmark_id}")
+        print("\n" + "="*80)
+        print("🚀 DISTRIBUTED WEBRTC BENCHMARK")
+        print("="*80)
+        
+        start_time = time.time()
         
         try:
-            # 1. Démarrer le serveur WebSocket
+            # 1. Initialiser le serveur WebSocket
             await self.start_websocket_server()
             
-            # 2. Attendre que des workers se connectent
-            print(f"[Controller] ⏳ Waiting for workers to connect...")
-            while not self.workers:
-                await asyncio.sleep(1)
+            # 2. Initialiser le pool de workers
+            self.worker_pool = WorkerPool(
+                workers_config=self.config['workers'],
+                timeout=self.config['network']['timeout']
+            )
             
-            print(f"[Controller] ✅ {len(self.workers)} worker(s) connected")
+            # 3. Vérifier la disponibilité des workers
+            if not await self.check_workers_availability():
+                print("\n❌ Some workers are not available. Aborting.")
+                await self.cleanup()
+                return
             
-            # 3. Démarrer le host
-            await self.start_host()
+            # 4. Vérifier la synchronisation temporelle
+            if not await self.check_time_synchronization():
+                print("\n❌ Time synchronization check failed. Aborting.")
+                await self.cleanup()
+                return
             
-            # 4. Démarrer les viewers sur tous les workers
+            # 5. Créer la room
+            if not await self.create_room():
+                print("\n❌ Failed to create room. Aborting.")
+                await self.cleanup()
+                return
+            
+            # 6. Calculer la distribution des viewers
+            self.viewer_distribution = self.calculate_distribution()
+            
+            # 7. Initialiser le collecteur de métriques
+            self.metrics_collector = MetricsCollector(
+                self.config['metrics']['output_dir']
+            )
+            self.metrics_collector.start_collection()
+            
+            # 8. Démarrer le host
+            self.start_host()
+            
+            # 9. Attendre que le host soit prêt
+            await self.wait_for_host_ready()
+            
+            # 10. Démarrer les viewers sur les workers
             await self.start_viewers_on_workers()
             
-            # 5. Démarrer la sauvegarde périodique
-            self.benchmark_running = True
-            self.save_task = asyncio.create_task(self.periodic_save())
+            # 10. Attendre la première frame (optionnel, ne bloque pas)
+            await self.wait_for_first_frame()
             
-            # 6. Attendre la première frame pour démarrer les frames rouges
-            print(f"[Controller] ⏳ Waiting for first frame reception...")
-            while not self.first_frame_received:
-                await asyncio.sleep(0.5)
+            # 11. Démarrer le latency check (frames rouges) - toujours le faire
+            self.start_latency_check()
             
-            # 7. Laisser tourner pendant la durée configurée
-            duration = self.config['benchmark']['duration']
-            print(f"[Controller] ⏰ Running benchmark for {duration} seconds...")
-            await asyncio.sleep(duration)
+            # 12. Monitorer le test
+            await self.monitor_test(self.config['benchmark']['duration'])
+            
+            # 13. Arrêter tous les viewers
+            await self.stop_all_viewers()
+            
+            # 14. Arrêter le host
+            await self.stop_host()
+            
+            # 15. Collecter tous les timestamps
+            await self.collect_all_timestamps()
+            
+            # 16. Sauvegarder les données WebSocket
+            await self.save_websocket_data()
+            
+            # 17. Générer le rapport final
+            self.generate_final_report()
+            
+            # 18. Cleanup
+            await self.cleanup()
+            
+            elapsed = time.time() - start_time
+            print("\n" + "="*80)
+            print(f"✅ BENCHMARK COMPLETED in {elapsed:.1f}s")
+            print("="*80)
+            
+            if self.errors:
+                print(f"\n⚠️  {len(self.errors)} errors occurred during the test:")
+                for error in self.errors:
+                    print(f"  - {error}")
+            
+            print(f"\n📁 Results saved to: {self.config['metrics']['output_dir']}")
+            print("You can now run the analysis script to process the results.")
             
         except KeyboardInterrupt:
-            print(f"\n[Controller] 🛑 Interrupted by user")
-        
-        finally:
-            # Arrêter tout proprement
-            await self.stop_benchmark()
+            print("\n\n⚠️  Interrupted by user!")
+            await self.emergency_shutdown()
+        except Exception as e:
+            print(f"\n\n❌ Error: {e}")
+            import traceback
+            traceback.print_exc()
+            await self.emergency_shutdown()
     
-    async def stop_benchmark(self):
-        """Arrête le benchmark proprement"""
-        print(f"[Controller] 🛑 Stopping benchmark...")
+    async def start_websocket_server(self):
+        """Démarre le serveur WebSocket pour recevoir les rapports des workers"""
+        ws_config = self.config.get('websocket', {})
+        host = ws_config.get('host', '0.0.0.0')
+        port = ws_config.get('port', 9000)
         
-        self.benchmark_running = False
+        print(f"\n[Controller] 🌐 Starting WebSocket server on {host}:{port}...")
         
-        # Arrêter les viewers
-        await self.stop_viewers_on_workers()
+        self.ws_server = WebSocketReportingServer(host=host, port=port)
+        await self.ws_server.start()
         
-        # Arrêter le host
-        await self.stop_host()
-        
-        # Arrêter la sauvegarde périodique
-        if self.save_task:
-            self.save_task.cancel()
-        
-        # Sauvegarde finale
-        await self.save_host_data()
-        
-        # Fermer le serveur WebSocket
+        print(f"[Controller] ✅ WebSocket server ready")
+    
+    async def save_websocket_data(self):
+        """Sauvegarde les données collectées via WebSocket"""
         if self.ws_server:
-            self.ws_server.close()
-            await self.ws_server.wait_closed()
-        
-        print(f"[Controller] ✅ Benchmark stopped. Results in {self.output_dir}/")
-
-
-async def main():
-    """Point d'entrée principal"""
-    parser = argparse.ArgumentParser(description="Controller pour benchmark distribué WebSocket")
-    parser.add_argument("--config", default="config.yaml", help="Fichier de configuration YAML")
+            print("\n[Controller] 💾 Saving WebSocket data...")
+            output_dir = self.config['metrics']['output_dir']
+            self.ws_server.save_data_to_files(output_dir)
+            
+            # Afficher les statistiques
+            stats = self.ws_server.get_stats()
+            print(f"[Controller] 📊 WebSocket Stats:")
+            print(f"  - Total viewers with detections: {stats['total_viewers']}")
+            print(f"  - Total detections collected: {stats['total_detections']}")
+            print(f"  - Workers with metrics: {len(stats['workers_with_metrics'])}")
     
+    async def cleanup(self):
+        """Nettoyage propre de toutes les ressources"""
+        print("\n[Controller] 🧹 Cleaning up...")
+        
+        if self.ws_server:
+            await self.ws_server.stop()
+    
+    async def emergency_shutdown(self):
+        """Arrêt d'urgence en cas d'interruption ou d'erreur"""
+        print("\n[Controller] 🚨 Emergency shutdown...")
+        
+        try:
+            # Sauvegarder les données WebSocket avant de tout arrêter
+            if self.ws_server:
+                print("[Controller] 💾 Emergency save of WebSocket data...")
+                output_dir = self.config['metrics']['output_dir']
+                self.ws_server.save_data_to_files(output_dir)
+        except Exception as e:
+            print(f"[Controller] ⚠️  Error during emergency save: {e}")
+        
+        # Arrêter les viewers et le host
+        try:
+            await self.stop_all_viewers()
+        except:
+            pass
+        
+        try:
+            await self.stop_host()
+        except:
+            pass
+        
+        # Cleanup
+        await self.cleanup()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Distributed WebRTC Benchmark Controller")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="config.yaml",
+        help="Path to configuration file"
+    )
     args = parser.parse_args()
     
-    if not os.path.exists(args.config):
-        print(f"❌ Configuration file not found: {args.config}")
-        sys.exit(1)
-    
-    print("=" * 60)
-    print("🧠 Benchmark Controller")
-    print(f"📁 Config: {args.config}")
-    print("=" * 60)
-    
-    # Créer et lancer le controller
-    controller = BenchmarkController(args.config)
-    
-    try:
-        await controller.run_benchmark()
-    except Exception as e:
-        print(f"[Controller] ❌ Fatal error: {e}")
-        await controller.stop_benchmark()
+    controller = DistributedBenchmarkController(args.config)
+    asyncio.run(controller.run())
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
