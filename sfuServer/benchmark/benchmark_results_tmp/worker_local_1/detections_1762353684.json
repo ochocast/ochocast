@@ -1,0 +1,77 @@
+{
+  "worker_id": "worker_local_1",
+  "timestamp": 1762353684.0590396,
+  "count": 5,
+  "detections": [
+    {
+      "timestamp": 1762353683.301148,
+      "sequence_number": 25,
+      "is_valid": true,
+      "viewer_id": "worker_local_1_viewer_1",
+      "rgb": [
+        254,
+        51,
+        202
+      ],
+      "relative_time": 125.89590382575989,
+      "frame_number": 763,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762353683.306689,
+      "sequence_number": 25,
+      "is_valid": true,
+      "viewer_id": "worker_local_1_viewer_2",
+      "rgb": [
+        254,
+        51,
+        202
+      ],
+      "relative_time": 125.90183782577515,
+      "frame_number": 763,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762353683.2908728,
+      "sequence_number": 25,
+      "is_valid": true,
+      "viewer_id": "worker_local_1_viewer_3",
+      "rgb": [
+        254,
+        51,
+        202
+      ],
+      "relative_time": 125.88399863243103,
+      "frame_number": 763,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762353683.2860487,
+      "sequence_number": 25,
+      "is_valid": true,
+      "viewer_id": "worker_local_1_viewer_4",
+      "rgb": [
+        254,
+        51,
+        202
+      ],
+      "relative_time": 125.879647731781,
+      "frame_number": 763,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762353683.2962685,
+      "sequence_number": 25,
+      "is_valid": true,
+      "viewer_id": "worker_local_1_viewer_5",
+      "rgb": [
+        254,
+        51,
+        202
+      ],
+      "relative_time": 125.89075922966003,
+      "frame_number": 763,
+      "encoding_method": "diagonal"
+    }
+  ]
+}

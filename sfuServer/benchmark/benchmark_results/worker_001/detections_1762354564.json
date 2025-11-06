@@ -1,0 +1,21 @@
+{
+  "worker_id": "worker_001",
+  "timestamp": 1762354564.1589715,
+  "count": 1,
+  "detections": [
+    {
+      "timestamp": 1762354563.2699866,
+      "sequence_number": 88,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        219,
+        177,
+        88
+      ],
+      "relative_time": 148.528000831604,
+      "frame_number": 808,
+      "encoding_method": "diagonal"
+    }
+  ]
+}

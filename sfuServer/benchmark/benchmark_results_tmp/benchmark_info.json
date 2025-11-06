@@ -1,0 +1,49 @@
+{
+  "benchmark_id": "bench_20251105_154731",
+  "start_time": 1762354057.2505045,
+  "end_time": 1762354217.5379822,
+  "status": "stopped",
+  "config": {
+    "sfu": {
+      "url": "http://51.158.104.60:8090",
+      "room_create_endpoint": "/room/create",
+      "whip_endpoint": "/whip",
+      "viewer_endpoint": "/viewer",
+      "stun_url": "stun:stun.l.google.com:19302"
+    },
+    "benchmark": {
+      "total_viewers": 5,
+      "duration": 60,
+      "red_interval": 1.0,
+      "encoding_method": "diagonal",
+      "host": {
+        "width": 640,
+        "height": 360,
+        "fps": 30,
+        "token": null
+      }
+    },
+    "metrics": {
+      "output_dir": "./benchmark_results"
+    }
+  },
+  "room_id": "bench_20251105_154734",
+  "room_key": "378d3a34fbde61b60d39bdf91484e9b68c65db0a03151cff084d46815ff84132",
+  "benchmark_start_time": 1762354157.4026499,
+  "timestamp": 1762354217.5382717,
+  "benchmark_running": false,
+  "first_frame_received": true,
+  "host_status": {
+    "running": false,
+    "check_latency": true
+  },
+  "workers": {
+    "worker_local_1": {
+      "ip": "51.159.10.165",
+      "connected_at": 1762354054.174426,
+      "viewers_count": 0,
+      "status": "connected",
+      "last_ping": null
+    }
+  }
+}

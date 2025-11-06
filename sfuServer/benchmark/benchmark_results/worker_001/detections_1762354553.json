@@ -1,0 +1,105 @@
+{
+  "worker_id": "worker_001",
+  "timestamp": 1762354553.135781,
+  "count": 7,
+  "detections": [
+    {
+      "timestamp": 1762354552.232336,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.49035024642944,
+      "frame_number": 485,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.3386388,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.59665298461914,
+      "frame_number": 488,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.4387376,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.69675183296204,
+      "frame_number": 491,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.5435956,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.80160975456238,
+      "frame_number": 494,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.6801922,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.93820643424988,
+      "frame_number": 498,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.8130975,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 138.07111167907715,
+      "frame_number": 502,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.9149604,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 138.17297458648682,
+      "frame_number": 505,
+      "encoding_method": "diagonal"
+    }
+  ]
+}

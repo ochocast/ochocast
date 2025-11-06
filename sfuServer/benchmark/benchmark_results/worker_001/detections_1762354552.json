@@ -1,0 +1,35 @@
+{
+  "worker_id": "worker_001",
+  "timestamp": 1762354552.1350296,
+  "count": 2,
+  "detections": [
+    {
+      "timestamp": 1762354552.028787,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.28680109977722,
+      "frame_number": 479,
+      "encoding_method": "diagonal"
+    },
+    {
+      "timestamp": 1762354552.1310601,
+      "sequence_number": 55,
+      "is_valid": false,
+      "viewer_id": "worker_001_viewer_11",
+      "rgb": [
+        121,
+        110,
+        120
+      ],
+      "relative_time": 137.38907432556152,
+      "frame_number": 482,
+      "encoding_method": "diagonal"
+    }
+  ]
+}
