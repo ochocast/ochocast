@@ -46,6 +46,7 @@ const Community: FC<CommunityProps> = () => {
     const filtered = users.filter(
       (user) =>
         user.firstName?.toLowerCase().includes(lowercaseQuery) ||
+        user.username?.toLowerCase().includes(lowercaseQuery) ||
         user.lastName?.toLowerCase().includes(lowercaseQuery) ||
         user.email?.toLowerCase().includes(lowercaseQuery) ||
         user.description?.toLowerCase().includes(lowercaseQuery),
