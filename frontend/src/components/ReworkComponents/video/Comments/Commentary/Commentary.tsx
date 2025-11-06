@@ -24,6 +24,7 @@ export interface CommentaryProps {
   content: string;
   firstname: string;
   lastname: string;
+  username: string;
   email: string;
   created_at: string | Date;
   onReplyClick?: () => void;
@@ -106,7 +107,7 @@ const Commentary = (props: CommentaryProps) => {
 
   const handleProfileClick = (e: React.MouseEvent) => {
     e.stopPropagation(); // empêche le clic de se propager à d'autres boutons
-    navigate(`/profile/${props.firstname}`);
+    navigate(`/profile/${props.username}`);
   };
 
   if (props.state === CommentaryDescriptionState.standard) {
@@ -121,6 +122,7 @@ const Commentary = (props: CommentaryProps) => {
           <ProfileDescription
             firstname={props.firstname}
             lastname={props.lastname}
+            username={props.username}
             email={props.email}
             description=""
             image=""
@@ -176,6 +178,7 @@ const Commentary = (props: CommentaryProps) => {
           <ProfileDescription
             firstname={props.firstname}
             lastname={props.lastname}
+            username={props.username}
             email={props.email}
             description=""
             image=""
@@ -186,7 +189,7 @@ const Commentary = (props: CommentaryProps) => {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className={styles.replyMeta}>
             <strong className={styles.replyAuthor}>
-              {props.firstname} {props.lastname}
+              {props.username || `${props.firstname} ${props.lastname}`}
             </strong>
             <span style={{ margin: '0 0.5em' }} />
             <span className={styles.replyDate}>{formattedDate}</span>

@@ -60,7 +60,7 @@ const SideSearchBar = (props: SearchBarProps) => {
   const user_filter = () => {
     const list: string[] = [];
     props.users.forEach((obj) => {
-      const name = obj.firstName + ' ' + obj.lastName;
+      const name = obj.username || obj.firstName + ' ' + obj.lastName;
       if (!users_list.includes(name)) {
         list.push(name);
       }
@@ -69,10 +69,12 @@ const SideSearchBar = (props: SearchBarProps) => {
   };
   const selectUser = (str: string) => {
     const user = props.users.find((obj) => {
-      return obj.firstName + ' ' + obj.lastName === str;
+      const uname = obj.username || obj.firstName + ' ' + obj.lastName;
+      return uname === str;
     });
     if (user) {
-      setUsersList([...users_list, user.firstName + ' ' + user.lastName]);
+      const uname = user.username || user.firstName + ' ' + user.lastName;
+      setUsersList([...users_list, uname]);
     }
   };
 

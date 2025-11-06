@@ -18,6 +18,7 @@ export interface User {
   email: string;
   firstName: string;
   lastName: string;
+  username: string;
   role: string;
   createdAt: Date;
   description: string;

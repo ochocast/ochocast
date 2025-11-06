@@ -170,7 +170,8 @@ const VideoMedia: FC = () => {
       .filter((c) => c.parentid === parent.id)
       .map((c) => ({
         id: c.id,
-        sender: `${c.creator.firstName} ${c.creator.lastName}`,
+        sender:
+          c.creator.username || `${c.creator.firstName} ${c.creator.lastName}`,
         content: c.content,
         avatar: `${
           currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE
@@ -223,26 +224,25 @@ const VideoMedia: FC = () => {
         (c: CommentObject) => c.id === parentCommentId,
       );
       if (parent) {
-        const parentChildComments = commentsWithLikedStatus
-          .filter((c: CommentObject) => c.parentid === parent.id)
-          .map((c: CommentObject) => ({
-            id: c.id,
-            sender: `${c.creator.firstName} ${c.creator.lastName}`,
-            content: c.content,
-            avatar: `${
-              currentUser
-                ? currentUser.picture_id || PERSONA_IMAGE
-                : PERSONA_IMAGE
-            }`,
-            created_at: c.createdAt,
-            email: c.creator.email,
-            likes: c.likes || 0,
-            isLiked: c.isLiked || false,
-          }));
+        // Mettre à jour seulement les likes sans reconstruire complètement
+        const currentConversation = conversations[parentCommentId] || [];
+        const updatedConversation = currentConversation.map((msg) => {
+          const freshComment = commentsWithLikedStatus.find(
+            (c: CommentObject) => c.id === msg.id,
+          );
+          if (freshComment) {
+            return {
+              ...msg,
+              likes: freshComment.likes || 0,
+              isLiked: freshComment.isLiked || false,
+            };
+          }
+          return msg;
+        });
 
         setConversations((prev) => ({
           ...prev,
-          [parentCommentId]: parentChildComments,
+          [parentCommentId]: updatedConversation,
         }));
       }
     }
@@ -268,20 +268,39 @@ const VideoMedia: FC = () => {
       parentid: parentCommentId,
     });
 
-    const refreshed = await getComments(videoId);
-    if (refreshed) {
-      const sortedComments = sortCommentsByLikes(refreshed.data);
+    const [refreshed, likedCommentsRes] = await Promise.all([
+      getComments(videoId),
+      getLikedComments(),
+    ]);
+
+    if (refreshed && likedCommentsRes) {
+      const likedComments = Array.isArray(likedCommentsRes.data)
+        ? likedCommentsRes.data
+        : [];
+      const likedCommentIds = new Set(
+        likedComments.map((c: CommentObject) => c.id),
+      );
+      const commentsWithLikedStatus = refreshed.data.map(
+        (comment: CommentObject) => ({
+          ...comment,
+          isLiked: likedCommentIds.has(comment.id),
+        }),
+      );
+
+      const sortedComments = sortCommentsByLikes(commentsWithLikedStatus);
       setCommentaryList(sortedComments);
 
       const parent = sortedComments.find(
         (c: CommentObject) => c.id === parentCommentId,
       );
       if (parent) {
-        const parentChildComments = refreshed.data
+        const parentChildComments = commentsWithLikedStatus
           .filter((c: CommentObject) => c.parentid === parent.id)
           .map((c: CommentObject) => ({
             id: c.id,
-            sender: `${c.creator.firstName} ${c.creator.lastName}`,
+            sender:
+              c.creator?.username ||
+              `${c.creator.firstName} ${c.creator.lastName}`,
             content: c.content,
             avatar: `${
               currentUser
@@ -311,7 +330,8 @@ const VideoMedia: FC = () => {
   const canEdit = currentUserId === video.creator.id;
 
   const handleProfileClick = () => {
-    navigate(`/profile/${video.creator.firstName}`);
+    const uname = video.creator?.username || video.creator.firstName;
+    navigate(`/profile/${uname}`);
   };
 
   return (
@@ -376,11 +396,12 @@ const VideoMedia: FC = () => {
             className={styles.profileDescription}
             onClick={handleProfileClick}
             style={{ cursor: 'pointer' }}
-            title={`Voir le profil de ${video.creator.firstName} ${video.creator.lastName}`}
+            title={`Voir le profil de ${video.creator?.username || `${video.creator.firstName} ${video.creator.lastName}`}`}
           >
             <ProfileDescription
               firstname={`${video.creator.firstName} ${video.creator.lastName}`}
               lastname=""
+              username={`${video.creator.username}`}
               email={video.creator.email}
               description={video.creator.description}
               state={ProfileDescriptionState.standard}
@@ -400,6 +421,7 @@ const VideoMedia: FC = () => {
                   content: activeParent.content,
                   firstname: activeParent.creator.firstName,
                   lastname: activeParent.creator.lastName,
+                  username: `${video.creator.username}`,
                 }
               : undefined
           }
@@ -414,7 +436,10 @@ const VideoMedia: FC = () => {
                 <Thumbnail
                   Id={vid.id}
                   title={vid.title}
-                  createBy={`${vid.creator.firstName} ${vid.creator.lastName}`}
+                  createBy={
+                    vid.creator?.username ||
+                    `${vid.creator.firstName} ${vid.creator.lastName}`
+                  }
                   views={vid.views}
                   createdAt={vid.createdAt.toString()}
                   tags={vid.tags.map((tag) => tag.name)}
@@ -467,6 +492,7 @@ const VideoMedia: FC = () => {
                     content={comment.content}
                     firstname={comment.creator.firstName}
                     lastname={comment.creator.lastName}
+                    username={comment.creator.username}
                     email={comment.creator.email}
                     created_at={comment.createdAt}
                     onReplyClick={() => handleReplyClick(index)}

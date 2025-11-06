@@ -9,6 +9,7 @@ export interface CommentaryProps {
   content: string;
   firstname: string;
   lastname: string;
+  username: string;
   email: string;
   created_at: Date;
 }
@@ -17,7 +18,7 @@ const Commentary = (props: CommentaryProps) => {
   const navigate = useNavigate();
 
   const handleProfileClick = () => {
-    navigate(`/profile/${props.firstname}`);
+    navigate(`/profile/${props.username}`);
   };
 
   return (
@@ -38,6 +39,7 @@ const Commentary = (props: CommentaryProps) => {
         <ProfileDescription
           firstname={props.firstname}
           lastname={props.lastname}
+          username={props.username}
           email={props.email}
           description=""
           image=""

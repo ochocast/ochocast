@@ -11,7 +11,7 @@ export class UpdateProfileUseCaseWithoutImage {
 
     await this.userGateway.updateUserProfile(
       user.id,
-      newProfile.firstName,
+      newProfile.username,
       newProfile.description,
       newProfile.picture_id,
     );

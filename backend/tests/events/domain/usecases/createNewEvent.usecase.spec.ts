@@ -53,6 +53,7 @@ describe('CreateNewEventUsecase', () => {
     id: creatorId,
     firstName: 'firstname',
     lastName: 'lastname',
+    username: 'Username',
     email: 'email@email.com',
     role: '',
     description: '...',

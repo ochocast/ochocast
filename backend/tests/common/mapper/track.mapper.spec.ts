@@ -18,6 +18,7 @@ describe('Track Mapper', () => {
     id: 'u1',
     firstName: 'John',
     lastName: 'Doe',
+    username: 'JDoe',
     email: 'john@example.com',
     role: 'speaker',
     events: [],

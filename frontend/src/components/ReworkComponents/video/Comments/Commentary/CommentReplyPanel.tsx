@@ -12,6 +12,7 @@ export interface CommentReplyPanelProps {
     content: string;
     firstname?: string;
     lastname?: string;
+    username?: string;
     email?: string;
     description?: string;
     avatar?: string;
@@ -24,10 +25,20 @@ export interface CommentReplyPanelProps {
     likes?: number;
     isLiked?: boolean;
   }>;
-  parentComment?: { content: string; firstname: string; lastname: string };
+  parentComment?: {
+    content: string;
+    firstname: string;
+    lastname: string;
+    username: string;
+  };
   onSend: (
     message: string,
-    replyTo?: { firstname: string; lastname: string; content: string },
+    replyTo?: {
+      firstname: string;
+      lastname: string;
+      username: string;
+      content: string;
+    },
   ) => void;
   onLikeChange?: () => void;
 }
@@ -44,6 +55,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   const [replyTo, setReplyTo] = useState<null | {
     firstname: string;
     lastname: string;
+    username: string;
     content: string;
   }>(null);
   const { t } = useTranslation();
@@ -104,6 +116,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   const handleReplyClick = (msg: {
     firstname: string;
     lastname: string;
+    username: string;
     content: string;
   }) => {
     setReplyTo(msg);
@@ -158,6 +171,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
                     realMsg.sender.split(' ').slice(1).join(' ') ||
                     ''
                   }
+                  username={realMsg.username || realMsg.sender || ''}
                   email={realMsg.email || ''}
                   created_at={realMsg.created_at || new Date()}
                   onReplyClick={() =>
@@ -168,6 +182,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
                         realMsg.lastname ||
                         realMsg.sender.split(' ').slice(1).join(' ') ||
                         '',
+                      username: realMsg.username || realMsg.sender,
                       content: actualContent,
                     })
                   }

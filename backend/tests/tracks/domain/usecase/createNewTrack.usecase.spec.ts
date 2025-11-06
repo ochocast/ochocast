@@ -38,6 +38,7 @@ describe('CreateNewTracktUsecase', () => {
     id: validSpeakerId,
     firstName: 'Alice',
     lastName: 'Smith',
+    username: 'ASmith',
     email: 'alice@example.com',
     role: 'speaker',
     events: [],

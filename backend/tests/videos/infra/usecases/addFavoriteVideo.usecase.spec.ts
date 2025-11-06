@@ -15,6 +15,7 @@ describe('AddFavoriteVideoUsecase', () => {
     email: mockEmail,
     firstName: 'John',
     lastName: 'Doe',
+    username: 'JDoe',
     role: 'user',
     events: [],
     comments: [],

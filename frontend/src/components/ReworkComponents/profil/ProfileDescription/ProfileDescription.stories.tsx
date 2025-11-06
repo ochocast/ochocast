@@ -19,6 +19,7 @@ const meta = {
   args: {
     firstname: 'John Doe',
     lastname: '',
+    username: 'JDoe',
     email: 'john.doe@email.com',
     description:
       'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc scelerisque nisi convallis nisl iaculis vehicula. Vivamus non vestibulum dui, sed eleifend augue. Fusce imperdiet dolor eu rhoncus interdum',

@@ -83,8 +83,8 @@ const ProfileSetting = () => {
     if (picture !== undefined) {
       const form = new FormData();
 
-      if (pseudo) form.append('firstName', pseudo);
-      else if (currentUser) form.append('firstName', currentUser?.firstName);
+      if (pseudo) form.append('username', pseudo);
+      else if (currentUser) form.append('username', currentUser?.username);
       form.append('description', description);
       form.append('file', picture);
       form.append('picture_id', picture.name);
@@ -121,7 +121,7 @@ const ProfileSetting = () => {
         });
     } else {
       updateProfileWithoutImage({
-        firstName: pseudo || currentUser?.firstName,
+        username: pseudo || currentUser?.username,
         description: description,
         picture_id: currentUser?.picture_id,
       })
@@ -221,7 +221,7 @@ const ProfileSetting = () => {
               <h2 className={style.name}>
                 <input
                   type="text"
-                  placeholder={currentUser?.firstName || 'Pseudo'}
+                  placeholder={currentUser?.username || 'Pseudo'}
                   value={pseudo}
                   onChange={(e) => setPseudo(e.target.value)}
                   className={`${style.input} ${style.pseudoInput}`}

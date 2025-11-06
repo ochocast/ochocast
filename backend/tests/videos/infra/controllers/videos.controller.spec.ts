@@ -29,6 +29,7 @@ describe('VideosController - getVideosSuggestions', () => {
     email: 'test@example.com',
     firstName: 'John',
     lastName: 'Doe',
+    username: 'JDoe',
     role: 'user',
     description: 'A user',
     createdAt: now,

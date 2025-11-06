@@ -68,6 +68,17 @@
   min-width: 0;
 }
 
+.username {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0d5c4d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  min-width: 0;
+}
+
 .descriptionSection {
   display: flex;
   flex-direction: column;

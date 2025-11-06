@@ -15,7 +15,7 @@ export interface IUserGateway {
   getFavoriteVideos(userId: string): Promise<VideoObject[]>;
   updateUserProfile(
     userId: string,
-    newFirstName: string,
+    newUserName: string,
     newDescription: string,
     newProfilePictureId: string,
   ): Promise<void>;

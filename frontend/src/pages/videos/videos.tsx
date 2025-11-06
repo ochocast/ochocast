@@ -203,9 +203,12 @@ const Videos: FC<VideosProps> = () => {
     }
 
     if (newFilters.users.length > 0) {
-      result = result.filter((video) =>
-        newFilters.users.includes(video.creator?.firstName),
-      );
+      result = result.filter((video) => {
+        const uname = video.creator?.username;
+        const fullname =
+          `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim();
+        return newFilters.users.includes(uname || fullname);
+      });
     }
 
     if (newFilters.startDate && newFilters.endDate) {
@@ -345,7 +348,10 @@ const Videos: FC<VideosProps> = () => {
                 key={video.id}
                 Id={video.id}
                 title={video.title}
-                createBy={video.creator?.firstName}
+                createBy={
+                  video.creator?.username ||
+                  `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
+                }
                 views={video.views}
                 createdAt={video.createdAt.toString()}
                 tags={video.tags?.map((tag) => tag.name)}

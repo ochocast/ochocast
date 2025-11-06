@@ -21,6 +21,7 @@ export class CreateNewUserUsecase {
     const pictureId = Date.now() + '.' + userToCreate.picture_id;
     const user = new UserObject(
       uuid(),
+      userToCreate.username,
       userToCreate.firstName,
       userToCreate.lastName,
       userToCreate.email,

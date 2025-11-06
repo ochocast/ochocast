@@ -15,6 +15,7 @@ export class UserGateway implements IUserGateway {
   ) {}
 
   async createNewUser(userDetails: UserObject): Promise<UserObject> {
+    console.table('\n\n\n\n\n\n\n\n' + userDetails);
     const user: UserEntity = new UserEntity({
       ...userDetails,
       events: userDetails.events?.map(toEventEntity),
@@ -58,8 +59,18 @@ export class UserGateway implements IUserGateway {
     });
 
     if (foundUser) {
+      // Persist the real username from the identity provider if missing or changed
+      const newUsername =
+        keycloak_user.username ?? keycloak_user.preferred_username;
+      if (newUsername && foundUser.username !== newUsername) {
+        await this.usersRepository.update(foundUser.id, {
+          username: newUsername,
+        });
+        foundUser.username = newUsername as string;
+      }
       user = toUserObject(foundUser);
     } else {
+      console.table(keycloak_user);
       user = await this.createNewUser(keycloak_user);
     }
 
@@ -134,13 +145,13 @@ export class UserGateway implements IUserGateway {
   }
   async updateUserProfile(
     userId: string,
-    newFirstName: string,
+    newUserName: string,
     newDescription: string,
     newProfilePictureId: string,
   ): Promise<void> {
-    if (newFirstName) {
+    if (newUserName) {
       await this.usersRepository.update(userId, {
-        firstName: newFirstName || 'Pas de nom',
+        username: newUserName || 'Pas de nom',
         description: newDescription || '',
         picture_id: newProfilePictureId || '',
       });

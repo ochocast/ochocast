@@ -5,6 +5,7 @@ import { toEventEntity, toEventObject } from './event.mapper';
 export function toUserObject(entity: UserEntity): UserObject {
   return {
     id: entity.id,
+    username: entity.username,
     firstName: entity.firstName,
     lastName: entity.lastName,
     email: entity.email,

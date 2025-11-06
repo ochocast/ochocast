@@ -18,6 +18,7 @@ const meta = {
     id: 'story-comment-1',
     firstname: 'Jhon',
     lastname: 'Doe',
+    username: 'JDoe',
     email: 'Jhon.Doe@email.com',
     created_at: undefined,
     content:

@@ -77,6 +77,7 @@ const Community: FC<CommunityProps> = () => {
                 id={user.id}
                 firstName={user.firstName}
                 lastName={user.lastName}
+                username={user.username}
                 description={user.description}
                 picture_id={user.picture_id}
               />

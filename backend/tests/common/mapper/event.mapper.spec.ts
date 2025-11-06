@@ -20,6 +20,7 @@ describe('Event Mapper', () => {
     id: 'user1',
     firstName: 'Alice',
     lastName: 'Doe',
+    username: 'JDoe',
     email: 'alice@example.com',
     role: 'admin',
     events: [],

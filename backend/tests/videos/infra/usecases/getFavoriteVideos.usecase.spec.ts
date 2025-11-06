@@ -41,6 +41,7 @@ describe('GetFavoriteVideosUsecase', () => {
           email: 'creator@example.com',
           firstName: 'John',
           lastName: 'Doe',
+          username: 'JDoe',
           role: 'user',
           description: '',
           createdAt: new Date(),

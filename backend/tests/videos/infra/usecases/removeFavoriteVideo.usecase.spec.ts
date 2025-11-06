@@ -14,6 +14,7 @@ describe('RemoveFavoriteVideoUsecase', () => {
     id: userId,
     firstName: 'Test',
     lastName: 'User',
+    username: 'JDoe',
     email: userEmail,
     role: 'user',
     events: [],

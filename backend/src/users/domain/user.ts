@@ -13,6 +13,12 @@ export class UserObject {
 
   @ApiProperty({
     example: 'John',
+    description: 'The user name of the user.',
+  })
+  username: string;
+
+  @ApiProperty({
+    example: 'John',
     description: 'The first name of the user.',
   })
   firstName: string;
@@ -79,6 +85,7 @@ export class UserObject {
 
   constructor(
     id: string,
+    username: string,
     firstName: string,
     lastName: string,
     email: string,
@@ -91,6 +98,7 @@ export class UserObject {
     picture_id: string,
   ) {
     this.id = id;
+    this.username = username;
     this.firstName = firstName;
     this.lastName = lastName;
     this.email = email;

@@ -19,6 +19,7 @@ describe('GetEventByIdUsecase', () => {
     id: creatorId,
     firstName: 'firstname',
     lastName: 'lastname',
+    username: 'Username',
     email: 'email',
     role: '',
     description: '...',

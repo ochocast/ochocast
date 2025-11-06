@@ -7,6 +7,7 @@ interface UserCardProps {
   id: string;
   firstName: string;
   lastName: string;
+  username: string;
   description: string;
   picture_id?: string;
 }
@@ -18,6 +19,7 @@ const UserCard: React.FC<UserCardProps> = ({
   id,
   firstName,
   lastName,
+  username,
   description,
   picture_id,
 }) => {
@@ -42,7 +44,7 @@ const UserCard: React.FC<UserCardProps> = ({
   }, [id, picture_id]);
 
   const handleClick = () => {
-    navigate(`/profile/${firstName}`);
+    navigate(`/profile/${username}`);
   };
 
   const truncateDescription = (text: string) => {
@@ -61,8 +63,10 @@ const UserCard: React.FC<UserCardProps> = ({
           className={styles.profilePicture}
         />
         <div className={styles.nameContainer}>
-          <div className={styles.firstName}>{firstName}</div>
-          <div className={styles.lastName}>{lastName}</div>
+          {username && <div className={styles.username}>{username}</div>}
+          {!username && <div className={styles.firstName}>{firstName}</div> && (
+            <div className={styles.lastName}>{lastName}</div>
+          )}
         </div>
       </div>
       <div className={styles.descriptionSection}>

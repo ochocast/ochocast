@@ -13,7 +13,7 @@ export interface HeaderProps {}
 
 const Header: FC<HeaderProps> = () => {
   const { user, isAdmin } = useUser();
-  const username = user?.firstName;
+  const username = user?.username || user?.firstName;
   const navigate = useNavigate();
   const branding = useBrandingContext();
 

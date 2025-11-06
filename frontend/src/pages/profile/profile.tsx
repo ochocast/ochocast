@@ -40,7 +40,7 @@ const Profile: FC<ProfileProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const { firstName } = useParams<{ firstName?: string }>();
+  const { username } = useParams<{ username?: string }>();
 
   const fetchUserData = useCallback(
     async (userId: string, isCurrentUserProfile: boolean = false) => {
@@ -52,25 +52,26 @@ const Profile: FC<ProfileProps> = () => {
         const user = userResponse.data.find((u: User) => u.id === userId);
         setCurrentUser(user || null);
 
-        // Si c'est le profil de l'utilisateur connecté et qu'il a un firstName, on met à jour l'URL
-        if (user?.firstName && !firstName && isCurrentUserProfile) {
-          navigate(`/profile/${user.firstName}`, { replace: true });
+        // Si l'utilisateur a un username, on met à jour l'URL
+        if (user?.username && !username && isCurrentUserProfile) {
+          console.log(username);
+          navigate(`/profile/${user.username}`, { replace: true });
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
       }
     },
-    [firstName, navigate],
+    [username, navigate],
   );
 
   const getMe = useCallback(async () => {
     setIsLoading(true);
     try {
-      if (firstName) {
+      if (username) {
         // Si on a un firstName dans l'URL, on cherche l'utilisateur correspondant
         const userResponse = await getUsers();
         const user = userResponse.data.find(
-          (u: User) => u.firstName?.toLowerCase() === firstName.toLowerCase(),
+          (u: User) => u.username?.toLowerCase() === username.toLowerCase(),
         );
         if (user) {
           await fetchUserData(user.id, false);
@@ -87,7 +88,7 @@ const Profile: FC<ProfileProps> = () => {
       console.error('Error fetching user:', error);
     }
     setIsLoading(false);
-  }, [userString, firstName, fetchUserData, navigate]);
+  }, [userString, username, fetchUserData, navigate]);
 
   useEffect(() => {
     getMe();
@@ -124,7 +125,7 @@ const Profile: FC<ProfileProps> = () => {
     }
   };
 
-  if (!userString && !firstName) {
+  if (!userString && !username) {
     return <NotFoundPage />;
   }
 
@@ -143,6 +144,7 @@ const Profile: FC<ProfileProps> = () => {
         <ProfileDescription
           firstname={currentUser ? currentUser.firstName : t('unknown')}
           lastname=""
+          username={currentUser ? currentUser.username : t('unknown')}
           email={currentUser ? currentUser.email : t('unknownEmail')}
           description={
             currentUser ? currentUser.description : t('noDescription')
@@ -174,7 +176,10 @@ const Profile: FC<ProfileProps> = () => {
                 key={video.id}
                 Id={video.id}
                 title={video.title}
-                createBy={video.creator.firstName}
+                createBy={
+                  video.creator.username ||
+                  `${video.creator.firstName} ${video.creator.lastName}`
+                }
                 views={video.views}
                 createdAt={video.createdAt.toString()}
                 tags={video.tags && video.tags?.map((tag) => tag.name)}

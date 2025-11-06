@@ -22,6 +22,7 @@ const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
 type ProfileDescriptionProps = {
   firstname: string;
   lastname: string;
+  username: string;
   email: string;
   description: string;
   image?: string;
@@ -74,8 +75,10 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
     return (
       <div className={styles.profileContainer}>
         <h3 className={styles.namesmall}>
-          <span>{props.firstname}</span>
-          <span>{props.lastname}</span>
+          {props.username && <span>{props.username}</span>}
+          {!props.username && <span>{props.firstname}</span> && (
+            <span>{props.lastname}</span>
+          )}
         </h3>
 
         <img
@@ -97,7 +100,7 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
             src={pictureUrl !== null ? pictureUrl : DEFAULT_PERSONA_IMAGE}
           />
           <div className={styles.titlesCenter}>
-            <h2 className={styles.name}>{props.firstname}</h2>
+            <h2 className={styles.name}>{props.username || props.firstname}</h2>
             <h5 className={styles.email}>
               {t('Email')} {props.email}
             </h5>
@@ -118,7 +121,9 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           />
           <div>
             <div className={styles.titles}>
-              <h2 className={styles.name}>{props.firstname}</h2>
+              <h2 className={styles.name}>
+                {props.username || props.firstname}
+              </h2>
               <h5 className={styles.email}>
                 {t('Email')} {props.email}
               </h5>
@@ -146,7 +151,9 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
           />
           <div className={styles.description}>
             <div className={styles.titles}>
-              <h2 className={styles.name}>{props.firstname}</h2>
+              <h2 className={styles.name}>
+                {props.username || props.firstname}
+              </h2>
               <h5 className={styles.email}>
                 {t('Email')} {props.email}
               </h5>

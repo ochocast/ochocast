@@ -42,7 +42,7 @@ export class UpdateProfileUseCase {
       const profilePicture_result = await profilePictureUpload.done();
       await this.userGateway.updateUserProfile(
         user.id,
-        newProfile.firstName,
+        newProfile.username,
         newProfile.description,
         newProfile.picture_id,
       );

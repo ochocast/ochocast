@@ -28,6 +28,7 @@ describe('AddConfigFileUsecase', () => {
     id: 'user-id',
     firstName: 'Admin',
     lastName: 'User',
+    username: 'Username',
     email: 'admin@example.com',
     role: 'admin',
     description: 'Administrator',
