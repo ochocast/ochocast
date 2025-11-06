@@ -135,13 +135,33 @@ class BenchmarkController:
                     worker_id = data["worker_id"]
                     if worker_id in self.workers:
                         self.workers[worker_id].viewers_count = len(data["viewers"])
-                        print(f"[Controller] ✅ Worker {worker_id} started {len(data['viewers'])} viewers")
+                        active_count = len(data.get("active_viewers", []))
+                        print(f"[Controller] ✅ Worker {worker_id} started {len(data['viewers'])} viewers ({active_count} actifs)")
                 
                 elif data.get("type") == "viewers_stopped":
                     worker_id = data["worker_id"]
                     if worker_id in self.workers:
                         self.workers[worker_id].viewers_count = 0
                         print(f"[Controller] 🛑 Worker {worker_id} stopped all viewers")
+                
+                elif data.get("type") == "viewer_disconnected":
+                    worker_id = data["worker_id"]
+                    viewer_id = data["viewer_id"]
+                    was_active = data.get("was_active", False)
+                    mode = "ACTIF" if was_active else "PASSIF"
+                    print(f"[Controller] ⚠️  Worker {worker_id}: Viewer {viewer_id} ({mode}) disconnected")
+                
+                elif data.get("type") == "viewer_recreated":
+                    worker_id = data["worker_id"]
+                    viewer_id = data["viewer_id"]
+                    is_active = data.get("is_active", False)
+                    mode = "ACTIF" if is_active else "PASSIF"
+                    print(f"[Controller] 🔄 Worker {worker_id}: Viewer {viewer_id} recreated ({mode})")
+                
+                elif data.get("type") == "viewer_promoted":
+                    worker_id = data["worker_id"]
+                    viewer_id = data["viewer_id"]
+                    print(f"[Controller] 🔼 Worker {worker_id}: Viewer {viewer_id} promoted to ACTIVE")
         
         except websockets.exceptions.ConnectionClosed:
             if worker_id and worker_id in self.workers:
@@ -296,7 +316,16 @@ class BenchmarkController:
         print(f"[Controller] 🚀 Starting viewers on {len(self.workers)} workers...")
         
         sfu_config = self.config['sfu']
-        total_viewers = self.config['benchmark']['total_viewers']
+        benchmark_config = self.config['benchmark']
+        total_viewers = benchmark_config['total_viewers']
+        
+        # Configuration des viewers (avec valeurs par défaut)
+        viewer_config = benchmark_config.get('viewers', {})
+        active_count = viewer_config.get('active_count', 1)
+        downscale_size = viewer_config.get('downscale_size', 1)
+        detection_queue_size = viewer_config.get('detection_queue_size', 100)
+        
+        print(f"[Controller] 🎯 Viewer config: active_count={active_count}, downscale_size={downscale_size}")
         
         # Distribution simple : répartir équitablement
         viewers_per_worker = total_viewers // len(self.workers)
@@ -316,13 +345,16 @@ class BenchmarkController:
                 "config": {
                     "url": viewer_url,
                     "stun_url": sfu_config['stun_url'],
-                    "encoding_method": self.config['benchmark'].get('encoding_method', 'diagonal')
+                    "encoding_method": benchmark_config.get('encoding_method', 'diagonal'),
+                    "active_count": active_count,
+                    "downscale_size": downscale_size,
+                    "detection_queue_size": detection_queue_size
                 }
             }
             
             try:
                 await worker_info.websocket.send(json.dumps(command))
-                print(f"[Controller] 📤 Sent start command to {worker_id} ({count} viewers)")
+                print(f"[Controller] 📤 Sent start command to {worker_id} ({count} viewers, {min(active_count, count)} actifs)")
             except Exception as e:
                 print(f"[Controller] ❌ Failed to send command to {worker_id}: {e}")
                 worker_info.status = "error"
@@ -370,6 +402,11 @@ class BenchmarkController:
             except:
                 host_status = {"error": "Could not get host status"}
         
+        # Extraire la config des viewers si disponible
+        viewer_config_summary = {}
+        if 'benchmark' in self.config and 'viewers' in self.config['benchmark']:
+            viewer_config_summary = self.config['benchmark']['viewers']
+        
         # Données complètes
         complete_data = {
             **self.host_data,
@@ -377,6 +414,7 @@ class BenchmarkController:
             "benchmark_running": self.benchmark_running,
             "first_frame_received": self.first_frame_received,
             "host_status": host_status,
+            "viewer_config": viewer_config_summary,
             "workers": workers_data
         }
         

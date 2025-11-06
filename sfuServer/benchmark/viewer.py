@@ -66,7 +66,9 @@ class DistributedViewer:
         url: str, 
         stun_url: str = "stun:stun.l.google.com:19302",
         encoding_method: str = "simple",
-        detection_queue_size: int = 100
+        detection_queue_size: int = 100,
+        active_detector: bool = True,
+        downscale_size: int = None
     ):
         self.viewer_id = viewer_id
         self.url = url
@@ -104,6 +106,12 @@ class DistributedViewer:
         # Status
         self.connected = False
         self.running = False
+        
+        # Performance tuning
+        self.active_detector = bool(active_detector)
+        self.downscale_size = int(downscale_size) if downscale_size and downscale_size > 0 else None
+        
+        print(f"[Viewer {self.viewer_id}] 🎯 Mode: {'ACTIF' if self.active_detector else 'PASSIF'}, Downscale: {self.downscale_size if self.downscale_size else 'FULL'}")
 
     def detect_and_decode_red_frame(self, img, timestamp):
         """
@@ -221,8 +229,16 @@ class DistributedViewer:
             'queue_size': self.detection_queue.qsize(),
             'dropped_detections': self.dropped_detections,
             'encoding_method': self.encoding_method,
-            'exit_error': self.exit_error
+            'exit_error': self.exit_error,
+            'active_detector': self.active_detector,
+            'downscale_size': self.downscale_size
         }
+    
+    def set_active(self, active: bool):
+        """Change le mode actif/passif du viewer"""
+        old_mode = self.active_detector
+        self.active_detector = active
+        print(f"[Viewer {self.viewer_id}] 🔄 Mode changed: {'ACTIF' if old_mode else 'PASSIF'} → {'ACTIF' if active else 'PASSIF'}")
     
     def get_detection(self, block=False, timeout=None):
         """
@@ -292,9 +308,29 @@ class DistributedViewer:
                         self.first_frame_timestamp = time.time()
                         print(f"[Viewer {self.viewer_id}] 🎬 First frame received at {self.first_frame_timestamp:.6f}")
 
-                    img = frame.to_ndarray(format="bgr24")
                     self.frame_count += 1
                     timestamp = time.time()
+
+                    # Si viewer PASSIF: consommer la frame sans traitement (simule charge serveur)
+                    if not self.active_detector:
+                        # Pause coopérative pour l'event loop tous les 100 frames
+                        if self.frame_count % 100 == 0:
+                            await asyncio.sleep(0)
+                        continue
+
+                    # Viewer ACTIF: traiter la frame avec downscaling si configuré
+                    try:
+                        if self.downscale_size:
+                            # Downscale pour réduire CPU (1x1 = juste couleur moyenne)
+                            small = frame.reformat(width=self.downscale_size, height=self.downscale_size)
+                            img = small.to_ndarray(format="bgr24")
+                        else:
+                            # Full resolution
+                            img = frame.to_ndarray(format="bgr24")
+                    except Exception as e:
+                        # Fallback: conversion full si reformat échoue
+                        print(f"[Viewer {self.viewer_id}] ⚠️ Reformat failed, using full: {e}")
+                        img = frame.to_ndarray(format="bgr24")
                     
                     # Détecter et décoder frame rouge
                     detection = self.detect_and_decode_red_frame(img, timestamp)
