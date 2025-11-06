@@ -7,5 +7,5 @@ ssh-add ~/.ssh/deploy
 git clone git@github.com:ochocast/ochocast-webapp.git
 cd ochocast-webapp
 git checkout feat/sfu-benchmark
-cd sfuServer/rework_v2/
+cd sfuServer/benchmark/
 python3 worker.py --host-ws ws://0.tcp.eu.ngrok.io:13617 --worker-id worker_local_1

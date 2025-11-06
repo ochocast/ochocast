@@ -2,8 +2,8 @@
 
 # Configuration du serveur SFU  
 sfu:
-  url: "http://localhost:8090"
-  # url: "http://51.158.104.60:8090"
+  # url: "http://localhost:8090"
+  url: "http://51.158.104.60:8090"
   room_create_endpoint: "/room/create"
   whip_endpoint: "/whip"
   viewer_endpoint: "/viewer"
@@ -11,7 +11,7 @@ sfu:
 
 # Configuration du benchmark
 benchmark:
-  total_viewers: 25            # Nombre total de viewers à distribuer
+  total_viewers: 200             # Nombre total de viewers à distribuer
   duration: 60                   # Durée du test en secondes (après première frame)
   red_interval: 1.0              # Intervalle entre les frames rouges (secondes)
   encoding_method: "diagonal"    # Méthode d'encodage: "simple" (0-65535) ou "diagonal" (0-127 avec validation)

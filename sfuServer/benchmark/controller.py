@@ -441,6 +441,7 @@ class BenchmarkController:
             print(f"[Controller] ⏳ Waiting for workers to connect...")
             while not self.workers:
                 await asyncio.sleep(1)
+            await asyncio.sleep(10)  # Attendre un peu plus pour d'autres connexions
             
             print(f"[Controller] ✅ {len(self.workers)} worker(s) connected")
             
