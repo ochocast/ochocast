@@ -58,22 +58,27 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
     username: string;
     content: string;
   }>(null);
+
+  const [visible, setVisible] = useState(open);
+  const [animClass, setAnimClass] = useState('');
   const { t } = useTranslation();
 
   useEffect(() => {
     if (open) {
+      setVisible(true);
+      setAnimClass(styles.open);
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
+      setAnimClass(styles.close);
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
+      const timer = setTimeout(() => setVisible(false), 300);
+      return () => clearTimeout(timer);
     }
-    return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    };
   }, [open]);
-  if (!open) return null;
+
+  if (!visible) return null;
 
   const extractMessageContent = (content: string): string => {
     const lines = content.split('\n');
@@ -132,7 +137,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
 
   return (
     <div className={styles.replyPanelOverlay}>
-      <div className={styles.replyPanel}>
+      <div className={`${styles.replyPanel} ${animClass}`}>
         <div className={styles.header}>
           {parentComment ? (
             <p className={styles.parentComment}>
@@ -154,7 +159,6 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
           {[...conversation].map((msg, idx, arr) => {
             const realMsg = arr[idx];
 
-            // Extraire la preview si elle existe
             const replyPreview = extractReplyPreview(realMsg.content);
             const actualContent = extractMessageContent(realMsg.content);
 

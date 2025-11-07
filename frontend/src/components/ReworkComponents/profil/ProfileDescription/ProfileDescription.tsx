@@ -49,7 +49,11 @@ const ProfileDescription = (props: ProfileDescriptionProps) => {
 
         if (user) {
           const url = await getProfilePicture(user.id);
-          if (url?.data && !url.data.includes('miniatureundefined')) {
+          if (
+            url?.data &&
+            typeof url.data === 'string' &&
+            !url.data.includes('miniatureundefined')
+          ) {
             setPictureUrl(url.data);
           } else {
             setPictureUrl(DEFAULT_PERSONA_IMAGE);

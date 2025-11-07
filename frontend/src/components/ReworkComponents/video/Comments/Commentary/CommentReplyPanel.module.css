@@ -94,7 +94,7 @@
   right: 0;
   width: 40.2vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.05);
+  background: transparent;
   z-index: 2000;
   display: flex;
   justify-content: flex-end;
@@ -319,4 +319,35 @@
 }
 .messages::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* === Animation du panneau === */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.replyPanel.open {
+  animation: slideInFromRight 0.25s ease-out forwards;
+}
+
+.replyPanel.close {
+  animation: slideOutToRight 0.15s ease-in forwards;
 }
