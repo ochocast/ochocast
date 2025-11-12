@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './CommentReplyPanel.module.css';
 import Commentary, { CommentaryDescriptionState } from './Commentary';
@@ -62,6 +62,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   const [visible, setVisible] = useState(open);
   const [animClass, setAnimClass] = useState('');
   const { t } = useTranslation();
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -77,6 +78,13 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
       return () => clearTimeout(timer);
     }
   }, [open]);
+
+  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Ferme le panel si on clique sur l'overlay mais pas sur le panel lui-même
+    if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      onClose();
+    }
+  };
 
   if (!visible) return null;
 
@@ -118,6 +126,14 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+    // Si Shift+Entrée, on laisse le comportement par défaut (retour à la ligne)
+  };
+
   const handleReplyClick = (msg: {
     firstname: string;
     lastname: string;
@@ -136,8 +152,8 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   };
 
   return (
-    <div className={styles.replyPanelOverlay}>
-      <div className={`${styles.replyPanel} ${animClass}`}>
+    <div className={styles.replyPanelOverlay} onClick={handleOverlayClick}>
+      <div className={`${styles.replyPanel} ${animClass}`} ref={panelRef}>
         <div className={styles.header}>
           {parentComment ? (
             <p className={styles.parentComment}>
@@ -224,8 +240,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className={styles.inputRow}>
-          <input
-            type="text"
+          <textarea
             value={
               replyTo ? message.split('\n\n').slice(1).join('\n\n') : message
             }
@@ -237,8 +252,10 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
                 setMessage(e.target.value);
               }
             }}
+            onKeyDown={handleKeyDown}
             placeholder={t('yourReplyPlaceholder')}
             className={styles.input}
+            rows={1}
           />
           <button type="submit" className={styles.sendBtn}>
             {t('send')}
