@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './liveTrack.module.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getTrackById } from '../../utils/api';
@@ -35,9 +35,9 @@ const LiveTrack = () => {
 
   // Hardcoded WHIP server URL for MVP
   const WHIP_SERVER_URL =
-    'https://35b32e24-b50b-4145-946c-9102346dec0c.pub.instances.scw.cloud/viewer';
+    'https://sfu.demo.ochocast.fr/viewer?room_id=' + trackId;
 
-  const connection_to_stream = () => {
+  const connection_to_stream = useCallback(() => {
     let peerConnection: RTCPeerConnection | null = null;
 
     const startStream = async () => {
@@ -232,7 +232,7 @@ const LiveTrack = () => {
         peerConnection.close();
       }
     };
-  };
+  }, [WHIP_SERVER_URL]);
 
   if (track?.closed) {
     navigate(`/events/${track?.event.id}/tracks`);
@@ -259,7 +259,7 @@ const LiveTrack = () => {
         cleanup();
       }
     };
-  }, [trackId]);
+  }, [connection_to_stream, trackId, WHIP_SERVER_URL]);
 
   const handleVideoClick = () => {
     if (videoRef.current) {

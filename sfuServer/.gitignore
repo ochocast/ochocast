@@ -1,4 +1,13 @@
-server*
+server.exe
+server
 go.sum
-__pycache__
 
+# Environment variables
+.env
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+
+__pycache__/

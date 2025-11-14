@@ -40,6 +40,8 @@ const TrackSettings: FC = () => {
   const [isButtonDisabled, setButtonDisabled] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [sfuUrl, setSfuUrl] = useState<string>('');
+  const [isLoadingSfu, setIsLoadingSfu] = useState(false);
   const [touched, setTouched] = useState({ name: false, description: false });
   const [toast, setToast] = useState<{
     message: string;
@@ -56,8 +58,47 @@ const TrackSettings: FC = () => {
     event?.creatorId === userId || track.speakers?.some((e) => e.id === userId);
   const closed = track.closed || event?.closed;
 
-  const toggle = () => setIsOpen(!isOpen);
+  const toggle = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      setSfuUrl('');
+    }
+  };
   const toggleDeleteModal = () => setIsDeleteModalOpen(!isDeleteModalOpen);
+
+  const handleStartLiveOBS = async () => {
+    if (!trackId) return;
+
+    setIsLoadingSfu(true);
+    try {
+      const response = await fetch(
+        'https://sfu.demo.ochocast.fr/room/create',
+        // 'http://localhost:8090/room/create',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            room_id: trackId,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to create room');
+      }
+
+      const data = await response.json();
+      const whipUrl = `https://sfu.demo.ochocast.fr/whip?room_id=${data.room_id}&key=${data.key}`;
+      setSfuUrl(whipUrl);
+    } catch (error) {
+      console.error('Error creating SFU room:', error);
+      setMessage('Error creating room. Please try again.');
+    } finally {
+      setIsLoadingSfu(false);
+    }
+  };
 
   const handleInputChange =
     (field: keyof typeof track) =>
@@ -118,13 +159,34 @@ const TrackSettings: FC = () => {
 
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('StartLive')}</h1>
-        <div className={styles.startLiveButtons}>
-          <Button label={t('StartLiveOBS')} />
-          {/* <Button
-            label={t('StartLiveOCHOCast')}
-            onClick={() => navigate(`/tracks/${trackId}/streaming`)}
-          /> */}
-        </div>
+        {!sfuUrl ? (
+          <div className={styles.startLiveButtons}>
+            <Button
+              label={isLoadingSfu ? t('Loading') : t('StartLiveOBS')}
+              onClick={handleStartLiveOBS}
+              type={isLoadingSfu ? ButtonType.disabled : ButtonType.secondary}
+            />
+            {/* <Button
+              label={t('StartLiveOCHOCast')}
+              onClick={() => navigate(`/tracks/${trackId}/streaming`)}
+            /> */}
+          </div>
+        ) : (
+          <div className={styles.sfuUrlContainer}>
+            <p>{t('TrackUseTheFollowingURL')}</p>
+            <div className={styles.urlBox}>
+              <code>{sfuUrl}</code>
+            </div>
+            <Button
+              label={t('CopyURL')}
+              onClick={() => {
+                navigator.clipboard.writeText(sfuUrl);
+                setMessage(t('URLCopied'));
+              }}
+              type={ButtonType.secondary}
+            />
+          </div>
+        )}
       </Modal>
 
       <div className={styles.trackDateSpeakerWrapper}>
