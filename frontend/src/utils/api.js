@@ -20,6 +20,18 @@ api.addAsyncRequestTransform(async (request) => {
   }
 });
 
+// Public API instance without authentication
+export const publicApi = create({
+  baseURL: `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/api`,
+  timeout: 20000, // 20 seconds
+  maxContentLength: 10000000,
+  maxBodyLength: 10000000,
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+});
+
 // Users
 export const loginUser = () => api.get('/users/login');
 export const getUsers = () => api.get('/users');
@@ -72,6 +84,8 @@ export const getEventsMiniature = (event_id) =>
 
 // Tracks
 export const getTrackById = (trackId) => api.get('/tracks/' + trackId);
+export const getTrackByIdPublic = (trackId) =>
+  publicApi.get('/tracks/' + trackId);
 export const createTrack = (track) => api.post('/tracks', track);
 export const updateTrack = (trackId, track) =>
   api.put('/tracks/' + trackId, track);

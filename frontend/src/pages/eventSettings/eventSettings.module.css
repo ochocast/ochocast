@@ -124,6 +124,14 @@
   min-width: 140px;
 }
 
+/* ===== MAIN CONTENT WRAPPER ===== */
+.mainContentWrapper {
+  display: flex;
+  gap: 2rem;
+  width: 100%;
+  align-items: flex-start;
+}
+
 /* ===== PREVIEW SECTION ===== */
 .preview {
   margin-top: 2rem;
@@ -131,6 +139,9 @@
   background-color: var(--theme-color-white, #ffffff);
   border: 1px solid var(--theme-color-50, #f0f0f0);
   border-radius: 8px;
+  min-width: 320px;
+  position: sticky;
+  top: 2rem;
 }
 
 .preview h2 {
@@ -148,6 +159,18 @@
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1024px) {
+  .mainContentWrapper {
+    flex-direction: column;
+  }
+
+  .preview {
+    position: static;
+    width: 100%;
+    margin-top: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .pageEventSettings {
     flex-direction: column;

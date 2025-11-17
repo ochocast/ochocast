@@ -21,6 +21,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 import { GetTrackByIdUsecase } from 'src/tracks/domain/usecases/getTrackById.usecase';
 import { CloseTrackUsecase } from 'src/tracks/domain/usecases/closeTrack.usecase';
+import { Public } from 'nest-keycloak-connect';
 
 @ApiTags('Tracks')
 @Controller('tracks')
@@ -39,6 +40,7 @@ export class TracksController {
     return await this.createNewTrackUsecase.execute(track);
   }
 
+  @Public()
   @Get(':id')
   findTrack(@Param('id') id: string): Promise<TrackObject> {
     if (!isUUID(id)) {

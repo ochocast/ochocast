@@ -1,6 +1,7 @@
 import React, { FC, ChangeEvent, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { QRCodeSVG } from 'qrcode.react';
 
 import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
 import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
@@ -389,6 +390,10 @@ const TrackSettings: FC = () => {
     </div>
   );
 
+  const publicTrackUrl = trackId
+    ? `${window.location.origin}/public/track/${trackId}`
+    : '';
+
   return (
     <div className={styles.pageTrackSettings}>
       <EventDashboard
@@ -396,7 +401,18 @@ const TrackSettings: FC = () => {
         tracks={tracks}
         eventClosed={!closed && userId === event?.creatorId}
       />
-      {canEdit ? renderForm() : renderReadOnly()}
+      <div className={styles.mainContentWrapper}>
+        {canEdit ? renderForm() : renderReadOnly()}
+        {trackId && (
+          <div className={styles.qrCodeContainer}>
+            <h3>QR Code</h3>
+            <div className={styles.qrCodeWrapper}>
+              <QRCodeSVG value={publicTrackUrl} size={200} level="H" />
+            </div>
+            <p className={styles.qrCodeUrl}>{publicTrackUrl}</p>
+          </div>
+        )}
+      </div>
       {toast && (
         <Toast
           key={`${toast.message}-${toast.type}`}
