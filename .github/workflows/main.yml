@@ -103,7 +103,7 @@ jobs:
       - name: Docker Login
         uses: docker/login-action@v3.0.0
         with:
-          registry: ${{ secrets.SCW_REGISTRY_FRONT }}
+          registry: ${{ secrets.SCW_REGISTRY }}
           username: ${{ secrets.SCW_REG_USER }}
           password: ${{ secrets.SCW_SECRET_KEY }}
       - name: Build and push Docker images
@@ -111,7 +111,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ${{ secrets.SCW_CONTAINER }}
+          tags: ${{ secrets.SCW_CONTAINER_FRONT }}
           build-args: |
             REACT_APP_API_URL=${{ secrets.API_URL }}
             REACT_APP_API_PORT=${{ secrets.API_PORT }}
