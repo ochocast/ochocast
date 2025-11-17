@@ -90,6 +90,37 @@ jobs:
       - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.css -m 'text/css' ./static/css/ s3://demo.ochocast.fr/static/css/
       - run: s3cmd -c "./.s3cfg" put --recursive --exclude=* --include=*.js -m 'text/javascript' ./static/js/ s3://demo.ochocast.fr/static/js/
   
+  build-and-push-front:
+    name: build-and-push-front
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@v3.0.0
+      - name: Docker Login
+        uses: docker/login-action@v3.0.0
+        with:
+          registry: ${{ secrets.SCW_REGISTRY_FRONT }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@v5.0.0
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ secrets.SCW_CONTAINER }}
+          build-args: |
+            REACT_APP_API_URL=${{ secrets.API_URL }}
+            REACT_APP_API_PORT=${{ secrets.API_PORT }}
+            REACT_APP_AUTHORIZATION_ENDPOINT=${{ vars.AUTHORIZATION_ENDPOINT }}
+            REACT_APP_CLIENT_ID=${{ vars.CLIENT_ID }}
+            REACT_APP_REDIRECT_URI=${{ vars.REDIRECT_URI }}
+            REACT_APP_STREAM_URL=${{ vars.STREAM_URL }}
+            REACT_APP_SERVER_IP=${{ vars.WEBSOCKET_SERVER_IP }}
+
   build-and-push-back:
     name: build-and-push-back
     runs-on: ubuntu-latest
