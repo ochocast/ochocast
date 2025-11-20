@@ -56,24 +56,25 @@
   flex-direction: row;
   align-items: flex-start;
   gap: 1rem;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
   padding: 1rem;
 }
 
-.profileSide {
-  margin-top: 1.5rem;
-  margin-right: 1rem;
+.commentaryStandard .profileSide {
   display: flex;
   align-items: flex-start;
+  margin-top: 1.5rem;
 }
 
 .commentBox {
   flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 }
 
 .commentHeader {

@@ -126,39 +126,46 @@ const Commentary = (props: CommentaryProps) => {
             email={props.email}
             description=""
             image=""
-            state={ProfileDescriptionState.tiny}
+            state={ProfileDescriptionState.reply}
           />
         </div>
 
-        <div className={styles.commentBox}>
-          <div className={styles.commentHeader}>
-            <span className={styles.date}>{formattedDate}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className={styles.replyMeta}>
+            <strong className={styles.replyAuthor}>
+              {props.username || `${props.firstname} ${props.lastname}`}
+            </strong>
+            <span style={{ margin: '0 0.5em' }} />
+            <span className={styles.replyDate}>{formattedDate}</span>
           </div>
-          <p className={styles.text}>{props.content}</p>
-          <div className={styles.commentActions}>
-            <div className={styles.actionsLeft}>
-              {props.onReplyClick && (
+
+          <div className={styles.commentBox}>
+            <p className={styles.text}>{props.content}</p>
+            <div className={styles.commentActions}>
+              <div className={styles.actionsLeft}>
+                {props.onReplyClick && (
+                  <button
+                    className={styles.replyButton}
+                    onClick={props.onReplyClick}
+                  >
+                    {t('openDiscussion')}
+                  </button>
+                )}
+              </div>
+              <div className={styles.likeSection}>
+                <span className={styles.likeCount}>{likeCount}</span>
                 <button
-                  className={styles.replyButton}
-                  onClick={props.onReplyClick}
+                  className={styles.likeButton}
+                  onClick={handleLikeClick}
+                  disabled={isLoading}
                 >
-                  {t('openDiscussion')}
+                  <div
+                    className={`${styles.heartWrapper} ${isLiked ? styles.liked : ''}`}
+                  >
+                    <HeartIcon className={styles.heartIcon} />
+                  </div>
                 </button>
-              )}
-            </div>
-            <div className={styles.likeSection}>
-              <span className={styles.likeCount}>{likeCount}</span>
-              <button
-                className={styles.likeButton}
-                onClick={handleLikeClick}
-                disabled={isLoading}
-              >
-                <div
-                  className={`${styles.heartWrapper} ${isLiked ? styles.liked : ''}`}
-                >
-                  <HeartIcon className={styles.heartIcon} />
-                </div>
-              </button>
+              </div>
             </div>
           </div>
         </div>
