@@ -135,7 +135,7 @@ jobs:
           # This will override prefix of your dns. if it's not set thane name of the containers ( max 34 char actually) will be set
           #scw_dns_prefix: # optional
           # This will add ALIAS on your root zone. Actually CNAME is used for all `¨scw_dns_prefix.scw_dns` of your dns
-          #root_zone: # optional, default is false
+          root_zone: true
           # List of environnment variables in the form of KEY=VALUE, separated by commas
           scw_environment_variables: REACT_APP_API_URL=${{secrets.API_URL}},REACT_APP_API_PORT=${{secrets.API_PORT}},REACT_APP_AUTHORIZATION_ENDPOINT=${{vars.AUTHORIZATION_ENDPOINT}},REACT_APP_CLIENT_ID=${{vars.CLIENT_ID}},REACT_APP_REDIRECT_URI=${{vars.REDIRECT_URI}},REACT_APP_STREAM_URL=${{vars.STREAM_URL}},REACT_APP_SERVER_IP=${{vars.WEBSOCKET_SERVER_IP}}
           # List of secrets in the form of KEY=VALUE, separated by commas. The value can't contains commas nor equal signs
