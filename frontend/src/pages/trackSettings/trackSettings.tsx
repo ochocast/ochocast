@@ -75,6 +75,7 @@ const TrackSettings: FC = () => {
       const response = await fetch(
         'https://sfu.demo.ochocast.fr/room/create',
         // 'http://localhost:8090/room/create',
+        // 'http://localhost:8079/room/create',
         {
           method: 'POST',
           headers: {
@@ -92,6 +93,8 @@ const TrackSettings: FC = () => {
 
       const data = await response.json();
       const whipUrl = `https://sfu.demo.ochocast.fr/whip?room_id=${data.room_id}&key=${data.key}`;
+      // const whipUrl = `http://localhost:8090/whip?room_id=${data.room_id}&key=${data.key}`;
+      // const whipUrl = `http://localhost:8079/whip?room_id=${data.room_id}&key=${data.key}`;
       setSfuUrl(whipUrl);
     } catch (error) {
       console.error('Error creating SFU room:', error);

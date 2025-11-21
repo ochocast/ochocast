@@ -33,7 +33,7 @@
 .liveContent {
   display: flex;
   gap: 20px;
-  height: 600px;
+  height: calc(100vh - 250px);
   max-height: calc(100vh - 200px);
 }
 
@@ -67,24 +67,201 @@
 }
 
 .playerWrapper {
-  width: 100%;
-  margin: 0 auto;
-  justify-content: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.videoContainer {
+  position: relative;
+  width: 100%;
+  max-width: 1120px;
+  aspect-ratio: 16 / 9;
+  background-color: var(--theme-color-black);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.videoPlayer {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background-color: var(--theme-color-black);
+}
+
+.statusOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.statusContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--theme-color-white);
+  text-align: center;
+}
+
+.statusContent p {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.statusSubtext {
+  font-size: 14px !important;
+  opacity: 0.8;
+  font-weight: 400 !important;
+}
+
+.spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--theme-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.offlineIcon {
+  font-size: 48px;
+  opacity: 0.8;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.customControls {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 20;
+}
+
+.volumeControl {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 110px;
+}
+
+.volumeSlider {
+  position: absolute;
+  right: 52px;
+  width: 100px;
+  height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  padding: 12px 8px;
+  backdrop-filter: blur(4px);
+}
+
+.volumeSlider::-webkit-slider-runnable-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--theme-color, #0056d2);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s;
+  margin-top: -4.5px;
+}
+
+.volumeSlider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.volumeSlider::-moz-range-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.volumeSlider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--theme-color, #0056d2);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.volumeSlider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+.controlButton {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--theme-color-white);
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, transform 0.1s;
+  backdrop-filter: blur(4px);
+}
+
+.controlButton:hover {
+  background-color: rgba(0, 0, 0, 0.85);
+  transform: scale(1.05);
+}
+
+.controlButton:active {
+  transform: scale(0.95);
 }
 
 .trackInfo {
   width: 100%;
-  justify-content: center;
+  max-width: 1120px;
+  display: flex;
+  justify-content: flex-start;
   align-items: center;
+  margin-top: 20px;
 }
 
 .description {
   margin: 0 auto;
-  border-radius: 20px;
+  border-radius: 12px;
   max-width: 80%;
-  border: 1px solid var(--primary-primary-01-db, --theme-color-800);
-  background: var(--None-01_W, --theme-color-white);
+  border: 1px solid var(--theme-color, #0056d2);
+  background: var(--theme-color-white);
   height: 7vh;
   align-items: center;
   padding-left: 2%;

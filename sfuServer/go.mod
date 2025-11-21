@@ -2,12 +2,14 @@ module whip-server
 
 go 1.21
 
-require github.com/pion/webrtc/v3 v3.2.39
+require (
+	github.com/joho/godotenv v1.5.1
+	github.com/pion/webrtc/v3 v3.2.39
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/uuid v1.3.1 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.2.7 // indirect
 	github.com/pion/ice/v2 v2.3.15 // indirect

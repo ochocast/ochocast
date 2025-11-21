@@ -1,15 +1,19 @@
 .waitingScreen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 42vh;
   text-align: center;
   animation: fadeIn 1s ease-in-out;
   background-color: var(--theme-color-300);
-  border: 1px solid var(--theme-color-black);
   border-radius: 8px;
   padding: 1rem;
+  z-index: 10;
 }
 
 .waitingIllustration {

@@ -28,30 +28,123 @@ const LiveTrack = () => {
   const navigate = useNavigate();
   const [track, setTrack] = useState<Track>();
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [isConnecting, setIsConnecting] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [volume, setVolume] = useState(100);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const { user } = useUser();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const noStreamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const hasReceivedTrackRef = useRef(false);
+  const streamActiveRef = useRef(false);
+  const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Hardcoded WHIP server URL for MVP
   const WHIP_SERVER_URL =
     'https://sfu.demo.ochocast.fr/viewer?room_id=' + trackId;
+  // 'http://localhost:8090/viewer?room_id=' + trackId;
+  // 'http://localhost:8079/viewer?room_id=' + trackId;
+
+  const STREAM_STATUS_URL =
+    'https://sfu.demo.ochocast.fr/stream-status?room_id=' + trackId;
+  // 'http://localhost:8090/stream-status?room_id=' + trackId;
+  // 'http://localhost:8079/stream-status?room_id=' + trackId;
+
+  const checkStreamStatus = useCallback(async () => {
+    if (!trackId) {
+      console.log('No trackId available for status check');
+      return false;
+    }
+    try {
+      const url = STREAM_STATUS_URL;
+      console.log('Checking stream status at:', url);
+      const response = await fetch(url);
+      if (!response.ok) {
+        console.error('Failed to check stream status:', response.statusText);
+        return false;
+      }
+      const data = await response.json();
+      console.log('Stream status response:', data);
+      return data.active === true;
+    } catch (error) {
+      console.error('Error checking stream status:', error);
+      return false;
+    }
+  }, [trackId, STREAM_STATUS_URL]);
+
+  const disconnectFromStream = useCallback(() => {
+    console.log('Disconnecting from stream...');
+
+    // Clear all timeouts
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (noStreamTimeoutRef.current) {
+      clearTimeout(noStreamTimeoutRef.current);
+      noStreamTimeoutRef.current = null;
+    }
+
+    // Close peer connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+
+    // Reset state
+    setIsPlaying(false);
+    setIsConnecting(false);
+    hasReceivedTrackRef.current = false;
+
+    console.log('Disconnected from stream');
+  }, []);
 
   const connection_to_stream = useCallback(() => {
-    let peerConnection: RTCPeerConnection | null = null;
+    // Clear any existing reconnection timers
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (noStreamTimeoutRef.current) {
+      clearTimeout(noStreamTimeoutRef.current);
+      noStreamTimeoutRef.current = null;
+    }
+
+    // Close existing connection if any
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
 
     const startStream = async () => {
       try {
         setIsPlaying(false);
+        hasReceivedTrackRef.current = false;
         setIsConnecting(true);
         setError(null);
 
         // Create RTCPeerConnection
-        peerConnection = new RTCPeerConnection({
+        const peerConnection = new RTCPeerConnection({
           iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         });
+        peerConnectionRef.current = peerConnection;
 
         console.log('PeerConnection created:', peerConnection);
+
+        // Set a timeout to check if we receive any tracks within 10 seconds
+        noStreamTimeoutRef.current = setTimeout(() => {
+          if (
+            !hasReceivedTrackRef.current &&
+            peerConnectionRef.current === peerConnection
+          ) {
+            console.log('No stream received within timeout');
+            setError('No stream available');
+            setIsConnecting(false);
+          }
+        }, 10000);
 
         // Handle ICE connection state changes
         peerConnection.oniceconnectionstatechange = () => {
@@ -80,9 +173,21 @@ const LiveTrack = () => {
             if (peerConnection.connectionState === 'connected') {
               setIsConnecting(false);
               console.log('WebRTC connection fully established');
-            } else if (peerConnection.connectionState === 'failed') {
-              setError('Connection failed');
+            } else if (
+              peerConnection.connectionState === 'failed' ||
+              peerConnection.connectionState === 'disconnected' ||
+              peerConnection.connectionState === 'closed'
+            ) {
+              console.log('Connection lost');
+              setError('Connection lost');
               setIsConnecting(false);
+              setIsPlaying(false);
+
+              // Clear the no-stream timeout as we're handling disconnection
+              if (noStreamTimeoutRef.current) {
+                clearTimeout(noStreamTimeoutRef.current);
+                noStreamTimeoutRef.current = null;
+              }
             }
           }
         };
@@ -111,6 +216,15 @@ const LiveTrack = () => {
           console.log('Track state:', event.track.readyState);
           console.log('Event streams:', event.streams);
 
+          // Mark that we received a track
+          hasReceivedTrackRef.current = true;
+
+          // Clear the no-stream timeout since we received a track
+          if (noStreamTimeoutRef.current) {
+            clearTimeout(noStreamTimeoutRef.current);
+            noStreamTimeoutRef.current = null;
+          }
+
           const video = videoRef.current;
           if (!video) {
             console.error('Video element not found in ref');
@@ -122,6 +236,7 @@ const LiveTrack = () => {
             console.log('Using stream from event:', event.streams[0].id);
             video.srcObject = event.streams[0];
             setIsPlaying(true);
+            setError(null);
           } else {
             console.log('Creating MediaStream manually');
             // Fallback to creating MediaStream manually
@@ -130,6 +245,7 @@ const LiveTrack = () => {
             }
             (video.srcObject as MediaStream).addTrack(event.track);
             setIsPlaying(true);
+            setError(null);
           }
 
           const srcObject = video.srcObject as MediaStream;
@@ -225,13 +341,7 @@ const LiveTrack = () => {
 
     startStream();
 
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up peer connection');
-      if (peerConnection) {
-        peerConnection.close();
-      }
-    };
+    // Note: Cleanup is now handled by disconnectFromStream
   }, [WHIP_SERVER_URL]);
 
   if (track?.closed) {
@@ -239,8 +349,6 @@ const LiveTrack = () => {
   }
 
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
-
     const fetchTrackData = async () => {
       const track = await fetchTrack(trackId);
       if (!track) {
@@ -248,18 +356,60 @@ const LiveTrack = () => {
         return;
       }
       setTrack(track);
-      cleanup = connection_to_stream();
     };
 
     fetchTrackData();
+  }, [trackId]);
+
+  // Stream status polling effect
+  useEffect(() => {
+    if (!trackId) {
+      console.log('No trackId, skipping stream status polling setup');
+      return;
+    }
+
+    console.log('Setting up stream status polling for trackId:', trackId);
+
+    const pollStreamStatus = async () => {
+      const isActive = await checkStreamStatus();
+      console.log(
+        `Stream status check: ${isActive}, current streamActive: ${streamActiveRef.current}`,
+      );
+
+      if (isActive && !streamActiveRef.current) {
+        // Stream became active, connect
+        console.log('Stream became active, connecting...');
+        streamActiveRef.current = true;
+        connection_to_stream();
+      } else if (!isActive && streamActiveRef.current) {
+        // Stream became inactive, disconnect
+        console.log('Stream became inactive, disconnecting...');
+        streamActiveRef.current = false;
+        disconnectFromStream();
+      }
+    };
+
+    // Initial check
+    pollStreamStatus();
+
+    // Set up polling every 15 seconds
+    statusCheckIntervalRef.current = setInterval(pollStreamStatus, 10000);
 
     // Cleanup when component unmounts or trackId changes
     return () => {
-      if (cleanup) {
-        cleanup();
+      console.log('Cleaning up stream status polling');
+      if (statusCheckIntervalRef.current) {
+        clearInterval(statusCheckIntervalRef.current);
+        statusCheckIntervalRef.current = null;
+      }
+      // Only disconnect if we were connected
+      if (streamActiveRef.current) {
+        disconnectFromStream();
+        streamActiveRef.current = false;
       }
     };
-  }, [connection_to_stream, trackId, WHIP_SERVER_URL]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackId]);
 
   const handleVideoClick = () => {
     if (videoRef.current) {
@@ -281,40 +431,101 @@ const LiveTrack = () => {
           </div>
           <div className={styles.liveContent}>
             <div className={styles.playerWrapper}>
-              {isConnecting && !error && !isPlaying && (
-                <div className={styles.waitingScreen || 'waiting-screen'}>
-                  <p>Connecting to live stream...</p>
-                </div>
-              )}
+              <div className={styles.videoContainer}>
+                {/* Status overlay */}
+                {isConnecting && !isPlaying && (
+                  <div className={styles.statusOverlay}>
+                    <div className={styles.statusContent}>
+                      <div className={styles.spinner}></div>
+                      <p>Connecting to live stream...</p>
+                    </div>
+                  </div>
+                )}
 
-              {error && (
-                <div className={styles.errorScreen || 'error-screen'}>
-                  <p>Error: {error}</p>
-                  <button onClick={connection_to_stream}>
-                    Retry Connection
+                {!isConnecting && !isPlaying && <WaitingScreen />}
+
+                {/* Video element - always visible */}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted={isMuted}
+                  onClick={handleVideoClick}
+                  className={styles.videoPlayer}
+                />
+
+                {/* Custom controls */}
+                <div className={styles.customControls}>
+                  <div
+                    className={styles.volumeControl}
+                    onMouseEnter={() => setShowVolumeSlider(true)}
+                    onMouseLeave={() => setShowVolumeSlider(false)}
+                  >
+                    {showVolumeSlider && (
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={volume}
+                        onChange={(e) => {
+                          const newVolume = Number(e.target.value);
+                          setVolume(newVolume);
+                          if (videoRef.current) {
+                            videoRef.current.volume = newVolume / 100;
+                            setIsMuted(newVolume === 0);
+                            videoRef.current.muted = newVolume === 0;
+                          }
+                        }}
+                        className={styles.volumeSlider}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    )}
+                    <button
+                      className={styles.controlButton}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (videoRef.current) {
+                          const newMutedState = !isMuted;
+                          videoRef.current.muted = newMutedState;
+                          setIsMuted(newMutedState);
+                          if (!newMutedState && volume === 0) {
+                            setVolume(50);
+                            videoRef.current.volume = 0.5;
+                          }
+                        }
+                      }}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      {isMuted || volume === 0
+                        ? '🔇'
+                        : volume < 50
+                          ? '🔉'
+                          : '🔊'}
+                    </button>
+                  </div>
+                  <button
+                    className={styles.controlButton}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (videoRef.current) {
+                        if (document.fullscreenElement) {
+                          document.exitFullscreen();
+                        } else {
+                          videoRef.current.parentElement?.requestFullscreen();
+                        }
+                      }
+                    }}
+                    title="Toggle fullscreen"
+                  >
+                    ⛶
                   </button>
                 </div>
-              )}
-
-              {/* Video element must always be in DOM for videoRef to work when ontrack fires */}
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                controls
-                muted
-                onClick={handleVideoClick}
-                style={{
-                  width: '100%',
-                  maxWidth: '800px',
-                  height: 'auto',
-                  backgroundColor: '#000',
-                  border: '1px solid #ccc',
-                  display: isPlaying ? 'block' : 'none',
-                }}
-              />
-
-              {!isPlaying && !isConnecting && !error && <WaitingScreen />}
+              </div>
+              <div className={styles.trackInfo}>
+                <div className={styles.trackTitle}>
+                  <h2>{track.name}</h2>
+                </div>
+              </div>
             </div>
             <div className={styles.chatWrapper}>
               {user && trackId && (
@@ -324,11 +535,6 @@ const LiveTrack = () => {
                   username={`${user.firstName} ${user.lastName}`}
                 />
               )}
-            </div>
-          </div>
-          <div className={styles.trackInfo}>
-            <div className={styles.trackTitle}>
-              <h2>{track.name}</h2>
             </div>
           </div>
         </>

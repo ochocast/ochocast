@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"time"
 
 	"github.com/pion/webrtc/v3"
 )
@@ -59,14 +61,20 @@ func handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]string{
+	// Propager la création de la room à tous les SFU pairs si c'est une nouvelle room
+	if !alreadyExists {
+		go sfuServer.PropagateRoomCreation(requestBody.RoomID, key)
+	}
+
+	// Ne pas forcer l'origin ici, il sera déterminé quand le host se connecte
+	response := map[string]interface{}{
 		"room_id": requestBody.RoomID,
 		"key":     key,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-	
+
 	if alreadyExists {
 		log.Printf("[ROOM] Room already exists, returned existing: %s", requestBody.RoomID)
 	} else {
@@ -109,6 +117,36 @@ func handleGetRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 	log.Printf("[ROOM] Room retrieved: %s", roomID)
+}
+
+// handleStreamStatus handles the stream status check endpoint
+func handleStreamStatus(w http.ResponseWriter, r *http.Request) {
+	setCORSHeaders(w, "GET, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	isActive := sfuServer.IsStreamActive(roomID)
+
+	response := map[string]bool{
+		"active": isActive,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	log.Printf("[STREAM-STATUS] Room %s status: %v", roomID, isActive)
 }
 
 // handleDeleteRoom handles the room deletion endpoint
@@ -191,6 +229,36 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ⭐ Ce serveur devient l'origin pour cette room (first come, first served)
+	currentURL := os.Getenv("SERVER_URL")
+	if currentURL == "" {
+		// Construire l'URL à partir du port si SERVER_URL n'est pas défini
+		serverPort := os.Getenv("SERVER_PORT")
+		if serverPort == "" {
+			serverPort = "8090"
+		}
+		currentURL = fmt.Sprintf("http://localhost:%s", serverPort)
+	}
+
+	becameOrigin := false
+	room.mu.Lock()
+	if room.OriginURL == "" {
+		// Premier broadcaster pour cette room, ce serveur devient l'origin
+		room.OriginURL = currentURL
+		room.IsOrigin = true
+		becameOrigin = true
+		log.Printf("[WHIP] This server is now ORIGIN for room %s", roomID)
+	} else if room.OriginURL != currentURL {
+		// Un autre serveur est déjà l'origin
+		room.mu.Unlock()
+		log.Printf("[WHIP] Room %s already has origin at %s, rejecting", roomID, room.OriginURL)
+		http.Error(w, fmt.Sprintf("Room already broadcasting from %s", room.OriginURL), http.StatusConflict)
+		return
+	}
+	room.mu.Unlock()
+
+	// Note: On notifiera les peers APRÈS que le stream soit actif (voir OnTrack)
+
 	offerSDP, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("[WHIP] Failed to read request body: %v", err)
@@ -218,17 +286,60 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf("[WHIP][ROOM-%s] Received track: %s, codec: %s, ID: %s, StreamID: %s",
 			roomID, track.Kind(), track.Codec().MimeType, track.ID(), track.StreamID())
-		
+
 		// Add track to room for broadcasting
 		room.AddTrack(track)
+
+		// Mark stream as active when first track is received
+		room.mu.Lock()
+		wasInactive := !room.StreamActive
+		if wasInactive {
+			room.StreamActive = true
+			log.Printf("[WHIP][ROOM-%s] Stream marked as ACTIVE", roomID)
+		}
+		isOrigin := room.IsOrigin
+		room.mu.Unlock()
+
+		// Notifier les peers après un délai pour permettre à toutes les tracks d'arriver
+		// (audio et vidéo arrivent généralement ensemble mais avec un léger décalage)
+		if wasInactive && isOrigin && becameOrigin {
+			log.Printf("[WHIP][ROOM-%s] First track received, waiting for other tracks before notifying peers...", roomID)
+			go func() {
+				time.Sleep(500 * time.Millisecond) // Attendre que toutes les tracks arrivent
+				room.mu.RLock()
+				broadcasterCount := len(room.Broadcasters)
+				room.mu.RUnlock()
+				log.Printf("[WHIP][ROOM-%s] Stream ready with %d track(s), notifying peers to subscribe", roomID, broadcasterCount)
+				sfuServer.NotifyPeersToSubscribe(roomID)
+			}()
+		}
 	})
+
+	// Track cleanup state to prevent multiple cleanup calls
+	removed := false
+	cleanupHost := func(reason string) {
+		if removed {
+			return
+		}
+		removed = true
+		log.Printf("[WHIP][ROOM-%s] Host cleanup due to %s", roomID, reason)
+		room.CleanupHost()
+	}
 
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
 		log.Printf("[WHIP][ROOM-%s] Connection state changed: %s", roomID, s.String())
+		switch s {
+		case webrtc.PeerConnectionStateDisconnected, webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed:
+			cleanupHost("PC state=" + s.String())
+		}
 	})
 
 	peerConnection.OnICEConnectionStateChange(func(s webrtc.ICEConnectionState) {
 		log.Printf("[WHIP][ROOM-%s] ICE connection state changed: %s", roomID, s.String())
+		switch s {
+		case webrtc.ICEConnectionStateDisconnected, webrtc.ICEConnectionStateFailed, webrtc.ICEConnectionStateClosed:
+			cleanupHost("ICE state=" + s.String())
+		}
 	})
 
 	offer := webrtc.SessionDescription{
@@ -276,6 +387,388 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[WHIP][ROOM-%s] Response sent successfully", roomID)
 }
 
+// handleCascadeSubscribe handles edge SFU subscribing to origin SFU
+func handleCascadeSubscribe(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CASCADE-SUB] New cascade subscription from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Verify this is an origin or hybrid SFU
+	if sfuServer.mode != "origin" && sfuServer.mode != "hybrid" {
+		log.Printf("[CASCADE-SUB] Rejected: this SFU is in mode %s, not origin/hybrid", sfuServer.mode)
+		http.Error(w, "This SFU is not an origin server", http.StatusForbidden)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get cascade authentication key
+	cascadeKey := r.URL.Query().Get("cascade_key")
+	expectedKey := getEnv("CASCADE_AUTH_KEY", "")
+	if expectedKey != "" && cascadeKey != expectedKey {
+		http.Error(w, "Invalid cascade key", http.StatusUnauthorized)
+		return
+	}
+
+	room, err := sfuServer.GetRoom(roomID)
+	if err != nil {
+		log.Printf("[CASCADE-SUB] Room %s not found", roomID)
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	// Vérifier que ce serveur est bien l'origin pour cette room
+	room.mu.RLock()
+	isOrigin := room.IsOrigin
+	streamActive := room.StreamActive
+	broadcasterCount := len(room.Broadcasters)
+	room.mu.RUnlock()
+
+	if !isOrigin {
+		log.Printf("[CASCADE-SUB] Rejected: this SFU is not origin for room %s", roomID)
+		http.Error(w, "This SFU is not origin for this room", http.StatusForbidden)
+		return
+	}
+
+	if !streamActive || broadcasterCount == 0 {
+		log.Printf("[CASCADE-SUB] Rejected: stream not ready for room %s (active=%v, broadcasters=%d)", roomID, streamActive, broadcasterCount)
+		http.Error(w, "Stream not ready yet", http.StatusServiceUnavailable)
+		return
+	}
+
+	log.Printf("[CASCADE-SUB] Accepting cascade subscription for room %s (broadcasters: %d)", roomID, broadcasterCount)
+
+	offerSDP, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
+		return
+	}
+
+	// Register as downstream connection
+	if err := sfuServer.RegisterDownstream(roomID, peerConnection); err != nil {
+		log.Printf("[CASCADE-SUB] Failed to register downstream: %v", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Treat downstream SFU like a viewer - add tracks
+	cascadeID := fmt.Sprintf("cascade-%s", generateID())
+	log.Printf("[CASCADE-SUB] Adding cascade viewer %s to room %s", cascadeID, roomID)
+	if err := room.AddViewer(cascadeID, peerConnection); err != nil {
+		log.Printf("[CASCADE-SUB] Failed to add viewer: %v", err)
+		http.Error(w, "Failed to attach to broadcasts", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("[CASCADE-SUB] Cascade viewer %s added successfully", cascadeID)
+
+	offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(offerSDP)}
+	if err := peerConnection.SetRemoteDescription(offer); err != nil {
+		log.Printf("[CASCADE-SUB] Failed to set remote description: %v", err)
+		http.Error(w, "Failed to set remote description", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("[CASCADE-SUB] Remote description set, creating answer...")
+
+	answer, err := peerConnection.CreateAnswer(nil)
+	if err != nil {
+		log.Printf("[CASCADE-SUB] Failed to create answer: %v", err)
+		http.Error(w, "Failed to create answer", http.StatusInternalServerError)
+		return
+	}
+
+	if err = peerConnection.SetLocalDescription(answer); err != nil {
+		http.Error(w, "Failed to set local description", http.StatusInternalServerError)
+		return
+	}
+
+	<-webrtc.GatheringCompletePromise(peerConnection)
+
+	answerSDP := peerConnection.LocalDescription().SDP
+	w.Header().Set("Content-Type", "application/sdp")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(answerSDP))
+
+	log.Printf("[CASCADE-SUB] Downstream SFU connected for room %s", roomID)
+}
+
+// handleCascadePublish handles edge SFU receiving stream from origin
+func handleCascadePublish(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CASCADE-PUB] New cascade publish from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Verify this is an edge SFU
+	if sfuServer.mode != "edge" {
+		http.Error(w, "This SFU is not an edge server", http.StatusForbidden)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Create or get room on edge SFU
+	key := generateKey()
+	room := NewRoom(roomID, key)
+
+	sfuServer.mu.Lock()
+	sfuServer.rooms[roomID] = room
+	sfuServer.mu.Unlock()
+
+	offerSDP, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
+		return
+	}
+
+	room.mu.Lock()
+	room.Host = peerConnection
+	room.mu.Unlock()
+
+	// Handle incoming tracks from upstream origin
+	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		log.Printf("[CASCADE-PUB] Received cascaded track: %s from origin", track.ID())
+		room.AddTrack(track)
+
+		room.mu.Lock()
+		if !room.StreamActive {
+			room.StreamActive = true
+			log.Printf("[CASCADE-PUB] Edge stream active for room %s", roomID)
+		}
+		room.mu.Unlock()
+	})
+
+	offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(offerSDP)}
+	if err := peerConnection.SetRemoteDescription(offer); err != nil {
+		http.Error(w, "Failed to set remote description", http.StatusInternalServerError)
+		return
+	}
+
+	answer, err := peerConnection.CreateAnswer(nil)
+	if err != nil {
+		http.Error(w, "Failed to create answer", http.StatusInternalServerError)
+		return
+	}
+
+	if err = peerConnection.SetLocalDescription(answer); err != nil {
+		http.Error(w, "Failed to set local description", http.StatusInternalServerError)
+		return
+	}
+
+	<-webrtc.GatheringCompletePromise(peerConnection)
+
+	answerSDP := peerConnection.LocalDescription().SDP
+	w.Header().Set("Content-Type", "application/sdp")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(answerSDP))
+
+	log.Printf("[CASCADE-PUB] Edge SFU connected to origin for room %s", roomID)
+}
+
+// handlePromoteViewer promotes a viewer to publisher (speaker)
+func handlePromoteViewer(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[PROMOTE] Promote viewer request from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	key := r.URL.Query().Get("key")
+	viewerID := r.URL.Query().Get("viewer_id")
+
+	if roomID == "" || key == "" || viewerID == "" {
+		http.Error(w, "room_id, key, and viewer_id are required", http.StatusBadRequest)
+		return
+	}
+
+	room, err := sfuServer.GetRoom(roomID)
+	if err != nil {
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	// Verify the key (only host can promote)
+	if room.Key != key {
+		http.Error(w, "Invalid key", http.StatusUnauthorized)
+		return
+	}
+
+	// Read SDP offer from the viewer who wants to publish
+	offerSDP, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Create new peer connection for the promoted viewer
+	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	if err != nil {
+		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
+		return
+	}
+
+	publisherID := fmt.Sprintf("speaker-%s", viewerID)
+
+	// Add this viewer as a publisher
+	room.mu.Lock()
+	room.Publishers[publisherID] = peerConnection
+	room.mu.Unlock()
+
+	log.Printf("[PROMOTE][ROOM-%s] Added publisher %s", roomID, publisherID)
+
+	// Handle incoming tracks from the promoted viewer
+	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		log.Printf("[PROMOTE][ROOM-%s] Received track from speaker %s: %s (kind: %s)",
+			roomID, publisherID, track.ID(), track.Kind())
+		room.AddTrack(track)
+	})
+
+	// Set up disconnect handlers
+	peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		log.Printf("[PROMOTE][ROOM-%s] Publisher %s ICE connection state: %s", roomID, publisherID, state)
+		if state == webrtc.ICEConnectionStateFailed ||
+			state == webrtc.ICEConnectionStateDisconnected ||
+			state == webrtc.ICEConnectionStateClosed {
+			log.Printf("[PROMOTE][ROOM-%s] Publisher %s disconnected, removing", roomID, publisherID)
+			room.RemovePublisher(publisherID)
+		}
+	})
+
+	peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		log.Printf("[PROMOTE][ROOM-%s] Publisher %s connection state: %s", roomID, publisherID, state)
+		if state == webrtc.PeerConnectionStateFailed ||
+			state == webrtc.PeerConnectionStateDisconnected ||
+			state == webrtc.PeerConnectionStateClosed {
+			log.Printf("[PROMOTE][ROOM-%s] Publisher %s connection closed, removing", roomID, publisherID)
+			room.RemovePublisher(publisherID)
+		}
+	})
+
+	offer := webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: string(offerSDP)}
+	if err := peerConnection.SetRemoteDescription(offer); err != nil {
+		http.Error(w, "Failed to set remote description", http.StatusInternalServerError)
+		return
+	}
+
+	answer, err := peerConnection.CreateAnswer(nil)
+	if err != nil {
+		http.Error(w, "Failed to create answer", http.StatusInternalServerError)
+		return
+	}
+
+	if err = peerConnection.SetLocalDescription(answer); err != nil {
+		http.Error(w, "Failed to set local description", http.StatusInternalServerError)
+		return
+	}
+
+	<-webrtc.GatheringCompletePromise(peerConnection)
+
+	answerSDP := peerConnection.LocalDescription().SDP
+	w.Header().Set("Content-Type", "application/sdp")
+	w.Header().Set("Location", fmt.Sprintf("/publisher/%s", publisherID))
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(answerSDP))
+
+	log.Printf("[PROMOTE][ROOM-%s] Viewer %s promoted to speaker %s", roomID, viewerID, publisherID)
+}
+
+// handleDemotePublisher demotes a speaker back to viewer
+func handleDemotePublisher(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[DEMOTE] Demote publisher request from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	key := r.URL.Query().Get("key")
+	publisherID := r.URL.Query().Get("publisher_id")
+
+	if roomID == "" || key == "" || publisherID == "" {
+		http.Error(w, "room_id, key, and publisher_id are required", http.StatusBadRequest)
+		return
+	}
+
+	room, err := sfuServer.GetRoom(roomID)
+	if err != nil {
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	// Verify the key (only host can demote)
+	if room.Key != key {
+		http.Error(w, "Invalid key", http.StatusUnauthorized)
+		return
+	}
+
+	room.RemovePublisher(publisherID)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":       "demoted",
+		"publisher_id": publisherID,
+	})
+
+	log.Printf("[DEMOTE][ROOM-%s] Publisher %s demoted", roomID, publisherID)
+}
+
 // handleViewer handles the viewer connection endpoint
 func handleViewer(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[VIEWER] New viewer connected from %s", r.RemoteAddr)
@@ -302,9 +795,52 @@ func handleViewer(w http.ResponseWriter, r *http.Request) {
 	// Get the room
 	room, err := sfuServer.GetRoom(roomID)
 	if err != nil {
-		log.Printf("[VIEWER] Room not found: %s", roomID)
-		http.Error(w, "Room not found", http.StatusNotFound)
-		return
+		log.Printf("[VIEWER] Room not found locally: %s", roomID)
+
+		// En mode hybride, on vérifie si cette room existe ailleurs
+		if sfuServer.mode == "hybrid" {
+			originURL, found := sfuServer.DetermineOriginForRoom(roomID)
+			if !found {
+				log.Printf("[VIEWER] Cannot determine origin for room %s", roomID)
+				http.Error(w, "Room not found", http.StatusNotFound)
+				return
+			}
+
+			currentURL := os.Getenv("SERVER_URL")
+			if currentURL == "" {
+				// Construire l'URL à partir du port si non défini
+				serverPort := os.Getenv("SERVER_PORT")
+				if serverPort == "" {
+					serverPort = "8090"
+				}
+				currentURL = fmt.Sprintf("http://localhost:%s", serverPort)
+			}
+
+			// Si la room devrait être sur un autre serveur, on se connecte comme edge
+			if originURL != currentURL {
+				log.Printf("[VIEWER] Connecting to upstream origin %s for room %s (current: %s)", originURL, roomID, currentURL)
+				connErr := sfuServer.ConnectToUpstreamForRoom(roomID, originURL)
+				if connErr != nil {
+					log.Printf("[VIEWER] Failed to connect to upstream: %v", connErr)
+					http.Error(w, "Room not found and cannot connect to origin", http.StatusNotFound)
+					return
+				}
+				// Récupérer la room maintenant qu'elle a été créée en edge
+				room, err = sfuServer.GetRoom(roomID)
+				if err != nil {
+					log.Printf("[VIEWER] Failed to get room after upstream connection: %v", err)
+					http.Error(w, "Room setup failed", http.StatusInternalServerError)
+					return
+				}
+			} else {
+				// La room devrait être ici mais n'existe pas
+				http.Error(w, "Room not found", http.StatusNotFound)
+				return
+			}
+		} else {
+			http.Error(w, "Room not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	offerSDP, err := io.ReadAll(r.Body)
@@ -358,4 +894,194 @@ func handleViewer(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(answerSDP))
 	log.Printf("[VIEWER][ROOM-%s] Sending SDP answer (%d bytes)", roomID, len(answerSDP))
 	log.Printf("[VIEWER][ROOM-%s] Response sent successfully", roomID)
+}
+
+// handleClusterRegister handles registration of peer SFU servers
+func handleClusterRegister(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CLUSTER] Register request from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestBody struct {
+		URL string `json:"url"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if requestBody.URL == "" {
+		http.Error(w, "url is required", http.StatusBadRequest)
+		return
+	}
+
+	// Register the peer SFU
+	sfuServer.RegisterPeerSFU(requestBody.URL)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     "registered",
+		"peer_url":   requestBody.URL,
+		"server_url": sfuServer.serverURL,
+	})
+
+	log.Printf("[CLUSTER] Peer SFU registered: %s", requestBody.URL)
+}
+
+// handleClusterPeers returns the list of peer SFU servers
+func handleClusterPeers(w http.ResponseWriter, r *http.Request) {
+	setCORSHeaders(w, "GET, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	peers := sfuServer.GetPeerSFUs()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"server_url": sfuServer.serverURL,
+		"mode":       sfuServer.mode,
+		"peers":      peers,
+		"peer_count": len(peers),
+	})
+}
+
+// handleSyncCreateRoom handles the synchronized room creation from peer SFUs
+func handleSyncCreateRoom(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[ROOM] Sync create room request from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestBody struct {
+		RoomID string `json:"room_id"`
+		Key    string `json:"key"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if requestBody.RoomID == "" || requestBody.Key == "" {
+		http.Error(w, "room_id and key are required in request body", http.StatusBadRequest)
+		return
+	}
+
+	// Create the room with the provided key
+	if err := sfuServer.CreateRoomWithKey(requestBody.RoomID, requestBody.Key); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "created",
+		"room_id": requestBody.RoomID,
+	})
+
+	log.Printf("[ROOM] Room synchronized: %s", requestBody.RoomID)
+}
+
+// handleCascadeRequestSubscribe handles the request from origin to subscribe to a room
+func handleCascadeRequestSubscribe(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CASCADE] Request subscribe from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var requestBody struct {
+		RoomID    string `json:"room_id"`
+		OriginURL string `json:"origin_url"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	if requestBody.RoomID == "" || requestBody.OriginURL == "" {
+		http.Error(w, "room_id and origin_url are required", http.StatusBadRequest)
+		return
+	}
+
+	// Vérifier si la room existe déjà localement
+	room, err := sfuServer.GetRoom(requestBody.RoomID)
+	if err == nil {
+		// Room existe déjà
+		room.mu.Lock()
+		if room.IsOrigin {
+			// Ce serveur est déjà l'origin, on ignore
+			room.mu.Unlock()
+			log.Printf("[CASCADE] Already origin for room %s, ignoring subscription request", requestBody.RoomID)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "already_origin"})
+			return
+		}
+		if room.OriginURL == requestBody.OriginURL {
+			// Déjà connecté à cet origin
+			room.mu.Unlock()
+			log.Printf("[CASCADE] Already subscribed to %s for room %s", requestBody.OriginURL, requestBody.RoomID)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"status": "already_subscribed"})
+			return
+		}
+		room.mu.Unlock()
+	}
+
+	// Se connecter à l'origin en cascade
+	go func() {
+		log.Printf("[CASCADE] Connecting to origin %s for room %s", requestBody.OriginURL, requestBody.RoomID)
+		if err := sfuServer.ConnectToUpstreamForRoom(requestBody.RoomID, requestBody.OriginURL); err != nil {
+			log.Printf("[CASCADE] Failed to connect to origin: %v", err)
+		} else {
+			log.Printf("[CASCADE] Successfully connected to origin %s for room %s", requestBody.OriginURL, requestBody.RoomID)
+		}
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":     "connecting",
+		"room_id":    requestBody.RoomID,
+		"origin_url": requestBody.OriginURL,
+	})
+
+	log.Printf("[CASCADE] Accepted subscription request for room %s from origin %s", requestBody.RoomID, requestBody.OriginURL)
 }
