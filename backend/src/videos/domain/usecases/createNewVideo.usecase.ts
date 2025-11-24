@@ -26,7 +26,7 @@ export class CreateNewVideoUsecase {
   async execute(
     videoToCreate: CreateVideoDto,
     file: Express.Multer.File,
-    miniatureFile: Express.Multer.File,
+    miniatureFile?: Express.Multer.File,
   ): Promise<VideoObject> {
     const baseName = path.parse(videoToCreate.media_id).name;
     const media_id = Date.now() + '.' + baseName + '.mp4';
@@ -69,28 +69,32 @@ export class CreateNewVideoUsecase {
     });
 
     const video_result = await upload.done();
+
+    const tempMiniaturePath = path.join(
+      tmpdir(),
+      `miniature${video.media_id}.jpg`,
+    );
+
     if (miniatureFile) {
-      const tempMiniaturePath = path.join(
-        tmpdir(),
-        `miniature${video.media_id}.jpg`,
-      );
       await sharp(miniatureFile.buffer)
         .resize(1280, 720)
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
-
-      const miniatureUpload = new Upload({
-        client: this.s3Client,
-        params: {
-          Bucket: process.env.STOCK_MINIATURE_BUCKET,
-          Key: video.miniature_id,
-          Body: await readFile(tempMiniaturePath),
-          ContentType: 'image/jpeg',
-        },
-      });
-      const miniature_result = await miniatureUpload.done();
-      await unlink(tempMiniaturePath).catch(() => {});
+    } else {
+      await generateThumbnailFromVideo(tempOutputPath, tempMiniaturePath);
     }
+
+    const miniatureUpload = new Upload({
+      client: this.s3Client,
+      params: {
+        Bucket: process.env.STOCK_MINIATURE_BUCKET,
+        Key: video.miniature_id,
+        Body: await readFile(tempMiniaturePath),
+        ContentType: 'image/jpeg',
+      },
+    });
+    const miniature_result = await miniatureUpload.done();
+    await unlink(tempMiniaturePath).catch(() => {});
 
     await unlink(tempInputPath).catch(() => {});
     await unlink(tempOutputPath).catch(() => {});
@@ -117,5 +121,26 @@ async function transcodeVideo(
         reject(err);
       });
     command.run();
+  });
+}
+
+async function generateThumbnailFromVideo(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .screenshots({
+        timestamps: ['0'],
+        filename: path.basename(outputPath),
+        folder: path.dirname(outputPath),
+        size: '1280x720',
+      })
+      .on('end', () => {
+        resolve();
+      })
+      .on('error', (err) => {
+        reject(err);
+      });
   });
 }

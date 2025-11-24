@@ -13,7 +13,7 @@ import {
   isVideoFavorite,
 } from '../../../../utils/api';
 import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg';
-const IMAGE_TUILE_EVENT = '/exemple/image_tuile_event.png';
+const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 
 export interface PreviewMinitureProps {
   Id: string;
@@ -79,7 +79,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           setMiniatureUrl(
             url?.data ||
               fallbackMiniatureUrl ||
-              '/exemple/image_tuile_event.png',
+              '/branding/exemple/image_tuile_event.png',
           );
         } catch (error) {
           console.error('Error fetching miniature URL', error);

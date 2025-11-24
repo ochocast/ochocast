@@ -47,7 +47,7 @@ import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/Loadi
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
-const IMAGE_TUILE_EVENT = '/exemple/image_tuile_event.png';
+const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 type BackendMsgKey = 'videonotallowdeleted' | 'videonotallowmodify';
 const isBackendMsgKey = (val: unknown): val is BackendMsgKey =>
   val === 'videonotallowdeleted' || val === 'videonotallowmodify';
@@ -86,10 +86,55 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   };
 
   const [media, setMedia] = useState<File>();
+  const [manualMiniatureSelected, setManualMiniatureSelected] = useState(false);
   const handleMediaChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files != null && e.target.files !== undefined) {
       const media_tmp = e.target.files[0];
-      if (media_tmp !== undefined) setMedia(media_tmp);
+      if (media_tmp !== undefined) {
+        setMedia(media_tmp);
+
+        if (manualMiniatureSelected) {
+          return;
+        }
+
+        const objectUrl = URL.createObjectURL(media_tmp);
+        const videoElement = document.createElement('video');
+        videoElement.src = objectUrl;
+        videoElement.muted = true;
+        videoElement.playsInline = true;
+
+        const captureThumbnail = () => {
+          const width = videoElement.videoWidth;
+          const height = videoElement.videoHeight;
+          if (!width || !height) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const context = canvas.getContext('2d');
+          if (context) {
+            context.drawImage(videoElement, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            setMiniatureUrl(dataUrl);
+          }
+          URL.revokeObjectURL(objectUrl);
+        };
+
+        videoElement.addEventListener('loadedmetadata', () => {
+          const targetTime = Math.min(0.1, videoElement.duration || 0.1);
+          videoElement.currentTime = targetTime;
+        });
+
+        videoElement.addEventListener('seeked', () => {
+          captureThumbnail();
+        });
+
+        // Lance le chargement
+        videoElement.load();
+      }
     }
   };
 
@@ -118,6 +163,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
       reader.readAsDataURL(miniature_tmp);
       if (miniature_tmp !== undefined) setMiniature(miniature_tmp);
+      setManualMiniatureSelected(true);
     }
   };
 
@@ -206,8 +252,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (list_by_title.length > 0) err += '- ' + t('titleAlreadyExists') + '\n';
     if (description.split('\n').some((line) => line.trim().startsWith('# ')))
       err += '- ' + t('h1Error') + '\n';
-    if (!miniature) err += '- ' + t('miniatureUnknown') + '\n';
-    else if (
+    if (
+      miniature &&
       !accepted_minature_formats.includes(
         miniature?.name.split('.').pop() as string,
       )
@@ -728,9 +774,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       </div>
       <div className="generalinfo">
         <Thumbnail
-          Id="1"
+          Id={videoId ?? 'preview'}
           title={title || t('Titre')}
-          imageSrc={miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT}
+          imageSrc={
+            miniatureUrl !== null
+              ? miniatureUrl
+              : videoId === undefined &&
+                  media === undefined &&
+                  miniatureUrl === null
+                ? IMAGE_TUILE_EVENT
+                : undefined
+          }
           createBy={auth.user?.profile.given_name || 'Non connecté'}
           views={0}
           createdAt={new Date().toString()}
