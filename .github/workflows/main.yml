@@ -139,8 +139,7 @@ jobs:
           # scw_secrets:
       - name: Add Scaleway endpoint
         run: |
-          curl -sLO https://github.com/scaleway/scaleway-cli/releases/latest/download/scw-2-linux-x86_64
-          sudo install scw-2-linux-x86_64 /usr/local/bin/scw
+          curl -s https://raw.githubusercontent.com/scaleway/scaleway-cli/master/scripts/get.sh | sh
           scw init secret-key=${{ secrets.SCW_SECRET_KEY }} access-key=${{ secrets.SCW_ACCESS_KEY }} default-region=fr-par
           CONTAINER_ID=$(scw container container list name=latest namespace-id=${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }} -o json | jq -r '.[0].id')
           scw container endpoint create container-id=$CONTAINER_ID domain=demo.ochocast.fr
