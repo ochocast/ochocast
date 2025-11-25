@@ -18,10 +18,11 @@ describe('VideosController - getVideosSuggestions', () => {
     {} as any, // deleteVideoAdminUsecase
     {} as any, // getMediaUseCase
     {} as any, // getMiniatureUseCase
+    {} as any, // getSubtitleUseCase
     {} as any, // getVideosAdminUsecase
     {} as any, // modifyVideoUseCase
-    mockSearchVideoUsecase as any, // getVideosSuggestionsUseCase
-    {} as any,
+    mockSearchVideoUsecase as any, // searchVideoUseCase
+    {} as any, // getSuggestionsUseCase
   );
 
   const mockUser: UserEntity = {

@@ -31,6 +31,7 @@ import { ModifyVideoUsecase } from 'src/videos/domain/usecases/modifyVideo.useca
 import { searchVideoUseCase } from 'src/videos/domain/usecases/searchVideo.usecase';
 import { Public } from 'nest-keycloak-connect';
 import { GetSuggestionsUsecase } from 'src/videos/domain/usecases/getSuggestions.usecase';
+import { GetSubtitleUsecase } from 'src/videos/domain/usecases/getSubtitle.usecase';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 @ApiTags('Videos')
 @Controller('videos')
@@ -42,6 +43,7 @@ export class VideosController {
     private deleteVideoAdminUsecase: DeleteVideoAdminUsecase,
     private getMediaUseCase: GetMediaUsecase,
     private getMiniatureUseCase: GetMiniatureUsecase,
+    private getSubtitleUseCase: GetSubtitleUsecase,
     private getVideosAdminUsecase: GetVideosAdminUsecase,
     private modifyVideoUseCase: ModifyVideoUsecase,
     private searchVideoUseCase: searchVideoUseCase,
@@ -58,12 +60,15 @@ export class VideosController {
   ): Promise<VideoObject> {
     const videoFile = files.find((file) => file.fieldname === 'file');
     const miniatureFile = files.find((file) => file.fieldname === 'miniature');
+    const subtitleFile = files.find((file) => file.fieldname === 'subtitle');
     console.log(videoFile + '\n');
     console.log(miniatureFile + '\n');
+    console.log(subtitleFile + '\n');
     return await this.createNewVideoUsecase.execute(
       video,
       videoFile,
       miniatureFile,
+      subtitleFile,
     );
   }
 
@@ -129,6 +134,11 @@ export class VideosController {
   @Get('/miniature/:id')
   async getMiniature(@Param('id') id: string): Promise<string> {
     return await this.getMiniatureUseCase.execute(id);
+  }
+
+  @Get('/subtitle/:id')
+  async getSubtitle(@Param('id') id: string): Promise<string | null> {
+    return await this.getSubtitleUseCase.execute(id);
   }
 
   @Get(':userId')

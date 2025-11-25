@@ -23,6 +23,13 @@ export class VideoObject {
   miniature_id: string;
 
   @ApiProperty({
+    example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
+    description: 'The id of the subtitle file on MinIO.',
+    required: false,
+  })
+  subtitle_id?: string;
+
+  @ApiProperty({
     example: 'A spooky description',
     description: 'The description of the video.',
   })
@@ -109,10 +116,12 @@ export class VideoObject {
     views: number,
     comments: CommentEntity[],
     archived: boolean,
+    subtitle_id?: string,
   ) {
     this.id = id;
     this.media_id = media_id;
     this.miniature_id = miniature_id;
+    this.subtitle_id = subtitle_id;
     this.title = title;
     this.creator = creator;
     this.description = description;

@@ -14,6 +14,7 @@ import { GetVideosAdminUsecase } from './domain/usecases/getVideosAdmin.usecase'
 import { ModifyVideoUsecase } from './domain/usecases/modifyVideo.usecase';
 import { searchVideoUseCase } from './domain/usecases/searchVideo.usecase';
 import { GetSuggestionsUsecase } from './domain/usecases/getSuggestions.usecase';
+import { GetSubtitleUsecase } from './domain/usecases/getSubtitle.usecase';
 import { UsersModule } from 'src/users/users.module';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
@@ -32,6 +33,7 @@ import { UsersModule } from 'src/users/users.module';
     DeleteVideoAdminUsecase,
     GetMediaUsecase,
     GetMiniatureUsecase,
+    GetSubtitleUsecase,
     GetVideosAdminUsecase,
     ModifyVideoUsecase,
     searchVideoUseCase,

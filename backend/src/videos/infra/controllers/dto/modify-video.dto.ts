@@ -11,6 +11,8 @@ export class ModifyVideoDto {
 
   miniature_id: string;
 
+  subtitle_id?: string;
+
   @IsNotEmpty()
   title: string;
 

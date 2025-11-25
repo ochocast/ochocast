@@ -2,6 +2,7 @@ export interface Video {
   id: string;
   media_id: string;
   miniature_id: string;
+  subtitle_id?: string;
   title: string;
   description: string;
   creator: User;

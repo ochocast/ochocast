@@ -93,6 +93,15 @@ export class VideoGateway implements IVideoGateway {
     });
     this.s3Client.send(miniatureCommand);
 
+    // Delete subtitle file if it exists
+    if (video.subtitle_id) {
+      const subtitleCommand = new DeleteObjectCommand({
+        Bucket: process.env.STOCK_MEDIA_BUCKET,
+        Key: video.subtitle_id,
+      });
+      this.s3Client.send(subtitleCommand);
+    }
+
     return await this.videosRepository.remove(video);
   }
 

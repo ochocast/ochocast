@@ -26,11 +26,16 @@ export class CreateNewVideoUsecase {
   async execute(
     videoToCreate: CreateVideoDto,
     file: Express.Multer.File,
-    miniatureFile?: Express.Multer.File,
+    miniatureFile: Express.Multer.File,
+    subtitleFile?: Express.Multer.File,
   ): Promise<VideoObject> {
     const baseName = path.parse(videoToCreate.media_id).name;
     const media_id = Date.now() + '.' + baseName + '.mp4';
     const miniature_id = `miniature${Date.now()}.jpg`;
+    let subtitle_id: string | undefined;
+
+    // We'll generate subtitle_id after conversion in the upload section
+
     const video = new VideoObject(
       uuid(),
       media_id,
@@ -46,6 +51,7 @@ export class CreateNewVideoUsecase {
       0,
       [new CommentEntity(null)],
       false,
+      subtitle_id,
     );
     const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
     const tempOutputPath = path.join(
@@ -65,6 +71,8 @@ export class CreateNewVideoUsecase {
         Key: video.media_id,
         Body: transcodedBuffer,
         ContentType: 'video/mp4',
+        ContentDisposition: 'inline',
+        CacheControl: 'max-age=31536000',
       },
     });
 
@@ -84,6 +92,64 @@ export class CreateNewVideoUsecase {
       await generateThumbnailFromVideo(tempOutputPath, tempMiniaturePath);
     }
 
+    // Upload subtitle file if provided
+    if (subtitleFile) {
+      // Validate subtitle file format
+      const allowedExtensions = ['.srt', '.vtt'];
+      const subtitleExtension = path
+        .extname(subtitleFile.originalname)
+        .toLowerCase();
+
+      if (!allowedExtensions.includes(subtitleExtension)) {
+        throw new Error(
+          `Invalid subtitle format. Allowed formats: ${allowedExtensions.join(', ')}`,
+        );
+      }
+
+      // Validate UTF-8 encoding and convert SRT to VTT if needed
+      let subtitleContent: Buffer;
+      try {
+        const decoded = subtitleFile.buffer.toString('utf-8');
+        // If the file is .srt, convert to WebVTT since browsers require VTT for <track>
+        if (subtitleExtension === '.srt') {
+          console.log('Converting SRT to VTT format...');
+          const converted = convertSrtToVtt(decoded);
+          subtitleContent = Buffer.from(converted, 'utf-8');
+          subtitle_id = `subtitle${Date.now()}.vtt`;
+        } else {
+          // .vtt already - but ensure it has WEBVTT header
+          const normalized = decoded.trim();
+          if (!normalized.startsWith('WEBVTT')) {
+            console.log('Adding WEBVTT header to VTT file...');
+            subtitleContent = Buffer.from('WEBVTT\n\n' + normalized, 'utf-8');
+          } else {
+            subtitleContent = Buffer.from(normalized, 'utf-8');
+          }
+          subtitle_id = `subtitle${Date.now()}.vtt`;
+        }
+      } catch (error) {
+        throw new Error('Subtitle file must be encoded in UTF-8');
+      }
+
+      const subtitleUpload = new Upload({
+        client: this.s3Client,
+        params: {
+          Bucket: process.env.STOCK_MEDIA_BUCKET,
+          Key: subtitle_id,
+          Body: subtitleContent,
+          ContentType: 'text/vtt',
+          ContentDisposition: 'inline',
+          CacheControl: 'max-age=31536000',
+        },
+      });
+      await subtitleUpload.done();
+
+      // Attach generated subtitle_id to the VideoObject
+      if (subtitle_id) {
+        video.subtitle_id = subtitle_id;
+      }
+      console.log(`✅ Subtitle uploaded: ${subtitle_id}`);
+    }
     const miniatureUpload = new Upload({
       client: this.s3Client,
       params: {
@@ -122,6 +188,27 @@ async function transcodeVideo(
       });
     command.run();
   });
+}
+
+/**
+ * Simple SRT -> WebVTT converter.
+ * - ensures the file starts with WEBVTT header
+ * - replaces comma decimals in timecodes with dots
+ * - preserves other lines
+ */
+function convertSrtToVtt(srt: string): string {
+  // normalize CRLF
+  const normalized = srt.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // replace timestamps like 00:00:01,500 --> 00:00:03,000 to use dot decimals
+  const convertedTimestamps = normalized.replace(
+    /(\d{2}:\d{2}:\d{2}),(\d{3})/g,
+    '$1.$2',
+  );
+  // Prepend WEBVTT header if not present
+  if (!/^WEBVTT/m.test(convertedTimestamps)) {
+    return 'WEBVTT\n\n' + convertedTimestamps.trim() + '\n';
+  }
+  return convertedTimestamps;
 }
 
 async function generateThumbnailFromVideo(

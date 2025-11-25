@@ -1,4 +1,4 @@
-import './videoSettings.css';
+import styles from './videoSettings.module.css';
 
 import { useState, ChangeEvent, FC, useEffect } from 'react';
 import type { ApiResponse } from 'apisauce';
@@ -6,6 +6,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import { useParams } from 'react-router-dom';
+import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 
 // import Toggle from '../../components/newComponents/Toggle/Toggle';
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
@@ -167,6 +168,36 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   };
 
+  const [subtitle, setSubtitle] = useState<File>();
+  const handleSubtitleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files != null && e.target.files !== undefined) {
+      const subtitle_tmp = e.target.files[0];
+      if (subtitle_tmp !== undefined) {
+        // Validate subtitle file format
+        const allowed_subtitle_formats = ['srt', 'vtt'];
+        const file_extension = subtitle_tmp.name
+          .split('.')
+          .pop()
+          ?.toLowerCase();
+
+        if (
+          file_extension &&
+          !allowed_subtitle_formats.includes(file_extension)
+        ) {
+          setToast({
+            message:
+              t('subtitleFormatError') ||
+              'Format de sous-titres non valide. Formats acceptés: .srt, .vtt',
+            type: 'error',
+          });
+          return;
+        }
+
+        setSubtitle(subtitle_tmp);
+      }
+    }
+  };
+
   const [intern_list, setInternList] = useState<User[]>([]);
   const selectIntern = (userChoosen: Suggestion) => {
     setInternList([...intern_list, userChoosen as User]);
@@ -237,6 +268,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const publishVideo = async () => {
     const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi']; //maybe move this somewhere else ?
     const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp']; //maybe move this somewhere else ?
+    const accepted_subtitle_formats = ['srt', 'vtt'];
     const list_by_title = (await getVideoByTitle(title)).data;
 
     let err = '';
@@ -259,6 +291,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       )
     )
       err += '- ' + t('miniatureFormatError') + '\n';
+    // Validate subtitle format if provided
+    if (
+      subtitle &&
+      subtitle.name.split('.').pop() !== undefined &&
+      !accepted_subtitle_formats.includes(
+        subtitle.name.split('.').pop() as string,
+      )
+    )
+      err +=
+        '- ' +
+        (t('subtitleFormatError') ||
+          'Format de sous-titres non valide (.srt, .vtt)') +
+        '\n';
     if (err !== '') {
       setToast({
         message: t('oneOrManyDisrespectedConditions') + ' : \n' + err,
@@ -275,6 +320,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (miniature !== undefined) {
       form.append('miniature', miniature);
       form.append('miniature_id', miniature.name);
+    }
+    if (subtitle !== undefined) {
+      form.append('subtitle', subtitle);
+      form.append('subtitle_id', subtitle.name);
     }
     form.append('title', title);
     form.append('description', description);
@@ -369,6 +418,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const updateVideo = async () => {
     const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi']; //maybe move this somewhere else ?
     const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp']; //maybe move this somewhere else ?
+    const accepted_subtitle_formats = ['srt', 'vtt'];
     const list_by_title = (await getVideoByTitle(title)).data;
 
     let err = '';
@@ -394,6 +444,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       )
     )
       err += '- ' + t('miniatureFormatError') + '\n';
+    // Validate subtitle format if provided
+    if (
+      subtitle &&
+      subtitle.name.split('.').pop() !== undefined &&
+      !accepted_subtitle_formats.includes(
+        subtitle.name.split('.').pop() as string,
+      )
+    )
+      err +=
+        '- ' +
+        (t('subtitleFormatError') ||
+          'Format de sous-titres non valide (.srt, .vtt)') +
+        '\n';
     if (err !== '') {
       setToast({
         message: t('oneOrManyDisrespectedConditions') + ' : \n' + err,
@@ -413,6 +476,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     if (miniature !== undefined) {
       form.append('miniature', miniature);
       form.append('miniature_id', miniature.name);
+    }
+    if (subtitle !== undefined) {
+      form.append('subtitle', subtitle);
+      form.append('subtitle_id', subtitle.name);
+    } else if (baseVideo?.subtitle_id !== undefined) {
+      form.append('subtitle_id', baseVideo.subtitle_id);
     }
     form.append('title', title);
     form.append('description', description);
@@ -580,175 +649,217 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   }
 
   return (
-    <div className="mainvideo">
-      <div className="container">
-        <div
-          style={{
-            flexDirection: 'column',
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '1rem',
-            margin: '3rem',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              flexDirection: 'row',
-              height: 'fit-content',
-            }}
-          >
-            <Card
-              styleAddon={{
-                height: '3rem',
-                width: '100%',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0',
-              }}
-            >
-              <input
-                placeholder={title === '' ? t('Titre') : title}
-                onChange={handleTitleChange}
-                style={{
-                  border: 'none',
-                  borderRadius: 'inherit',
-                  width: '-webkit-fill-available',
-                  height: '-webkit-fill-available',
-                  textAlign: 'center',
-                }}
-              />
-            </Card>
-            {/* <img className="Closed Lock" src={Lock_Close} alt="Closed Lock" />
-            <Toggle onChange={handlePrivacyChange} />
-            <img className="Opened Lock" src={Lock_Open} alt="Opened Lock" /> */}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
-            <Card>
-              <InputFile
-                placeholder={
-                  baseVideo?.media_id !== undefined
-                    ? baseVideo.media_id
-                    : t('addMedia')
-                }
-                onChange={handleMediaChange}
-                disable={baseVideo?.media_id !== undefined}
-              />
-            </Card>
+    <>
+      <div className={styles.header}>
+        <NavigateBackButton />
+        <h1 className={styles.title}>
+          {videoId !== undefined ? t('modifyVideo') : t('publish')}
+        </h1>
+      </div>
 
-            {/* TODO : as rajouter au moment de l'implementatio du support
-            <Card>
-              <InputFile
-                placeholder="Glissez ou choisissez votre Support"
-                onChange={handleMediaChange}
+      <div className={styles.videoSettings}>
+        <div className={styles.contentWrapper}>
+          <div className={styles.addVideoForm}>
+            <div className={styles.inputWrapper}>
+              <label>
+                {t('Titre')}
+                <span className={styles.required}>*</span>
+              </label>
+              <input
+                type="text"
+                placeholder={t('Titre')}
+                value={title}
+                onChange={handleTitleChange}
               />
-            </Card> */}
-            <Card>
-              <InputFile
-                placeholder={
-                  baseVideo?.miniature_id !== undefined
-                    ? baseVideo.miniature_id
-                    : t('addMiniature')
-                }
-                onChange={handleMiniatureChange}
-                disable={baseVideo?.miniature_id !== undefined}
-              />
-            </Card>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
-            <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
-              <SuggestionBar
-                onClick={selectTag}
-                placeholder="Tags"
-                type={SuggestionType.TAG}
-                name="suggestionTag"
-                onAdd={addTag}
-              />
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: '10px',
-                }}
-              >
-                {tags.map((tag, index) => (
-                  <Tag
-                    key={index}
-                    content={tag.name}
-                    type={TagType.DEFAULT}
-                    editable={true}
-                    delete={handleDeleteTag}
-                    style={{ flex: '25%' }}
-                  />
-                ))}
-              </div>
-            </Card>
-            <Card
-              styleAddon={{
-                flexDirection: 'column',
-                height: 'auto',
-              }}
-            >
-              <SuggestionBar
-                onClick={selectIntern}
-                placeholder="User"
-                type={SuggestionType.USER}
-                name="suggestionUser"
-              />
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: '10px',
-                }}
-                id="intern-container"
-              >
-                {intern_list.map((user, index) => (
-                  <Tag
-                    key={index}
-                    content={`${user.firstName} ${user.lastName}`}
-                    type={TagType.DEFAULT}
-                    editable={true}
-                    delete={handleDeleteUser}
-                    style={{ flex: '25%' }}
-                  />
-                ))}
-              </div>
-            </Card>
-            <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
-              <div>{t('externSpeaker')}</div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center',
-                  gap: '10px',
-                  width: '100%',
-                  height: '100%',
-                }}
-              >
-                <textarea
-                  style={{ resize: 'none' }}
-                  value={extern_User_List}
-                  onChange={handleExternUserChange}
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>
+                {t('addMedia')}
+                <span className={styles.required}>*</span>
+              </label>
+              <div className={styles.fileInputWrapper}>
+                <InputFile
+                  placeholder={
+                    baseVideo?.media_id !== undefined
+                      ? baseVideo.media_id
+                      : t('addMedia')
+                  }
+                  onChange={handleMediaChange}
+                  disable={baseVideo?.media_id !== undefined}
                 />
               </div>
-            </Card>
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('addSubtitle')}</label>
+              <div className={styles.fileInputWrapper}>
+                <InputFile
+                  placeholder={
+                    baseVideo?.subtitle_id !== undefined
+                      ? baseVideo.subtitle_id
+                      : t('addSubtitle') ||
+                        'Glisser ou choisissez votre fichier de sous-titrage'
+                  }
+                  onChange={handleSubtitleChange}
+                  disable={baseVideo?.subtitle_id !== undefined}
+                />
+              </div>
+              <span className={styles.formatHint}>
+                Formats acceptés : .srt, .vtt
+              </span>
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>
+                {t('addMiniature')}
+                <span className={styles.required}>*</span>
+              </label>
+              <div className={styles.fileInputWrapper}>
+                <InputFile
+                  placeholder={
+                    baseVideo?.miniature_id !== undefined
+                      ? baseVideo.miniature_id
+                      : t('addMiniature')
+                  }
+                  onChange={handleMiniatureChange}
+                  disable={baseVideo?.miniature_id !== undefined}
+                />
+              </div>
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>
+                Tags
+                <span className={styles.required}>*</span>
+              </label>
+              <Card
+                styleAddon={{
+                  flexDirection: 'column',
+                  height: 'auto',
+                  boxShadow: 'none',
+                }}
+              >
+                <div className={styles.tagUserCard}>
+                  <SuggestionBar
+                    onClick={selectTag}
+                    placeholder="Tags"
+                    type={SuggestionType.TAG}
+                    name="suggestionTag"
+                    onAdd={addTag}
+                  />
+                  <div className={styles.tagContainer}>
+                    {tags.map((tag, index) => (
+                      <Tag
+                        key={index}
+                        content={tag.name}
+                        type={TagType.DEFAULT}
+                        editable={true}
+                        delete={handleDeleteTag}
+                        style={{ flex: '25%' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>User</label>
+              <Card
+                styleAddon={{
+                  flexDirection: 'column',
+                  height: 'auto',
+                  boxShadow: 'none',
+                }}
+              >
+                <div className={styles.tagUserCard}>
+                  <SuggestionBar
+                    onClick={selectIntern}
+                    placeholder="User"
+                    type={SuggestionType.USER}
+                    name="suggestionUser"
+                  />
+                  <div className={styles.tagContainer} id="intern-container">
+                    {intern_list.map((user, index) => (
+                      <Tag
+                        key={index}
+                        content={`${user.firstName} ${user.lastName}`}
+                        type={TagType.DEFAULT}
+                        editable={true}
+                        delete={handleDeleteUser}
+                        style={{ flex: '25%' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>{t('externSpeaker')}</label>
+              <textarea
+                className={styles.externalSpeakersTextarea}
+                value={extern_User_List}
+                onChange={handleExternUserChange}
+                placeholder={t('externSpeaker')}
+              />
+            </div>
+
+            <div className={styles.inputWrapper}>
+              <label>Description</label>
+              <textarea
+                className={styles.descriptionInput}
+                placeholder="Description"
+                value={description}
+                onChange={handleDescriptionChange}
+              />
+            </div>
+
+            <div
+              className={`${styles.buttonVideoCreation} ${styles.desktopOnly}`}
+            >
+              {videoId !== undefined ? (
+                <>
+                  <Button
+                    onClick={deleteThisVideo}
+                    label={t('archive')}
+                    type={ButtonType.primary}
+                  ></Button>
+                  <Button
+                    onClick={updateVideo}
+                    label={t('modifyVideo')}
+                    type={ButtonType.primary}
+                  ></Button>
+                </>
+              ) : (
+                <Button
+                  onClick={publishVideo}
+                  label={t('publish')}
+                  type={ButtonType.primary}
+                ></Button>
+              )}
+            </div>
           </div>
-          <textarea
-            className="descriptionInput"
-            placeholder="Description"
-            value={description}
-            onChange={handleDescriptionChange}
-          />
-          <div className="buttonContainer">
+
+          <div className={styles.preview}>
+            <h2>{t('Preview')}</h2>
+            <Thumbnail
+              Id="1"
+              title={title || t('Titre')}
+              imageSrc={
+                miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
+              }
+              createBy={auth.user?.profile.given_name || 'Non connecté'}
+              views={0}
+              createdAt={new Date().toString()}
+              tags={tags.flatMap((tag) => {
+                return tag.name;
+              })}
+            />
+          </div>
+
+          <div className={`${styles.buttonVideoCreation} ${styles.mobileOnly}`}>
             {videoId !== undefined ? (
               <>
                 <Button
@@ -771,39 +882,16 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             )}
           </div>
         </div>
+
+        {toast && (
+          <Toast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
       </div>
-      <div className="generalinfo">
-        <Thumbnail
-          Id={videoId ?? 'preview'}
-          title={title || t('Titre')}
-          imageSrc={
-            miniatureUrl !== null
-              ? miniatureUrl
-              : videoId === undefined &&
-                  media === undefined &&
-                  miniatureUrl === null
-                ? IMAGE_TUILE_EVENT
-                : undefined
-          }
-          createBy={auth.user?.profile.given_name || 'Non connecté'}
-          views={0}
-          createdAt={new Date().toString()}
-          tags={tags.flatMap((tag) => {
-            return tag.name;
-          })}
-        />
-      </div>
-      {/*
-      <Tag className='primary' >Test Primary</Tag>
-      <Tag className='secondary' tsize='15px' >Test Secondary</Tag> */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-    </div>
+    </>
   );
 };
 

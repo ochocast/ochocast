@@ -8,6 +8,7 @@ import {
   getComments,
   getLikedComments,
   getMedia,
+  getSubtitle,
   getUsers,
   getVideo,
   getVideoSuggestions,
@@ -54,6 +55,7 @@ const VideoMedia: FC = () => {
 
   const { videoId } = useParams();
   const [url, setUrl] = useState<string>('');
+  const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<Video>();
   const [suggestedVideos, setSuggestedVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -112,10 +114,11 @@ const VideoMedia: FC = () => {
       const user = users.find((u) => u.id === backendUser.id);
       setCurrentUser(user || null);
 
-      const [videoRes, mediaRes, commentsRes, likedCommentsRes] =
+      const [videoRes, mediaRes, subtitleRes, commentsRes, likedCommentsRes] =
         await Promise.all([
           getVideo(videoId),
           getMedia(videoId),
+          getSubtitle(videoId),
           getComments(videoId),
           getLikedComments(),
         ]);
@@ -131,6 +134,12 @@ const VideoMedia: FC = () => {
       }
 
       if (mediaRes) setUrl(mediaRes.data);
+      if (subtitleRes && subtitleRes.data) {
+        console.log('📝 Subtitle URL loaded:', subtitleRes.data);
+        setSubtitleUrl(subtitleRes.data);
+      } else {
+        console.log('⚠️ No subtitle found for this video');
+      }
 
       if (commentsRes && likedCommentsRes) {
         const likedComments = Array.isArray(likedCommentsRes.data)
@@ -369,6 +378,50 @@ const VideoMedia: FC = () => {
             controls
             width="100%"
             height="100%"
+            onReady={(player) => {
+              console.log('▶️ ReactPlayer ready');
+              if (subtitleUrl) {
+                console.log('✅ Subtitle track should be loaded:', subtitleUrl);
+                const videoElement = player.getInternalPlayer();
+                if (videoElement && videoElement.textTracks) {
+                  setTimeout(() => {
+                    console.log(
+                      'Total text tracks:',
+                      videoElement.textTracks.length,
+                    );
+                    for (let i = 0; i < videoElement.textTracks.length; i++) {
+                      const track = videoElement.textTracks[i];
+                      console.log(
+                        'Track',
+                        i,
+                        ':',
+                        track.kind,
+                        track.label,
+                        track.mode,
+                      );
+                    }
+                  }, 1000);
+                }
+              }
+            }}
+            config={{
+              file: {
+                attributes: {
+                  crossOrigin: 'anonymous',
+                },
+                tracks: subtitleUrl
+                  ? [
+                      {
+                        kind: 'subtitles',
+                        src: subtitleUrl,
+                        srcLang: 'fr',
+                        label: 'Français',
+                        default: false,
+                      },
+                    ]
+                  : [],
+              },
+            }}
           />
         </div>
 

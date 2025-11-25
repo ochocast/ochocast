@@ -24,6 +24,9 @@ export class VideoEntity {
   @Column()
   miniature_id: string;
 
+  @Column({ nullable: true })
+  subtitle_id: string;
+
   @Column()
   title: string;
 
