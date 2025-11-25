@@ -130,19 +130,18 @@ jobs:
           scw_region: fr-par
           scw_container_port: 80 # optional, default is 80
           scw_memory_limit: 512
-          scw_additional_endpoints: demo.ochocast.fr
           # This will override prefix of your dns. if it's not set thane name of the containers ( max 34 char actually) will be set
           #scw_dns_prefix: # optional
           # List of environnment variables in the form of KEY=VALUE, separated by commas
           scw_environment_variables: REACT_APP_API_URL=${{secrets.API_URL}},REACT_APP_API_PORT=${{secrets.API_PORT}},REACT_APP_AUTHORIZATION_ENDPOINT=${{vars.AUTHORIZATION_ENDPOINT}},REACT_APP_CLIENT_ID=${{vars.CLIENT_ID}},REACT_APP_REDIRECT_URI=${{vars.REDIRECT_URI}},REACT_APP_STREAM_URL=${{vars.STREAM_URL}},REACT_APP_SERVER_IP=${{vars.WEBSOCKET_SERVER_IP}}
           # List of secrets in the form of KEY=VALUE, separated by commas. The value can't contains commas nor equal signs
           # scw_secrets:
-      - name: Add Scaleway endpoint
+      - name: Add custom domain endpoint
         run: |
           curl -s https://raw.githubusercontent.com/scaleway/scaleway-cli/master/scripts/get.sh | sh
-          scw init secret-key=${{ secrets.SCW_SECRET_KEY }} access-key=${{ secrets.SCW_ACCESS_KEY }} default-region=fr-par
-          CONTAINER_ID=$(scw container container list name=latest namespace-id=${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }} -o json | jq -r '.[0].id')
-          scw container endpoint create container-id=$CONTAINER_ID domain=demo.ochocast.fr
+          scw init secret-key=${{ secrets.SCW_SECRET_KEY }} access-key=${{ secrets.SCW_ACCESS_KEY }} region=fr-par zone=fr-par-1
+          CONTAINER_ID=$(scw container container list namespace-id=${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }} -o json | jq -r '.[0].id')
+          scw container domain create container-id=$CONTAINER_ID hostname=demo.ochocast.fr
 #  build-and-push-rtmpServer:
 #    name: build-and-push-rtmpServer
 #    runs-on: ubuntu-latest
