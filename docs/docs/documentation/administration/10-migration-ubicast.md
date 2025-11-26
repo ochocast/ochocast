@@ -33,18 +33,18 @@ node downloadOctoVideo.js
 
 ## Configuration
 
-Le script utilise plusieurs variables d’environnement pour stocker les informations sensibles :
+Le script utilise plusieurs variables d'environnement pour stocker les informations sensibles :
 
 ### Fonctionnalités principales
 
 - Récupération des vidéos (deux méthodes, à voir laquelle est la plus efficiente) :
 
   - Par requête directe via leurs identifiants (`oids`).
-  - Par recherche exhaustive sur l’API de UbiCast (commenté pour l'instant dans le code).
+  - Par recherche exhaustive sur l'API de UbiCast (commenté pour l'instant dans le code).
 
 - Téléchargement et upload :
 
-  - Téléchargement des vidéos depuis l’API UbiCast.
+  - Téléchargement des vidéos depuis l'API UbiCast.
   - Upload vers un bucket Scaleway S3.
 
 - Base de données :
@@ -53,8 +53,8 @@ Le script utilise plusieurs variables d’environnement pour stocker les informa
 
 ## Améliorations à implémenter (TODO)
 
-- Intégrer les miniatures d’UbiCast dans la base de données.
-- Récupérer et stocker les miniatures d’UbiCast sur Scaleway.
+- Intégrer les miniatures d'UbiCast dans la base de données.
+- Récupérer et stocker les miniatures d'UbiCast sur Scaleway.
 - Améliorer la recherche de vidéos (via API Search ou fichier Excel).
 - Automatiser la récupération de toutes les vidéos UbiCast.
 
@@ -64,14 +64,14 @@ Le script utilise plusieurs variables d’environnement pour stocker les informa
 
 | Variable        | Description                                           |
 | --------------- | ----------------------------------------------------- |
-| `API_KEY`       | Clé API pour accéder à l’API UbiCast.                 |
-| `API_BASE_URL`  | URL de l’API UbiCast.                                 |
+| `API_KEY`       | Clé API pour accéder à l'API UbiCast.                 |
+| `API_BASE_URL`  | URL de l'API UbiCast.                                 |
 | `BUCKET_NAME`   | Nom du bucket Scaleway où les vidéos seront stockées. |
 | `REGION`        | Région du service Scaleway.                           |
-| `S3_ACCESS_KEY` | Clé d’accès Scaleway S3.                              |
+| `S3_ACCESS_KEY` | Clé d'accès Scaleway S3.                              |
 | `S3_SECRET_KEY` | Clé secrète Scaleway S3.                              |
 
-Les valeurs des variables sensibles doivent être configurées dans le fichier .env ou des secrets d’environnement.
+Les valeurs des variables sensibles doivent être configurées dans le fichier .env ou des secrets d'environnement.
 
 ### 1. **Base de données PostgreSQL**
 
@@ -92,43 +92,43 @@ Les valeurs des variables sensibles doivent être configurées dans le fichier .
 
 2. **Chargement des vidéos**
 
-   - `loadOidsFromCsv(filePath)`: Charge une liste d’identifiants (oids) depuis un fichier CSV extrait d'Ubicast, contenant l'ensemble des informations des vidéos hébergées.
+   - `loadOidsFromCsv(filePath)`: Charge une liste d'identifiants (oids) depuis un fichier CSV extrait d'Ubicast, contenant l'ensemble des informations des vidéos hébergées.
    - `fetchAllVideosExhaustively()`: Récupère toutes les vidéos à partir de leurs `oids`.
 
 3. **Récupération des vidéos**
 
-   - `fetchVideoDetails(oid)`: Récupère les métadonnées complètes d’une vidéo.
+   - `fetchVideoDetails(oid)`: Récupère les métadonnées complètes d'une vidéo.
    - `fetchVideosWithSearch(searchTerm)`: Effectue une recherche de vidéos par mot-clé.
 
 4. **Traitement des vidéos**
 
-   - `addUniqueVideos(videos)`: Ajoute des vidéos à la liste en s’assurant qu’il n’y a pas de doublons.
+   - `addUniqueVideos(videos)`: Ajoute des vidéos à la liste en s'assurant qu'il n'y a pas de doublons.
    - `processVideo(video)`: Télécharge, uploade et enregistre une vidéo dans la base de données.
 
 5. **Migration complète**
 
-   - `migrateVideos()`: Orchestration de l’ensemble du processus.
+   - `migrateVideos()`: Orchestration de l'ensemble du processus.
 
 ## Gestion des erreurs
 
-Le script inclut plusieurs mécanismes de gestion d’erreurs :
+Le script inclut plusieurs mécanismes de gestion d'erreurs :
 
-- Vérification des connexions à l’API et à la base de données.
+- Vérification des connexions à l'API et à la base de données.
 - Vérification du statut HTTP des requêtes API.
-- Gestion des erreurs d’upload avec un suivi de progression.
-- Vérification et gestion des conflits lors de l’insertion en base de données.
+- Gestion des erreurs d'upload avec un suivi de progression.
+- Vérification et gestion des conflits lors de l'insertion en base de données.
 
 ## Suivi des performances
 
-À la fin de l’exécution du script, un bilan des opérations est affiché :
+À la fin de l'exécution du script, un bilan des opérations est affiché :
 
 - Nombre de vidéos ajoutées en base de données.
 - Nombre de vidéos uploadées sur Scaleway.
-- Nombre d’échecs de migration.
+- Nombre d'échecs de migration.
 
 ## Exécution et logs
 
-Le script affiche des logs détaillés pour suivre l’avancement :
+Le script affiche des logs détaillés pour suivre l'avancement :
 
 - Connexion à la base de données réussie.
 - Recherche avec le terme : "A"

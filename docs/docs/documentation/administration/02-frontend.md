@@ -4,7 +4,7 @@
 
 Le frontend de la plateforme de streaming.
 
-Le frontend d’une application fait référence aux composants de l'interface utilisateur (UI) et de l'expérience utilisateur (UX) avec lesquels les utilisateurs interagissent directement. C'est la partie du logiciel qui s'exécute du côté client, ce qui signifie qu'elle est exécutée dans le navigateur web ou l'appareil de l'utilisateur.
+Le frontend d'une application fait référence aux composants de l'interface utilisateur (UI) et de l'expérience utilisateur (UX) avec lesquels les utilisateurs interagissent directement. C'est la partie du logiciel qui s'exécute du côté client, ce qui signifie qu'elle est exécutée dans le navigateur web ou l'appareil de l'utilisateur.
 
 ## Installation et Pré-requis
 

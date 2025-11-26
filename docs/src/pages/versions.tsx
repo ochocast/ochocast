@@ -35,7 +35,7 @@ function Footer() {
         <div className={footerStyles.footerColumn}>
           <h3 className={footerStyles.footerTitle}>Ressources</h3>
           <ul className={footerStyles.footerList}>
-            <li><Link to="/docs" className={footerStyles.footerLink}>Documentation</Link></li>
+            <li><Link to="/docs/documentation/utilisation/introduction" className={footerStyles.footerLink}>Documentation</Link></li>
             <li><Link to="/versions" className={footerStyles.footerLink}>Versions</Link></li>
           </ul>
         </div>

@@ -19,7 +19,7 @@ docker-compose up -d
 
 ### Prérequis
 
-Assurez-vous que les variables d’environnement suivantes sont définies dans le fichier **`/backend/.env`** :
+Assurez-vous que les variables d'environnement suivantes sont définies dans le fichier **`/backend/.env`** :
 
 ```bash
 STOCK_MEDIA_BUCKET=media

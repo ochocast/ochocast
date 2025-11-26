@@ -54,7 +54,7 @@ Keycloak est utilisé pour l'authentification des utilisateurs.
 1. Accédez à la console d'administration Keycloak.
 2. Sélectionnez votre realm dans le menu déroulant.
 3. Cliquez sur **"Users"**, puis sur **"Add User"**.
-4. Remplissez les informations (nom d’utilisateur, e-mail, prénom, nom).
+4. Remplissez les informations (nom d'utilisateur, e-mail, prénom, nom).
 5. Cliquez sur **"Save"** pour enregistrer l'utilisateur.
 6. Rendez-vous dans l'onglet **"Credentials"**, puis définissez un mot de passe pour l'utilisateur.
 
@@ -69,7 +69,7 @@ Keycloak est utilisé pour l'authentification des utilisateurs.
    cp .env.example .env
    ```
 
-2. Copiez-collez le **secret du client "nest-back"** de Keycloak dans la variable d’environnement `AUTH_SECRET`.
+2. Copiez-collez le **secret du client "nest-back"** de Keycloak dans la variable d'environnement `AUTH_SECRET`.
 
    **Si le secret affiché est `\*\***` ou similaire, régénérez-le avant de le copier.\*\*
 
@@ -85,7 +85,7 @@ Keycloak est utilisé pour l'authentification des utilisateurs.
    cp .env.example .env
    ```
 
-3. Copiez les variables d’environnement du fichier `.env.example` vers `.env` et configurez-les si nécessaire.
+3. Copiez les variables d'environnement du fichier `.env.example` vers `.env` et configurez-les si nécessaire.
 
 ---
 
@@ -123,4 +123,4 @@ Vous pouvez également lancer **le backend et le frontend en même temps** depui
 
 ### Octocast est maintenant prêt à être utilisé
 
-Si vous rencontrez des problèmes, assurez-vous que toutes les variables d’environnement sont bien configurées et que tous les services Docker sont démarrés.
+Si vous rencontrez des problèmes, assurez-vous que toutes les variables d'environnement sont bien configurées et que tous les services Docker sont démarrés.

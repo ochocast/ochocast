@@ -21,7 +21,7 @@ function HomepageHeader() {
           <Link className={styles.buttonDemo} to="https://demo.ochocast.fr">
             Demo
           </Link>
-          <Link className={styles.buttonDocs} to="/docs">
+          <Link className={styles.buttonDocs} to="/docs/documentation/utilisation/introduction">
             Documentation
           </Link>
         </div>
@@ -124,7 +124,7 @@ function Footer() {
         <div className={styles.footerColumn}>
           <h3 className={styles.footerTitle}>Resources</h3>
           <ul className={styles.footerList}>
-            <li><Link to="/docs" className={styles.footerLink}>Documentation</Link></li>
+            <li><Link to="/docs/documentation/utilisation/introduction" className={styles.footerLink}>Documentation</Link></li>
             <li><Link to="/versions" className={styles.footerLink}>Versions</Link></li>
           </ul>
         </div>

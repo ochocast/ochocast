@@ -42,9 +42,10 @@ Cette configuration utilise **Husky** et **lint-staged** pour effectuer automati
 
   ```bash
   git commit -m "fix: toto" --no-verify
+  ```
 
 ## Installation des dépendances
-Après avoir récupéré cette mise à jour, n’oubliez pas d’installer les nouvelles dépendances :
+Après avoir récupéré cette mise à jour, n'oubliez pas d'installer les nouvelles dépendances :
   ```bash
   npm install
   ```

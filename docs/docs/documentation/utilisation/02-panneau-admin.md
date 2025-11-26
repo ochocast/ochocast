@@ -19,14 +19,14 @@ Le panneau d'administration est organisé en plusieurs sections :
 3. **Prévisualisation des couleurs** - Aperçu des dégradés générés
 4. **Images de branding** - Logos et icônes personnalisés
 
-![Vue d'ensemble du panneau d'administration](../img/admin-panel-overview.png)
+![Vue d'ensemble du panneau d'administration](/img/admin-panel-overview.png)
 *Vue complète du panneau d'administration avec toutes les sections*
 
 ---
 
 ## 1. Informations Générales
 
-![Section informations générales](../img/admin-general-info.png)
+![Section informations générales](/img/admin-general-info.png)
 *Section permettant de modifier le nom de l'application*
 
 ### Nom de l'Application
@@ -50,14 +50,14 @@ appName: "OchoCast"
 - Dans l'onglet du navigateur
 - Sur la page de connexion
 
-![Logo dans la navbar](../img/admin-effect-logo-before.png)
+![Logo dans la navbar](/img/admin-effect-logo-before.png)
 *Exemple de logo affiché dans la barre de navigation*
 
 ---
 
 ## 2. Couleurs du Thème
 
-![Section couleurs du thème](../img/admin-colors.png)
+![Section couleurs du thème](/img/admin-colors.png)
 *Les 5 champs de couleur avec leurs sélecteurs*
 
 Le système de couleurs utilise un format hexadécimal avec transparence (8 caractères : `#RRGGBBAA`).
@@ -84,10 +84,10 @@ Le système de couleurs utilise un format hexadécimal avec transparence (8 cara
 
 **Avant/Après modification des couleurs** :
 
-![Couleurs avant](../img/admin-effect-colors-before.png)
+![Couleurs avant](/img/admin-effect-colors-before.png)
 *Application avec les couleurs par défaut*
 
-![Couleurs après](../img/admin-effect-colors-after.png)
+![Couleurs après](/img/admin-effect-colors-after.png)
 *Application avec les nouvelles couleurs personnalisées*
 
 **Comment modifier** :
@@ -95,7 +95,7 @@ Le système de couleurs utilise un format hexadécimal avec transparence (8 cara
 2. Choisissez une couleur dans le picker
 3. OU entrez directement un code hexadécimal dans le champ texte
 
-![Sélecteur de couleur](../img/admin-color-picker.png)
+![Sélecteur de couleur](/img/admin-color-picker.png)
 *Color picker ouvert pour sélectionner une couleur*
 
 ### 2.2 Couleur Secondaire (Secondary)
@@ -177,7 +177,7 @@ Le système de couleurs utilise un format hexadécimal avec transparence (8 cara
 
 ## 3. Prévisualisation des Couleurs
 
-![Prévisualisation des dégradés](../img/admin-color-preview.png)
+![Prévisualisation des dégradés](/img/admin-color-preview.png)
 *Palettes de couleurs générées automatiquement (variantes 50-900)*
 
 Cette section affiche automatiquement les **variantes générées** à partir des couleurs de base.
@@ -240,7 +240,7 @@ Pour chaque couleur de base, le système génère **10 variantes** (50, 100, 200
 
 ## 4. Images de Branding
 
-![Section images de branding](../img/admin-images.png)
+![Section images de branding](/img/admin-images.png)
 *Liste des images personnalisables avec aperçus*
 
 Cette section permet de personnaliser toutes les images utilisées dans l'application.
@@ -263,7 +263,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Visible sur toutes les pages
 - Utilisé comme favicon
 
-![Logo principal](../img/logo_main.png)
+![Logo principal](/img/logo_main.png)
 *Logo affiché dans la barre de navigation*
 
 **Comment modifier** :
@@ -325,7 +325,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Actions d'ajout rapide
 - Menus déroulants
 
-![Icône plus](../img/logo_plus.png)
+![Icône plus](/img/logo_plus.png)
 *Icône d'ajout utilisée dans l'interface*
 
 ### 4.5 Icône de Recherche
@@ -343,7 +343,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Champs de recherche dans les listes
 - Filtres de recherche
 
-![Icône de recherche](../img/logo_search.png)
+![Icône de recherche](/img/logo_search.png)
 *Icône de recherche dans la barre de navigation*
 
 ### 4.6 Icône de Fermeture
@@ -361,7 +361,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Suppression d'éléments
 - Annulation d'actions
 
-![Icône de fermeture](../img/logo_cross.png)
+![Icône de fermeture](/img/logo_cross.png)
 *Icône de fermeture utilisée dans les fenêtres modales*
 
 ### 4.7 Image Placeholder Utilisateur
@@ -396,14 +396,14 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
    - Le bouton est cliquable
    - Couleur : Couleur principale du thème
 
-![Bouton actif](../img/admin-save-button-active.png)
+![Bouton actif](/img/admin-save-button-active.png)
 *Bouton de sauvegarde actif (modifications détectées)*
    
 2. **Désactivé (gris)** : Aucune modification
    - Le bouton n'est pas cliquable
    - Aucun changement à sauvegarder
 
-![Bouton désactivé](../img/admin-save-button-disabled.png)
+![Bouton désactivé](/img/admin-save-button-disabled.png)
 *Bouton de sauvegarde désactivé (aucune modification)*
 
 3. **En cours (gris)** : Sauvegarde en cours

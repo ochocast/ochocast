@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'OchoCast',
   tagline: 'Une application libre pour la diffusion et le partage de vidéo.',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo_OCHOCAST.png',
   url: 'https://ochocast.fr',
   baseUrl: '/',
   organizationName: 'ochocast',
@@ -60,7 +60,7 @@ const config: Config = {
       title: 'OchoCast',
       logo: {
         alt: 'OchoCast Logo',
-        src: 'img/logo.svg',
+        src: 'img/logo_OCHOCAST.png',
       },
       items: [
         {
@@ -70,7 +70,7 @@ const config: Config = {
         },
         {
           type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
+          sidebarId: 'documentationSidebar',
           position: 'right',
           label: 'Documentation',
         },

@@ -109,7 +109,7 @@ frontend/src/pages/adminPanel/adminPanel.tsx
 ```
 
 :::tip Guide détaillé
-Pour un guide complet et détaillé du panneau d'administration avec des explications sur chaque champ et fonctionnalité, consultez le **[Guide du Panneau d'Administration](./05-panneau-admin.md)**.
+Pour un guide complet et détaillé du panneau d'administration avec des explications sur chaque champ et fonctionnalité, consultez le **[Guide du Panneau d'Administration](../utilisation/02-panneau-admin.md)**.
 :::
 
 ## 6. Résumé
