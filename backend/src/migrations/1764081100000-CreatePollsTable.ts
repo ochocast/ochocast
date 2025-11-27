@@ -6,7 +6,7 @@ import {
   TableForeignKey,
 } from 'typeorm';
 
-export class CreatePollsTable1765961111111 implements MigrationInterface {
+export class CreatePollsTable1764081100000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create polls table
     await queryRunner.createTable(
