@@ -91,7 +91,7 @@ export class CreatePollsTable1764081100000 implements MigrationInterface {
       new TableForeignKey({
         columnNames: ['trackId'],
         referencedColumnNames: ['id'],
-        referencedTableName: 'track',
+        referencedTableName: 'track_entity',
         onDelete: 'CASCADE',
       }),
     );
@@ -102,7 +102,7 @@ export class CreatePollsTable1764081100000 implements MigrationInterface {
       new TableForeignKey({
         columnNames: ['createdById'],
         referencedColumnNames: ['id'],
-        referencedTableName: 'user',
+        referencedTableName: 'user_entity',
         onDelete: 'SET NULL',
       }),
     );
@@ -187,7 +187,7 @@ export class CreatePollsTable1764081100000 implements MigrationInterface {
       new TableForeignKey({
         columnNames: ['userId'],
         referencedColumnNames: ['id'],
-        referencedTableName: 'user',
+        referencedTableName: 'user_entity',
         onDelete: 'CASCADE',
       }),
     );
