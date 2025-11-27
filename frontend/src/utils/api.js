@@ -158,3 +158,15 @@ export const clearTrackMessages = (trackId) =>
   api.delete(`/chat/tracks/${trackId}/messages`);
 export const deleteMessage = (messageId) =>
   api.delete(`/chat/messages/${messageId}`);
+
+// Polls
+export const createPoll = (pollData) => api.post('/polls', pollData);
+export const votePoll = (pollId, voteData) =>
+  api.post(`/polls/${pollId}/vote`, voteData);
+export const getPollsByTrack = (trackId) => api.get(`/polls/track/${trackId}`);
+export const getPollsByTrackPublic = (trackId) =>
+  publicApi.get(`/polls/track/${trackId}`);
+export const votePollPublic = (pollId, voteData) =>
+  publicApi.post(`/polls/${pollId}/vote`, voteData);
+export const closePoll = (pollId) => api.post(`/polls/${pollId}/close`);
+export const deletePoll = (pollId) => api.delete(`/polls/${pollId}`);

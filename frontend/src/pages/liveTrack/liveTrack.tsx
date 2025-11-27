@@ -7,6 +7,7 @@ import NavigateBackButton from '../../components/ReworkComponents/Button/Navigat
 import WaitingScreen from '../../components/waitingScreen/waitingScreen';
 import { useTranslation } from 'react-i18next';
 import Chat from '../../components/Chat/Chat';
+import PollsContainer from '../../components/Polls/PollsContainer';
 import { useUser } from '../../context/UserContext';
 
 const fetchTrack = async (trackId?: string) => {
@@ -34,6 +35,7 @@ const LiveTrack = () => {
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(100);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [showClosedPolls, setShowClosedPolls] = useState(false);
   const { user } = useUser();
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const noStreamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -41,8 +43,6 @@ const LiveTrack = () => {
   const hasReceivedTrackRef = useRef(false);
   const streamActiveRef = useRef(false);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Hardcoded WHIP server URL for MVP
   const WHIP_SERVER_URL =
     'https://sfu.demo.ochocast.fr/viewer?room_id=' + trackId;
   // 'http://localhost:8090/viewer?room_id=' + trackId;
@@ -430,103 +430,177 @@ const LiveTrack = () => {
             </div>
           </div>
           <div className={styles.liveContent}>
-            <div className={styles.playerWrapper}>
-              <div className={styles.videoContainer}>
-                {/* Status overlay */}
-                {isConnecting && !isPlaying && (
-                  <div className={styles.statusOverlay}>
-                    <div className={styles.statusContent}>
-                      <div className={styles.spinner}></div>
-                      <p>Connecting to live stream...</p>
+            <div className={styles.liveLeft}>
+              <div className={styles.playerWrapper}>
+                <div className={styles.videoContainer}>
+                  {/* Status overlay */}
+                  {isConnecting && !isPlaying && (
+                    <div className={styles.statusOverlay}>
+                      <div className={styles.statusContent}>
+                        <div className={styles.spinner}></div>
+                        <p>Connecting to live stream...</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {!isConnecting && !isPlaying && <WaitingScreen />}
+                  {!isConnecting && !isPlaying && <WaitingScreen />}
 
-                {/* Video element - always visible */}
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted={isMuted}
-                  onClick={handleVideoClick}
-                  className={styles.videoPlayer}
-                />
+                  {/* Video element - always visible */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted={isMuted}
+                    onClick={handleVideoClick}
+                    className={styles.videoPlayer}
+                  />
 
-                {/* Custom controls */}
-                <div className={styles.customControls}>
-                  <div
-                    className={styles.volumeControl}
-                    onMouseEnter={() => setShowVolumeSlider(true)}
-                    onMouseLeave={() => setShowVolumeSlider(false)}
-                  >
-                    {showVolumeSlider && (
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={volume}
-                        onChange={(e) => {
-                          const newVolume = Number(e.target.value);
-                          setVolume(newVolume);
+                  {/* Custom controls */}
+                  <div className={styles.customControls}>
+                    <div
+                      className={styles.volumeControl}
+                      onMouseEnter={() => setShowVolumeSlider(true)}
+                      onMouseLeave={() => setShowVolumeSlider(false)}
+                    >
+                      {showVolumeSlider && (
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={volume}
+                          onChange={(e) => {
+                            const newVolume = Number(e.target.value);
+                            setVolume(newVolume);
+                            if (videoRef.current) {
+                              videoRef.current.volume = newVolume / 100;
+                              setIsMuted(newVolume === 0);
+                              videoRef.current.muted = newVolume === 0;
+                            }
+                          }}
+                          className={styles.volumeSlider}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      )}
+                      <button
+                        className={styles.controlButton}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (videoRef.current) {
-                            videoRef.current.volume = newVolume / 100;
-                            setIsMuted(newVolume === 0);
-                            videoRef.current.muted = newVolume === 0;
+                            const newMutedState = !isMuted;
+                            videoRef.current.muted = newMutedState;
+                            setIsMuted(newMutedState);
+                            if (!newMutedState && volume === 0) {
+                              setVolume(50);
+                              videoRef.current.volume = 0.5;
+                            }
                           }
                         }}
-                        className={styles.volumeSlider}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    )}
+                        title={isMuted ? 'Unmute' : 'Mute'}
+                      >
+                        {isMuted || volume === 0
+                          ? '🔇'
+                          : volume < 50
+                            ? '🔉'
+                            : '🔊'}
+                      </button>
+                    </div>
                     <button
                       className={styles.controlButton}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (videoRef.current) {
-                          const newMutedState = !isMuted;
-                          videoRef.current.muted = newMutedState;
-                          setIsMuted(newMutedState);
-                          if (!newMutedState && volume === 0) {
-                            setVolume(50);
-                            videoRef.current.volume = 0.5;
+                          if (document.fullscreenElement) {
+                            document.exitFullscreen();
+                          } else {
+                            videoRef.current.parentElement?.requestFullscreen();
                           }
                         }
                       }}
-                      title={isMuted ? 'Unmute' : 'Mute'}
+                      title="Toggle fullscreen"
                     >
-                      {isMuted || volume === 0
-                        ? '🔇'
-                        : volume < 50
-                          ? '🔉'
-                          : '🔊'}
+                      ⛶
                     </button>
                   </div>
-                  <button
-                    className={styles.controlButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (videoRef.current) {
-                        if (document.fullscreenElement) {
-                          document.exitFullscreen();
-                        } else {
-                          videoRef.current.parentElement?.requestFullscreen();
-                        }
-                      }
-                    }}
-                    title="Toggle fullscreen"
-                  >
-                    ⛶
-                  </button>
+                </div>
+                <div className={styles.trackInfo}>
+                  <div className={styles.trackTitle}>
+                    <h2>{track.name}</h2>
+                  </div>
                 </div>
               </div>
-              <div className={styles.trackInfo}>
-                <div className={styles.trackTitle}>
-                  <h2>{track.name}</h2>
+
+              <div className={styles.contentGrid}>
+                <div className={styles.descriptionBox}>
+                  <div className={styles.description}>
+                    <div>
+                      <h3
+                        style={{
+                          margin: '0 0 12px 0',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: 'var(--theme-color-900, #111827)',
+                        }}
+                      >
+                        Description
+                      </h3>
+                      <p>{track.description}</p>
+                    </div>
+                  </div>
                 </div>
+
+                <div className={styles.pollsGridWrapper}>
+                  {user && trackId && (
+                    <PollsContainer
+                      trackId={trackId}
+                      userId={user.id}
+                      isSpeaker={
+                        track?.speakers?.some((s) => s.id === user?.id) ?? false
+                      }
+                      hideExtraPolls={true}
+                    />
+                  )}
+                </div>
+
+                <div className={styles.pollsGridMain}>
+                  {user && trackId && (
+                    <PollsContainer
+                      trackId={trackId}
+                      userId={user.id}
+                      isSpeaker={
+                        track?.speakers?.some((s) => s.id === user?.id) ?? false
+                      }
+                      showOnlyExtraPolls={true}
+                    />
+                  )}
+                </div>
+
+                <button
+                  className={styles.closedPollsToggle}
+                  onClick={() => setShowClosedPolls(!showClosedPolls)}
+                >
+                  <span>{t('polls.closedPolls')}</span>
+                  <span className={styles.toggleIcon}>
+                    {showClosedPolls ? '▼' : '▶'}
+                  </span>
+                </button>
+                {showClosedPolls && (
+                  <div className={styles.closedPollsGrid}>
+                    {user && trackId && (
+                      <PollsContainer
+                        trackId={trackId}
+                        userId={user.id}
+                        isSpeaker={
+                          track?.speakers?.some((s) => s.id === user?.id) ??
+                          false
+                        }
+                        showOnlyClosedPolls={true}
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             </div>
+
             <div className={styles.chatWrapper}>
               {user && trackId && (
                 <Chat

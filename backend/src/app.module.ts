@@ -13,6 +13,7 @@ import { S3Module } from './s3.module';
 import { ConfigManagementModule } from './config-management/config-management.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from './chat/chat.module';
+import { PollsModule } from './polls/polls.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { ChatModule } from './chat/chat.module';
     S3Module,
     ConfigManagementModule,
     ChatModule,
+    PollsModule,
   ],
 })
 export class AppModule {}

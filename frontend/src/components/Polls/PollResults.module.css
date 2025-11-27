@@ -1,0 +1,143 @@
+.container {
+  background: white;
+  border: 1px solid var(--theme-color-200, #e5e7eb);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-color-900, #111827);
+  flex: 1;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  position: relative;
+}
+
+.header h3[title] {
+  cursor: help;
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status.active {
+  background: rgba(var(--theme-color-500), 0.15);
+  color: var(--theme-color-500);
+}
+
+.status.closed {
+  background: var(--theme-color-100, #f3f4f6);
+  color: var(--theme-color-700, #374151);
+}
+
+.status.archived {
+  background: var(--theme-color-100, #f3f4f6);
+  color: var(--theme-color-600, #4b5563);
+}
+
+.statusContainer {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.timer {
+  background: var(--theme-color-500);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.resultRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.labelAndCount {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--theme-color-900, #111827);
+  overflow-wrap: break-word;
+  word-break: break-word;
+  max-width: 100%;
+  position: relative;
+}
+
+.label[title] {
+  cursor: help;
+}
+
+.count {
+  font-size: 10px;
+  color: var(--theme-color-600, #4b5563);
+  background: var(--theme-color-100, #f3f4f6);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.barContainer {
+  height: 16px;
+  background: var(--theme-color-100, #f3f4f6);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--theme-color-500), var(--theme-color-600));
+  transition: width 0.3s ease;
+}
+
+.percentage {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-color-700, #374151);
+  text-align: right;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--theme-color-200, #e5e7eb);
+}
+
+.totalVotes {
+  font-size: 12px;
+  color: var(--theme-color-600, #4b5563);
+}

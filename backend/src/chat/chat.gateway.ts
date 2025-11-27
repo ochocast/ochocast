@@ -9,7 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
-import { Logger } from '@nestjs/common';
+import { Logger, Optional } from '@nestjs/common';
 import { ChatService } from './core/chat.service';
 
 @WebSocketGateway({
@@ -108,6 +108,39 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('pollCreated')
+  async handlePollCreated(
+    @MessageBody() data: { trackId: string; poll: any },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { trackId, poll } = data;
+    this.logger.log(`Poll created in track ${trackId}`);
+    // Broadcast poll creation to all clients in the track room
+    this.server.to(trackId).emit('pollCreated', poll);
+  }
+
+  @SubscribeMessage('pollAnswered')
+  async handlePollAnswered(
+    @MessageBody() data: { trackId: string; poll: any },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { trackId, poll } = data;
+    this.logger.log(`Poll answered in track ${trackId}, poll ${poll.id}`);
+    // Broadcast poll update to all clients in the track room
+    this.server.to(trackId).emit('pollAnswered', poll);
+  }
+
+  @SubscribeMessage('pollClosed')
+  async handlePollClosed(
+    @MessageBody() data: { trackId: string; pollId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { trackId, pollId } = data;
+    this.logger.log(`Poll closed in track ${trackId}, poll ${pollId}`);
+    // Broadcast poll closure to all clients in the track room
+    this.server.to(trackId).emit('pollClosed', { pollId });
+  }
+
   // Optional: Clean up messages from database
   async clearTrackMessages(trackId: string) {
     try {
@@ -118,5 +151,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         `Failed to clear messages for track ${trackId}: ${error.message}`,
       );
     }
+  }
+
+  /**
+   * Broadcast poll closure to all clients in a track room.
+   * Called by PollTimerService when a poll timer expires.
+   */
+  broadcastPollClosed(trackId: string, pollId: string): void {
+    this.logger.log(
+      `Broadcasting poll closure: trackId=${trackId}, pollId=${pollId}`,
+    );
+    this.server.to(trackId).emit('pollClosed', { pollId });
   }
 }
