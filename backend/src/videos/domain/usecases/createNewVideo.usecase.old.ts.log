@@ -6,10 +6,14 @@ import { Inject } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { Upload } from '@aws-sdk/lib-storage';
-import { readFile, unlink } from 'node:fs/promises';
+import * as ffmpeg from 'fluent-ffmpeg';
+import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { writeFile, readFile, unlink } from 'node:fs/promises';
 import * as path from 'path';
 import { tmpdir } from 'os';
 import * as sharp from 'sharp';
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 export class CreateNewVideoUsecase {
   constructor(
@@ -30,6 +34,8 @@ export class CreateNewVideoUsecase {
     const miniature_id = `miniature${Date.now()}.jpg`;
     let subtitle_id: string | undefined;
 
+    // We'll generate subtitle_id after conversion in the upload section
+
     const video = new VideoObject(
       uuid(),
       media_id,
@@ -47,47 +53,48 @@ export class CreateNewVideoUsecase {
       false,
       subtitle_id,
     );
+    const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
+    const tempOutputPath = path.join(
+      tmpdir(),
+      `${video.media_id}-transcoded.mp4`,
+    );
+    await writeFile(tempInputPath, file.buffer);
 
-    // Upload video directly without transcoding
-    console.log(`📹 Uploading video: ${video.media_id}`);
-    const videoUpload = new Upload({
+    await transcodeVideo(tempInputPath, tempOutputPath);
+
+    const transcodedBuffer = await readFile(tempOutputPath);
+
+    const upload = new Upload({
       client: this.s3Client,
       params: {
         Bucket: process.env.STOCK_MEDIA_BUCKET,
         Key: video.media_id,
-        Body: file.buffer,
+        Body: transcodedBuffer,
         ContentType: 'video/mp4',
         ContentDisposition: 'inline',
         CacheControl: 'max-age=31536000',
       },
     });
 
-    await videoUpload.done();
-    console.log(`✅ Video uploaded: ${video.media_id}`);
+    const video_result = await upload.done();
 
-    // Handle miniature
     const tempMiniaturePath = path.join(
       tmpdir(),
       `miniature${video.media_id}.jpg`,
     );
 
     if (miniatureFile) {
-      // Resize and optimize user-provided miniature
-      console.log(`🖼️  Processing miniature...`);
       await sharp(miniatureFile.buffer)
-        .resize(1280, 720, {
-          fit: 'cover',
-          position: 'center',
-        })
+        .resize(1280, 720)
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
     } else {
-      throw new Error('Miniature file is required');
+      await generateThumbnailFromVideo(tempOutputPath, tempMiniaturePath);
     }
 
     // Upload subtitle file if provided
     if (subtitleFile) {
-      console.log(`📝 Processing subtitle...`);
+      // Validate subtitle file format
       const allowedExtensions = ['.srt', '.vtt'];
       const subtitleExtension = path
         .extname(subtitleFile.originalname)
@@ -99,15 +106,18 @@ export class CreateNewVideoUsecase {
         );
       }
 
+      // Validate UTF-8 encoding and convert SRT to VTT if needed
       let subtitleContent: Buffer;
       try {
         const decoded = subtitleFile.buffer.toString('utf-8');
+        // If the file is .srt, convert to WebVTT since browsers require VTT for <track>
         if (subtitleExtension === '.srt') {
           console.log('Converting SRT to VTT format...');
           const converted = convertSrtToVtt(decoded);
           subtitleContent = Buffer.from(converted, 'utf-8');
           subtitle_id = `subtitle${Date.now()}.vtt`;
         } else {
+          // .vtt already - but ensure it has WEBVTT header
           const normalized = decoded.trim();
           if (!normalized.startsWith('WEBVTT')) {
             console.log('Adding WEBVTT header to VTT file...');
@@ -134,14 +144,12 @@ export class CreateNewVideoUsecase {
       });
       await subtitleUpload.done();
 
+      // Attach generated subtitle_id to the VideoObject
       if (subtitle_id) {
         video.subtitle_id = subtitle_id;
       }
       console.log(`✅ Subtitle uploaded: ${subtitle_id}`);
     }
-
-    // Upload miniature
-    console.log(`🖼️  Uploading miniature...`);
     const miniatureUpload = new Upload({
       client: this.s3Client,
       params: {
@@ -151,19 +159,35 @@ export class CreateNewVideoUsecase {
         ContentType: 'image/jpeg',
       },
     });
-    await miniatureUpload.done();
-    console.log(`✅ Miniature uploaded: ${video.miniature_id}`);
-
-    // Cleanup temp files
+    const miniature_result = await miniatureUpload.done();
     await unlink(tempMiniaturePath).catch(() => {});
 
-    // Save to database
-    console.log(`💾 Saving video to database...`);
-    await this.videoGateway.createNewVideo(video);
-    console.log(`✅ Video created successfully: ${video.id}`);
+    await unlink(tempInputPath).catch(() => {});
+    await unlink(tempOutputPath).catch(() => {});
 
+    await this.videoGateway.createNewVideo(video);
     return video;
   }
+}
+
+async function transcodeVideo(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const command = ffmpeg(inputPath)
+      .videoCodec('libx264')
+      .outputOptions(['-preset fast', '-crf 23', '-movflags +faststart'])
+      .format('mp4')
+      .output(outputPath)
+      .on('end', () => {
+        resolve();
+      })
+      .on('error', (err) => {
+        reject(err);
+      });
+    command.run();
+  });
 }
 
 /**
@@ -185,4 +209,25 @@ function convertSrtToVtt(srt: string): string {
     return 'WEBVTT\n\n' + convertedTimestamps.trim() + '\n';
   }
   return convertedTimestamps;
+}
+
+async function generateThumbnailFromVideo(
+  inputPath: string,
+  outputPath: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .screenshots({
+        timestamps: ['0'],
+        filename: path.basename(outputPath),
+        folder: path.dirname(outputPath),
+        size: '1280x720',
+      })
+      .on('end', () => {
+        resolve();
+      })
+      .on('error', (err) => {
+        reject(err);
+      });
+  });
 }
