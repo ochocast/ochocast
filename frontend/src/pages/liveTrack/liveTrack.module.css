@@ -33,16 +33,15 @@
 .liveContent {
   display: flex;
   gap: 20px;
-  height: calc(100vh - 250px);
-  max-height: calc(100vh - 200px);
+  min-height: calc(100vh - 200px);
 }
 
 .liveLeft {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  overflow-y: visible;
+  gap: 20px;
+  overflow-y: auto;
   overflow-x: hidden;
   align-content: flex-start;
 }
@@ -52,6 +51,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 15px;
   width: 100%;
+  grid-auto-flow: dense;
 }
 
 .descriptionBox {
@@ -59,7 +59,7 @@
   grid-row: 1;
   display: flex;
   align-items: stretch;
-  min-height: 100%;
+  min-height: auto;
 }
 
 .pollsGridWrapper {
@@ -350,23 +350,107 @@
   width: 400px;
   min-width: 350px;
   max-width: 500px;
-  height: 100%;
+  height: calc(100vh - 250px);
   overflow-y: auto;
 }
 
 /* Responsive design for smaller screens */
+@media (max-width: 1200px) {
+  .chatWrapper {
+    width: 350px;
+    min-width: 320px;
+  }
+}
+
 @media (max-width: 1024px) {
   .liveContent {
     flex-direction: column;
-    height: auto;
+    min-height: auto;
+    gap: 24px;
   }
 
   .liveLeft {
     overflow-y: auto;
+    gap: 20px;
+  }
+
+  .contentGrid {
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  .descriptionBox {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .pollsGridWrapper {
+    grid-column: 2;
+    grid-row: 1;
+    max-height: none;
+  }
+
+  .pollsGridMain {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    grid-template-columns: 1fr;
+  }
+
+  .closedPollsToggle {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  .closedPollsGrid {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    grid-template-columns: 1fr;
+  }
+
+  .chatWrapper {
+    width: 100%;
+    max-width: 100%;
+    height: 300px;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .livePage {
+    padding: 1%;
+  }
+
+  .liveHeader {
+    padding: 0.5%;
+    margin-bottom: 15px;
+  }
+
+  .eventTitle {
+    font-size: 24px;
+  }
+
+  .liveContent {
+    flex-direction: column;
+    gap: 16px;
+    min-height: auto;
+  }
+
+  .liveLeft {
+    gap: 16px;
+  }
+
+  .playerWrapper {
+    width: 100%;
+  }
+
+  .videoContainer {
+    max-width: 100%;
+    aspect-ratio: 16 / 9;
   }
 
   .contentGrid {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .descriptionBox {
@@ -377,7 +461,6 @@
   .pollsGridWrapper {
     grid-column: 1;
     grid-row: 2;
-    max-height: none;
   }
 
   .pollsGridMain {
@@ -388,18 +471,104 @@
 
   .closedPollsToggle {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 4;
+    font-size: 11px;
+    padding: 6px 10px;
   }
 
   .closedPollsGrid {
     grid-column: 1;
-    grid-row: 4;
+    grid-row: 5;
     grid-template-columns: 1fr;
   }
 
   .chatWrapper {
     width: 100%;
+    height: 250px;
     max-width: 100%;
-    height: 300px;
+  }
+
+  .description {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .description p {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .livePage {
+    padding: 0.5%;
+  }
+
+  .liveHeader {
+    padding: 0.25%;
+    margin-bottom: 10px;
+  }
+
+  .eventTitle {
+    font-size: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .liveLeft {
+    gap: 12px;
+  }
+
+  .contentGrid {
+    gap: 10px;
+  }
+
+  .videoContainer {
+    border-radius: 8px;
+  }
+
+  .customControls {
+    bottom: 8px;
+    right: 8px;
+    gap: 6px;
+  }
+
+  .controlButton {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+
+  .volumeControl {
+    padding-left: 95px;
+  }
+
+  .volumeSlider {
+    width: 80px;
+    right: 48px;
+  }
+
+  .description {
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .description p {
+    font-size: 12px;
+  }
+
+  .trackInfo {
+    padding: 8px 12px;
+  }
+
+  .trackTitle h2 {
+    font-size: 16px;
+  }
+
+  .closedPollsToggle {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+
+  .chatWrapper {
+    height: 200px;
   }
 }

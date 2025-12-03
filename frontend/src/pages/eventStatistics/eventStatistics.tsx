@@ -25,7 +25,7 @@ const EventStatistic: FC<EventStatisticProps> = () => {
 
   const [creatorId, setCreatorId] = useState('');
   const userString = localStorage.getItem('backendUser');
-  const userId = userString ? JSON.parse(userString).id : '';
+  const userId = userString ? JSON.parse(userString)?.id || '' : '';
 
   const [subscribeUser, setSubscribeUser] = useState<PublicUser[]>([]);
 

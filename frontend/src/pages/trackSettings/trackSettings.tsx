@@ -1,4 +1,4 @@
-import React, { FC, ChangeEvent, useState } from 'react';
+import React, { FC, ChangeEvent, useState, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
@@ -49,15 +49,70 @@ const TrackSettings: FC = () => {
     type: 'success' | 'error';
   } | null>(null);
 
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  const handleDownloadQRCode = async () => {
+    if (!qrCodeRef.current) return;
+
+    try {
+      const svg = qrCodeRef.current.querySelector('svg');
+      if (!svg) return;
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const img = new Image();
+      const svgBlob = new Blob([svgData], {
+        type: 'image/svg+xml;charset=utf-8',
+      });
+      const url = URL.createObjectURL(svgBlob);
+
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        URL.revokeObjectURL(url);
+
+        canvas.toBlob((blob) => {
+          if (!blob) return;
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = `qr-code-${trackId}.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(downloadUrl);
+
+          setToast({
+            message: t('QRCodeDownloaded'),
+            type: 'success',
+          });
+        });
+      };
+
+      img.src = url;
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      setToast({
+        message: t('QRCodeDownloadError'),
+        type: 'error',
+      });
+    }
+  };
+
   if (trackId && !track) {
     return <div className="loading">{t('LoadingTrack')}</div>;
   }
 
   const userString = localStorage.getItem('backendUser');
-  const userId = userString ? JSON.parse(userString).id : '';
+  const userId = userString ? JSON.parse(userString)?.id || '' : '';
   const canEdit =
-    event?.creatorId === userId || track.speakers?.some((e) => e.id === userId);
-  const closed = track.closed || event?.closed;
+    event?.creatorId === userId ||
+    track?.speakers?.some((e) => e.id === userId);
+  const closed = track?.closed || event?.closed;
 
   const toggle = () => {
     setIsOpen(!isOpen);
@@ -409,10 +464,15 @@ const TrackSettings: FC = () => {
         {trackId && (
           <div className={styles.qrCodeContainer}>
             <h3>QR Code</h3>
-            <div className={styles.qrCodeWrapper}>
+            <div ref={qrCodeRef} className={styles.qrCodeWrapper}>
               <QRCodeSVG value={publicTrackUrl} size={200} level="H" />
             </div>
             <p className={styles.qrCodeUrl}>{publicTrackUrl}</p>
+            <Button
+              label={t('DownloadQRCode')}
+              onClick={handleDownloadQRCode}
+              type={ButtonType.secondary}
+            />
           </div>
         )}
       </div>

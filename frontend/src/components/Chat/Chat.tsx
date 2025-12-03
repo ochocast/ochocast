@@ -14,6 +14,7 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
   const { t } = useTranslation();
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { messages, isConnected, sendMessage } = useSocket({
     trackId,
@@ -22,7 +23,10 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -78,7 +82,7 @@ const Chat: React.FC<ChatProps> = ({ trackId, userId, username }) => {
   return (
     <div className={styles.chatWrapper}>
       <div className={styles.chatContainer}>
-        <div className={styles.messagesContainer}>
+        <div className={styles.messagesContainer} ref={messagesContainerRef}>
           {messages.length === 0 ? (
             <div className={styles.emptyState}>{t('noChatMessages')}</div>
           ) : (

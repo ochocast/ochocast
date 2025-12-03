@@ -329,7 +329,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     form.append('description', description);
     const backendUser = localStorage.getItem('backendUser');
     if (backendUser !== null && backendUser !== undefined) {
-      form.append('creator', JSON.parse(backendUser).id);
+      form.append('creator', JSON.parse(backendUser)?.id || '');
     }
 
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
@@ -487,7 +487,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     form.append('description', description);
     const backendUser = localStorage.getItem('backendUser');
     if (backendUser !== null && backendUser !== undefined) {
-      form.append('creator', JSON.parse(backendUser).id);
+      form.append('creator', JSON.parse(backendUser)?.id || '');
     }
 
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON

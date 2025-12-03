@@ -335,7 +335,9 @@ const VideoMedia: FC = () => {
 
   const formattedDate = new Date(video.createdAt);
   const backendUser = localStorage.getItem('backendUser');
-  const currentUserId = backendUser ? JSON.parse(backendUser).id : null;
+  const currentUserId = backendUser
+    ? JSON.parse(backendUser)?.id || null
+    : null;
   const canEdit = currentUserId === video.creator.id;
 
   const handleProfileClick = () => {
@@ -512,7 +514,7 @@ const VideoMedia: FC = () => {
                   parentid: null,
                   video: video,
                   content: text,
-                  creator: JSON.parse(backendUser).id,
+                  creator: JSON.parse(backendUser)?.id || '',
                 });
               }
               const [refreshed, likedCommentsRes] = await Promise.all([

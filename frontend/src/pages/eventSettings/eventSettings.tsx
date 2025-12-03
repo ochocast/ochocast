@@ -88,7 +88,7 @@ const EventSettings: FC = () => {
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
   const userString = localStorage.getItem('backendUser');
-  const userId = userString ? JSON.parse(userString).id : '';
+  const userId = userString ? JSON.parse(userString)?.id || '' : '';
 
   useEffect(() => {
     const fetchFallbackMiniature = async () => {
