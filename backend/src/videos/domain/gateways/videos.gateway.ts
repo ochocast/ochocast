@@ -9,4 +9,6 @@ export interface IVideoGateway {
   modifyVideo(video: VideoObject): Promise<VideoObject>;
   deleteVideo: (id: string) => Promise<VideoObject>;
   deleteVideoAdmin: (id: string) => Promise<VideoObject>;
+  searchVideoAdmin(data: string): Promise<VideoObject[]>;
+  restoreVideo: (id: string) => Promise<VideoObject>;
 }

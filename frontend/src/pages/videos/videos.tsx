@@ -3,7 +3,7 @@ import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
 
 import { FC } from 'react';
-import { getVideos, searchVideos } from '../../utils/api';
+import { getVideos, searchVideos, searchVideosAdmin } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
@@ -19,6 +19,7 @@ import { getFavoriteVideos } from '../../utils/api';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import SharedButtonIcon from '../../assets/sharedButton.svg';
+import { useUser } from '../../context/UserContext';
 
 interface VideosProps {}
 
@@ -29,6 +30,7 @@ interface SearchState {
   dateFrom: string | null;
   dateTo: string | null;
   favoris: boolean;
+  archived: boolean | null;
 }
 
 const parseQueryParams = (search: string): SearchState => {
@@ -41,6 +43,12 @@ const parseQueryParams = (search: string): SearchState => {
     dateFrom: params.get('dateFrom') || null,
     dateTo: params.get('dateTo') || null,
     favoris: params.get('favoris') === 'true',
+    archived:
+      params.get('archived') === 'true'
+        ? true
+        : params.get('archived') === 'false'
+          ? false
+          : null,
   };
 };
 
@@ -53,6 +61,9 @@ const serializeSearchState = (state: SearchState): string => {
   if (state.dateFrom) params.set('dateFrom', state.dateFrom);
   if (state.dateTo) params.set('dateTo', state.dateTo);
   if (state.favoris) params.set('favoris', 'true');
+  if (state.archived !== null) {
+    params.set('archived', String(state.archived));
+  }
 
   return params.toString();
 };
@@ -82,6 +93,7 @@ const useUrlStateSync = (initialState: SearchState) => {
 };
 
 const Videos: FC<VideosProps> = () => {
+  const { isAdmin } = useUser();
   const [videos, setVideos] = useState<Video[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
   const userString = localStorage.getItem('backendUser');
@@ -111,11 +123,13 @@ const Videos: FC<VideosProps> = () => {
     users: string[];
     startDate: Date | null;
     endDate: Date | null;
+    archived: boolean | null;
   }>({
     tags: [],
     users: [],
     startDate: null,
     endDate: null,
+    archived: null,
   });
 
   const [showFilters, setShowFilters] = useState(false);
@@ -128,23 +142,30 @@ const Videos: FC<VideosProps> = () => {
     dateFrom: null,
     dateTo: null,
     favoris: false,
+    archived: false,
   });
 
-  const handleSearch = React.useCallback(async (keywords: string[]) => {
-    try {
-      if (keywords[0] !== '') {
-        const response = await searchVideos(keywords[0]);
-        const result = response.data || [];
-        setVideos(result);
-      } else {
-        const response = await getVideos();
-        const result = response.data || [];
-        setVideos(result);
+  const handleSearch = React.useCallback(
+    async (keywords: string[]) => {
+      try {
+        if (keywords[0] !== '') {
+          const response = isAdmin
+            ? await searchVideosAdmin(keywords[0])
+            : await searchVideos(keywords[0]);
+
+          const result = response.data || [];
+          setVideos(result);
+        } else {
+          const response = await getVideos();
+          const result = response.data || [];
+          setVideos(result);
+        }
+      } catch (error) {
+        logger.error('Error fetching suggestions:', error);
       }
-    } catch (error) {
-      logger.error('Error fetching suggestions:', error);
-    }
-  }, []);
+    },
+    [isAdmin],
+  );
 
   useEffect(() => {
     applyFilters(filters);
@@ -157,6 +178,7 @@ const Videos: FC<VideosProps> = () => {
       users: searchState.users,
       startDate: searchState.dateFrom ? new Date(searchState.dateFrom) : null,
       endDate: searchState.dateTo ? new Date(searchState.dateTo) : null,
+      archived: searchState.archived,
     };
     setFilters(updatedFilters);
     setShowFavorites(searchState.favoris);
@@ -172,6 +194,7 @@ const Videos: FC<VideosProps> = () => {
     searchState.dateFrom,
     searchState.dateTo,
     searchState.favoris,
+    searchState.archived,
     searchQuery,
     handleSearch,
   ]);
@@ -192,6 +215,14 @@ const Videos: FC<VideosProps> = () => {
 
     fetchVideos();
   }, [userString]);
+
+  const handleArchivedChange = (archived: boolean) => {
+    const updated = { ...filters, archived };
+    setFilters(updated);
+    applyFilters(updated);
+
+    setSearchState({ archived });
+  };
 
   const applyFilters = (newFilters = filters) => {
     let result = [...videos];
@@ -218,6 +249,9 @@ const Videos: FC<VideosProps> = () => {
           createdAt >= newFilters.startDate! && createdAt <= newFilters.endDate!
         );
       });
+    }
+    if (newFilters.archived !== null) {
+      result = result.filter((video) => video.archived === newFilters.archived);
     }
 
     setFilteredVideos(result);
@@ -332,10 +366,12 @@ const Videos: FC<VideosProps> = () => {
                 onUsersChange={handleUsersChange}
                 onDateFilter={handleDateFilter}
                 closePanel={() => setShowFilters(false)}
+                onArchivedChange={handleArchivedChange}
                 initialTags={filters.tags}
                 initialUsers={filters.users}
                 initialStartDate={filters.startDate}
                 initialEndDate={filters.endDate}
+                initialArchived={filters.archived}
               />
             </div>
           )}

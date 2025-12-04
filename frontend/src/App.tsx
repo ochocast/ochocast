@@ -89,6 +89,8 @@ function App() {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/profile/:username" element={<Profile />} />
                   <Route path="/admin" element={<AdminPanel />} />
+                  <Route path="/admin/theme" element={<AdminPanel />} />
+                  <Route path="/admin/content" element={<AdminPanel />} />
                   <Route path="*" element={<NotFoundPage />} />
                 </Routes>
               </ProtectedRoutes>

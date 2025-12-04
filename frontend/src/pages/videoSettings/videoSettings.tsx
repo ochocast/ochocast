@@ -864,7 +864,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               <>
                 <Button
                   onClick={deleteThisVideo}
-                  label={t('archive')}
+                  label={t('archiveVideo')}
                   type={ButtonType.primary}
                 ></Button>
                 <Button

@@ -75,6 +75,13 @@ export class VideoGateway implements IVideoGateway {
     return await this.videosRepository.save(video);
   }
 
+  async restoreVideo(videoId: string): Promise<VideoObject> {
+    const video = await this.videosRepository.findOneBy({ id: videoId });
+
+    video.archived = false;
+    return await this.videosRepository.save(video);
+  }
+
   async deleteVideoAdmin(videoId: string): Promise<VideoObject> {
     const video = await this.videosRepository.findOneBy({ id: videoId });
 
@@ -141,6 +148,38 @@ export class VideoGateway implements IVideoGateway {
       )
       .take(20)
       .getMany();
+  }
+
+  async searchVideoAdmin(
+    filter: any,
+    archived?: boolean,
+  ): Promise<VideoObject[]> {
+    const query = this.videosRepository
+      .createQueryBuilder('video')
+      .leftJoinAndSelect('video.tags', 'tag')
+      .leftJoinAndSelect('video.creator', 'creator')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('video.title ILIKE :filter', { filter: `%${filter}%` })
+            .orWhere('video.description ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
+            .orWhere('tag.name ILIKE :filter', { filter: `%${filter}%` })
+            .orWhere('creator.firstName ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
+            .orWhere('creator.lastName ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
+            .orWhere('creator.email ILIKE :filter', { filter: `%${filter}%` });
+        }),
+      )
+      .take(20);
+
+    if (archived !== undefined) {
+      query.andWhere('video.archived = :archived', { archived });
+    }
+    return query.getMany();
   }
 
   async getSuggestions(videoId: string): Promise<VideoObject[]> {

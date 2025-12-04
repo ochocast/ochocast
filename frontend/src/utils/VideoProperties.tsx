@@ -12,6 +12,7 @@ export interface Video {
   external_speakers: string;
   views: number;
   tags: Tag_video[];
+  archived?: boolean;
 }
 
 export interface User {

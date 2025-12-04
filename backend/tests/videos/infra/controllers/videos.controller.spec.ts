@@ -22,7 +22,8 @@ describe('VideosController - getVideosSuggestions', () => {
     {} as any, // getVideosAdminUsecase
     {} as any, // modifyVideoUseCase
     mockSearchVideoUsecase as any, // searchVideoUseCase
-    {} as any, // getSuggestionsUseCase
+    {} as any, // getVideosSuggestionsUseCase
+    {} as any, // restoreVideoUsecase
   );
 
   const mockUser: UserEntity = {

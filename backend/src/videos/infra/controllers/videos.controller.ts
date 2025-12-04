@@ -17,6 +17,7 @@ import { CreateVideoDto } from './dto/create-video.dto';
 import { ModifyVideoDto } from './dto/modify-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
+import { RestoreVideoUsecase } from '../../domain/usecases/restoreVideo.usecase';
 import { GetVideosAdminUsecase } from '../../domain/usecases/getVideosAdmin.usecase';
 import { isUUID } from 'class-validator';
 import { VideoObject } from '../../domain/video';
@@ -48,6 +49,7 @@ export class VideosController {
     private modifyVideoUseCase: ModifyVideoUsecase,
     private searchVideoUseCase: searchVideoUseCase,
     private getSuggestionsUseCase: GetSuggestionsUsecase,
+    private restoreVideoUsecase: RestoreVideoUsecase,
     //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
@@ -117,6 +119,18 @@ export class VideosController {
     return await this.deleteVideoUsecase.execute(id, email);
   }
 
+  @Post('/restore/:id')
+  async restoreVideo(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<VideoObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.restoreVideoUsecase.execute(id, email);
+  }
+
   @Delete('/admin/:id')
   async deleteVideoAdmin(@Param('id') id: string): Promise<VideoObject> {
     if (!isUUID(id)) {
@@ -155,5 +169,10 @@ export class VideosController {
   @Get('/videoSuggestions/:id')
   async getSuggestions(@Param('id') VideoId: string): Promise<VideoObject[]> {
     return await this.getSuggestionsUseCase.execute(VideoId);
+  }
+
+  @Get('/searchvideoadmin/:data')
+  async searchVideoAdmin(@Param('data') data: string): Promise<VideoObject[]> {
+    return await this.searchVideoUseCase.execute(data);
   }
 }

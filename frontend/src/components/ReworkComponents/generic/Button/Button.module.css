@@ -20,6 +20,12 @@
   border: none;
 }
 
+.danger {
+  background-color: var(--error-color-500);
+  color: var(--theme-color-white);
+  border: none;
+}
+
 .homeCardButton:hover.secondary {
   background-color: var(--theme-color-500);
   color: var(--theme-color-white);
@@ -30,6 +36,12 @@
 .homeCardButton:hover.primary {
   background-color: var(--theme-color-300);
   color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.homeCardButton:hover.danger {
+  background-color: #c82333;
   cursor: pointer;
   transition: background-color 0.3s ease;
 }

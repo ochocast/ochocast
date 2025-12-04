@@ -159,6 +159,8 @@ export const clearTrackMessages = (trackId) =>
 export const deleteMessage = (messageId) =>
   api.delete(`/chat/messages/${messageId}`);
 
+export const searchVideosAdmin = (data) =>
+  api.get(`/videos/searchvideoadmin/${data}`);
 // Polls
 export const createPoll = (pollData) => api.post('/polls', pollData);
 export const votePoll = (pollId, voteData) =>

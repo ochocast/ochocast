@@ -6,16 +6,19 @@ import style from './FilterPanel.module.css';
 import FilterSearchBar, {
   FilterSearchBarIcon,
 } from '../FilterSearchBar/FilterSearchBar';
+import { useUser } from '../../../../context/UserContext';
 
 interface FilterPanelProps {
   onTagsChange: (tags: string[]) => void;
   onUsersChange: (users: string[]) => void;
   onDateFilter: (start: Date | null, end: Date | null) => void;
   closePanel: () => void;
+  onArchivedChange: (archived: boolean) => void;
   initialTags: string[];
   initialUsers: string[];
   initialStartDate: Date | null;
   initialEndDate: Date | null;
+  initialArchived?: boolean | null;
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -23,10 +26,12 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onUsersChange,
   onDateFilter,
   closePanel,
+  onArchivedChange,
   initialTags,
   initialUsers,
   initialStartDate,
   initialEndDate,
+  initialArchived,
 }) => {
   const [tags, setTags] = useState<string[]>(initialTags);
   const [users, setUsers] = useState<string[]>(initialUsers);
@@ -34,7 +39,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
   const [nextTag, setNextTag] = useState<string | null>(null);
   const [nextUser, setNextUser] = useState<string | null>(null);
+  const [archived, setArchived] = useState<boolean>(initialArchived ?? false);
   const { t } = useTranslation();
+  const { isAdmin } = useUser();
 
   const handleTagClick = (query: string) => {
     if (nextTag === query) {
@@ -99,6 +106,25 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
 
   return (
     <div className={style.panel}>
+      {isAdmin && (
+        <div className={style.section}>
+          <h3 className={style.title}>Archive</h3>
+
+          <button
+            className={style.toggleArchivedButton}
+            onClick={() => {
+              const newValue = !archived;
+              setArchived(newValue);
+              onArchivedChange(newValue);
+            }}
+          >
+            {archived
+              ? 'Afficher vidéos NON archivées'
+              : 'Afficher vidéos archivées'}
+          </button>
+        </div>
+      )}
+
       <div className={style.section}>
         <h3 className={style.title}>{t('filterPanel.tag')}</h3>
         <div>
