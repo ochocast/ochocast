@@ -439,8 +439,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       err += '- ' + t('h1Error') + '\n';
     if (
       baseVideo?.miniature_id === undefined &&
+      miniature &&
       !accepted_minature_formats.includes(
-        miniature?.name.split('.').pop() as string,
+        miniature.name.split('.').pop() as string,
       )
     )
       err += '- ' + t('miniatureFormatError') + '\n';
@@ -711,10 +712,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </div>
 
             <div className={styles.inputWrapper}>
-              <label>
-                {t('addMiniature')}
-                <span className={styles.required}>*</span>
-              </label>
+              <label>{t('addMiniature')}</label>
               <div className={styles.fileInputWrapper}>
                 <InputFile
                   placeholder={
