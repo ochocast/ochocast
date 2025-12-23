@@ -3,8 +3,6 @@ import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
 
-import TextArea from '../../components/ReworkComponents/generic/Text/TextArea/TextArea';
-import TextBox from '../../components/ReworkComponents/generic/Text/TextBox/TextBox';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
@@ -17,6 +15,7 @@ import EventDashboard from '../../components/ReworkComponents/Event/EventDashboa
 import { useTrackSettings } from './useTrackSettings';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
+import { closeTrack } from '../../utils/api';
 
 import styles from './trackSettings.module.css';
 
@@ -48,6 +47,7 @@ const TrackSettings: FC = () => {
     message: string;
     type: 'success' | 'error';
   } | null>(null);
+  const [isCloseTrackModalOpen, setIsCloseTrackModalOpen] = useState(false);
 
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
@@ -199,6 +199,31 @@ const TrackSettings: FC = () => {
     }
   };
 
+  const handleCloseTrack = async () => {
+    if (!trackId) return;
+    try {
+      const res = await closeTrack(trackId);
+      if (res.status === 200) {
+        setTrack({ ...track, closed: true });
+        setIsCloseTrackModalOpen(false);
+        setToast({
+          message: t('trackClosed'),
+          type: 'success',
+        });
+      } else {
+        setToast({
+          message: t('trackCouldNotBeClosed'),
+          type: 'error',
+        });
+      }
+    } catch (error) {
+      setToast({
+        message: t('trackCouldNotBeClosed'),
+        type: 'error',
+      });
+    }
+  };
+
   const renderForm = () => (
     <form onSubmit={handleFormSubmit} className={styles.trackSettings}>
       <div className={styles.topLayout}>
@@ -251,26 +276,34 @@ const TrackSettings: FC = () => {
       <div className={styles.trackDateSpeakerWrapper}>
         <h3>{t('BasicInformation') || 'Basic Information'}</h3>
 
-        <TextBox
-          type="text"
-          label={t('TrackName')}
-          placeholder={t('MyTrack')}
-          value={track.name || ''}
-          name={t('Name')}
-          error={!track.name && touched.name}
-          disabled={closed}
-          onChange={handleInputChange('name')}
-        />
+        <div className={styles.inputWrapper}>
+          <label>{t('TrackName')}</label>
+          <input
+            type="text"
+            placeholder={t('MyTrack')}
+            value={track.name || ''}
+            name={t('Name')}
+            disabled={closed}
+            onChange={handleInputChange('name')}
+            className={!track.name && touched.name ? styles.error : ''}
+            required
+          />
+        </div>
 
-        <TextArea
-          label={t('TrackDescription')}
-          placeholder={t('DescriptionEvent')}
-          value={track.description || ''}
-          name={t('DescriptionEvent2')}
-          error={!track.description && touched.description}
-          disabled={closed}
-          onChange={handleInputChange('description')}
-        />
+        <div className={styles.inputWrapper}>
+          <label>{t('TrackDescription')}</label>
+          <textarea
+            placeholder={t('DescriptionEvent')}
+            value={track.description || ''}
+            name={t('DescriptionEvent2')}
+            disabled={closed}
+            onChange={handleInputChange('description')}
+            className={
+              !track.description && touched.description ? styles.error : ''
+            }
+            required
+          />
+        </div>
       </div>
 
       <div className={styles.trackDateSpeakerWrapper}>
@@ -356,10 +389,39 @@ const TrackSettings: FC = () => {
               : ButtonType.secondary
           }
         />
+        {trackId && !track.closed && !event?.closed && (
+          <Button
+            label={t('CloseTrack')}
+            onClick={() => setIsCloseTrackModalOpen(true)}
+            type={ButtonType.primary}
+          />
+        )}
         {trackId && (
           <Button label={t('DeleteTrack')} onClick={toggleDeleteModal} />
         )}
       </div>
+
+      {track.closed && (
+        <div className={styles.formSection}>
+          <h2 style={{ color: 'var(--theme-color-700, #666)', margin: 0 }}>
+            {t('TrackIsClosed')}
+          </h2>
+        </div>
+      )}
+
+      <Modal
+        isOpen={isCloseTrackModalOpen}
+        toggle={() => setIsCloseTrackModalOpen(false)}
+      >
+        <h2>{t('SureCloseTrack')}</h2>
+        <div className={styles.confirmationButtons}>
+          <Button label={t('Confirm')} onClick={handleCloseTrack} />
+          <Button
+            label={t('Cancel')}
+            onClick={() => setIsCloseTrackModalOpen(false)}
+          />
+        </div>
+      </Modal>
 
       <Modal isOpen={isDeleteModalOpen} toggle={toggleDeleteModal}>
         <div className={styles.confirmationButtons}>
@@ -387,25 +449,25 @@ const TrackSettings: FC = () => {
         </div>
       </div>
       <hr />
-      <TextBox
-        type="text"
-        label={t('TrackName')}
-        placeholder={t('MyTrack')}
-        value={track.name || ''}
-        name={t('Name')}
-        error={false}
-        disabled
-        onChange={handleInputChange('name')}
-      />
-      <TextArea
-        label={t('TrackDescription')}
-        placeholder="Description..."
-        value={track.description || ''}
-        name={t('DescriptionEvent2')}
-        error={false}
-        disabled
-        onChange={handleInputChange('description')}
-      />
+      <div className={styles.inputWrapper}>
+        <label>{t('TrackName')}</label>
+        <input
+          type="text"
+          placeholder={t('MyTrack')}
+          value={track.name || ''}
+          name={t('Name')}
+          disabled
+        />
+      </div>
+      <div className={styles.inputWrapper}>
+        <label>{t('TrackDescription')}</label>
+        <textarea
+          placeholder="Description..."
+          value={track.description || ''}
+          name={t('DescriptionEvent2')}
+          disabled
+        />
+      </div>
 
       <CheckBoxList
         allUsers={allUsers}

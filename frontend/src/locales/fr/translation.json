@@ -91,6 +91,7 @@
   "registered": "inscrits",
   "Registered": "Inscrit",
   "Organizer": "Organisateur",
+  "Unregister": "Se désinscrire",
   "Publish": "Publier",
   "PublishEvent": "Publier l'évènement",
   "StartDate": "Date de début : ",
@@ -135,6 +136,10 @@
   "ModifyEvent": "Modifier l'évènement",
   "Thumbnail": "Miniature",
   "CloseTrack": "Clôturer la piste",
+  "SureCloseTrack": "Êtes-vous sûr de vouloir clôturer cette piste ?",
+  "trackClosed": "La piste a été clôturée avec succès",
+  "trackCouldNotBeClosed": "La piste n'a pas pu être clôturée",
+  "TrackIsClosed": "Cette piste est clôturée",
   "Loading": "Chargement",
   "LoggingInOut": "Connexion/Déconnexion en cours...",
   "404": "404 - Page introuvable",
@@ -299,5 +304,14 @@
     "closedPolls": "Sondages fermés",
     "pollExpired": "Ce sondage a expiré",
     "expired": "Expiré"
+  },
+  "chat": {
+    "deleteMessage": "Supprimer",
+    "editMessage": "Modifier",
+    "confirmDelete": "Supprimer ce message ?",
+    "messageEdited": "(modifié)",
+    "addReaction": "Ajouter une réaction",
+    "saveEdit": "Enregistrer",
+    "cancelEdit": "Annuler"
   }
 }

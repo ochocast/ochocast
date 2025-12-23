@@ -50,6 +50,7 @@ const EventsHomePage = () => {
     string | null
   >(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showOnlyRegistered, setShowOnlyRegistered] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -124,12 +125,47 @@ const EventsHomePage = () => {
     setSearchQuery(query);
   };
 
-  const filteredEvents =
+  // Get current user ID from localStorage
+  const userString = localStorage.getItem('backendUser');
+  const currentUserId = userString ? JSON.parse(userString)?.id : null;
+
+  // Apply filters: search query and registered status
+  let filteredEvents =
     searchQuery === '' ? events : filterEvents(events, searchQuery);
+
+  if (showOnlyRegistered && currentUserId) {
+    filteredEvents = filteredEvents.filter((event) =>
+      event.subscribedUserIds?.includes(currentUserId),
+    );
+  }
 
   const loading = Array.from({ length: 10 }, (_, i) => (
     <DisableEventBox key={i} />
   ));
+
+  const handleSubscriptionChange = useCallback(
+    (eventId: string, isSubscribed: boolean) => {
+      if (!currentUserId) return;
+
+      setEvents((prevEvents) =>
+        prevEvents.map((event) => {
+          if (event.id === eventId) {
+            const currentSubscribers = event.subscribedUserIds || [];
+            const updatedSubscribers = isSubscribed
+              ? [...currentSubscribers, currentUserId]
+              : currentSubscribers.filter((id) => id !== currentUserId);
+            return {
+              ...event,
+              subscribedUserIds: updatedSubscribers,
+              nbSubscription: updatedSubscribers.length,
+            };
+          }
+          return event;
+        }),
+      );
+    },
+    [currentUserId],
+  );
 
   const eventsBoxs = filteredEvents.map((event: PublicEvent) => {
     return (
@@ -138,6 +174,12 @@ const EventsHomePage = () => {
         eventStatus={EventStatus.Published}
         key={event.id}
         imageURL={miniatureURLs[event.id]}
+        onSubscriptionChange={() => {
+          // Toggle subscription based on current state
+          const isCurrentlySubscribed =
+            event.subscribedUserIds?.includes(currentUserId);
+          handleSubscriptionChange(event.id, !isCurrentlySubscribed);
+        }}
       />
     );
   });
@@ -157,10 +199,8 @@ const EventsHomePage = () => {
           <input
             className={styles.checkBoxSubscribeEvent}
             type="checkbox"
-            checked={false}
-            onChange={() => {
-              /*TODO*/
-            }}
+            checked={showOnlyRegistered}
+            onChange={(e) => setShowOnlyRegistered(e.target.checked)}
           />
           {t('isRegistered')}
         </div>

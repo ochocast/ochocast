@@ -33,4 +33,7 @@ export class ChatMessageEntity {
 
   @ManyToOne(() => UserEntity, { nullable: true })
   user: UserEntity;
+
+  @Column({ type: 'timestamp', nullable: true })
+  editedAt: Date | null;
 }

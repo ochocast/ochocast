@@ -136,6 +136,10 @@
   "ModifyEvent": "Modify the Event",
   "Thumbnail": "Thumbnail",
   "CloseTrack": "Close the track",
+  "SureCloseTrack": "Are you sure you want to close this track?",
+  "trackClosed": "Track successfully closed",
+  "trackCouldNotBeClosed": "Track could not be closed",
+  "TrackIsClosed": "This track is closed",
   "Loading": "Loading",
   "LoggingInOut": "Logging in/out in progress...",
   "404": "404 - Page not found",
@@ -300,5 +304,14 @@
     "closedPolls": "Closed Polls",
     "pollExpired": "This poll has expired",
     "expired": "Expired"
+  },
+  "chat": {
+    "deleteMessage": "Delete",
+    "editMessage": "Edit",
+    "confirmDelete": "Delete this message?",
+    "messageEdited": "(edited)",
+    "addReaction": "Add reaction",
+    "saveEdit": "Save",
+    "cancelEdit": "Cancel"
   }
 }

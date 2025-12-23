@@ -607,6 +607,9 @@ const LiveTrack = () => {
                   trackId={trackId}
                   userId={user.id}
                   username={`${user.firstName} ${user.lastName}`}
+                  isSpeaker={
+                    track?.speakers?.some((s) => s.id === user?.id) ?? false
+                  }
                 />
               )}
             </div>

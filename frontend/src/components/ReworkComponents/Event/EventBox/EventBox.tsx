@@ -85,7 +85,7 @@ const EventBox = (props: EventBoxProps) => {
       ) : (
         <div className={styles.subscribedContainer}>
           <Button
-            label={t('Registered')}
+            label={t('Unregister')}
             type={ButtonType.secondary}
             onClick={async (e) => {
               e.stopPropagation();
