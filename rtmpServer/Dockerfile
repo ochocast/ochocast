@@ -1,4 +1,4 @@
-ARG ALPINE_VERSION=3.11
+ARG ALPINE_VERSION=3.11@sha256:bcae378eacedab83da66079d9366c8f5df542d7ed9ab23bf487e3e1a8481375d
 
 ##### Building stage #####
 FROM alpine:${ALPINE_VERSION} as builder
