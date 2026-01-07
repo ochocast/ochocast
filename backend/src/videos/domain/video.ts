@@ -70,7 +70,7 @@ export class VideoObject {
     example:
       '["ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2", "ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2"]',
     description:
-      'The list of identifiers of internal speakers that appear in the video.',
+      'The list of identifiers of speakers that appear in the video.',
   })
   internal_speakers: UserEntity[];
 

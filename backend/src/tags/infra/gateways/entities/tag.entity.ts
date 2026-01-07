@@ -6,7 +6,7 @@ export class TagEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ unique: true })
   name: string;
 
   @ManyToMany(() => VideoEntity, (video) => video.tags)

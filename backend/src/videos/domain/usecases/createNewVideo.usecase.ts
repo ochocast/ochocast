@@ -85,7 +85,10 @@ export class CreateNewVideoUsecase {
 
     if (miniatureFile) {
       await sharp(miniatureFile.buffer)
-        .resize(1280, 720, { fit: 'cover', position: 'center' })
+        .resize(1280, 720, {
+          fit: 'cover',
+          position: 'center',
+        })
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
     } else {

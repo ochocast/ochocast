@@ -2,7 +2,7 @@ import { CreateTagDto } from '../../infra/controllers/dto/create-tag.dto';
 import { ITagGateway } from '../gateways/tags.gateway';
 import { TagObject } from '../tag';
 import { v4 as uuid } from 'uuid';
-import { Inject } from '@nestjs/common';
+import { Inject, ConflictException } from '@nestjs/common';
 
 export class CreateNewTagUsecase {
   constructor(
@@ -11,6 +11,14 @@ export class CreateNewTagUsecase {
   ) {}
 
   async execute(tagToCreate: CreateTagDto): Promise<TagObject> {
+    // Check if tag already exists
+    const existingTags = await this.tagGateway.getTags({
+      name: tagToCreate.name,
+    });
+    if (existingTags && existingTags.length > 0) {
+      throw new ConflictException(`Tag "${tagToCreate.name}" already exists`);
+    }
+
     const tag = new TagObject(
       uuid(),
       tagToCreate.name,

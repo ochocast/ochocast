@@ -59,17 +59,43 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
-  // const userId = localStorage.getItem('backendUser');
   const { videoId } = useParams();
   const [baseVideo, setBaseVideo] = useState<Video>();
 
-  // const auth = useAuth();
+  // LocalStorage helpers
+  const STORAGE_KEY = 'videoSettings_draft';
 
-  // const auth = useAuth();
+  const saveToLocalStorage = (
+    key: string,
+    value: string | number | boolean | object,
+  ) => {
+    try {
+      const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      draft[key] = value;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  };
+
+  const removeFromLocalStorage = (key: string) => {
+    try {
+      const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      delete draft[key];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    } catch (error) {
+      console.error('Error removing from localStorage:', error);
+    }
+  };
+
+  const clearLocalStorage = () => {
+    localStorage.removeItem(STORAGE_KEY);
+  };
 
   const [title, setTitle] = useState('');
   const handleTitleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value);
+    saveToLocalStorage('title', e.target.value);
   };
   const [toast, setToast] = useState<{
     message: string;
@@ -84,17 +110,52 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [description, setDescription] = useState('');
   const handleDescriptionChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setDescription(e.target.value);
+    saveToLocalStorage('description', e.target.value);
   };
 
   const [media, setMedia] = useState<File>();
+  const [videoMetadata, setVideoMetadata] = useState<{
+    size: string;
+    duration: string;
+  } | null>(null);
   const [manualMiniatureSelected, setManualMiniatureSelected] = useState(false);
+  const [mediaInputKey, setMediaInputKey] = useState(0);
+  const [miniatureInputKey, setMiniatureInputKey] = useState(0);
+  const [subtitleInputKey, setSubtitleInputKey] = useState(0);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  };
+
   const handleMediaChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files != null && e.target.files !== undefined) {
       const media_tmp = e.target.files[0];
       if (media_tmp !== undefined) {
+        // Validate video format before proceeding
+        const allowed_formats = ['mp4', 'mkv', 'mov', 'avi'];
+        const file_extension = media_tmp.name.split('.').pop()?.toLowerCase();
+
+        if (file_extension && !allowed_formats.includes(file_extension)) {
+          setToast({
+            message: t('videoFormatErrorDetailed'),
+            type: 'error',
+          });
+          setMediaInputKey((prev) => prev + 1); // Reset input to clear selection
+          return;
+        }
+
         setMedia(media_tmp);
+        saveToLocalStorage('media', media_tmp.name);
+
+        // Extract metadata
+        const sizeFormatted = formatFileSize(media_tmp.size);
 
         if (manualMiniatureSelected) {
+          setVideoMetadata({ size: sizeFormatted, duration: '' });
           return;
         }
 
@@ -125,8 +186,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         };
 
         videoElement.addEventListener('loadedmetadata', () => {
-          const targetTime = Math.min(0.1, videoElement.duration || 0.1);
+          // Use 2-3 seconds instead of first frame
+          const targetTime = Math.min(2.0, videoElement.duration || 0.1);
           videoElement.currentTime = targetTime;
+
+          // Store duration metadata
+          const duration = Math.floor(videoElement.duration);
+          const minutes = Math.floor(duration / 60);
+          const seconds = duration % 60;
+          setVideoMetadata({
+            size: sizeFormatted,
+            duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+          });
         });
 
         videoElement.addEventListener('seeked', () => {
@@ -137,6 +208,16 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         videoElement.load();
       }
     }
+  };
+
+  const handleRemoveMedia = () => {
+    setMedia(undefined);
+    setVideoMetadata(null);
+    if (!manualMiniatureSelected) {
+      setMiniatureUrl(null);
+    }
+    removeFromLocalStorage('media');
+    setMediaInputKey((prev) => prev + 1); // Force input reset
   };
 
   /*
@@ -151,6 +232,20 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const handleMiniatureChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files != null && e.target.files !== undefined) {
       const miniature_tmp = e.target.files[0];
+
+      // Validate miniature format before proceeding
+      const allowed_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+      const file_extension = miniature_tmp.name.split('.').pop()?.toLowerCase();
+
+      if (file_extension && !allowed_formats.includes(file_extension)) {
+        setToast({
+          message: t('miniatureFormatErrorDetailed'),
+          type: 'error',
+        });
+        setMiniatureInputKey((prev) => prev + 1); // Reset input to clear selection
+        return;
+      }
+
       const reader = new FileReader();
 
       reader.onload = () => {
@@ -163,9 +258,20 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       };
 
       reader.readAsDataURL(miniature_tmp);
-      if (miniature_tmp !== undefined) setMiniature(miniature_tmp);
+      if (miniature_tmp !== undefined) {
+        setMiniature(miniature_tmp);
+        saveToLocalStorage('miniature', miniature_tmp.name);
+      }
       setManualMiniatureSelected(true);
     }
+  };
+
+  const handleRemoveMiniature = () => {
+    setMiniature(undefined);
+    setMiniatureUrl(null);
+    setManualMiniatureSelected(false);
+    removeFromLocalStorage('miniature');
+    setMiniatureInputKey((prev) => prev + 1); // Force input reset
   };
 
   const [subtitle, setSubtitle] = useState<File>();
@@ -185,17 +291,23 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           !allowed_subtitle_formats.includes(file_extension)
         ) {
           setToast({
-            message:
-              t('subtitleFormatError') ||
-              'Format de sous-titres non valide. Formats acceptés: .srt, .vtt',
+            message: t('subtitleFormatError'),
             type: 'error',
           });
+          setSubtitleInputKey((prev) => prev + 1); // Reset input to clear selection
           return;
         }
 
         setSubtitle(subtitle_tmp);
+        saveToLocalStorage('subtitle', subtitle_tmp.name);
       }
     }
+  };
+
+  const handleRemoveSubtitle = () => {
+    setSubtitle(undefined);
+    removeFromLocalStorage('subtitle');
+    setSubtitleInputKey((prev) => prev + 1); // Force input reset
   };
 
   const [intern_list, setInternList] = useState<User[]>([]);
@@ -203,21 +315,142 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setInternList([...intern_list, userChoosen as User]);
   };
   const [tags, setTags] = useState<Tag_video[]>([]);
-  const selectTag = (tagChoosen: Suggestion) => {
-    if (
-      isTagVideo(tagChoosen) &&
-      tags.some((tag) => tag.name === tagChoosen.name)
-    ) {
-      setToast({
-        message: t('tagAlreadyExists') + '.',
-        type: 'info',
-      });
-      return;
-    }
-    setTags([...tags, tagChoosen as Tag_video]);
+  const [tagInput, setTagInput] = useState('');
+
+  // Tag validation constants
+  const MAX_TAGS = 10;
+  const MIN_TAG_LENGTH = 2;
+  const MAX_TAG_LENGTH = 20;
+  const TAG_REGEX = /^[a-zA-Z0-9\s\-_]+$/;
+
+  const handleTagInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setTagInput(e.target.value);
   };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('Enter pressed, calling processTagInput with:', tagInput);
+      processTagInput();
+    }
+  };
+
+  const processTagInput = async () => {
+    console.log('processTagInput called with tagInput:', tagInput);
+    // Support both comma and semicolon as separators
+    const tagNames = tagInput
+      .split(/[,;]/) // Split by comma or semicolon
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+    console.log('Split tags:', tagNames);
+
+    if (tagNames.length === 0) return;
+
+    const currentTags = [...tags]; // Work with a local copy
+    const errorMessages: string[] = [];
+
+    for (const tagName of tagNames) {
+      console.log('Processing tag:', tagName, 'length:', tagName.length);
+
+      // Check if we've reached the max tags limit
+      if (currentTags.length >= MAX_TAGS) {
+        errorMessages.push(`${tagName}: ${t('maxTagsError')}`);
+        continue;
+      }
+
+      // Validate tag length
+      if (tagName.length < MIN_TAG_LENGTH || tagName.length > MAX_TAG_LENGTH) {
+        errorMessages.push(`${tagName}: ${t('tagLengthError')}`);
+        continue;
+      }
+
+      // Validate tag characters
+      if (!TAG_REGEX.test(tagName)) {
+        errorMessages.push(`${tagName}: ${t('tagCharactersError')}`);
+        continue;
+      }
+
+      // Check for duplicate in current tags
+      if (
+        currentTags.some(
+          (tag) => tag.name.toLowerCase() === tagName.toLowerCase(),
+        )
+      ) {
+        errorMessages.push(`${tagName}: ${t('tagAlreadyExists')}`);
+        continue;
+      }
+
+      // Try to find or create the tag
+      try {
+        const existingTagResponse = await findTag(tagName);
+        let tagToAdd: Tag_video | null = null;
+
+        if (existingTagResponse.data && existingTagResponse.data.length > 0) {
+          // Check for EXACT match
+          tagToAdd =
+            existingTagResponse.data.find(
+              (tag: Tag_video) =>
+                tag.name.toLowerCase() === tagName.toLowerCase(),
+            ) || null;
+        }
+
+        // If tag doesn't exist, create it
+        if (!tagToAdd) {
+          console.log('Creating new tag:', tagName);
+          const response = await createTag({ name: tagName });
+
+          if (
+            response.status === 202 ||
+            response.status === 201 ||
+            response.status === 204 ||
+            response.status === 200
+          ) {
+            // Fetch the newly created tag
+            const newTagResponse = await findTag(tagName);
+            if (newTagResponse.data && newTagResponse.data.length > 0) {
+              tagToAdd =
+                newTagResponse.data.find(
+                  (tag: Tag_video) =>
+                    tag.name.toLowerCase() === tagName.toLowerCase(),
+                ) || null;
+            }
+          }
+        }
+
+        // Add the tag to our local list
+        if (tagToAdd) {
+          console.log('Tag added to list:', tagToAdd.name);
+          currentTags.push(tagToAdd);
+        }
+      } catch (error) {
+        console.error('Error processing tag:', tagName, error);
+        errorMessages.push(`${tagName}: ${t('failedLoadingVideo')}`);
+      }
+    }
+
+    // Update state with all new tags at once
+    if (currentTags.length > tags.length) {
+      setTags(currentTags);
+      saveToLocalStorage('tags', currentTags);
+    }
+
+    // Show all error messages if any
+    if (errorMessages.length > 0) {
+      setToast({
+        message: errorMessages.join('\n'),
+        type: 'error',
+      });
+    }
+
+    setTagInput('');
+  };
+
   const handleDeleteTag = (name: string) => {
-    setTags(tags.filter((tag) => tag.name !== name));
+    const newTags = tags.filter((tag) => tag.name !== name);
+    setTags(newTags);
+    saveToLocalStorage('tags', newTags);
   };
 
   const handleDeleteUser = (fullName: string) => {
@@ -226,43 +459,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         (user) => `${user.firstName} ${user.lastName}` !== fullName,
       ),
     );
-  };
-
-  const isTagVideo = (suggestion: Suggestion): suggestion is Tag_video => {
-    return 'id' in suggestion && 'name' in suggestion;
-  };
-  const addTag = (query: string) => {
-    createTag({ name: query })
-      .then(async (response) => {
-        if (
-          response.status === 202 ||
-          response.status === 201 ||
-          response.status === 204 ||
-          response.status === 200
-        ) {
-          setToast({
-            message: t('tagCreated'),
-            type: 'success',
-          });
-          const response = await findTag(query);
-          const newTag = response.data[0];
-          if (!tags.some((tag) => tag.name === newTag.name)) {
-            setTags([...tags, newTag]);
-          }
-        } else {
-          setToast({
-            message: t('failedLoading') + `:${response}`,
-            type: 'error',
-          });
-        }
-      })
-      .catch((error) => {
-        console.error('Erreur lors du chargement de la vidéo :', error);
-        setToast({
-          message: t('failedLoadingVideo'),
-          type: 'error',
-        });
-      });
   };
 
   const publishVideo = async () => {
@@ -275,10 +471,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     // conditions publication
     if (media === undefined) err += '- ' + t('missingVideoFile') + '\n';
     else if (
-      media?.name.split('.').pop() !== undefined && //could be moved to handleMediaChange
+      media?.name.split('.').pop() !== undefined &&
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
     )
-      err += '- ' + t('videoFormatError') + '\n';
+      err += '- ' + t('videoFormatErrorDetailed') + '\n';
     if (title === '') err += '- ' + t('unknownTitle') + '\n';
     if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (list_by_title.length > 0) err += '- ' + t('titleAlreadyExists') + '\n';
@@ -290,7 +486,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         miniature?.name.split('.').pop() as string,
       )
     )
-      err += '- ' + t('miniatureFormatError') + '\n';
+      err += '- ' + t('miniatureFormatErrorDetailed') + '\n';
     // Validate subtitle format if provided
     if (
       subtitle &&
@@ -350,14 +546,29 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 200
         ) {
           setIsLoading(false);
-          navigate('/videos', {
-            state: {
-              toast: {
-                message: t('successVideo'),
-                type: 'success',
+          clearLocalStorage(); // Clear saved draft after successful upload
+          // Redirect to the created video page
+          const createdVideoId = response.data?.id || response.data;
+          if (createdVideoId && typeof createdVideoId === 'string') {
+            navigate(`/video/${createdVideoId}`, {
+              state: {
+                toast: {
+                  message: t('successVideo'),
+                  type: 'success',
+                },
               },
-            },
-          });
+            });
+          } else {
+            // Fallback to videos list if no ID
+            navigate('/videos', {
+              state: {
+                toast: {
+                  message: t('successVideo'),
+                  type: 'success',
+                },
+              },
+            });
+          }
         } else {
           setToast({
             message: t('failedLoading') + `:${response}`,
@@ -427,10 +638,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       err += '- ' + t('missingVideoFile') + '\n';
     else if (
       baseVideo?.media_id === undefined &&
-      media?.name.split('.').pop() !== undefined && //could be moved to handleMediaChange
+      media?.name.split('.').pop() !== undefined &&
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
     )
-      err += '- ' + t('videoFormatError') + '\n';
+      err += '- ' + t('videoFormatErrorDetailed') + '\n';
     if (title === '') err += '- ' + t('unknownTitle') + '\n';
     if (tags.length === 0) err += '- ' + t('missingTag') + '\n';
     if (title !== baseVideo?.title && list_by_title.length > 0)
@@ -444,7 +655,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         miniature.name.split('.').pop() as string,
       )
     )
-      err += '- ' + t('miniatureFormatError') + '\n';
+      err += '- ' + t('miniatureFormatErrorDetailed') + '\n';
     // Validate subtitle format if provided
     if (
       subtitle &&
@@ -557,6 +768,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [extern_User_List, setExternUserList] = useState('');
   const handleExternUserChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     setExternUserList(e.target.value);
+    saveToLocalStorage('externSpeakers', e.target.value);
   };
 
   /*useEffect(() => {
@@ -612,6 +824,23 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   }, [userId, videoId]);*/
 
+  // Add beforeunload event listener to warn user about unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only show warning if there are files uploaded (media, miniature, or subtitle)
+      if (media || miniature || subtitle) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [media, miniature, subtitle]);
+
   useEffect(() => {
     const get_video = async () => {
       const response = await getVideo(videoId);
@@ -623,21 +852,46 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     if (videoId !== undefined) {
       get_video();
+    } else {
+      // Load from localStorage only when creating new video (not editing)
+      try {
+        const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+        if (draft.title) setTitle(draft.title);
+        if (draft.description) setDescription(draft.description);
+        if (draft.externSpeakers) setExternUserList(draft.externSpeakers);
+        if (draft.tags && Array.isArray(draft.tags)) setTags(draft.tags);
+        if (draft.internSpeakers && Array.isArray(draft.internSpeakers))
+          setInternList(draft.internSpeakers);
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+      }
     }
   }, [videoId]);
 
   useEffect(() => {
     const set_video = () => {
-      if (baseVideo?.title !== undefined) setTitle(baseVideo.title);
-      if (baseVideo?.description !== undefined)
-        setDescription(baseVideo.description);
-      if (baseVideo?.external_speakers !== undefined)
-        setExternUserList(baseVideo.external_speakers);
-      if (baseVideo?.tags !== undefined) {
-        setTags(baseVideo.tags);
+      // Load from localStorage first (for refresh scenario)
+      const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+      // Set values from baseVideo or localStorage (localStorage takes precedence for unsaved changes)
+      if (draft.title || baseVideo?.title !== undefined) {
+        setTitle(draft.title || (baseVideo?.title ?? ''));
       }
-      if (baseVideo?.internal_speakers !== undefined) {
-        setInternList(baseVideo.internal_speakers);
+      if (draft.description || baseVideo?.description !== undefined) {
+        setDescription(draft.description || (baseVideo?.description ?? ''));
+      }
+      if (draft.externSpeakers || baseVideo?.external_speakers !== undefined) {
+        setExternUserList(
+          draft.externSpeakers || (baseVideo?.external_speakers ?? ''),
+        );
+      }
+      if (draft.tags || baseVideo?.tags !== undefined) {
+        setTags(draft.tags || (baseVideo?.tags ?? []));
+      }
+      if (draft.internSpeakers || baseVideo?.internal_speakers !== undefined) {
+        setInternList(
+          draft.internSpeakers || (baseVideo?.internal_speakers ?? []),
+        );
       }
     };
     if (baseVideo) {
@@ -656,166 +910,304 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         <h1 className={styles.title}>
           {videoId !== undefined ? t('modifyVideo') : t('publish')}
         </h1>
+        {videoId !== undefined && (
+          <div className={styles.headerButtons}>
+            <Button
+              onClick={deleteThisVideo}
+              label={t('archive')}
+              type={ButtonType.primary}
+            ></Button>
+            <Button
+              onClick={updateVideo}
+              label={t('modifyVideo')}
+              type={ButtonType.primary}
+            ></Button>
+          </div>
+        )}
       </div>
 
       <div className={styles.videoSettings}>
         <div className={styles.contentWrapper}>
           <div className={styles.addVideoForm}>
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('Titre')}
-                <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="text"
-                placeholder={t('Titre')}
-                value={title}
-                onChange={handleTitleChange}
-              />
+            <div className={styles.requiredNotice}>
+              {t('requiredFieldsNotice')}
             </div>
 
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('addMedia')}
-                <span className={styles.required}>*</span>
-              </label>
-              <div className={styles.fileInputWrapper}>
-                <InputFile
-                  placeholder={
-                    baseVideo?.media_id !== undefined
-                      ? baseVideo.media_id
-                      : t('addMedia')
-                  }
-                  onChange={handleMediaChange}
-                  disable={baseVideo?.media_id !== undefined}
+            {/* TITLE ROW - Full width */}
+            <div className={styles.titleRow}>
+              <div className={styles.inputWrapper}>
+                <label>
+                  {t('Titre')}
+                  <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder={t('Titre')}
+                  value={title}
+                  onChange={handleTitleChange}
+                  required
                 />
               </div>
             </div>
 
-            <div className={styles.inputWrapper}>
-              <label>{t('addSubtitle')}</label>
-              <div className={styles.fileInputWrapper}>
-                <InputFile
-                  placeholder={
-                    baseVideo?.subtitle_id !== undefined
-                      ? baseVideo.subtitle_id
-                      : t('addSubtitle') ||
-                        'Glisser ou choisissez votre fichier de sous-titrage'
-                  }
-                  onChange={handleSubtitleChange}
-                  disable={baseVideo?.subtitle_id !== undefined}
-                />
-              </div>
-              <span className={styles.formatHint}>
-                Formats acceptés : .srt, .vtt
-              </span>
-            </div>
+            {/* TWO COLUMNS */}
+            <div className={styles.twoColumnsRow}>
+              {/* LEFT COLUMN */}
+              <div className={styles.leftColumn}>
+                <div className={`${styles.inputWrapper} ${styles.required}`}>
+                  <label>
+                    {t('addMedia')}
+                    <span className={styles.required}>*</span>
+                  </label>
+                  <div className={styles.fileInputWrapperMedia}>
+                    {media && (
+                      <button
+                        className={styles.fileRemoveButton}
+                        onClick={handleRemoveMedia}
+                        title={t('removeFile')}
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <InputFile
+                      key={mediaInputKey}
+                      placeholder={
+                        media
+                          ? media.name
+                          : baseVideo?.media_id !== undefined
+                            ? baseVideo.media_id
+                            : t('addMedia')
+                      }
+                      onChange={handleMediaChange}
+                      disable={baseVideo?.media_id !== undefined}
+                    />
+                  </div>
+                  <span className={styles.formatHint}>
+                    Formats acceptés : .mp4, .mkv, .mov, .avi
+                  </span>
+                  {videoMetadata && (
+                    <div className={styles.videoMetadata}>
+                      {t('videoSize')} {videoMetadata.size}
+                      {videoMetadata.duration && ` • ${videoMetadata.duration}`}
+                    </div>
+                  )}
+                </div>
 
-            <div className={styles.inputWrapper}>
-              <label>{t('addMiniature')}</label>
-              <div className={styles.fileInputWrapper}>
-                <InputFile
-                  placeholder={
-                    baseVideo?.miniature_id !== undefined
-                      ? baseVideo.miniature_id
-                      : t('addMiniature')
-                  }
-                  onChange={handleMiniatureChange}
-                  disable={baseVideo?.miniature_id !== undefined}
-                />
-              </div>
-            </div>
+                <div className={styles.inputWrapper}>
+                  <label>{t('addMiniature')}</label>
+                  <div className={styles.fileInputWrapper}>
+                    {(miniature || miniatureUrl) && (
+                      <button
+                        className={styles.fileRemoveButton}
+                        onClick={handleRemoveMiniature}
+                        title={t('removeFile')}
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <InputFile
+                      key={miniatureInputKey}
+                      placeholder={
+                        miniature
+                          ? miniature.name
+                          : baseVideo?.miniature_id !== undefined
+                            ? baseVideo.miniature_id
+                            : t('addMiniature')
+                      }
+                      onChange={handleMiniatureChange}
+                      disable={baseVideo?.miniature_id !== undefined}
+                    />
+                  </div>
+                  <span className={styles.formatHint}>
+                    Formats acceptés : .jpg, .jpeg, .png, .gif, .webp
+                  </span>
+                </div>
 
-            <div className={styles.inputWrapper}>
-              <label>
-                Tags
-                <span className={styles.required}>*</span>
-              </label>
-              <Card
-                styleAddon={{
-                  flexDirection: 'column',
-                  height: 'auto',
-                  boxShadow: 'none',
-                }}
-              >
-                <div className={styles.tagUserCard}>
-                  <SuggestionBar
-                    onClick={selectTag}
-                    placeholder="Tags"
-                    type={SuggestionType.TAG}
-                    name="suggestionTag"
-                    onAdd={addTag}
-                  />
-                  <div className={styles.tagContainer}>
-                    {tags.map((tag, index) => (
-                      <Tag
-                        key={index}
-                        content={tag.name}
-                        type={TagType.DEFAULT}
-                        editable={true}
-                        delete={handleDeleteTag}
-                        style={{ flex: '25%' }}
+                <div className={styles.inputWrapper}>
+                  <label>{t('addSubtitle')}</label>
+                  <div className={styles.fileInputWrapper}>
+                    {subtitle && (
+                      <button
+                        className={styles.fileRemoveButton}
+                        onClick={handleRemoveSubtitle}
+                        title={t('removeFile')}
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <InputFile
+                      key={subtitleInputKey}
+                      placeholder={
+                        subtitle
+                          ? subtitle.name
+                          : baseVideo?.subtitle_id !== undefined
+                            ? baseVideo.subtitle_id
+                            : t('addSubtitle')
+                      }
+                      onChange={handleSubtitleChange}
+                      disable={baseVideo?.subtitle_id !== undefined}
+                      required={false}
+                    />
+                  </div>
+                  <span className={styles.formatHint}>
+                    Formats acceptés : .srt, .vtt
+                  </span>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN */}
+              <div className={styles.rightColumn}>
+                <div className={`${styles.inputWrapper} ${styles.required}`}>
+                  <label>
+                    Tags
+                    <span className={styles.required}>*</span>
+                  </label>
+                  <div className={styles.tagUserCard}>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        processTagInput();
+                      }}
+                      style={{ display: 'flex', gap: '0.5rem' }}
+                    >
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={handleTagInputChange}
+                        onKeyDown={handleTagInputKeyDown}
+                        placeholder="Créer des tags (séparez par des virgules)"
+                        style={{ flex: 1 }}
                       />
-                    ))}
+                      {tagInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            processTagInput();
+                          }}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: 'var(--primary-color)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '1.2rem',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </form>
+                    <div className={styles.tagContainer}>
+                      {tags.map((tag, index) => (
+                        <Tag
+                          key={index}
+                          content={tag.name}
+                          type={TagType.DEFAULT}
+                          editable={true}
+                          delete={handleDeleteTag}
+                          style={{ flex: '25%' }}
+                        />
+                      ))}
+                    </div>
+                    <span className={styles.formatHint}>
+                      {tags.length} / {MAX_TAGS} tags • 2-20 caractères
+                    </span>
                   </div>
                 </div>
-              </Card>
-            </div>
 
-            <div className={styles.inputWrapper}>
-              <label>User</label>
-              <Card
-                styleAddon={{
-                  flexDirection: 'column',
-                  height: 'auto',
-                  boxShadow: 'none',
-                }}
-              >
-                <div className={styles.tagUserCard}>
-                  <SuggestionBar
-                    onClick={selectIntern}
-                    placeholder="User"
-                    type={SuggestionType.USER}
-                    name="suggestionUser"
-                  />
-                  <div className={styles.tagContainer} id="intern-container">
-                    {intern_list.map((user, index) => (
-                      <Tag
-                        key={index}
-                        content={`${user.firstName} ${user.lastName}`}
-                        type={TagType.DEFAULT}
-                        editable={true}
-                        delete={handleDeleteUser}
-                        style={{ flex: '25%' }}
+                <div className={styles.inputWrapper}>
+                  <label>{t('internalSpeakers')}</label>
+                  <Card
+                    styleAddon={{
+                      flexDirection: 'column',
+                      height: 'auto',
+                      boxShadow: 'none',
+                    }}
+                  >
+                    <div className={styles.tagUserCard}>
+                      <SuggestionBar
+                        onClick={selectIntern}
+                        placeholder={t('internalSpeaker')}
+                        type={SuggestionType.USER}
+                        name="suggestionUser"
                       />
-                    ))}
-                  </div>
+                      <div
+                        className={styles.tagContainer}
+                        id="intern-container"
+                      >
+                        {intern_list.map((user, index) => (
+                          <Tag
+                            key={index}
+                            content={`${user.firstName} ${user.lastName}`}
+                            type={TagType.DEFAULT}
+                            editable={true}
+                            delete={handleDeleteUser}
+                            style={{ flex: '25%' }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
+
+                <div className={styles.inputWrapper}>
+                  <label>{t('externSpeaker')}</label>
+                  <textarea
+                    className={styles.externalSpeakersTextarea}
+                    value={extern_User_List}
+                    onChange={handleExternUserChange}
+                    placeholder={t('externSpeaker')}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className={styles.inputWrapper}>
-              <label>{t('externSpeaker')}</label>
-              <textarea
-                className={styles.externalSpeakersTextarea}
-                value={extern_User_List}
-                onChange={handleExternUserChange}
-                placeholder={t('externSpeaker')}
+            {/* DESCRIPTION ROW - Full width across both columns */}
+            <div className={styles.descriptionRow}>
+              <div className={styles.inputWrapper}>
+                <label>Description</label>
+                <textarea
+                  className={styles.descriptionInput}
+                  placeholder="Description"
+                  value={description}
+                  onChange={handleDescriptionChange}
+                  style={{ marginBottom: '50px' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* PREVIEW COLUMN */}
+          <div className={styles.preview}>
+            <h2>{t('Preview')}</h2>
+            <div style={{ pointerEvents: 'none' }}>
+              <Thumbnail
+                Id=""
+                title={title || t('Titre')}
+                imageSrc={
+                  miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
+                }
+                createBy={auth.user?.profile.given_name || 'Non connecté'}
+                views={0}
+                createdAt={new Date().toString()}
+                tags={tags.flatMap((tag) => {
+                  return tag.name;
+                })}
               />
             </div>
-
-            <div className={styles.inputWrapper}>
-              <label>Description</label>
-              <textarea
-                className={styles.descriptionInput}
-                placeholder="Description"
-                value={description}
-                onChange={handleDescriptionChange}
-              />
-            </div>
-
             <div
-              className={`${styles.buttonVideoCreation} ${styles.desktopOnly}`}
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginTop: '20px',
+                gap: '10px',
+              }}
             >
               {videoId !== undefined ? (
                 <>
@@ -838,46 +1230,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 ></Button>
               )}
             </div>
-          </div>
-
-          <div className={styles.preview}>
-            <h2>{t('Preview')}</h2>
-            <Thumbnail
-              Id="1"
-              title={title || t('Titre')}
-              imageSrc={
-                miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
-              }
-              createBy={auth.user?.profile.given_name || 'Non connecté'}
-              views={0}
-              createdAt={new Date().toString()}
-              tags={tags.flatMap((tag) => {
-                return tag.name;
-              })}
-            />
-          </div>
-
-          <div className={`${styles.buttonVideoCreation} ${styles.mobileOnly}`}>
-            {videoId !== undefined ? (
-              <>
-                <Button
-                  onClick={deleteThisVideo}
-                  label={t('archiveVideo')}
-                  type={ButtonType.primary}
-                ></Button>
-                <Button
-                  onClick={updateVideo}
-                  label={t('modifyVideo')}
-                  type={ButtonType.primary}
-                ></Button>
-              </>
-            ) : (
-              <Button
-                onClick={publishVideo}
-                label={t('publish')}
-                type={ButtonType.primary}
-              ></Button>
-            )}
           </div>
         </div>
 

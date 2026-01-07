@@ -22,7 +22,7 @@ describe('VideosController - getVideosSuggestions', () => {
     {} as any, // getVideosAdminUsecase
     {} as any, // modifyVideoUseCase
     mockSearchVideoUsecase as any, // searchVideoUseCase
-    {} as any, // getVideosSuggestionsUseCase
+    {} as any, // getSuggestionsUseCase
     {} as any, // restoreVideoUsecase
   );
 
