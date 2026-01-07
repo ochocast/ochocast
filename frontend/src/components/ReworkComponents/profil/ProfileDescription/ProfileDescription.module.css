@@ -25,7 +25,7 @@
 }
 
 .name {
-  margin: 0;
+  margin: 0 0 0.35rem 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -76,7 +76,8 @@
 }
 
 .descriptionTitle {
-  padding-top: 0.3rem;
+  padding-top: 0.75rem;
+  margin-bottom: 0.25rem;
   text-decoration-line: underline;
 }
 
@@ -99,6 +100,7 @@
   display: flex;
   flex-direction: row;
   gap: 0.5rem;
+  margin-top: 1rem;
 }
 
 .imageReply {
