@@ -17,6 +17,7 @@ export interface SearchBarProps {
   needInput?: boolean;
   icon?: SearchBarIcon;
   hasSugestion?: boolean;
+  initialValue?: string;
 }
 
 const SearchBar = ({
@@ -25,11 +26,19 @@ const SearchBar = ({
   placeholder,
   icon,
   hasSugestion,
+  initialValue,
 }: SearchBarProps) => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialValue || '');
   const inputRef = useRef<HTMLInputElement>(null); // Référence pour l'élément d'entrée
   const [tag_suggestions, setTag] = useState<Tag_video[]>([]);
   const [user_suggestions, setUser] = useState<User[]>([]);
+
+  // Synchroniser avec initialValue quand il change
+  useEffect(() => {
+    if (initialValue !== undefined) {
+      setQuery(initialValue);
+    }
+  }, [initialValue]);
 
   if (needInput === undefined) {
     needInput = true;

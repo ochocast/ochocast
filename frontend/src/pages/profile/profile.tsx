@@ -41,6 +41,9 @@ const Profile: FC<ProfileProps> = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { username } = useParams<{ username?: string }>();
+  const [cardsPerRow] = useState<number>(
+    parseInt(localStorage.getItem('cardsPerRow') || '6'),
+  );
 
   const fetchUserData = useCallback(
     async (userId: string, isCurrentUserProfile: boolean = false) => {
@@ -169,7 +172,7 @@ const Profile: FC<ProfileProps> = () => {
           />
         </div>
 
-        <div className={style.video_row}>
+        <div className={style.video_row} data-cards-per-row={cardsPerRow}>
           {videos.length > 0 ? (
             videos.map((video) => (
               <Thumbnail
@@ -180,11 +183,16 @@ const Profile: FC<ProfileProps> = () => {
                   video.creator.username ||
                   `${video.creator.firstName} ${video.creator.lastName}`
                 }
-                views={video.views}
                 createdAt={video.createdAt.toString()}
-                tags={video.tags && video.tags?.map((tag) => tag.name)}
+                tags={
+                  video.tags &&
+                  video.tags
+                    ?.map((tag) => tag.name)
+                    .sort((a, b) => a.localeCompare(b))
+                }
                 onArchived={ArchivedVideo}
                 showEditButton={isCurrentUser}
+                cropTags={true}
               />
             ))
           ) : (

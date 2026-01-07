@@ -255,6 +255,8 @@
   "videoArchivedSuccess": "Video archived successfully",
   "videoArchiveError": "Error archiving video",
   "errorLoadingVideos": "Error loading videos",
+  "cardsPerRow": "Cards per row",
+  "copyLink": "Copy link",
   "filterPanel": {
     "filters": "Filters",
     "resetFilters": "Reset",

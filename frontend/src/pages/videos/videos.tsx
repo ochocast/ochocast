@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
 
@@ -18,7 +18,6 @@ import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import SharedButtonIcon from '../../assets/sharedButton.svg';
 import { useUser } from '../../context/UserContext';
 
 interface VideosProps {}
@@ -107,6 +106,9 @@ const Videos: FC<VideosProps> = () => {
     message: string;
     type?: 'success' | 'error' | 'info';
   } | null>(null);
+  const [cardsPerRow, setCardsPerRow] = useState<number>(
+    parseInt(localStorage.getItem('cardsPerRow') || '6'),
+  );
   const filterPanelRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -146,6 +148,8 @@ const Videos: FC<VideosProps> = () => {
     favoris: false,
     archived: false,
   });
+
+  const isFirstLoadRef = useRef(true);
 
   const handleSearch = React.useCallback(
     async (keywords: string[]) => {
@@ -256,7 +260,26 @@ const Videos: FC<VideosProps> = () => {
       result = result.filter((video) => video.archived === newFilters.archived);
     }
 
+    // Sort by creation date descending
+    result.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
     setFilteredVideos(result);
+  };
+
+  const handleTagClick = (tag: string) => {
+    const updatedTags = filters.tags.includes(tag)
+      ? filters.tags.filter((t) => t !== tag)
+      : [...filters.tags, tag];
+    handleTagsChange(updatedTags);
+  };
+
+  const handleCardsPerRowChange = (value: number) => {
+    const clampedValue = Math.max(5, Math.min(8, value));
+    setCardsPerRow(clampedValue);
+    localStorage.setItem('cardsPerRow', clampedValue.toString());
   };
 
   const handleTagsChange = (tags: string[]) => {
@@ -329,16 +352,33 @@ const Videos: FC<VideosProps> = () => {
     setShowFavorites(false);
   };
 
-  const handleSearchWithUrl = (query: string) => {
-    setSearchQuery(query);
-    setSearchState({ q: query });
-    handleSearch([query]);
-  };
+  const handleSearchWithUrl = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+      setSearchState({ q: query });
+      handleSearch([query]);
+    },
+    [handleSearch, setSearchState],
+  );
+
+  // On first load, wait for initial fetch to finish then simulate a user search once
+  useEffect(() => {
+    if (
+      isFirstLoadRef.current &&
+      !isLoading &&
+      searchState.q &&
+      searchState.q.trim() !== ''
+    ) {
+      handleSearchWithUrl(searchState.q);
+      console.log('Initial search with query from URL:', searchState.q);
+      isFirstLoadRef.current = false;
+    }
+  }, [isLoading, searchState.q, handleSearchWithUrl]);
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setToast({
-        message: 'Lien copié dans le presse-papiers',
+        message: t('linkCopied'),
         type: 'success',
       });
       setTimeout(() => setToast(null), 500);
@@ -366,6 +406,7 @@ const Videos: FC<VideosProps> = () => {
               needInput={true}
               placeholder={t('exemple')}
               icon={SearchBarIcon.SEARCH}
+              initialValue={searchQuery}
             />
             <button
               ref={filterButtonRef}
@@ -385,12 +426,11 @@ const Videos: FC<VideosProps> = () => {
               onClick={handleToggleFavorites}
               alt="Filtrer par favoris"
             />
-            <img
-              className={`${style.sharedButtonIcon} ${style.smallButton}`}
-              src={SharedButtonIcon}
-              alt="Partager les filtres"
+            <button
+              className={style.copyButton}
               onClick={handleShare}
-            />
+              title={t('copyLink')}
+            ></button>
           </div>
           {showFilters && (
             <div
@@ -410,13 +450,15 @@ const Videos: FC<VideosProps> = () => {
                   initialStartDate={filters.startDate}
                   initialEndDate={filters.endDate}
                   initialArchived={filters.archived}
+                  onCardsPerRowChange={handleCardsPerRowChange}
+                  initialCardsPerRow={cardsPerRow}
                 />
               </div>
             </div>
           )}
         </div>
 
-        <div className={style.video_row}>
+        <div className={style.video_row} data-cards-per-row={cardsPerRow}>
           {filteredVideos.length > 0 ? (
             filteredVideos.map((video) => (
               <Thumbnail
@@ -427,9 +469,12 @@ const Videos: FC<VideosProps> = () => {
                   video.creator?.username ||
                   `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
                 }
-                views={video.views}
                 createdAt={video.createdAt.toString()}
-                tags={video.tags?.map((tag) => tag.name)}
+                tags={video.tags
+                  ?.map((tag) => tag.name)
+                  .sort((a, b) => a.localeCompare(b))}
+                onTagClick={handleTagClick}
+                cropTags={true}
               />
             ))
           ) : (

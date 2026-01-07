@@ -28,7 +28,6 @@ const meta = {
     title: 'A title of video',
     imageSrc: '/example',
     createBy: 'John Doe',
-    views: 150,
     createdAt: '2021-09-01',
     tags: ['tag1', 'tag2', 'tag3'],
   },

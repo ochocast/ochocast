@@ -21,7 +21,6 @@ import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
 import ProfileDescription, {
   ProfileDescriptionState,
 } from '../../components/ReworkComponents/profil/ProfileDescription/ProfileDescription';
-import Vues from '../../../src/assets/vues.svg';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
@@ -347,13 +346,7 @@ const VideoMedia: FC = () => {
 
   return (
     <div className={styles.containerGlobal}>
-      <h2 className={styles.video_title}>
-        {video.title}
-        <span className={styles.vues}>
-          <img className={styles.icons} src={Vues} alt="Vue icon" />
-          &nbsp;{video.views}
-        </span>
-      </h2>
+      <h2 className={styles.video_title}>{video.title}</h2>
 
       <h4 className={styles.tagList}>
         Tags :
@@ -495,9 +488,10 @@ const VideoMedia: FC = () => {
                     vid.creator?.username ||
                     `${vid.creator.firstName} ${vid.creator.lastName}`
                   }
-                  views={vid.views}
                   createdAt={vid.createdAt.toString()}
-                  tags={vid.tags.map((tag) => tag.name)}
+                  tags={vid.tags
+                    .map((tag) => tag.name)
+                    .sort((a, b) => a.localeCompare(b))}
                 />
               </div>
             ))}

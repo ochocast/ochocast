@@ -20,6 +20,8 @@ interface FilterPanelProps {
   initialStartDate: Date | null;
   initialEndDate: Date | null;
   initialArchived?: boolean | null;
+  onCardsPerRowChange?: (value: number) => void;
+  initialCardsPerRow?: number;
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -34,14 +36,19 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   initialStartDate,
   initialEndDate,
   initialArchived,
+  onCardsPerRowChange,
+  initialCardsPerRow,
 }) => {
   const [tags, setTags] = useState<string[]>(initialTags);
   const [users, setUsers] = useState<string[]>(initialUsers);
   const [startDate, setStartDate] = useState<Date | null>(initialStartDate);
   const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
+  const [archived, setArchived] = useState<boolean>(initialArchived || false);
   const [nextTag, setNextTag] = useState<string | null>(null);
   const [nextUser, setNextUser] = useState<string | null>(null);
-  const [archived, setArchived] = useState<boolean>(initialArchived ?? false);
+  const [cardsPerRow, setCardsPerRow] = useState<number>(
+    initialCardsPerRow || 6,
+  );
   const { t } = useTranslation();
   const { isAdmin } = useUser();
 
@@ -146,7 +153,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           </button>
         </div>
       )}
-
       <div className={style.section}>
         <h3 className={style.title}>{t('filterPanel.tag')}</h3>
         <div>
@@ -221,6 +227,27 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           {t('filterPanel.validate')}
         </button>
       </div>
+
+      {onCardsPerRowChange && (
+        <div className={style.section}>
+          <h3 className={style.title}>{t('cardsPerRow')}</h3>
+          <div className={style.sliderContainer}>
+            <input
+              type="range"
+              min="5"
+              max="8"
+              value={cardsPerRow}
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                setCardsPerRow(value);
+                onCardsPerRowChange(value);
+              }}
+              className={style.slider}
+            />
+            <span className={style.sliderValue}>{cardsPerRow}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

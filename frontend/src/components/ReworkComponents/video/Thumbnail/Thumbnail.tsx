@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import styles from './Thumbnail.module.css';
 import Tag from '../../generic/Tag/Tag';
 import { useBrandingContext } from '../../../../context/BrandingContext';
@@ -20,11 +21,12 @@ export interface PreviewMinitureProps {
   title: string;
   imageSrc?: string;
   createBy: string;
-  views: number;
   createdAt: string;
   tags: string[];
   onArchived?: (id: string) => void;
   showEditButton?: boolean;
+  onTagClick?: (tag: string) => void;
+  cropTags?: boolean;
 }
 
 const Thumbnail = (props: PreviewMinitureProps) => {
@@ -33,8 +35,20 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
     string | null
   >(null);
+  const [visibleTagsCount, setVisibleTagsCount] = useState<number>(
+    props.tags?.length || 0,
+  );
+  const tagListRef = React.useRef<HTMLDivElement>(null);
+  const [showAllTags, setShowAllTags] = useState<boolean>(false);
+  const popupRef = React.useRef<HTMLDivElement>(null);
+  const moreBadgeRef = React.useRef<HTMLDivElement>(null);
+  const [popupPosition, setPopupPosition] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
 
-  const toggleFavorite = async () => {
+  const toggleFavorite = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       if (isFavorite) {
         await removeFromFavorites(props.Id);
@@ -45,6 +59,13 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       }
     } catch (error) {
       console.error('Failed to toggle favorite', error);
+    }
+  };
+
+  const handleTagClick = (e: React.MouseEvent, tag: string) => {
+    e.stopPropagation();
+    if (props.onTagClick) {
+      props.onTagClick(tag);
     }
   };
 
@@ -100,52 +121,179 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     fetchFavoriteStatus();
   }, [props.Id, fallbackMiniatureUrl]);
 
+  // Calculer combien de tags peuvent être affichés sur une ligne
+  useEffect(() => {
+    if (!props.cropTags || !tagListRef.current || !props.tags) {
+      setVisibleTagsCount(props.tags?.length || 0);
+      return;
+    }
+
+    // Simuler l'affichage pour calculer combien de tags rentrent
+    const containerWidth = tagListRef.current.offsetWidth;
+    let totalWidth = 0;
+    let count = 0;
+    const gapWidth = 8; // 0.5rem = 8px
+    const badgeWidth = 50; // Largeur estimée du badge "+X"
+
+    for (let i = 0; i < props.tags.length; i++) {
+      // Estimation de la largeur d'un tag (padding + texte)
+      const tagText =
+        props.tags[i].length > 8
+          ? props.tags[i].substring(0, 8) + '...'
+          : props.tags[i];
+      const estimatedWidth = tagText.length * 8 + 24; // 8px par caractère + padding
+
+      if (
+        totalWidth + estimatedWidth + (i > 0 ? gapWidth : 0) + badgeWidth >
+        containerWidth
+      ) {
+        break;
+      }
+
+      totalWidth += estimatedWidth + (i > 0 ? gapWidth : 0);
+      count++;
+    }
+
+    setVisibleTagsCount(Math.max(1, count)); // Au moins 1 tag visible
+  }, [props.tags, props.cropTags]);
+
+  // Gérer le clic en dehors du popup
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target as Node)
+      ) {
+        setShowAllTags(false);
+      }
+    };
+
+    if (showAllTags) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showAllTags]);
+
   const dateDisplay = new Date(props.createdAt); // to be able to getDay..
 
   function formatNumber(value: number): string {
     return value < 10 ? `0${value}` : `${value}`;
   }
 
+  const truncateTag = (tag: string): string => {
+    if (!props.cropTags) return tag;
+    return tag.length > 8 ? tag.substring(0, 8) + '...' : tag;
+  };
+
+  const handleMoreBadgeClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newState = !showAllTags;
+    setShowAllTags(newState);
+    if (newState && moreBadgeRef.current) {
+      const rect = moreBadgeRef.current.getBoundingClientRect();
+      setPopupPosition({
+        top: rect.bottom + window.scrollY + 8, // 8px gap
+        left: rect.left + window.scrollX,
+      });
+    }
+  };
+
   return (
-    <div className={styles.previewMiniture}>
+    <div
+      className={styles.previewMiniture}
+      onClick={() => navigate(`/video/${props.Id}`)}
+    >
       <img
         className={styles.imageTuileEventIcon}
         alt=""
         src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
         sizes="(max-width: 20rem) 100vw, 20rem"
-        onClick={() => navigate(`/video/${props.Id}`)}
       />
       <div
         className={
           props.showEditButton ? styles.descriptionNoButton : styles.description
         }
       >
-        <h2
-          className={styles.createBy}
-          onClick={() => navigate(`/video/${props.Id}`)}
-        >
-          {props.title}
-        </h2>
+        <h2 className={styles.createBy}>{props.title}</h2>
         <h3 className={styles.createBy}>
           {' '}
           {t('createdBy')} : {props.createBy}
         </h3>
         <div>
-          {props.views} {t('vues')} &bull; {t('postedOn')}{' '}
+          {t('postedOn')}{' '}
           {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
             dateDisplay.getMonth() + 1,
           )}/${dateDisplay.getFullYear()}`}
         </div>
-        <div className={styles.tagList}>
+        <div className={styles.tagList} ref={tagListRef}>
           {props.tags &&
-            props.tags.map((tag) => <Tag key={tag} content={tag} />)}
+            props.tags.slice(0, visibleTagsCount).map((tag) => (
+              <div
+                key={tag}
+                onClick={(e) => handleTagClick(e, tag)}
+                className={
+                  props.cropTags ? styles.tagWrapper : styles.tagWrapperNoCrop
+                }
+              >
+                <Tag content={truncateTag(tag)} />
+              </div>
+            ))}
+          {props.cropTags &&
+            props.tags &&
+            props.tags.length > visibleTagsCount && (
+              <div className={styles.moreBadgeContainer} ref={moreBadgeRef}>
+                <div
+                  className={styles.moreBadge}
+                  onClick={handleMoreBadgeClick}
+                >
+                  +{props.tags.length - visibleTagsCount}
+                </div>
+                {showAllTags &&
+                  (typeof document !== 'undefined'
+                    ? ReactDOM.createPortal(
+                        <div
+                          className={styles.tagsPopup}
+                          ref={popupRef}
+                          style={{
+                            position: 'absolute',
+                            top: popupPosition
+                              ? `${popupPosition.top}px`
+                              : undefined,
+                            left: popupPosition
+                              ? `${popupPosition.left}px`
+                              : undefined,
+                          }}
+                        >
+                          <div className={styles.tagsPopupContent}>
+                            {props.tags.slice(visibleTagsCount).map((tag) => (
+                              <div
+                                key={tag}
+                                onClick={(e) => handleTagClick(e, tag)}
+                                className={styles.tagWrapper}
+                              >
+                                <Tag content={truncateTag(tag)} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>,
+                        document.body,
+                      )
+                    : null)}
+              </div>
+            )}
         </div>
         {props.showEditButton ? (
           <div className={styles.buttonList}>
             <Button
               type={ButtonType.primary}
               label={t('modify')}
-              onClick={() => navigate(`/video/video-settings/${props.Id}`)}
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/video/video-settings/${props.Id}`);
+              }}
             />
           </div>
         ) : (

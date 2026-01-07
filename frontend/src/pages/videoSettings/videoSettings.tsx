@@ -1194,7 +1194,6 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                   miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
                 }
                 createBy={auth.user?.profile.given_name || 'Non connecté'}
-                views={0}
                 createdAt={new Date().toString()}
                 tags={tags.flatMap((tag) => {
                   return tag.name;
@@ -1230,6 +1229,45 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 ></Button>
               )}
             </div>
+          </div>
+
+          <div className={styles.preview}>
+            <h2>{t('Preview')}</h2>
+            <Thumbnail
+              Id="1"
+              title={title || t('Titre')}
+              imageSrc={
+                miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
+              }
+              createBy={auth.user?.profile.given_name || 'Non connecté'}
+              createdAt={new Date().toString()}
+              tags={tags.flatMap((tag) => {
+                return tag.name;
+              })}
+            />
+          </div>
+
+          <div className={`${styles.buttonVideoCreation} ${styles.mobileOnly}`}>
+            {videoId !== undefined ? (
+              <>
+                <Button
+                  onClick={deleteThisVideo}
+                  label={t('archiveVideo')}
+                  type={ButtonType.primary}
+                ></Button>
+                <Button
+                  onClick={updateVideo}
+                  label={t('modifyVideo')}
+                  type={ButtonType.primary}
+                ></Button>
+              </>
+            ) : (
+              <Button
+                onClick={publishVideo}
+                label={t('publish')}
+                type={ButtonType.primary}
+              ></Button>
+            )}
           </div>
         </div>
 

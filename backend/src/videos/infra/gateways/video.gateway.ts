@@ -56,6 +56,9 @@ export class VideoGateway implements IVideoGateway {
         archived: false,
       },
       relations: ['creator', 'tags', 'internal_speakers'],
+      order: {
+        createdAt: 'DESC',
+      },
     });
   }
 
@@ -143,9 +146,13 @@ export class VideoGateway implements IVideoGateway {
             .orWhere('creator.lastName ILIKE :filter', {
               filter: `%${filter}%`,
             })
+            .orWhere('creator.username ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
             .orWhere('creator.email ILIKE :filter', { filter: `%${filter}%` });
         }),
       )
+      .orderBy('video.createdAt', 'DESC')
       .take(20)
       .getMany();
   }
@@ -171,9 +178,13 @@ export class VideoGateway implements IVideoGateway {
             .orWhere('creator.lastName ILIKE :filter', {
               filter: `%${filter}%`,
             })
+            .orWhere('creator.username ILIKE :filter', {
+              filter: `%${filter}%`,
+            })
             .orWhere('creator.email ILIKE :filter', { filter: `%${filter}%` });
         }),
       )
+      .orderBy('video.createdAt', 'DESC')
       .take(20);
 
     if (archived !== undefined) {
