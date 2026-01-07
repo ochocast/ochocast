@@ -7,10 +7,16 @@
   cursor: pointer;
   text-align: left;
 }
+
+.navItem1:hover {
+  opacity: 0.8;
+}
+
 .navItem {
   padding: 0.5rem 1rem;
   cursor: pointer;
 }
+
 .navItems {
   display: flex;
   gap: 1rem;

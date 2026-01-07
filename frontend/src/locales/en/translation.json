@@ -1,4 +1,6 @@
 {
+  "profile": "Profile",
+  "language": "Language",
   "replyTo": "Reply to",
   "cancelReply": "Cancel reply",
   "conversation": "Conversation",

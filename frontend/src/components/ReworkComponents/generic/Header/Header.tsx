@@ -1,11 +1,13 @@
 import React, { FC, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import styles from './Header.module.css';
+import navStyles from './NavItems/NavItems.module.css';
 
 import { useUser } from '../../../../context/UserContext';
 import { UserBadge } from './UserBadge/UserBadge';
 import NavItems from './NavItems/NavItems';
-import LanguageSwitcher from '../../../Language/LanguageSwitcher';
+import Button from '../Button/Button';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import BrandingImage from '../../BrandingImage/BrandingImage';
 
@@ -15,6 +17,7 @@ const Header: FC<HeaderProps> = () => {
   const { user, isAdmin } = useUser();
   const username = user?.username || user?.firstName;
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const branding = useBrandingContext();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -38,9 +41,6 @@ const Header: FC<HeaderProps> = () => {
       <div className={styles.NavBadge}>
         <NavItems />
         {username && <UserBadge username={username} />}
-        <div className="languageSelector">
-          <LanguageSwitcher />
-        </div>
       </div>
 
       {/* Hamburger icon for mobile */}
@@ -53,48 +53,64 @@ const Header: FC<HeaderProps> = () => {
       {/* Mobile menu */}
       {menuOpen && (
         <div className={styles.MobileMenu}>
-          <div
-            onClick={() => {
-              navigate('/events-home');
-              closeMenu();
-            }}
-          >
-            Streaming
-          </div>
-          <div
-            onClick={() => {
-              navigate('/videos');
-              closeMenu();
-            }}
-          >
-            Videos
-          </div>
-          {isAdmin && (
-            <div
+          <div className={navStyles.navItem}>
+            <button
+              type="button"
+              className={navStyles.navItem1}
               onClick={() => {
-                navigate('/admin');
+                navigate('/community');
                 closeMenu();
               }}
             >
-              Admin Panel
+              {t('community')}
+            </button>
+          </div>
+          <div className={navStyles.navItem}>
+            <button
+              type="button"
+              className={navStyles.navItem1}
+              onClick={() => {
+                navigate('/events-home');
+                closeMenu();
+              }}
+            >
+              {t('streaming')}
+            </button>
+          </div>
+          <div className={navStyles.navItem}>
+            <button
+              type="button"
+              className={navStyles.navItem1}
+              onClick={() => {
+                navigate('/videos');
+                closeMenu();
+              }}
+            >
+              {t('videos')}
+            </button>
+          </div>
+          {isAdmin && (
+            <div className={navStyles.navItem}>
+              <button
+                type="button"
+                className={navStyles.navItem1}
+                onClick={() => {
+                  navigate('/admin');
+                  closeMenu();
+                }}
+              >
+                {t('adminPanel')}
+              </button>
             </div>
           )}
-          <div
+          <Button
+            label={t('publishVideo')}
             onClick={() => {
               navigate('/video/video-settings');
               closeMenu();
             }}
-          >
-            Publish a video
-          </div>
-          {username && (
-            <div>
-              <UserBadge username={username} />
-            </div>
-          )}
-          <div className="languageSelector">
-            <LanguageSwitcher />
-          </div>
+          />
+          {username && <UserBadge username={username} />}
         </div>
       )}
     </div>
