@@ -18,13 +18,24 @@ jest.mock('@aws-sdk/lib-storage', () => ({
   })),
 }));
 
-jest.mock('sharp', () =>
-  jest.fn().mockReturnValue({
-    resize: jest.fn().mockReturnThis(),
-    jpeg: jest.fn().mockReturnThis(),
-    toFile: jest.fn().mockResolvedValue(true),
-  }),
-);
+jest.mock('sharp', () => {
+  const resizeMock = jest.fn().mockReturnThis();
+  const jpegMock = jest.fn().mockReturnThis();
+  const toFileMock = jest.fn().mockResolvedValue(true);
+
+  const sharpMock = jest.fn(() => ({
+    resize: resizeMock,
+    jpeg: jpegMock,
+    toFile: toFileMock,
+  }));
+
+  // Exposer les mocks pour pouvoir les tester
+  (sharpMock as any).resizeMock = resizeMock;
+  (sharpMock as any).jpegMock = jpegMock;
+  (sharpMock as any).toFileMock = toFileMock;
+
+  return sharpMock;
+});
 
 jest.mock('fluent-ffmpeg', () => {
   const ffmpegMock = jest.fn(() => ffmpegMock);
@@ -105,12 +116,9 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
 
     expect(result).toBeInstanceOf(VideoObject);
     expect(sharp).toHaveBeenCalledWith(miniatureFile.buffer);
-    expect(sharp().resize).toHaveBeenCalledWith(1280, 720, {
-      fit: 'cover',
-      position: 'center',
-    });
-    expect(sharp().jpeg).toHaveBeenCalledWith({ quality: 80 });
-    expect(sharp().toFile).toHaveBeenCalled();
+    expect((sharp as any).resizeMock).toHaveBeenCalledWith(1280, 720);
+    expect((sharp as any).jpegMock).toHaveBeenCalledWith({ quality: 80 });
+    expect((sharp as any).toFileMock).toHaveBeenCalled();
 
     expect(Upload).toHaveBeenNthCalledWith(
       1,

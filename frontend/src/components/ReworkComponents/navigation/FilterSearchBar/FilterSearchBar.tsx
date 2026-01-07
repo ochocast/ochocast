@@ -2,8 +2,9 @@ import styles from './FilterSearchBar.module.css';
 import { Tag_video, User } from '../../../../utils/VideoProperties';
 import { findTags, findUsers } from '../../../../utils/api';
 import logger from '../../../../utils/logger';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import BrandingImage from '../../BrandingImage/BrandingImage';
+import { useTranslation } from 'react-i18next';
 
 export enum FilterSearchBarIcon {
   SEARCH = 'plus',
@@ -27,14 +28,36 @@ const FilterSearchBar = ({
   icon,
   type,
 }: FilterSearchBarProps) => {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<{ name: string }[]>([]);
+  const [noResults, setNoResults] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Gérer les clics en dehors pour cacher les suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        wrapperRef.current &&
+        !wrapperRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const findSuggestions = async (input: string) => {
     try {
       if (input.trim() === '') {
         setSuggestions([]);
+        setNoResults(false);
         return;
       }
 
@@ -44,15 +67,21 @@ const FilterSearchBar = ({
           name: tag.name,
         }));
         setSuggestions(tags);
+        setNoResults(tags.length === 0);
+        setShowSuggestions(true);
       } else if (type === 'user') {
         const userResponse = await findUsers(input);
         const users = userResponse.data.slice(0, 5).map((user: User) => ({
           name: `${user.firstName}`,
         }));
         setSuggestions(users);
+        setNoResults(users.length === 0);
+        setShowSuggestions(true);
       }
     } catch (error) {
       logger.error('Error fetching suggestions:', error);
+      setNoResults(true);
+      setShowSuggestions(true);
     }
   };
 
@@ -74,11 +103,19 @@ const FilterSearchBar = ({
     if (inputRef.current) inputRef.current.value = '';
     setQuery('');
     setSuggestions([]);
+    setNoResults(false);
+    setShowSuggestions(false);
     onSelect?.(name); // 👈 Notify parent
   };
 
+  const handleInputFocus = () => {
+    if (suggestions.length > 0 || noResults) {
+      setShowSuggestions(true);
+    }
+  };
+
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} ref={wrapperRef}>
       <div className={styles.searchBar}>
         {needInput && (
           <input
@@ -86,6 +123,7 @@ const FilterSearchBar = ({
             value={query}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            onFocus={handleInputFocus}
             placeholder={placeholder ?? 'Recherche ...'}
             className={styles.searchInput}
             ref={inputRef}
@@ -109,7 +147,7 @@ const FilterSearchBar = ({
         </button>
       </div>
 
-      {suggestions.length > 0 && (
+      {showSuggestions && suggestions.length > 0 && (
         <ul className={styles.suggestions_list}>
           {suggestions.map((sugg, idx) => (
             <li key={idx} onClick={() => handleSuggestionClick(sugg.name)}>
@@ -117,6 +155,10 @@ const FilterSearchBar = ({
             </li>
           ))}
         </ul>
+      )}
+
+      {showSuggestions && noResults && query.trim() !== '' && (
+        <div className={styles.noResults}>{t('filterPanel.noResults')}</div>
       )}
     </div>
   );

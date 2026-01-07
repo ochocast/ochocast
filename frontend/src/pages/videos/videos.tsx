@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
 
@@ -107,6 +107,8 @@ const Videos: FC<VideosProps> = () => {
     message: string;
     type?: 'success' | 'error' | 'info';
   } | null>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+  const filterButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (location.state?.toast) {
@@ -307,6 +309,26 @@ const Videos: FC<VideosProps> = () => {
     }
   };
 
+  const handleResetFilters = () => {
+    setFilters({
+      tags: [],
+      users: [],
+      startDate: null,
+      endDate: null,
+      archived: null,
+    });
+    setSearchState({
+      q: '',
+      tags: [],
+      users: [],
+      dateFrom: null,
+      dateTo: null,
+      favoris: false,
+      archived: null,
+    });
+    setShowFavorites(false);
+  };
+
   const handleSearchWithUrl = (query: string) => {
     setSearchQuery(query);
     setSearchState({ q: query });
@@ -322,6 +344,13 @@ const Videos: FC<VideosProps> = () => {
       setTimeout(() => setToast(null), 500);
     });
   };
+
+  // Calculer le nombre de filtres actifs
+  const activeFiltersCount =
+    filters.tags.length +
+    filters.users.length +
+    (filters.startDate || filters.endDate ? 1 : 0) +
+    (filters.archived !== null ? 1 : 0);
 
   if (isLoading) {
     return <LoadingCircle />;
@@ -339,10 +368,14 @@ const Videos: FC<VideosProps> = () => {
               icon={SearchBarIcon.SEARCH}
             />
             <button
+              ref={filterButtonRef}
               className={style.filterToggleButton}
               onClick={() => setShowFilters(!showFilters)}
             >
               <img src={FilterIcon} alt="Filter icon" />
+              {activeFiltersCount > 0 && (
+                <span className={style.filterBadge}>{activeFiltersCount}</span>
+              )}
             </button>
             <img
               className={style.starIconFilterContainer}
@@ -360,19 +393,25 @@ const Videos: FC<VideosProps> = () => {
             />
           </div>
           {showFilters && (
-            <div className={style.filterPanelWrapper}>
-              <FilterPanel
-                onTagsChange={handleTagsChange}
-                onUsersChange={handleUsersChange}
-                onDateFilter={handleDateFilter}
-                closePanel={() => setShowFilters(false)}
-                onArchivedChange={handleArchivedChange}
-                initialTags={filters.tags}
-                initialUsers={filters.users}
-                initialStartDate={filters.startDate}
-                initialEndDate={filters.endDate}
-                initialArchived={filters.archived}
-              />
+            <div
+              className={style.filterPanelWrapper}
+              onClick={() => setShowFilters(false)}
+            >
+              <div ref={filterPanelRef} onClick={(e) => e.stopPropagation()}>
+                <FilterPanel
+                  onTagsChange={handleTagsChange}
+                  onUsersChange={handleUsersChange}
+                  onDateFilter={handleDateFilter}
+                  closePanel={() => setShowFilters(false)}
+                  onArchivedChange={handleArchivedChange}
+                  onResetFilters={handleResetFilters}
+                  initialTags={filters.tags}
+                  initialUsers={filters.users}
+                  initialStartDate={filters.startDate}
+                  initialEndDate={filters.endDate}
+                  initialArchived={filters.archived}
+                />
+              </div>
             </div>
           )}
         </div>

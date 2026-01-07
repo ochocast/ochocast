@@ -14,6 +14,7 @@ interface FilterPanelProps {
   onDateFilter: (start: Date | null, end: Date | null) => void;
   closePanel: () => void;
   onArchivedChange: (archived: boolean) => void;
+  onResetFilters?: () => void;
   initialTags: string[];
   initialUsers: string[];
   initialStartDate: Date | null;
@@ -27,6 +28,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onDateFilter,
   closePanel,
   onArchivedChange,
+  onResetFilters,
   initialTags,
   initialUsers,
   initialStartDate,
@@ -104,8 +106,28 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     }
   };
 
+  const handleResetFilters = () => {
+    setTags([]);
+    setUsers([]);
+    setStartDate(null);
+    setEndDate(null);
+    setArchived(false);
+    onTagsChange([]);
+    onUsersChange([]);
+    onDateFilter(null, null);
+    onArchivedChange(false);
+    onResetFilters?.();
+  };
+
   return (
     <div className={style.panel}>
+      <div className={style.panelHeader}>
+        <h2 className={style.panelTitle}>{t('filterPanel.filters')}</h2>
+        <button onClick={handleResetFilters} className={style.resetButton}>
+          {t('filterPanel.resetFilters')}
+        </button>
+      </div>
+
       {isAdmin && (
         <div className={style.section}>
           <h3 className={style.title}>Archive</h3>
@@ -178,39 +200,20 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
       </div>
 
       <div className={style.section}>
-        <h3 className={style.title}>{t('filterPanel.date')}</h3>
+        <h3 className={style.title}>{t('filterPanel.publicationDate')}</h3>
         <div className={style.dateInputs}>
           <div className={style.dateInput}>
-            <label className={style.label}>{t('filterPanel.start')}</label>
             <DatePicker
               selected={startDate}
               onChange={(date) => setStartDate(date)}
-              selectsStart
-              startDate={startDate}
-              endDate={endDate}
-              placeholderText={t('filterPanel.startDatePlaceholder')}
+              placeholderText={t('filterPanel.selectDate')}
               showMonthDropdown
               showYearDropdown
               dropdownMode="select"
               dateFormat="dd/MM/yyyy"
               className={style.datePicker}
-            />
-          </div>
-          <div className={style.dateInput}>
-            <label className={style.label}>{t('filterPanel.end')}</label>
-            <DatePicker
-              selected={endDate}
-              onChange={(date) => setEndDate(date)}
-              selectsEnd
-              startDate={startDate}
-              endDate={endDate}
-              minDate={startDate ?? undefined}
-              placeholderText={t('filterPanel.endDatePlaceholder')}
-              showMonthDropdown
-              showYearDropdown
-              dropdownMode="select"
-              dateFormat="dd/MM/yyyy"
-              className={style.datePicker}
+              maxDate={new Date()}
+              isClearable
             />
           </div>
         </div>

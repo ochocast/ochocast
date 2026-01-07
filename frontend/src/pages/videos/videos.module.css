@@ -115,6 +115,28 @@ Button {
   justify-content: center;
   height: 28px;
   width: 28px;
+  position: relative;
+  transition: opacity 0.2s;
+}
+
+.filterToggleButton:hover {
+  opacity: 0.7;
+}
+
+.filterBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: var(--theme-color-red);
+  color: var(--theme-color-white);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
 }
 
 .starIconFilterContainer {
@@ -128,15 +150,16 @@ Button {
 }
 
 .filterPanelWrapper {
-  position: absolute;
-  top: 56px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 1000;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
+  background-color: rgba(0, 0, 0, 0.3);
   display: flex;
   justify-content: center;
-  pointer-events: auto;
+  padding-top: 60px;
 }
 
 .sharedButtonIcon {
