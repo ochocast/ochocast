@@ -56,7 +56,10 @@ export class CreateNewEventUsecase {
         `miniature${event.imageSlug}.jpg`,
       );
       await sharp(miniatureFile.buffer)
-        .resize(1280, 720)
+        .resize(1280, 720, {
+          fit: 'cover',
+          position: 'center',
+        })
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
 

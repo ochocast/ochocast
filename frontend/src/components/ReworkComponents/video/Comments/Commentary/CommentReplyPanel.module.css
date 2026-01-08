@@ -3,7 +3,7 @@
   flex-direction: column;
   background: #f1f5f9;
   border-left: 3px solid var(--theme-color-950, #0f766e);
-  border-radius: 7px;
+  border-radius: 1rem;
   margin: 0.2rem 0 0.2rem 2.2rem;
   padding: 0.3rem 0.8rem 0.3rem 0.8rem;
   font-size: 0.93rem;
@@ -12,14 +12,6 @@
   max-width: 90%;
   word-break: break-word;
   position: relative;
-}
-
-.replyDiscordUser {
-  color: #0066cc;
-  font-weight: 600;
-  font-size: 0.95rem;
-  margin-bottom: 0.1rem;
-  text-decoration: underline;
 }
 
 .replyDiscordContent {
@@ -31,34 +23,12 @@
   text-overflow: ellipsis;
   max-height: 2.5em;
 }
-/* === MINI REPLY BOX (rappel du message parent dans le panel) === */
-.replyMiniBox {
-  background: #f3f4f6;
-  border-left: 3px solid var(--theme-color-950, #0f766e);
-  border-radius: 8px;
-  margin-bottom: 0.3rem;
-  margin-left: 0.5rem;
-  margin-right: 0.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.93rem;
-  color: #334155;
-  opacity: 0.95;
-  max-width: 90%;
-  word-break: break-word;
-}
-
-.replyMiniLabel {
-  font-size: 0.93rem;
-  color: #0f766e;
-  font-weight: 500;
-}
-/* === REPLY TO BOX === */
 
 .replyToBox {
   display: inline-flex;
   align-items: center;
   background: #f3f4f6;
-  border-radius: 10px;
+  border-radius: 1rem;
   margin-left: 1.5rem;
   margin-bottom: 0.5rem;
   padding: 0.5rem;
@@ -149,7 +119,7 @@
 }
 .parentComment::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 3px;
+  border-radius: 1rem;
 }
 .parentComment::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
@@ -166,7 +136,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 1rem;
   transition: all 0.2s;
 }
 
@@ -203,12 +173,13 @@
 .input {
   flex: 1;
   padding: 0.875rem 1.25rem;
-  border-radius: 12px;
+  border-radius: 2rem;
   border: 1px solid #d1d5db;
   font-size: 0.95rem;
   background: #f9fafb;
   transition: all 0.2s;
   outline: none;
+  resize: none;
 }
 
 .input:focus {
@@ -222,10 +193,10 @@
 }
 
 .sendBtn {
-  background: var(--theme-color-950);
-  color: #fff;
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
   border: none;
-  border-radius: 12px;
+  border-radius: 2rem;
   padding: 0.875rem 1.5rem;
   font-size: 0.95rem;
   font-weight: 500;
@@ -235,7 +206,10 @@
 }
 
 .sendBtn:hover {
-  background: var(--theme-color-800);
+  background-color: var(--theme-color-300);
+  color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
   transform: translateY(-1px);
 }
 
@@ -248,7 +222,7 @@
   flex-direction: column;
   background: #f1f5f9;
   border-left: 3px solid var(--theme-color-950);
-  border-radius: 7px;
+  border-radius: 1rem;
   padding: 0.5rem 0.8rem;
   margin-bottom: 0.5rem;
   width: 100%;
@@ -276,7 +250,7 @@
 .textarea {
   flex: 1;
   padding: 0.875rem 1.25rem;
-  border-radius: 12px;
+  border-radius: 1rem;
   border: 1px solid #d1d5db;
   font-size: 0.95rem;
   background: #f9fafb;
@@ -315,7 +289,7 @@
 }
 .messages::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 3px;
+  border-radius: 1rem;
 }
 .messages::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;

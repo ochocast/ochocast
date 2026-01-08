@@ -20,15 +20,15 @@
   border-radius: 9999px;
   background-color: var(--theme-color-white);
   outline: none;
-  font-style: italic;
-  color: var(--theme-color-gray);
+  color: var(--theme-color-black);
+  resize: none;
 }
 
 .button {
   background-color: var(--theme-color-500);
   color: var(--theme-color-white);
-  font-weight: 500;
   border: none;
+  font-weight: 500;
   padding: 0.5rem 1.25rem;
   border-radius: 9999px;
   cursor: pointer;
@@ -36,5 +36,8 @@
 }
 
 .button:hover {
-  background-color: var(--theme-color-600);
+  background-color: var(--theme-color-300);
+  color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }

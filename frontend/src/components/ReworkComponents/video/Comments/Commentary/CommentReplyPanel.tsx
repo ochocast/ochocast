@@ -64,12 +64,22 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // ✅ ref sur la textarea du panel
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
   useEffect(() => {
     if (open) {
       setVisible(true);
       setAnimClass(styles.open);
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
+
+      // ✅ focus après rendu/animation start
+      const id = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
+
+      return () => clearTimeout(id);
     } else {
       setAnimClass(styles.close);
       document.body.style.overflow = '';
@@ -80,7 +90,6 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   }, [open]);
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Ferme le panel si on clique sur l'overlay mais pas sur le panel lui-même
     if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
       onClose();
     }
@@ -123,6 +132,11 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
       onSend(message, replyTo || undefined);
       setMessage('');
       setReplyTo(null);
+
+      // ✅ garder le focus pour enchaîner
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 0);
     }
   };
 
@@ -131,7 +145,6 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
       e.preventDefault();
       handleSubmit(e);
     }
-    // Si Shift+Entrée, on laisse le comportement par défaut (retour à la ligne)
   };
 
   const handleReplyClick = (msg: {
@@ -142,13 +155,16 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
   }) => {
     setReplyTo(msg);
 
-    // Récupère le début du message (première ligne ou 60 caractères max)
     const firstLine = msg.content.split('\n')[0];
     const snippet =
       firstLine.length > 60 ? firstLine.substring(0, 60) + '...' : firstLine;
 
-    // Initialise le message avec @prenom nom + snippet + double retour à la ligne
     setMessage(`@${msg.firstname} ${msg.lastname} ${': ' + snippet}\n\n`);
+
+    // ✅ focus direct dans la textarea du panel
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
   };
 
   return (
@@ -232,6 +248,11 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
               onClick={() => {
                 setReplyTo(null);
                 setMessage('');
+
+                // ✅ et on refocus
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                }, 0);
               }}
             >
               ×
@@ -241,6 +262,7 @@ const CommentReplyPanel: React.FC<CommentReplyPanelProps> = ({
 
         <form onSubmit={handleSubmit} className={styles.inputRow}>
           <textarea
+            ref={inputRef}
             value={
               replyTo ? message.split('\n\n').slice(1).join('\n\n') : message
             }

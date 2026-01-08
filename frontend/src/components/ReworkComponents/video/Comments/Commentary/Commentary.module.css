@@ -105,10 +105,10 @@
 
 .replyButton {
   align-self: flex-start;
-  background: var(--theme-color-400);
-  color: #fff;
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
   border: none;
-  border-radius: 6px;
+  border-radius: 1rem;
   padding: 0.4rem 1rem;
   font-size: 0.85rem;
   cursor: pointer;
@@ -116,7 +116,10 @@
 }
 
 .replyButton:hover {
-  background: var(--theme-color-800);
+  background-color: var(--theme-color-300);
+  color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }
 
 .commentBox {

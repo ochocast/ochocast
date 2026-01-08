@@ -3,7 +3,7 @@ import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
 
 import { FC } from 'react';
-import { getVideos, searchVideos, searchVideosAdmin } from '../../utils/api';
+import { getVideos, searchVideos } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
@@ -18,7 +18,7 @@ import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useUser } from '../../context/UserContext';
+import CopyButtonIcon from '../../assets/copy.svg';
 
 interface VideosProps {}
 
@@ -92,7 +92,6 @@ const useUrlStateSync = (initialState: SearchState) => {
 };
 
 const Videos: FC<VideosProps> = () => {
-  const { isAdmin } = useUser();
   const [videos, setVideos] = useState<Video[]>([]);
   const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
   const userString = localStorage.getItem('backendUser');
@@ -151,27 +150,22 @@ const Videos: FC<VideosProps> = () => {
 
   const isFirstLoadRef = useRef(true);
 
-  const handleSearch = React.useCallback(
-    async (keywords: string[]) => {
-      try {
-        if (keywords[0] !== '') {
-          const response = isAdmin
-            ? await searchVideosAdmin(keywords[0])
-            : await searchVideos(keywords[0]);
+  const handleSearch = React.useCallback(async (keywords: string[]) => {
+    try {
+      if (keywords[0] !== '') {
+        const response = await searchVideos(keywords[0]);
 
-          const result = response.data || [];
-          setVideos(result);
-        } else {
-          const response = await getVideos();
-          const result = response.data || [];
-          setVideos(result);
-        }
-      } catch (error) {
-        logger.error('Error fetching suggestions:', error);
+        const result = response.data || [];
+        setVideos(result);
+      } else {
+        const response = await getVideos();
+        const result = response.data || [];
+        setVideos(result);
       }
-    },
-    [isAdmin],
-  );
+    } catch (error) {
+      logger.error('Error fetching suggestions:', error);
+    }
+  }, []);
 
   useEffect(() => {
     applyFilters(filters);
@@ -221,14 +215,6 @@ const Videos: FC<VideosProps> = () => {
 
     fetchVideos();
   }, [userString]);
-
-  const handleArchivedChange = (archived: boolean) => {
-    const updated = { ...filters, archived };
-    setFilters(updated);
-    applyFilters(updated);
-
-    setSearchState({ archived });
-  };
 
   const applyFilters = (newFilters = filters) => {
     let result = [...videos];
@@ -426,11 +412,12 @@ const Videos: FC<VideosProps> = () => {
               onClick={handleToggleFavorites}
               alt="Filtrer par favoris"
             />
-            <button
-              className={style.copyButton}
+            <img
+              className={`${style.copyButtonIcon} ${style.smallButton}`}
+              src={CopyButtonIcon}
+              alt="Partager les filtres"
               onClick={handleShare}
-              title={t('copyLink')}
-            ></button>
+            />
           </div>
           {showFilters && (
             <div
@@ -443,13 +430,11 @@ const Videos: FC<VideosProps> = () => {
                   onUsersChange={handleUsersChange}
                   onDateFilter={handleDateFilter}
                   closePanel={() => setShowFilters(false)}
-                  onArchivedChange={handleArchivedChange}
                   onResetFilters={handleResetFilters}
                   initialTags={filters.tags}
                   initialUsers={filters.users}
                   initialStartDate={filters.startDate}
                   initialEndDate={filters.endDate}
-                  initialArchived={filters.archived}
                   onCardsPerRowChange={handleCardsPerRowChange}
                   initialCardsPerRow={cardsPerRow}
                 />

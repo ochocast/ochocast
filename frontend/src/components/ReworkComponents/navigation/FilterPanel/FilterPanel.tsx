@@ -6,20 +6,17 @@ import style from './FilterPanel.module.css';
 import FilterSearchBar, {
   FilterSearchBarIcon,
 } from '../FilterSearchBar/FilterSearchBar';
-import { useUser } from '../../../../context/UserContext';
 
 interface FilterPanelProps {
   onTagsChange: (tags: string[]) => void;
   onUsersChange: (users: string[]) => void;
   onDateFilter: (start: Date | null, end: Date | null) => void;
   closePanel: () => void;
-  onArchivedChange: (archived: boolean) => void;
   onResetFilters?: () => void;
   initialTags: string[];
   initialUsers: string[];
   initialStartDate: Date | null;
   initialEndDate: Date | null;
-  initialArchived?: boolean | null;
   onCardsPerRowChange?: (value: number) => void;
   initialCardsPerRow?: number;
 }
@@ -29,13 +26,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onUsersChange,
   onDateFilter,
   closePanel,
-  onArchivedChange,
   onResetFilters,
   initialTags,
   initialUsers,
   initialStartDate,
   initialEndDate,
-  initialArchived,
   onCardsPerRowChange,
   initialCardsPerRow,
 }) => {
@@ -43,14 +38,12 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const [users, setUsers] = useState<string[]>(initialUsers);
   const [startDate, setStartDate] = useState<Date | null>(initialStartDate);
   const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
-  const [archived, setArchived] = useState<boolean>(initialArchived || false);
   const [nextTag, setNextTag] = useState<string | null>(null);
   const [nextUser, setNextUser] = useState<string | null>(null);
   const [cardsPerRow, setCardsPerRow] = useState<number>(
     initialCardsPerRow || 6,
   );
   const { t } = useTranslation();
-  const { isAdmin } = useUser();
 
   const handleTagClick = (query: string) => {
     if (nextTag === query) {
@@ -118,11 +111,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     setUsers([]);
     setStartDate(null);
     setEndDate(null);
-    setArchived(false);
     onTagsChange([]);
     onUsersChange([]);
     onDateFilter(null, null);
-    onArchivedChange(false);
     onResetFilters?.();
   };
 
@@ -134,25 +125,6 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           {t('filterPanel.resetFilters')}
         </button>
       </div>
-
-      {isAdmin && (
-        <div className={style.section}>
-          <h3 className={style.title}>Archive</h3>
-
-          <button
-            className={style.toggleArchivedButton}
-            onClick={() => {
-              const newValue = !archived;
-              setArchived(newValue);
-              onArchivedChange(newValue);
-            }}
-          >
-            {archived
-              ? 'Afficher vidéos NON archivées'
-              : 'Afficher vidéos archivées'}
-          </button>
-        </div>
-      )}
       <div className={style.section}>
         <h3 className={style.title}>{t('filterPanel.tag')}</h3>
         <div>

@@ -235,22 +235,13 @@ Button {
   padding-top: 60px;
 }
 
-.copyButton {
-  background: transparent;
-  border: none;
-  padding: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  width: 28px;
-  color: #000000;
-  transition: opacity 0.2s ease;
+.copyButtonIcon {
+  width: 26px;
+  height: 26px;
 }
 
-.copyButton:hover {
-  opacity: 0.6;
+.copyButtonIcon:hover {
+  opacity: 0.7;
 }
 
 

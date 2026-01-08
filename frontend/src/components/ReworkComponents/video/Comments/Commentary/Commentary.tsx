@@ -33,6 +33,7 @@ export interface CommentaryProps {
   likes?: number;
   isLiked?: boolean;
   onLikeChange?: () => void;
+  replyCount?: number;
 }
 
 const Commentary = (props: CommentaryProps) => {
@@ -149,6 +150,12 @@ const Commentary = (props: CommentaryProps) => {
                     onClick={props.onReplyClick}
                   >
                     {t('openDiscussion')}
+                    {typeof props.replyCount === 'number' && (
+                      <span className={styles.replyCount}>
+                        {' '}
+                        ({props.replyCount})
+                      </span>
+                    )}
                   </button>
                 )}
               </div>
@@ -157,7 +164,8 @@ const Commentary = (props: CommentaryProps) => {
                 <button
                   className={styles.likeButton}
                   onClick={handleLikeClick}
-                  disabled={isLoading}
+                  aria-disabled={isLoading}
+                  data-loading={isLoading ? 'true' : 'false'}
                 >
                   <div
                     className={`${styles.heartWrapper} ${isLiked ? styles.liked : ''}`}
@@ -209,7 +217,8 @@ const Commentary = (props: CommentaryProps) => {
                 <button
                   className={styles.likeButton}
                   onClick={handleLikeClick}
-                  disabled={isLoading}
+                  aria-disabled={isLoading}
+                  data-loading={isLoading ? 'true' : 'false'}
                 >
                   <div
                     className={`${styles.heartWrapper} ${isLiked ? styles.liked : ''}`}
