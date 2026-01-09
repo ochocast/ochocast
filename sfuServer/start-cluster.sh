@@ -1,90 +1,73 @@
 #!/bin/bash
 
-# Script pour lancer plusieurs instances SFU en cluster local
-# Usage: ./start-cluster.sh [nombre_de_serveurs]
+# Get script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
 
-NUM_SERVERS=${1:-3}
-BASE_PORT=8090
+# Start Control Plane in the background
+echo "Starting Control Plane..."
+export CONTROL_PLANE_PORT=8090
+./bin/controlplane &
+CP_PID=$!
+echo "Control Plane started (PID: $CP_PID)"
 
-echo "🚀 Démarrage de $NUM_SERVERS serveurs SFU en cluster..."
+# Wait for control plane to be ready
+sleep 2
+
+# Start SFU 1
+echo "Starting SFU 1..."
+export SFU_ID="sfu-1"
+export SFU_MODE="hybrid"
+export SERVER_URL="http://localhost:8091"
+export SERVER_PORT="8091"
+export CONTROL_PLANE_URL="http://localhost:8090"
+export SFU_REGION="us-east"
+export SFU_ZONE="zone-a"
+./bin/whip-server &
+SFU1_PID=$!
+echo "SFU 1 started (PID: $SFU1_PID)"
+
+# Start SFU 2
+echo "Starting SFU 2..."
+export SFU_ID="sfu-2"
+export SFU_MODE="hybrid"
+export SERVER_URL="http://localhost:8092"
+export SERVER_PORT="8092"
+export CONTROL_PLANE_URL="http://localhost:8090"
+export SFU_REGION="us-east"
+export SFU_ZONE="zone-b"
+./bin/whip-server &
+SFU2_PID=$!
+echo "SFU 2 started (PID: $SFU2_PID)"
+
+# Start SFU 3
+echo "Starting SFU 3..."
+export SFU_ID="sfu-3"
+export SFU_MODE="hybrid"
+export SERVER_URL="http://localhost:8093"
+export SERVER_PORT="8093"
+export CONTROL_PLANE_URL="http://localhost:8090"
+export SFU_REGION="us-west"
+export SFU_ZONE="zone-a"
+./bin/whip-server &
+SFU3_PID=$!
+echo "SFU 3 started (PID: $SFU3_PID)"
+
 echo ""
-
-# Arrêter les serveurs existants
-pkill -f "whip-server" 2>/dev/null
-sleep 1
-
-# Compiler le serveur
-echo "📦 Compilation du serveur..."
-go build -o whip-server
-if [ $? -ne 0 ]; then
-    echo "❌ Erreur de compilation"
-    exit 1
-fi
-echo "✅ Compilation réussie"
+echo "All services started!"
+echo "Control Plane: http://localhost:8090 (PID: $CP_PID)"
+echo "SFU 1: http://localhost:8091 (PID: $SFU1_PID)"
+echo "SFU 2: http://localhost:8092 (PID: $SFU2_PID)"
+echo "SFU 3: http://localhost:8093 (PID: $SFU3_PID)"
 echo ""
-
-# Créer les fichiers .env pour chaque serveur
-for i in $(seq 0 $(($NUM_SERVERS - 1))); do
-    PORT=$((BASE_PORT + i))
-    ENV_FILE=".env.sfu$((i + 1))"
-    
-    # Construire la liste des peers (tous les autres serveurs)
-    PEERS=""
-    for j in $(seq 0 $(($NUM_SERVERS - 1))); do
-        if [ $i -ne $j ]; then
-            PEER_PORT=$((BASE_PORT + j))
-            if [ -z "$PEERS" ]; then
-                PEERS="http://localhost:$PEER_PORT"
-            else
-                PEERS="$PEERS,http://localhost:$PEER_PORT"
-            fi
-        fi
-    done
-    
-    cat > "$ENV_FILE" << EOF
-SERVER_URL=http://localhost:$PORT
-SERVER_PORT=$PORT
-PEER_SFU_URLS=$PEERS
-SFU_MODE=hybrid
-CASCADE_AUTH_KEY=dev-cluster-secret-key
+echo "To stop all services:"
+echo "  kill $CP_PID $SFU1_PID $SFU2_PID $SFU3_PID"
+echo ""
+echo "Or save PIDs to a file:"
+cat > .pids << EOF
+$CP_PID
+$SFU1_PID
+$SFU2_PID
+$SFU3_PID
 EOF
-    
-    echo "📝 Créé $ENV_FILE pour SFU$((i + 1)) sur port $PORT"
-done
-
-echo ""
-echo "🎬 Lancement des serveurs..."
-echo ""
-
-# Lancer chaque serveur dans un terminal séparé (tmux ou en arrière-plan)
-for i in $(seq 0 $(($NUM_SERVERS - 1))); do
-    PORT=$((BASE_PORT + i))
-    ENV_FILE=".env.sfu$((i + 1))"
-    LOG_FILE="sfu$((i + 1)).log"
-    
-    # Copier le .env pour ce serveur
-    cp "$ENV_FILE" .env
-    
-    # Lancer le serveur en arrière-plan
-    ./whip-server > "$LOG_FILE" 2>&1 &
-    PID=$!
-    
-    echo "✅ SFU$((i + 1)) démarré (PID: $PID, Port: $PORT, Log: $LOG_FILE)"
-    
-    # Attendre un peu avant de lancer le suivant
-    sleep 0.5
-done
-
-echo ""
-echo "🎉 Cluster de $NUM_SERVERS serveurs SFU démarré !"
-echo ""
-echo "📊 État du cluster:"
-echo "  - Ports: $BASE_PORT-$((BASE_PORT + NUM_SERVERS - 1))"
-echo "  - Logs: sfu1.log, sfu2.log, ..."
-echo "  - Mode: hybrid"
-echo ""
-echo "🔍 Commandes utiles:"
-echo "  - Voir les logs: tail -f sfu1.log"
-echo "  - Arrêter le cluster: pkill -f whip-server"
-echo "  - Vérifier les processus: ps aux | grep whip-server"
-echo ""
+echo "  kill \$(cat .pids)"

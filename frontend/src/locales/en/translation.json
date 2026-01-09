@@ -333,6 +333,7 @@
     "saveEdit": "Save",
     "cancelEdit": "Cancel"
   },
+  "CheckingRoom": "Checking room status...",
   "chatStatistics": {
     "title": "Chat Statistics",
     "cardsView": "Cards",

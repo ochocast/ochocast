@@ -333,6 +333,7 @@
     "saveEdit": "Enregistrer",
     "cancelEdit": "Annuler"
   },
+  "CheckingRoom": "Vérification de l'état de la room...",
   "chatStatistics": {
     "title": "Statistiques du Chat",
     "cardsView": "Cartes",

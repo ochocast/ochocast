@@ -42,6 +42,7 @@ const TrackSettings: FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [sfuUrl, setSfuUrl] = useState<string>('');
   const [isLoadingSfu, setIsLoadingSfu] = useState(false);
+  const [isCheckingRoom, setIsCheckingRoom] = useState(false);
   const [touched, setTouched] = useState({ name: false, description: false });
   const [toast, setToast] = useState<{
     message: string;
@@ -114,13 +115,53 @@ const TrackSettings: FC = () => {
     track?.speakers?.some((e) => e.id === userId);
   const closed = track?.closed || event?.closed;
 
-  const toggle = () => {
-    setIsOpen(!isOpen);
+  const toggle = async () => {
     if (!isOpen) {
+      // Opening modal - check if room exists
+      await checkRoomExists();
+    } else {
+      // Closing modal - reset state
       setSfuUrl('');
     }
+    setIsOpen(!isOpen);
   };
   const toggleDeleteModal = () => setIsDeleteModalOpen(!isDeleteModalOpen);
+
+  const checkRoomExists = async () => {
+    if (!trackId) return;
+
+    setIsCheckingRoom(true);
+    try {
+      const response = await fetch(
+        // 'https://sfu.demo.ochocast.fr/room/exists?room_id=' + trackId,
+        // 'http://localhost:8090/room/exists?room_id=' + trackId,
+        'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/room/exists?room_id=' +
+          trackId,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to check room');
+      }
+
+      const data = await response.json();
+      if (data.exists && data.whip_url) {
+        setSfuUrl(data.whip_url);
+      } else {
+        setSfuUrl('');
+      }
+    } catch (error) {
+      console.error('Error checking room:', error);
+      setSfuUrl('');
+    } finally {
+      setIsCheckingRoom(false);
+    }
+  };
 
   const handleStartLiveOBS = async () => {
     if (!trackId) return;
@@ -128,9 +169,9 @@ const TrackSettings: FC = () => {
     setIsLoadingSfu(true);
     try {
       const response = await fetch(
-        'https://sfu.demo.ochocast.fr/room/create',
+        // 'https://sfu.demo.ochocast.fr/room/create',
         // 'http://localhost:8090/room/create',
-        // 'http://localhost:8079/room/create',
+        'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/room/create',
         {
           method: 'POST',
           headers: {
@@ -147,9 +188,9 @@ const TrackSettings: FC = () => {
       }
 
       const data = await response.json();
-      const whipUrl = `https://sfu.demo.ochocast.fr/whip?room_id=${data.room_id}&key=${data.key}`;
+      // const whipUrl = `https://sfu.demo.ochocast.fr/whip?room_id=${data.room_id}&key=${data.key}`;
       // const whipUrl = `http://localhost:8090/whip?room_id=${data.room_id}&key=${data.key}`;
-      // const whipUrl = `http://localhost:8079/whip?room_id=${data.room_id}&key=${data.key}`;
+      const whipUrl = `https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/whip?room_id=${data.room_id}&key=${data.key}`;
       setSfuUrl(whipUrl);
     } catch (error) {
       console.error('Error creating SFU room:', error);
@@ -243,7 +284,11 @@ const TrackSettings: FC = () => {
 
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('StartLive')}</h1>
-        {!sfuUrl ? (
+        {isCheckingRoom ? (
+          <div className={styles.startLiveButtons}>
+            <p>{t('CheckingRoom') || 'Checking room status...'}</p>
+          </div>
+        ) : !sfuUrl ? (
           <div className={styles.startLiveButtons}>
             <Button
               label={isLoadingSfu ? t('Loading') : t('StartLiveOBS')}

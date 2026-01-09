@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/pion/webrtc/v3"
+
+	"whip-server/internal/models"
+	"whip-server/pkg/metrics"
 )
 
 // NewSFUServer creates a new SFUServer instance
@@ -28,13 +31,130 @@ func NewSFUServer() *SFUServer {
 		}
 		serverURL = fmt.Sprintf("http://localhost:%s", serverPort)
 	}
-	return &SFUServer{
+
+	// Generate or get SFU ID
+	sfuID := os.Getenv("SFU_ID")
+	if sfuID == "" {
+		sfuID = generateID() // Use existing ID generator
+		log.Printf("[SFU] Generated SFU ID: %s", sfuID)
+	}
+
+	// Get control plane URL
+	controlPlaneURL := os.Getenv("CONTROL_PLANE_URL")
+
+	server := &SFUServer{
 		rooms:                 make(map[string]*Room),
 		mode:                  mode,
 		serverURL:             serverURL,
 		peerSFUs:              make(map[string]*PeerSFU),
 		upstreamConnections:   make(map[string]*CascadeConnection),
 		downstreamConnections: make(map[string]*CascadeConnection),
+		sfuID:                 sfuID,
+		controlPlaneURL:       controlPlaneURL,
+		parentSFU:             make(map[string]string),
+		childrenSFUs:          make(map[string][]string),
+	}
+
+	// Initialize metrics collector if control plane is configured
+	if controlPlaneURL != "" {
+		log.Printf("[SFU] Control plane URL: %s", controlPlaneURL)
+
+		// Create metrics collector
+		metricsInterval := 5 * time.Second // Send metrics every 5 seconds
+		collector := metrics.NewCollector(sfuID, serverURL, controlPlaneURL, metricsInterval)
+
+		// Set callback to get room statistics
+		collector.SetRoomStatsCallback(func() (activeHosts, activeViewers int) {
+			return server.GetRoomStats()
+		})
+
+		// Set callback to get detailed per-room statistics
+		collector.SetDetailedStatsCallback(func() map[string]models.RoomStats {
+			return server.GetDetailedRoomStats()
+		})
+
+		server.metricsCollector = collector
+
+		// Register with control plane
+		go server.registerWithControlPlane()
+
+		// Start metrics collection
+		collector.Start()
+		log.Printf("[SFU] Metrics collector started (interval: %v)", metricsInterval)
+	} else {
+		log.Printf("[SFU] No control plane configured, running in standalone mode")
+	}
+
+	return server
+}
+
+// GetRoomStats returns the total number of active hosts and viewers across all rooms
+func (s *SFUServer) GetRoomStats() (activeHosts, activeViewers int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, room := range s.rooms {
+		room.mu.RLock()
+		if room.StreamActive {
+			activeHosts++
+		}
+		activeViewers += len(room.Viewers)
+		room.mu.RUnlock()
+	}
+
+	return activeHosts, activeViewers
+}
+
+// GetDetailedRoomStats returns per-room statistics
+func (s *SFUServer) GetDetailedRoomStats() map[string]models.RoomStats {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stats := make(map[string]models.RoomStats)
+	for roomID, room := range s.rooms {
+		room.mu.RLock()
+		stats[roomID] = models.RoomStats{
+			ViewerCount: len(room.Viewers),
+			IsActive:    room.StreamActive,
+		}
+		room.mu.RUnlock()
+	}
+
+	return stats
+}
+
+// registerWithControlPlane registers this SFU with the control plane
+func (s *SFUServer) registerWithControlPlane() {
+	if s.controlPlaneURL == "" {
+		return
+	}
+
+	registration := models.SFURegistration{
+		SFUID:     s.sfuID,
+		ServerURL: s.serverURL,
+		Region:    os.Getenv("SFU_REGION"),
+		Zone:      os.Getenv("SFU_ZONE"),
+	}
+
+	jsonData, err := json.Marshal(registration)
+	if err != nil {
+		log.Printf("[SFU] Failed to marshal registration: %v", err)
+		return
+	}
+
+	url := fmt.Sprintf("%s/control/register_sfu", s.controlPlaneURL)
+	resp, err := http.Post(url, "application/json", strings.NewReader(string(jsonData)))
+	if err != nil {
+		log.Printf("[SFU] Failed to register with control plane: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusCreated || resp.StatusCode == http.StatusOK {
+		log.Printf("[SFU] Successfully registered with control plane")
+	} else {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[SFU] Failed to register with control plane: %s - %s", resp.Status, string(body))
 	}
 }
 
@@ -58,17 +178,21 @@ func (s *SFUServer) CreateRoom(roomID string) (key string, alreadyExists bool, e
 }
 
 // CreateRoomWithKey creates a new room with a specific key (used for synchronization)
+// If the room already exists with the same key, it's a no-op (idempotent)
+// If the room already exists with a different key, update the key (control plane is source of truth)
 func (s *SFUServer) CreateRoomWithKey(roomID, key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// Check if room already exists
 	if existingRoom, exists := s.rooms[roomID]; exists {
-		// Si la clé est différente, c'est un problème
 		if existingRoom.Key != key {
-			return fmt.Errorf("room %s already exists with different key", roomID)
+			// Control plane is source of truth - update the key
+			log.Printf("[SFU] Room %s exists with different key, updating key (control plane sync)", roomID)
+			existingRoom.Key = key
+		} else {
+			log.Printf("[SFU] Room %s already exists with same key", roomID)
 		}
-		log.Printf("[SFU] Room %s already exists with same key, ignoring", roomID)
 		return nil
 	}
 
@@ -273,7 +397,7 @@ func (s *SFUServer) ConnectToUpstreamForRoom(roomID, originURL string) error {
 	s.mu.RUnlock()
 
 	// Créer une peer connection pour recevoir le stream de l'origin
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := webrtcAPI.NewPeerConnection(getWebRTCConfiguration())
 	if err != nil {
 		return fmt.Errorf("failed to create peer connection: %w", err)
 	}

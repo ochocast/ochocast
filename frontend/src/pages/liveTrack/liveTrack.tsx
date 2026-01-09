@@ -10,6 +10,22 @@ import Chat from '../../components/Chat/Chat';
 import PollsContainer from '../../components/Polls/PollsContainer';
 import { useUser } from '../../context/UserContext';
 
+// ============ LOGGER UTILITY ============
+const Logger = {
+  info: (context: string, message: string, data?: unknown) => {
+    console.log(`[${context}] ℹ️ ${message}`, data || '');
+  },
+  error: (context: string, message: string, data?: unknown) => {
+    console.error(`[${context}] ❌ ${message}`, data || '');
+  },
+  warn: (context: string, message: string, data?: unknown) => {
+    console.warn(`[${context}] ⚠️ ${message}`, data || '');
+  },
+  success: (context: string, message: string, data?: unknown) => {
+    console.log(`[${context}] ✅ ${message}`, data || '');
+  },
+};
+
 const fetchTrack = async (trackId?: string) => {
   try {
     const res = await getTrackById(trackId);
@@ -18,9 +34,20 @@ const fetchTrack = async (trackId?: string) => {
     }
     return await res.data;
   } catch (error) {
-    console.error(`Failed to fetch tracks: ${error}`);
+    Logger.error('FetchTrack', `Failed to fetch tracks: ${error}`);
   }
   return null;
+};
+
+// ============ RECONNECTION CONFIG (Outside component to avoid dependency issues) ============
+const RECONNECTION_CONFIG = {
+  maxAttempts: 5,
+  baseDelayMs: 1000,
+  backoffMultiplier: 2,
+  healthCheckIntervalMs: 10000,
+  healthCheckFailThreshold: 2,
+  frameBufferDelayMs: 300,
+  iceDisconnectedTimeoutMs: 5000,
 };
 
 const LiveTrack = () => {
@@ -30,11 +57,12 @@ const LiveTrack = () => {
   const [track, setTrack] = useState<Track>();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [volume, setVolume] = useState(100);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [showClosedPolls, setShowClosedPolls] = useState(false);
   const { user } = useUser();
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -43,15 +71,62 @@ const LiveTrack = () => {
   const hasReceivedTrackRef = useRef(false);
   const streamActiveRef = useRef(false);
   const statusCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const WHIP_SERVER_URL =
-    'https://sfu.demo.ochocast.fr/viewer?room_id=' + trackId;
-  // 'http://localhost:8090/viewer?room_id=' + trackId;
-  // 'http://localhost:8079/viewer?room_id=' + trackId;
+  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const healthCheckFailCountRef = useRef(0);
+  const iceDisconnectedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const connectionToStreamRefRef = useRef<(() => Promise<void>) | null>(null);
 
-  const STREAM_STATUS_URL =
-    'https://sfu.demo.ochocast.fr/stream-status?room_id=' + trackId;
-  // 'http://localhost:8090/stream-status?room_id=' + trackId;
-  // 'http://localhost:8079/stream-status?room_id=' + trackId;
+  // Control plane URL for SFU discovery
+  const CONTROL_PLANE_URL =
+    process.env.REACT_APP_SFU_CONTROL_PLANE_URL ||
+    'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud';
+
+  // Calculate exponential backoff delay
+  const getReconnectDelay = (attempt: number): number => {
+    return (
+      RECONNECTION_CONFIG.baseDelayMs *
+      Math.pow(RECONNECTION_CONFIG.backoffMultiplier, attempt)
+    );
+  };
+
+  // Discover SFU endpoint from control plane
+  const discoverSFU = useCallback(
+    async (roomId: string) => {
+      try {
+        const discoveryUrl = `${CONTROL_PLANE_URL}/viewer?room_id=${roomId}`;
+        console.log('Discovering SFU from control plane:', discoveryUrl);
+
+        const response = await fetch(discoveryUrl);
+        if (!response.ok) {
+          throw new Error(
+            `Discovery failed: ${response.status} ${response.statusText}`,
+          );
+        }
+
+        const data = await response.json();
+        console.log('SFU discovery response:', data);
+
+        if (!data.sfu_url) {
+          throw new Error('No SFU URL returned from control plane');
+        }
+
+        // Return the direct SFU URL for viewer endpoint
+        const sfuViewerUrl = `${data.sfu_url}/viewer?room_id=${roomId}`;
+        console.log('Discovered SFU viewer URL:', sfuViewerUrl);
+        return sfuViewerUrl;
+      } catch (error) {
+        console.error('Failed to discover SFU:', error);
+        throw error;
+      }
+    },
+    [CONTROL_PLANE_URL],
+  );
+
+  // Stream status URL - try to get from SFU if available, fallback to control plane
+  const getStreamStatusUrl = useCallback(() => {
+    return `${CONTROL_PLANE_URL}/stream-status?room_id=${trackId}`;
+  }, [CONTROL_PLANE_URL, trackId]);
 
   const checkStreamStatus = useCallback(async () => {
     if (!trackId) {
@@ -59,7 +134,7 @@ const LiveTrack = () => {
       return false;
     }
     try {
-      const url = STREAM_STATUS_URL;
+      const url = getStreamStatusUrl();
       console.log('Checking stream status at:', url);
       const response = await fetch(url);
       if (!response.ok) {
@@ -73,12 +148,42 @@ const LiveTrack = () => {
       console.error('Error checking stream status:', error);
       return false;
     }
-  }, [trackId, STREAM_STATUS_URL]);
+  }, [trackId, getStreamStatusUrl]);
 
+  // ============ HEALTH CHECK ============
+  const checkStreamHealth = useCallback(async (): Promise<boolean> => {
+    try {
+      const url = `${CONTROL_PLANE_URL}/stream-status?room_id=${trackId}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) {
+        Logger.warn(
+          'HealthCheck',
+          `Stream status check failed: ${response.status}`,
+        );
+        healthCheckFailCountRef.current++;
+        return false;
+      }
+      const data = await response.json();
+      if (data.active === true) {
+        Logger.success('HealthCheck', 'Stream is healthy');
+        healthCheckFailCountRef.current = 0; // Reset fail count
+        return true;
+      }
+      Logger.warn('HealthCheck', 'Stream is not active');
+      healthCheckFailCountRef.current++;
+      return false;
+    } catch (error) {
+      Logger.error('HealthCheck', 'Health check error', error);
+      healthCheckFailCountRef.current++;
+      return false;
+    }
+  }, [trackId, CONTROL_PLANE_URL]);
+
+  // ============ DISCONNECTION ============
   const disconnectFromStream = useCallback(() => {
-    console.log('Disconnecting from stream...');
+    Logger.info('Stream', 'Disconnecting from stream...');
 
-    // Clear all timeouts
+    // Clear all timeouts and intervals
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -86,6 +191,10 @@ const LiveTrack = () => {
     if (noStreamTimeoutRef.current) {
       clearTimeout(noStreamTimeoutRef.current);
       noStreamTimeoutRef.current = null;
+    }
+    if (iceDisconnectedTimeoutRef.current) {
+      clearTimeout(iceDisconnectedTimeoutRef.current);
+      iceDisconnectedTimeoutRef.current = null;
     }
 
     // Close peer connection
@@ -97,13 +206,125 @@ const LiveTrack = () => {
     // Reset state
     setIsPlaying(false);
     setIsConnecting(false);
+    setIsReconnecting(false);
     hasReceivedTrackRef.current = false;
 
-    console.log('Disconnected from stream');
+    Logger.success('Stream', 'Disconnected from stream');
   }, []);
 
-  const connection_to_stream = useCallback(() => {
-    // Clear any existing reconnection timers
+  const attemptReconnect = useCallback(
+    async (attempt: number = 0): Promise<void> => {
+      if (attempt >= RECONNECTION_CONFIG.maxAttempts) {
+        Logger.error(
+          'Reconnection',
+          `Failed after ${RECONNECTION_CONFIG.maxAttempts} attempts`,
+        );
+        setError(
+          `Failed to reconnect after ${RECONNECTION_CONFIG.maxAttempts} attempts. Please refresh the page.`,
+        );
+        setIsReconnecting(false);
+        return;
+      }
+
+      const delay = getReconnectDelay(attempt);
+      Logger.info(
+        'Reconnection',
+        `Attempt ${attempt + 1}/${RECONNECTION_CONFIG.maxAttempts} - waiting ${delay}ms`,
+      );
+
+      setIsReconnecting(true);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      try {
+        Logger.info(
+          'Reconnection',
+          `Starting reconnection attempt ${attempt + 1}`,
+        );
+        reconnectAttemptsRef.current = attempt;
+        if (connectionToStreamRefRef.current) {
+          await connectionToStreamRefRef.current();
+        }
+        Logger.success('Reconnection', 'Successfully reconnected');
+        reconnectAttemptsRef.current = 0;
+        setIsReconnecting(false);
+      } catch (err) {
+        Logger.warn('Reconnection', `Attempt ${attempt + 1} failed`, err);
+        await attemptReconnect(attempt + 1);
+      }
+    },
+    [],
+  );
+
+  // ============ HANDLE INCOMING TRACKS (CORRECT MediaStream API) ============
+  const handleIncomingTrack = useCallback(
+    (event: RTCTrackEvent, peerConnection: RTCPeerConnection) => {
+      Logger.info('Track', `🎥 Received ${event.track.kind} track`, {
+        id: event.track.id,
+        readyState: event.track.readyState,
+        streams: event.streams.length,
+      });
+
+      // Verify track is live
+      if (event.track.readyState !== 'live') {
+        Logger.warn('Track', 'Track is not live, ignoring');
+        return;
+      }
+
+      hasReceivedTrackRef.current = true;
+
+      // Clear the no-stream timeout
+      if (noStreamTimeoutRef.current) {
+        clearTimeout(noStreamTimeoutRef.current);
+        noStreamTimeoutRef.current = null;
+      }
+
+      const video = videoRef.current;
+      if (!video) {
+        Logger.error('Track', 'Video element not found');
+        return;
+      }
+
+      // ✅ CORRECT: Use event.streams if available, or create fresh MediaStream WITH the track
+      let mediaStream: MediaStream;
+      if (event.streams && event.streams.length > 0) {
+        Logger.info('Track', 'Using stream from event');
+        mediaStream = event.streams[0];
+      } else {
+        // ✅ CORRECT: Create MediaStream with the track inside, not empty!
+        Logger.info('Track', 'Creating new MediaStream with track');
+        mediaStream = new MediaStream([event.track]);
+      }
+
+      video.srcObject = mediaStream;
+
+      // ✅ Buffer the frame for 300ms before playing
+      Logger.info(
+        'Track',
+        `Buffering frame for ${RECONNECTION_CONFIG.frameBufferDelayMs}ms before playback`,
+      );
+      setTimeout(() => {
+        if (video && video.srcObject) {
+          Logger.info('Track', 'Starting playback after buffer delay');
+          // Use video events to confirm playback, not state
+          video.oncanplay = () => {
+            Logger.success('Track', 'Video can play');
+            setIsPlaying(true);
+            setError(null);
+          };
+          video.play().catch((e) => {
+            Logger.warn('Track', 'Auto play failed', e);
+          });
+        }
+      }, RECONNECTION_CONFIG.frameBufferDelayMs);
+    },
+    [],
+  );
+
+  const connection_to_stream = useCallback(async () => {
+    // Store in ref so attemptReconnect can call it without circular dependency
+    connectionToStreamRefRef.current = connection_to_stream;
+
+    // Clear any existing timers
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -112,237 +333,215 @@ const LiveTrack = () => {
       clearTimeout(noStreamTimeoutRef.current);
       noStreamTimeoutRef.current = null;
     }
+    if (iceDisconnectedTimeoutRef.current) {
+      clearTimeout(iceDisconnectedTimeoutRef.current);
+      iceDisconnectedTimeoutRef.current = null;
+    }
 
-    // Close existing connection if any
+    // Close existing connection
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
 
-    const startStream = async () => {
-      try {
-        setIsPlaying(false);
-        hasReceivedTrackRef.current = false;
-        setIsConnecting(true);
-        setError(null);
+    try {
+      setIsPlaying(false);
+      hasReceivedTrackRef.current = false;
+      setIsConnecting(true);
+      setError(null);
 
-        // Create RTCPeerConnection
-        const peerConnection = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-        });
-        peerConnectionRef.current = peerConnection;
+      // Create RTCPeerConnection
+      const peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+      });
+      peerConnectionRef.current = peerConnection;
 
-        console.log('PeerConnection created:', peerConnection);
+      Logger.info('Connection', 'PeerConnection created');
 
-        // Set a timeout to check if we receive any tracks within 10 seconds
-        noStreamTimeoutRef.current = setTimeout(() => {
-          if (
-            !hasReceivedTrackRef.current &&
-            peerConnectionRef.current === peerConnection
-          ) {
-            console.log('No stream received within timeout');
-            setError('No stream available');
-            setIsConnecting(false);
-          }
-        }, 10000);
+      // ============ SET TIMEOUTS ============
+      noStreamTimeoutRef.current = setTimeout(() => {
+        if (
+          !hasReceivedTrackRef.current &&
+          peerConnectionRef.current === peerConnection
+        ) {
+          Logger.warn('Connection', 'No stream received within timeout');
+          setError('No stream available');
+          setIsConnecting(false);
+        }
+      }, 15000); // Increased to 15s
 
-        // Handle ICE connection state changes
-        peerConnection.oniceconnectionstatechange = () => {
-          if (peerConnection) {
-            console.log(
-              'ICE connection state:',
-              peerConnection.iceConnectionState,
-            );
-          }
-        };
+      // ============ MONITOR ICE CONNECTION STATE ============
+      peerConnection.oniceconnectionstatechange = () => {
+        const state = peerConnection.iceConnectionState;
+        Logger.info('ICE', `Connection state changed: ${state}`);
 
-        // Handle ICE gathering state changes
-        peerConnection.onicegatheringstatechange = () => {
-          if (peerConnection) {
-            console.log(
-              'ICE gathering state:',
-              peerConnection.iceGatheringState,
-            );
-          }
-        };
-
-        // Handle connection state changes
-        peerConnection.onconnectionstatechange = () => {
-          if (peerConnection) {
-            console.log('Connection state:', peerConnection.connectionState);
-            if (peerConnection.connectionState === 'connected') {
-              setIsConnecting(false);
-              console.log('WebRTC connection fully established');
-            } else if (
-              peerConnection.connectionState === 'failed' ||
-              peerConnection.connectionState === 'disconnected' ||
-              peerConnection.connectionState === 'closed'
-            ) {
-              console.log('Connection lost');
-              setError('Connection lost');
-              setIsConnecting(false);
-              setIsPlaying(false);
-
-              // Clear the no-stream timeout as we're handling disconnection
-              if (noStreamTimeoutRef.current) {
-                clearTimeout(noStreamTimeoutRef.current);
-                noStreamTimeoutRef.current = null;
-              }
-            }
-          }
-        };
-
-        // Add transceivers to receive video and audio BEFORE creating offer
-        const videoTransceiver = peerConnection.addTransceiver('video', {
-          direction: 'recvonly',
-        });
-        const audioTransceiver = peerConnection.addTransceiver('audio', {
-          direction: 'recvonly',
-        });
-        console.log('Transceivers added:', {
-          video: videoTransceiver,
-          audio: audioTransceiver,
-        });
-
-        // Handle incoming tracks - This should fire when remote tracks arrive
-        peerConnection.ontrack = (event) => {
-          console.log('🎥 ontrack event fired!');
-          console.log(
-            'Received track:',
-            event.track.kind,
-            'Track ID:',
-            event.track.id,
+        if (state === 'disconnected') {
+          Logger.warn(
+            'ICE',
+            'Disconnected, waiting 5 seconds to see if recovers',
           );
-          console.log('Track state:', event.track.readyState);
-          console.log('Event streams:', event.streams);
+          if (iceDisconnectedTimeoutRef.current) {
+            clearTimeout(iceDisconnectedTimeoutRef.current);
+          }
+          // Wait 5s to see if it recovers to "connected"
+          iceDisconnectedTimeoutRef.current = setTimeout(() => {
+            if (peerConnection.iceConnectionState === 'disconnected') {
+              Logger.error(
+                'ICE',
+                'Still disconnected after 5s, triggering reconnect',
+              );
+              attemptReconnect(0);
+            }
+          }, RECONNECTION_CONFIG.iceDisconnectedTimeoutMs);
+        } else if (state === 'failed' || state === 'closed') {
+          Logger.error('ICE', `Connection failed/closed, triggering reconnect`);
+          if (iceDisconnectedTimeoutRef.current) {
+            clearTimeout(iceDisconnectedTimeoutRef.current);
+          }
+          attemptReconnect(0);
+        } else if (state === 'connected') {
+          Logger.success('ICE', 'Connected');
+          // Clear any pending reconnection
+          if (iceDisconnectedTimeoutRef.current) {
+            clearTimeout(iceDisconnectedTimeoutRef.current);
+            iceDisconnectedTimeoutRef.current = null;
+          }
+        }
+      };
 
-          // Mark that we received a track
-          hasReceivedTrackRef.current = true;
+      peerConnection.onicegatheringstatechange = () => {
+        Logger.info(
+          'ICE',
+          `Gathering state: ${peerConnection.iceGatheringState}`,
+        );
+      };
 
-          // Clear the no-stream timeout since we received a track
+      // ============ MONITOR CONNECTION STATE ============
+      peerConnection.onconnectionstatechange = () => {
+        const state = peerConnection.connectionState;
+        Logger.info('Connection', `State changed: ${state}`);
+
+        if (state === 'connected') {
+          setIsConnecting(false);
+          Logger.success('Connection', 'WebRTC connection fully established');
+        } else if (
+          state === 'failed' ||
+          state === 'disconnected' ||
+          state === 'closed'
+        ) {
+          Logger.error(
+            'Connection',
+            `Connection ${state}, triggering reconnect`,
+          );
+          setIsConnecting(false);
+          setIsPlaying(false);
           if (noStreamTimeoutRef.current) {
             clearTimeout(noStreamTimeoutRef.current);
             noStreamTimeoutRef.current = null;
           }
+          attemptReconnect(0);
+        }
+      };
 
-          const video = videoRef.current;
-          if (!video) {
-            console.error('Video element not found in ref');
-            return;
-          }
+      // ============ ADD TRANSCEIVERS ============
+      const videoTransceiver = peerConnection.addTransceiver('video', {
+        direction: 'recvonly',
+      });
+      const audioTransceiver = peerConnection.addTransceiver('audio', {
+        direction: 'recvonly',
+      });
+      Logger.info('Connection', 'Transceivers added', {
+        video: !!videoTransceiver,
+        audio: !!audioTransceiver,
+      });
 
-          // Use the stream from the event directly if available
-          if (event.streams && event.streams.length > 0) {
-            console.log('Using stream from event:', event.streams[0].id);
-            video.srcObject = event.streams[0];
-            setIsPlaying(true);
-            setError(null);
-          } else {
-            console.log('Creating MediaStream manually');
-            // Fallback to creating MediaStream manually
-            if (!video.srcObject) {
-              video.srcObject = new MediaStream();
-            }
-            (video.srcObject as MediaStream).addTrack(event.track);
-            setIsPlaying(true);
-            setError(null);
-          }
+      // ============ HANDLE INCOMING TRACKS ============
+      peerConnection.ontrack = (event) => {
+        handleIncomingTrack(event, peerConnection);
+      };
 
-          const srcObject = video.srcObject as MediaStream;
-          console.log(
-            'Video srcObject tracks:',
-            srcObject ? srcObject.getTracks().length : 0,
-          );
-          console.log(
-            'Tracks details:',
-            srcObject
-              ? srcObject
-                  .getTracks()
-                  .map((t) => ({ kind: t.kind, id: t.id, state: t.readyState }))
-              : [],
-          );
+      // ============ CREATE OFFER ============
+      Logger.info('Connection', 'Creating offer');
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      Logger.success('Connection', 'Local description set');
 
-          // Force video to load and play
-          video.load();
-          video.play().catch((e) => console.error('Auto play failed:', e));
-        };
+      // ============ WAIT FOR ICE GATHERING ============
+      await new Promise<void>((resolve) => {
+        if (peerConnection?.iceGatheringState === 'complete') {
+          resolve();
+          return;
+        }
 
-        // Create offer
-        console.log('Creating offer...');
-        const offer = await peerConnection.createOffer();
-        console.log('Offer created:', offer);
+        const timeout = setTimeout(() => {
+          Logger.warn('Connection', 'ICE gathering timeout, proceeding');
+          resolve();
+        }, 2000);
 
-        await peerConnection.setLocalDescription(offer);
-        console.log('Local description set');
-
-        // Wait for ICE gathering to complete
-        await new Promise<void>((resolve) => {
+        const checkState = () => {
           if (peerConnection?.iceGatheringState === 'complete') {
-            resolve();
-          } else {
-            const checkState = () => {
-              if (peerConnection?.iceGatheringState === 'complete') {
-                peerConnection.removeEventListener(
-                  'icegatheringstatechange',
-                  checkState,
-                );
-                resolve();
-              }
-            };
-            peerConnection?.addEventListener(
+            clearTimeout(timeout);
+            peerConnection.removeEventListener(
               'icegatheringstatechange',
               checkState,
             );
+            resolve();
           }
-        });
+        };
+        peerConnection?.addEventListener('icegatheringstatechange', checkState);
+      });
 
-        console.log('ICE gathering complete, sending offer to WHIP server...');
+      Logger.info('Connection', 'Discovering SFU');
 
-        // Send offer to WHIP server
-        if (
-          !peerConnection.localDescription ||
-          !peerConnection.localDescription.sdp
-        ) {
-          throw new Error('Local description is not set');
-        }
-
-        console.log('Sending SDP to:', WHIP_SERVER_URL);
-        const response = await fetch(WHIP_SERVER_URL, {
-          method: 'POST',
-          body: peerConnection.localDescription.sdp,
-          headers: { 'Content-Type': 'application/sdp' },
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(
-            `Server error: ${response.status} ${response.statusText} - ${errorText}`,
-          );
-        }
-
-        // Get answer from server
-        const answerSDP = await response.text();
-        console.log('Received answer from server');
-
-        // Set remote description
-        await peerConnection.setRemoteDescription({
-          type: 'answer',
-          sdp: answerSDP,
-        });
-
-        console.log('WHIP connection established, remote description set');
-        console.log('Waiting for tracks...');
-      } catch (err) {
-        console.error('Error starting stream:', err);
-        setError(err instanceof Error ? err.message : String(err));
-        setIsConnecting(false);
+      // ============ DISCOVER SFU ============
+      let sfuViewerUrl: string;
+      try {
+        sfuViewerUrl = await discoverSFU(trackId!);
+      } catch (error) {
+        throw new Error(
+          `Failed to discover SFU: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-    };
 
-    startStream();
+      // ============ SEND OFFER TO SFU ============
+      if (!peerConnection.localDescription?.sdp) {
+        throw new Error('Local description is not set');
+      }
 
-    // Note: Cleanup is now handled by disconnectFromStream
-  }, [WHIP_SERVER_URL]);
+      Logger.info('Connection', 'Sending SDP to SFU');
+      const response = await fetch(sfuViewerUrl, {
+        method: 'POST',
+        body: peerConnection.localDescription.sdp,
+        headers: { 'Content-Type': 'application/sdp' },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Server error: ${response.status} ${response.statusText} - ${errorText}`,
+        );
+      }
+
+      const answerSDP = await response.text();
+      Logger.success('Connection', 'Received answer from SFU');
+
+      // ============ SET REMOTE DESCRIPTION ============
+      await peerConnection.setRemoteDescription({
+        type: 'answer',
+        sdp: answerSDP,
+      });
+
+      Logger.success(
+        'Connection',
+        'WHIP connection established, waiting for tracks',
+      );
+    } catch (err) {
+      Logger.error('Connection', 'Error starting stream', err);
+      setError(err instanceof Error ? err.message : String(err));
+      setIsConnecting(false);
+      throw err; // Re-throw for reconnection handler
+    }
+  }, [discoverSFU, trackId, handleIncomingTrack, attemptReconnect]);
 
   if (track?.closed) {
     navigate(`/events/${track?.event.id}/tracks`);
@@ -352,7 +551,7 @@ const LiveTrack = () => {
     const fetchTrackData = async () => {
       const track = await fetchTrack(trackId);
       if (!track) {
-        console.error('Error while fetching track');
+        Logger.error('FetchTrack', 'Error while fetching track');
         return;
       }
       setTrack(track);
@@ -361,29 +560,32 @@ const LiveTrack = () => {
     fetchTrackData();
   }, [trackId]);
 
-  // Stream status polling effect
+  // ============ STREAM STATUS POLLING EFFECT ============
   useEffect(() => {
     if (!trackId) {
-      console.log('No trackId, skipping stream status polling setup');
+      Logger.warn('StatusPolling', 'No trackId, skipping polling');
       return;
     }
 
-    console.log('Setting up stream status polling for trackId:', trackId);
+    Logger.info('StatusPolling', 'Setting up stream status polling', {
+      trackId,
+    });
 
     const pollStreamStatus = async () => {
       const isActive = await checkStreamStatus();
-      console.log(
-        `Stream status check: ${isActive}, current streamActive: ${streamActiveRef.current}`,
+      Logger.info(
+        'StatusPolling',
+        `Stream status: ${isActive ? 'active' : 'inactive'}`,
       );
 
       if (isActive && !streamActiveRef.current) {
-        // Stream became active, connect
-        console.log('Stream became active, connecting...');
+        Logger.info('StatusPolling', 'Stream became active, connecting');
         streamActiveRef.current = true;
-        connection_to_stream();
+        connection_to_stream().catch((err: unknown) => {
+          Logger.error('StatusPolling', 'Connection failed', err);
+        });
       } else if (!isActive && streamActiveRef.current) {
-        // Stream became inactive, disconnect
-        console.log('Stream became inactive, disconnecting...');
+        Logger.warn('StatusPolling', 'Stream became inactive, disconnecting');
         streamActiveRef.current = false;
         disconnectFromStream();
       }
@@ -392,17 +594,38 @@ const LiveTrack = () => {
     // Initial check
     pollStreamStatus();
 
-    // Set up polling every 15 seconds
-    statusCheckIntervalRef.current = setInterval(pollStreamStatus, 10000);
+    // Poll every 3 seconds
+    statusCheckIntervalRef.current = setInterval(pollStreamStatus, 3000);
 
-    // Cleanup when component unmounts or trackId changes
+    // ============ HEALTH CHECK INTERVAL ============
+    healthCheckIntervalRef.current = setInterval(async () => {
+      const isHealthy = await checkStreamHealth();
+      if (
+        !isHealthy &&
+        healthCheckFailCountRef.current >=
+          RECONNECTION_CONFIG.healthCheckFailThreshold
+      ) {
+        Logger.warn(
+          'HealthCheck',
+          `Health check failed ${healthCheckFailCountRef.current} times, triggering reconnect`,
+        );
+        if (peerConnectionRef.current?.connectionState === 'connected') {
+          attemptReconnect(0);
+        }
+      }
+    }, RECONNECTION_CONFIG.healthCheckIntervalMs);
+
+    // Cleanup on unmount or trackId change
     return () => {
-      console.log('Cleaning up stream status polling');
+      Logger.info('StatusPolling', 'Cleaning up polling');
       if (statusCheckIntervalRef.current) {
         clearInterval(statusCheckIntervalRef.current);
         statusCheckIntervalRef.current = null;
       }
-      // Only disconnect if we were connected
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+        healthCheckIntervalRef.current = null;
+      }
       if (streamActiveRef.current) {
         disconnectFromStream();
         streamActiveRef.current = false;
@@ -415,7 +638,7 @@ const LiveTrack = () => {
     if (videoRef.current) {
       videoRef.current
         .play()
-        .catch((e) => console.error('Manual play failed:', e));
+        .catch((e) => Logger.warn('Video', 'Manual play failed', e));
     }
   };
 
@@ -433,12 +656,58 @@ const LiveTrack = () => {
             <div className={styles.liveLeft}>
               <div className={styles.playerWrapper}>
                 <div className={styles.videoContainer}>
+                  {/* Error message */}
+                  {error && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        left: '10px',
+                        background: 'rgba(255,0,0,0.8)',
+                        color: 'white',
+                        padding: '10px 15px',
+                        borderRadius: '5px',
+                        zIndex: 100,
+                        fontSize: '14px',
+                        maxWidth: '400px',
+                      }}
+                    >
+                      ❌ {error}
+                    </div>
+                  )}
+
+                  {/* Reconnecting indicator */}
+                  {isReconnecting && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        background: 'rgba(255,165,0,0.8)',
+                        color: 'white',
+                        padding: '10px 15px',
+                        borderRadius: '5px',
+                        zIndex: 100,
+                        fontSize: '14px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                    >
+                      <span>🔄</span>
+                      <span>
+                        Reconnecting... (Attempt{' '}
+                        {reconnectAttemptsRef.current + 1})
+                      </span>
+                    </div>
+                  )}
+
                   {/* Status overlay */}
                   {isConnecting && !isPlaying && (
                     <div className={styles.statusOverlay}>
                       <div className={styles.statusContent}>
                         <div className={styles.spinner}></div>
-                        <p>Connecting to live stream...</p>
+                        <p>{t('CheckingRoom') || 'Checking room status...'}</p>
                       </div>
                     </div>
                   )}

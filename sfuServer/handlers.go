@@ -5,12 +5,112 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/pion/webrtc/v3"
 )
+
+// Global WebRTC API with custom settings for NAT traversal
+var webrtcAPI *webrtc.API
+
+func init() {
+	// Create a MediaEngine with default codecs
+	mediaEngine := &webrtc.MediaEngine{}
+	if err := mediaEngine.RegisterDefaultCodecs(); err != nil {
+		log.Fatalf("[ICE] Failed to register default codecs: %v", err)
+	}
+
+	// Create a SettingEngine for advanced WebRTC configuration
+	settingEngine := webrtc.SettingEngine{}
+
+	// If a public IP is specified, use NAT1To1 mapping
+	// This is useful when running behind a NAT (like in containers)
+	publicIP := os.Getenv("PUBLIC_IP")
+	if publicIP != "" {
+		log.Printf("[ICE] Using NAT1To1 IP mapping: %s", publicIP)
+		settingEngine.SetNAT1To1IPs([]string{publicIP}, webrtc.ICECandidateTypeHost)
+	}
+
+	// Enable ICE-TCP candidates for environments that don't support UDP
+	if os.Getenv("ENABLE_ICE_TCP") == "true" {
+		log.Printf("[ICE] ICE-TCP enabled")
+		// Create a TCP listener for ICE
+		tcpListener, err := net.ListenTCP("tcp", &net.TCPAddr{
+			IP:   net.IP{0, 0, 0, 0},
+			Port: 0, // Let the OS pick a port
+		})
+		if err == nil {
+			log.Printf("[ICE] TCP listener created on %s", tcpListener.Addr().String())
+			settingEngine.SetICETCPMux(webrtc.NewICETCPMux(nil, tcpListener, 8))
+		} else {
+			log.Printf("[ICE] Failed to create TCP listener: %v", err)
+		}
+	}
+
+	// Create the WebRTC API with MediaEngine and SettingEngine
+	webrtcAPI = webrtc.NewAPI(
+		webrtc.WithMediaEngine(mediaEngine),
+		webrtc.WithSettingEngine(settingEngine),
+	)
+}
+
+// getWebRTCConfiguration returns the WebRTC configuration with ICE servers
+// Supports STUN and optional TURN server via environment variables
+func getWebRTCConfiguration() webrtc.Configuration {
+	iceServers := []webrtc.ICEServer{}
+
+	// Add STUN servers (default to Google's public STUN servers)
+	stunServers := os.Getenv("STUN_SERVERS")
+	if stunServers == "" {
+		stunServers = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+	}
+	stunURLs := strings.Split(stunServers, ",")
+	for i := range stunURLs {
+		stunURLs[i] = strings.TrimSpace(stunURLs[i])
+	}
+	iceServers = append(iceServers, webrtc.ICEServer{
+		URLs: stunURLs,
+	})
+
+	// Add TURN server if configured (required for NAT traversal in containerized environments)
+	turnServer := os.Getenv("TURN_SERVER")
+	turnUsername := os.Getenv("TURN_USERNAME")
+	turnPassword := os.Getenv("TURN_PASSWORD")
+
+	if turnServer != "" && turnUsername != "" && turnPassword != "" {
+		turnURLs := strings.Split(turnServer, ",")
+		for i := range turnURLs {
+			turnURLs[i] = strings.TrimSpace(turnURLs[i])
+		}
+		iceServers = append(iceServers, webrtc.ICEServer{
+			URLs:       turnURLs,
+			Username:   turnUsername,
+			Credential: turnPassword,
+		})
+		log.Printf("[ICE] TURN server configured: %v", turnURLs)
+	} else {
+		log.Printf("[ICE] No TURN server configured (STUN only) - may fail behind symmetric NAT")
+	}
+
+	log.Printf("[ICE] Using ICE servers: STUN=%v", stunURLs)
+
+	// If TURN is configured, we can optionally force relay-only mode
+	// This ensures all traffic goes through TURN (useful for symmetric NAT)
+	iceTransportPolicy := webrtc.ICETransportPolicyAll
+	if turnServer != "" && os.Getenv("ICE_RELAY_ONLY") == "true" {
+		iceTransportPolicy = webrtc.ICETransportPolicyRelay
+		log.Printf("[ICE] Forcing relay-only mode (ICE_RELAY_ONLY=true)")
+	}
+
+	return webrtc.Configuration{
+		ICEServers:         iceServers,
+		ICETransportPolicy: iceTransportPolicy,
+	}
+}
 
 // setCORSHeaders sets CORS headers for the response
 func setCORSHeaders(w http.ResponseWriter, methods string) {
@@ -117,6 +217,58 @@ func handleGetRoom(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 	log.Printf("[ROOM] Room retrieved: %s", roomID)
+}
+
+// handleRoomExists checks if a room exists and returns the WHIP URL if it does
+func handleRoomExists(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[ROOM] Room exists check from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "GET, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	room, err := sfuServer.GetRoom(roomID)
+	if err != nil {
+		// Room doesn't exist
+		response := map[string]interface{}{
+			"exists": false,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+		log.Printf("[ROOM] Room does not exist: %s", roomID)
+		return
+	}
+
+	// Room exists, return the WHIP URL
+	serverURL := os.Getenv("SERVER_URL")
+	if serverURL == "" {
+		serverURL = "https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud"
+	}
+	
+	whipURL := fmt.Sprintf("%s/whip?room_id=%s&key=%s", serverURL, room.ID, room.Key)
+	
+	response := map[string]interface{}{
+		"exists":   true,
+		"room_id":  room.ID,
+		"whip_url": whipURL,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	log.Printf("[ROOM] Room exists: %s", roomID)
 }
 
 // handleStreamStatus handles the stream status check endpoint
@@ -229,6 +381,11 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ⭐ Cancel any pending cleanup if host is reconnecting
+	if room.CancelScheduledCleanup() {
+		log.Printf("[WHIP][ROOM-%s] Host reconnected within grace period, cleanup cancelled", roomID)
+	}
+
 	// ⭐ Ce serveur devient l'origin pour cette room (first come, first served)
 	currentURL := os.Getenv("SERVER_URL")
 	if currentURL == "" {
@@ -269,7 +426,7 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[WHIP][ROOM-%s] Received SDP offer (%d bytes)", roomID, len(offerSDP))
 
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := webrtcAPI.NewPeerConnection(getWebRTCConfiguration())
 	if err != nil {
 		log.Printf("[WHIP][ROOM-%s] Failed to create PeerConnection: %v", roomID, err)
 		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
@@ -371,6 +528,13 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[WHIP][ROOM-%s] Local description set, waiting for ICE gathering...", roomID)
 
+	// Log ICE candidates as they are gathered
+	peerConnection.OnICECandidate(func(candidate *webrtc.ICECandidate) {
+		if candidate != nil {
+			log.Printf("[WHIP][ROOM-%s] ICE candidate gathered: %s", roomID, candidate.String())
+		}
+	})
+
 	<-webrtc.GatheringCompletePromise(peerConnection)
 
 	log.Printf("[WHIP][ROOM-%s] ICE gathering complete", roomID)
@@ -458,7 +622,7 @@ func handleCascadeSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := webrtcAPI.NewPeerConnection(getWebRTCConfiguration())
 	if err != nil {
 		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
 		return
@@ -555,7 +719,7 @@ func handleCascadePublish(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := webrtcAPI.NewPeerConnection(getWebRTCConfiguration())
 	if err != nil {
 		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
 		return
@@ -605,6 +769,136 @@ func handleCascadePublish(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CASCADE-PUB] Edge SFU connected to origin for room %s", roomID)
 }
 
+// handleCascadeDisconnect handles disconnecting from upstream for a room
+func handleCascadeDisconnect(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CASCADE-DISCONNECT] Disconnect request from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Disconnect upstream connection for this room
+	sfuServer.mu.Lock()
+	if conn, exists := sfuServer.upstreamConnections[roomID]; exists {
+		if conn.PeerConnection != nil {
+			conn.PeerConnection.Close()
+		}
+		delete(sfuServer.upstreamConnections, roomID)
+		log.Printf("[CASCADE-DISCONNECT] Disconnected upstream connection for room %s", roomID)
+	}
+
+	// Remove parent SFU reference
+	delete(sfuServer.parentSFU, roomID)
+	sfuServer.mu.Unlock()
+
+	// Optionally clean up the room if no viewers
+	room, err := sfuServer.GetRoom(roomID)
+	if err == nil {
+		room.mu.RLock()
+		viewerCount := len(room.Viewers)
+		room.mu.RUnlock()
+
+		if viewerCount == 0 {
+			// No viewers left, delete the room
+			sfuServer.mu.Lock()
+			delete(sfuServer.rooms, roomID)
+			sfuServer.mu.Unlock()
+			log.Printf("[CASCADE-DISCONNECT] Deleted empty room %s", roomID)
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Disconnected"))
+}
+
+// handleCascadeRemoveDownstream handles removing a downstream (relay) viewer from this SFU
+func handleCascadeRemoveDownstream(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CASCADE-REMOVE-DOWNSTREAM] Request from %s", r.RemoteAddr)
+
+	setCORSHeaders(w, "POST, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	childSFUID := r.URL.Query().Get("child_sfu_id")
+	if childSFUID == "" {
+		http.Error(w, "child_sfu_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Find and close the downstream connection
+	sfuServer.mu.Lock()
+	if conn, exists := sfuServer.downstreamConnections[roomID]; exists {
+		// Close the peer connection which will trigger viewer removal via OnConnectionStateChange
+		if conn.PeerConnection != nil {
+			conn.PeerConnection.Close()
+			log.Printf("[CASCADE-REMOVE-DOWNSTREAM] Closed downstream connection for room %s (child: %s)", roomID, childSFUID)
+		}
+		delete(sfuServer.downstreamConnections, roomID)
+	}
+
+	// Also remove from children list
+	if children, exists := sfuServer.childrenSFUs[roomID]; exists {
+		newChildren := make([]string, 0, len(children))
+		for _, child := range children {
+			if child != childSFUID {
+				newChildren = append(newChildren, child)
+			}
+		}
+		if len(newChildren) > 0 {
+			sfuServer.childrenSFUs[roomID] = newChildren
+		} else {
+			delete(sfuServer.childrenSFUs, roomID)
+		}
+	}
+	sfuServer.mu.Unlock()
+
+	// Also try to find and remove cascade viewer by searching for cascade-* prefix
+	room, err := sfuServer.GetRoom(roomID)
+	if err == nil {
+		room.mu.Lock()
+		// Find cascade viewers (they have IDs starting with "cascade-")
+		for viewerID, pc := range room.Viewers {
+			if len(viewerID) > 8 && viewerID[:8] == "cascade-" {
+				// Close and remove this cascade viewer
+				pc.Close()
+				delete(room.Viewers, viewerID)
+				log.Printf("[CASCADE-REMOVE-DOWNSTREAM] Removed cascade viewer %s from room %s", viewerID, roomID)
+				break // Only one downstream per room typically
+			}
+		}
+		room.mu.Unlock()
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Downstream removed"))
+}
+
 // handlePromoteViewer promotes a viewer to publisher (speaker)
 func handlePromoteViewer(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[PROMOTE] Promote viewer request from %s", r.RemoteAddr)
@@ -650,7 +944,7 @@ func handlePromoteViewer(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	// Create new peer connection for the promoted viewer
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := webrtcAPI.NewPeerConnection(getWebRTCConfiguration())
 	if err != nil {
 		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
 		return
@@ -852,7 +1146,7 @@ func handleViewer(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[VIEWER][ROOM-%s] Received SDP offer (%d bytes)", roomID, len(offerSDP))
 
-	peerConnection, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := webrtcAPI.NewPeerConnection(getWebRTCConfiguration())
 	if err != nil {
 		http.Error(w, "Failed to create PeerConnection", http.StatusInternalServerError)
 		return
@@ -1012,6 +1306,7 @@ func handleSyncCreateRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCascadeRequestSubscribe handles the request from origin to subscribe to a room
+// This is called by the control plane to set up a relay cascade connection
 func handleCascadeRequestSubscribe(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CASCADE] Request subscribe from %s", r.RemoteAddr)
 
@@ -1042,6 +1337,8 @@ func handleCascadeRequestSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[CASCADE] Processing subscription request: room=%s, origin=%s", requestBody.RoomID, requestBody.OriginURL)
+
 	// Vérifier si la room existe déjà localement
 	room, err := sfuServer.GetRoom(requestBody.RoomID)
 	if err == nil {
@@ -1055,10 +1352,10 @@ func handleCascadeRequestSubscribe(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"status": "already_origin"})
 			return
 		}
-		if room.OriginURL == requestBody.OriginURL {
-			// Déjà connecté à cet origin
+		if room.OriginURL == requestBody.OriginURL && room.StreamActive {
+			// Déjà connecté à cet origin et stream actif
 			room.mu.Unlock()
-			log.Printf("[CASCADE] Already subscribed to %s for room %s", requestBody.OriginURL, requestBody.RoomID)
+			log.Printf("[CASCADE] Already subscribed to %s for room %s (stream active)", requestBody.OriginURL, requestBody.RoomID)
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(map[string]string{"status": "already_subscribed"})
 			return
@@ -1066,22 +1363,20 @@ func handleCascadeRequestSubscribe(w http.ResponseWriter, r *http.Request) {
 		room.mu.Unlock()
 	}
 
-	// Se connecter à l'origin en cascade
-	go func() {
-		log.Printf("[CASCADE] Connecting to origin %s for room %s", requestBody.OriginURL, requestBody.RoomID)
-		if err := sfuServer.ConnectToUpstreamForRoom(requestBody.RoomID, requestBody.OriginURL); err != nil {
-			log.Printf("[CASCADE] Failed to connect to origin: %v", err)
-		} else {
-			log.Printf("[CASCADE] Successfully connected to origin %s for room %s", requestBody.OriginURL, requestBody.RoomID)
-		}
-	}()
+	// Se connecter à l'origin en cascade - SYNCHRONOUSLY so CP knows if it worked
+	log.Printf("[CASCADE] Connecting to origin %s for room %s...", requestBody.OriginURL, requestBody.RoomID)
+	if err := sfuServer.ConnectToUpstreamForRoom(requestBody.RoomID, requestBody.OriginURL); err != nil {
+		log.Printf("[CASCADE] Failed to connect to origin: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to connect to origin: %v", err), http.StatusBadGateway)
+		return
+	}
 
-	w.WriteHeader(http.StatusAccepted)
+	log.Printf("[CASCADE] Successfully connected to origin %s for room %s", requestBody.OriginURL, requestBody.RoomID)
+
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{
-		"status":     "connecting",
+		"status":     "connected",
 		"room_id":    requestBody.RoomID,
 		"origin_url": requestBody.OriginURL,
 	})
-
-	log.Printf("[CASCADE] Accepted subscription request for room %s from origin %s", requestBody.RoomID, requestBody.OriginURL)
 }

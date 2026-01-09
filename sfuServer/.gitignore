@@ -11,3 +11,8 @@ go.sum
 *.key
 
 __pycache__/
+# Binaries
+bin/
+whip-server
+controlplane-server
+.pids

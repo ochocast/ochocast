@@ -2,9 +2,14 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/pion/webrtc/v3"
 )
+
+// Grace period before cleaning up a room when the host disconnects
+// This allows the host to reconnect (e.g., OBS stop/start) without losing the room key
+const HostReconnectGracePeriod = 10 * time.Minute
 
 // NewRoom creates a new Room instance
 func NewRoom(id, key string) *Room {
@@ -15,99 +20,95 @@ func NewRoom(id, key string) *Room {
 		Broadcasters: make(map[string]*TrackBroadcaster),
 		Viewers:      make(map[string]*webrtc.PeerConnection),
 		PeerSFUs:     make(map[string]*CascadeConnection),
-		IsOrigin:     false, // Will be determined dynamically
+		SharedTracks: make(map[string]*webrtc.TrackLocalStaticRTP), // ⚡ Initialize for optimization
+		IsOrigin:     false,                                        // Will be determined dynamically
 		OriginURL:    "",
 	}
 }
 
 // AddTrack adds a new track to the room for broadcasting
+// ⚡ OPTIMIZED: Crée 1 TrackLocalStaticRTP partagée, pas 1 per viewer!
 func (room *Room) AddTrack(track *webrtc.TrackRemote) {
 	room.mu.Lock()
-	defer room.mu.Unlock()
 
 	trackKey := track.ID() + "-" + track.StreamID()
 	if _, exists := room.Broadcasters[trackKey]; exists {
 		log.Printf("[ROOM-%s] Track broadcaster %s already exists", room.ID, trackKey)
+		room.mu.Unlock()
 		return
 	}
 
-	broadcaster := NewTrackBroadcaster(track)
+	// ⚡ CREATE SHARED TRACK ONCE (not per viewer!)
+	localTrack, err := webrtc.NewTrackLocalStaticRTP(
+		track.Codec().RTPCodecCapability,
+		track.ID(),
+		track.StreamID(),
+	)
+	if err != nil {
+		log.Printf("[ROOM-%s] Error creating local track: %v", room.ID, err)
+		room.mu.Unlock()
+		return
+	}
+
+	// Store the shared track for later reference
+	if room.SharedTracks == nil {
+		room.SharedTracks = make(map[string]*webrtc.TrackLocalStaticRTP)
+	}
+	room.SharedTracks[trackKey] = localTrack
+
+	// ⚡ Create broadcaster with the shared track (direct write, no viewer dispatch!)
+	broadcaster := NewTrackBroadcaster(track, localTrack)
 	room.Broadcasters[trackKey] = broadcaster
-	log.Printf("[ROOM-%s] Added new track broadcaster: %s", room.ID, trackKey)
+	log.Printf("[ROOM-%s] ✅ Added shared track broadcaster: %s (1 track for all viewers!)", room.ID, trackKey)
 
-	// CRITICAL: Add this track to all viewers already connected
-	// (fixes timing issue where cascade viewers connect before WHIP tracks arrive)
-	for viewerID, viewerPC := range room.Viewers {
-		go func(pc *webrtc.PeerConnection, vID string) {
-			localTrack, err := webrtc.NewTrackLocalStaticRTP(
-				track.Codec().RTPCodecCapability,
-				track.ID(),
-				track.StreamID(),
-			)
-			if err != nil {
-				log.Printf("[ROOM-%s] Error creating local track for existing viewer %s: %v", room.ID, vID, err)
-				return
-			}
+	// Get copy of viewers list
+	viewers := make(map[string]*webrtc.PeerConnection)
+	for vID, vPC := range room.Viewers {
+		viewers[vID] = vPC
+	}
+	room.mu.Unlock()
 
-			sender, err := pc.AddTrack(localTrack)
-			if err != nil {
-				log.Printf("[ROOM-%s] Error adding track to existing viewer %s: %v", room.ID, vID, err)
-				return
-			}
-
-			broadcaster.AddViewer(vID, localTrack)
-
-			go func() {
-				rtcpBuf := make([]byte, 1500)
-				for {
-					if _, _, rtcpErr := sender.Read(rtcpBuf); rtcpErr != nil {
-						return
-					}
-				}
-			}()
-
-			log.Printf("[ROOM-%s] 🎬 Added track %s to existing viewer %s", room.ID, trackKey, vID)
-		}(viewerPC, viewerID)
+	// Add the SAME shared track to all existing viewers (no duplication!)
+	for viewerID, viewerPC := range viewers {
+		_, err := viewerPC.AddTrack(localTrack)
+		if err != nil {
+			log.Printf("[ROOM-%s] Error adding shared track to existing viewer %s: %v", room.ID, viewerID, err)
+			continue
+		}
+		log.Printf("[ROOM-%s] ✅ Added shared track %s to viewer %s (no new alloc!)", room.ID, trackKey, viewerID)
 	}
 }
 
 // AddViewer adds a new viewer to the room
+// ⚡ OPTIMIZED: Réutilise les SharedTracks au lieu de créer M*N allocations
 func (room *Room) AddViewer(viewerID string, peerConnection *webrtc.PeerConnection) error {
 	room.mu.Lock()
 	room.Viewers[viewerID] = peerConnection
-	broadcasters := make(map[string]*TrackBroadcaster)
-	for k, v := range room.Broadcasters {
-		broadcasters[k] = v
+
+	// Copy the shared tracks (already created by AddTrack)
+	sharedTracks := make(map[string]*webrtc.TrackLocalStaticRTP)
+	if room.SharedTracks != nil {
+		for k, v := range room.SharedTracks {
+			sharedTracks[k] = v
+		}
 	}
 	room.mu.Unlock()
 
-	addedTracks := 0
-	for trackKey, broadcaster := range broadcasters {
-		localTrack, err := webrtc.NewTrackLocalStaticRTP(
-			broadcaster.track.Codec().RTPCodecCapability,
-			broadcaster.track.ID(),
-			broadcaster.track.StreamID(),
-		)
-		if err != nil {
-			log.Printf("[ROOM-%s] Failed to create local track for viewer %s: %v", room.ID, viewerID, err)
-			continue
-		}
-
+	// ⚡ Add EXISTING shared tracks (no new allocations!)
+	trackCount := 0
+	for trackKey, localTrack := range sharedTracks {
 		if _, err := peerConnection.AddTrack(localTrack); err != nil {
-			log.Printf("[ROOM-%s] Failed to add track to peer connection for viewer %s: %v", room.ID, viewerID, err)
+			log.Printf("[ROOM-%s] Error adding shared track to viewer %s: %v", room.ID, viewerID, err)
 			continue
 		}
-
-		broadcaster.AddViewer(viewerID, localTrack)
-		addedTracks++
-
-		log.Printf("[ROOM-%s] Added track %s to viewer %s", room.ID, trackKey, viewerID)
+		trackCount++
+		log.Printf("[ROOM-%s] ✅ Viewer %s attached to shared track %s (O(1)!)", room.ID, viewerID, trackKey)
 	}
 
 	// Attach disconnect handlers
 	room.attachViewerDisconnectHandlers(viewerID, peerConnection)
 
-	log.Printf("[ROOM-%s] Added %d tracks to viewer %s", room.ID, addedTracks, viewerID)
+	log.Printf("[ROOM-%s] Viewer %s ready (%d tracks, no allocations!)", room.ID, viewerID, trackCount)
 	return nil
 }
 
@@ -119,15 +120,11 @@ func (room *Room) attachViewerDisconnectHandlers(viewerID string, peerConnection
 			return
 		}
 		removed = true
-		log.Printf("[ROOM-%s][VIEWER-%s] Cleanup due to %s", room.ID, viewerID, reason)
 		room.RemoveViewer(viewerID)
-		if err := peerConnection.Close(); err != nil {
-			log.Printf("[ROOM-%s][VIEWER-%s] PeerConnection close error: %v", room.ID, viewerID, err)
-		}
+		peerConnection.Close()
 	}
 
 	peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
-		log.Printf("[ROOM-%s][VIEWER-%s] ICE connection state changed: %s", room.ID, viewerID, state.String())
 		switch state {
 		case webrtc.ICEConnectionStateDisconnected, webrtc.ICEConnectionStateFailed, webrtc.ICEConnectionStateClosed:
 			removeOnce("ICE state=" + state.String())
@@ -135,7 +132,6 @@ func (room *Room) attachViewerDisconnectHandlers(viewerID string, peerConnection
 	})
 
 	peerConnection.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		log.Printf("[ROOM-%s][VIEWER-%s] Connection state changed: %s", room.ID, viewerID, state.String())
 		switch state {
 		case webrtc.PeerConnectionStateDisconnected, webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed:
 			removeOnce("PC state=" + state.String())
@@ -143,19 +139,22 @@ func (room *Room) attachViewerDisconnectHandlers(viewerID string, peerConnection
 	})
 }
 
-// RemoveViewer removes a viewer from the room
+// RemoveViewer removes a viewer from the room and closes their connection
 func (room *Room) RemoveViewer(viewerID string) {
 	room.mu.Lock()
+	pc, exists := room.Viewers[viewerID]
 	delete(room.Viewers, viewerID)
-	broadcasters := make(map[string]*TrackBroadcaster)
-	for k, v := range room.Broadcasters {
-		broadcasters[k] = v
-	}
 	room.mu.Unlock()
 
-	for _, broadcaster := range broadcasters {
-		broadcaster.RemoveViewer(viewerID)
+	// Close PeerConnection if still exists
+	if exists && pc != nil {
+		pc.Close()
+		log.Printf("[ROOM-%s] Closed PeerConnection for viewer %s", room.ID, viewerID)
 	}
+
+	// ⚡ NO broadcaster cleanup needed - SharedTracks are reused!
+	// Just removing the viewer is enough
+
 	log.Printf("[ROOM-%s] Removed viewer %s", room.ID, viewerID)
 }
 
@@ -197,19 +196,46 @@ func (room *Room) RemovePublisher(publisherID string) {
 	log.Printf("[ROOM-%s] Removed publisher %s and associated tracks", room.ID, publisherID)
 }
 
-// CleanupHost cleans up host connection and all broadcasters when host disconnects
-func (room *Room) CleanupHost() {
+// ScheduleCleanup schedules a cleanup with a grace period to allow host reconnection
+// The room key is NOT deleted during this grace period
+func (room *Room) ScheduleCleanup() {
 	room.mu.Lock()
 	defer room.mu.Unlock()
 
-	// Stop all broadcasters
+	// If cleanup is already scheduled, do nothing
+	if room.cleanupScheduled {
+		log.Printf("[ROOM-%s] Cleanup already scheduled, ignoring", room.ID)
+		return
+	}
+
+	// Mark stream as inactive immediately but keep the room alive
+	room.StreamActive = false
+	log.Printf("[ROOM-%s] Stream marked as INACTIVE, scheduling cleanup in %v", room.ID, HostReconnectGracePeriod)
+
+	// Stop all broadcasters immediately (no point keeping them)
 	for trackKey, broadcaster := range room.Broadcasters {
 		broadcaster.Stop()
 		log.Printf("[ROOM-%s] Stopped broadcaster for track %s", room.ID, trackKey)
 	}
-
-	// Clear broadcasters map
 	room.Broadcasters = make(map[string]*TrackBroadcaster)
+
+	// Close all publishers (speakers)
+	for publisherID, pc := range room.Publishers {
+		if pc != nil {
+			pc.Close()
+			log.Printf("[ROOM-%s] Closed publisher %s", room.ID, publisherID)
+		}
+	}
+	room.Publishers = make(map[string]*webrtc.PeerConnection)
+
+	// Close all viewers
+	for viewerID, pc := range room.Viewers {
+		if pc != nil {
+			pc.Close()
+			log.Printf("[ROOM-%s] Closed viewer %s", room.ID, viewerID)
+		}
+	}
+	room.Viewers = make(map[string]*webrtc.PeerConnection)
 
 	// Close host connection
 	if room.Host != nil {
@@ -219,11 +245,50 @@ func (room *Room) CleanupHost() {
 		room.Host = nil
 	}
 
-	// Mark stream as inactive
-	room.StreamActive = false
-	log.Printf("[ROOM-%s] Stream marked as INACTIVE", room.ID)
+	room.cleanupScheduled = true
+	room.cleanupTimer = time.AfterFunc(HostReconnectGracePeriod, func() {
+		room.mu.Lock()
+		// Double check if cleanup is still scheduled (might have been cancelled)
+		if !room.cleanupScheduled {
+			room.mu.Unlock()
+			log.Printf("[ROOM-%s] Cleanup was cancelled, skipping", room.ID)
+			return
+		}
+		room.cleanupScheduled = false
+		room.cleanupTimer = nil
+		room.mu.Unlock()
 
-	log.Printf("[ROOM-%s] Host cleanup completed, ready for new host connection", room.ID)
+		log.Printf("[ROOM-%s] Grace period expired, room will be deleted", room.ID)
+		// Signal to SFUServer to delete the room
+		sfuServer.DeleteRoom(room.ID)
+	})
+
+	log.Printf("[ROOM-%s] Host cleanup initiated, room key preserved for %v", room.ID, HostReconnectGracePeriod)
+}
+
+// CancelScheduledCleanup cancels any pending cleanup (called when host reconnects)
+func (room *Room) CancelScheduledCleanup() bool {
+	room.mu.Lock()
+	defer room.mu.Unlock()
+
+	if !room.cleanupScheduled {
+		return false
+	}
+
+	if room.cleanupTimer != nil {
+		room.cleanupTimer.Stop()
+		room.cleanupTimer = nil
+	}
+	room.cleanupScheduled = false
+	log.Printf("[ROOM-%s] Scheduled cleanup cancelled, host reconnected", room.ID)
+	return true
+}
+
+// CleanupHost cleans up host connection and all broadcasters when host disconnects
+// DEPRECATED: Use ScheduleCleanup instead for graceful host disconnection
+func (room *Room) CleanupHost() {
+	// Now delegates to ScheduleCleanup for grace period support
+	room.ScheduleCleanup()
 }
 
 // Close closes the room and all its connections
