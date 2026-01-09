@@ -1,4 +1,11 @@
-import React, { FC, ChangeEvent, useState, useRef } from 'react';
+import React, {
+  FC,
+  ChangeEvent,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+} from 'react';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { QRCodeSVG } from 'qrcode.react';
@@ -51,6 +58,48 @@ const TrackSettings: FC = () => {
   const [isCloseTrackModalOpen, setIsCloseTrackModalOpen] = useState(false);
 
   const qrCodeRef = useRef<HTMLDivElement>(null);
+
+  const checkRoomExists = useCallback(async () => {
+    if (!trackId) return;
+
+    setIsCheckingRoom(true);
+    try {
+      const response = await fetch(
+        // 'https://sfu.demo.ochocast.fr/room/exists?room_id=' + trackId,
+        // 'http://localhost:8090/room/exists?room_id=' + trackId,
+        'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/room/exists?room_id=' +
+          trackId,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to check room');
+      }
+
+      const data = await response.json();
+      if (data.exists && data.whip_url) {
+        setSfuUrl(data.whip_url);
+      } else {
+        setSfuUrl('');
+      }
+    } catch (error) {
+      console.error('Error checking room:', error);
+      setSfuUrl('');
+    } finally {
+      setIsCheckingRoom(false);
+    }
+  }, [trackId]);
+
+  useEffect(() => {
+    if (trackId) {
+      checkRoomExists();
+    }
+  }, [trackId, checkRoomExists]);
 
   const handleDownloadQRCode = async () => {
     if (!qrCodeRef.current) return;
@@ -115,53 +164,10 @@ const TrackSettings: FC = () => {
     track?.speakers?.some((e) => e.id === userId);
   const closed = track?.closed || event?.closed;
 
-  const toggle = async () => {
-    if (!isOpen) {
-      // Opening modal - check if room exists
-      await checkRoomExists();
-    } else {
-      // Closing modal - reset state
-      setSfuUrl('');
-    }
+  const toggle = () => {
     setIsOpen(!isOpen);
   };
   const toggleDeleteModal = () => setIsDeleteModalOpen(!isDeleteModalOpen);
-
-  const checkRoomExists = async () => {
-    if (!trackId) return;
-
-    setIsCheckingRoom(true);
-    try {
-      const response = await fetch(
-        // 'https://sfu.demo.ochocast.fr/room/exists?room_id=' + trackId,
-        // 'http://localhost:8090/room/exists?room_id=' + trackId,
-        'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/room/exists?room_id=' +
-          trackId,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to check room');
-      }
-
-      const data = await response.json();
-      if (data.exists && data.whip_url) {
-        setSfuUrl(data.whip_url);
-      } else {
-        setSfuUrl('');
-      }
-    } catch (error) {
-      console.error('Error checking room:', error);
-      setSfuUrl('');
-    } finally {
-      setIsCheckingRoom(false);
-    }
-  };
 
   const handleStartLiveOBS = async () => {
     if (!trackId) return;
@@ -192,9 +198,17 @@ const TrackSettings: FC = () => {
       // const whipUrl = `http://localhost:8090/whip?room_id=${data.room_id}&key=${data.key}`;
       const whipUrl = `https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/whip?room_id=${data.room_id}&key=${data.key}`;
       setSfuUrl(whipUrl);
+      setIsOpen(false);
+      setToast({
+        message: t('RoomCreatedSuccessfully'),
+        type: 'success',
+      });
     } catch (error) {
       console.error('Error creating SFU room:', error);
-      setMessage('Error creating room. Please try again.');
+      setToast({
+        message: t('ErrorCreatingRoom'),
+        type: 'error',
+      });
     } finally {
       setIsLoadingSfu(false);
     }
@@ -284,38 +298,17 @@ const TrackSettings: FC = () => {
 
       <Modal isOpen={isOpen} toggle={toggle}>
         <h1>{t('StartLive')}</h1>
-        {isCheckingRoom ? (
-          <div className={styles.startLiveButtons}>
-            <p>{t('CheckingRoom') || 'Checking room status...'}</p>
-          </div>
-        ) : !sfuUrl ? (
-          <div className={styles.startLiveButtons}>
-            <Button
-              label={isLoadingSfu ? t('Loading') : t('StartLiveOBS')}
-              onClick={handleStartLiveOBS}
-              type={isLoadingSfu ? ButtonType.disabled : ButtonType.secondary}
-            />
-            {/* <Button
-              label={t('StartLiveOCHOCast')}
-              onClick={() => navigate(`/tracks/${trackId}/streaming`)}
-            /> */}
-          </div>
-        ) : (
-          <div className={styles.sfuUrlContainer}>
-            <p>{t('TrackUseTheFollowingURL')}</p>
-            <div className={styles.urlBox}>
-              <code>{sfuUrl}</code>
-            </div>
-            <Button
-              label={t('CopyURL')}
-              onClick={() => {
-                navigator.clipboard.writeText(sfuUrl);
-                setMessage(t('URLCopied'));
-              }}
-              type={ButtonType.secondary}
-            />
-          </div>
-        )}
+        <div className={styles.startLiveButtons}>
+          <Button
+            label={isLoadingSfu ? t('Loading') : t('StartLiveOBS')}
+            onClick={handleStartLiveOBS}
+            type={isLoadingSfu ? ButtonType.disabled : ButtonType.secondary}
+          />
+          {/* <Button
+            label={t('StartLiveOCHOCast')}
+            onClick={() => navigate(`/tracks/${trackId}/streaming`)}
+          /> */}
+        </div>
       </Modal>
 
       <div className={styles.trackDateSpeakerWrapper}>
@@ -580,6 +573,31 @@ const TrackSettings: FC = () => {
               onClick={handleDownloadQRCode}
               type={ButtonType.secondary}
             />
+            {isCheckingRoom && (
+              <div className={styles.roomStatus}>
+                <p>{t('CheckingRoom') || 'Checking room status...'}</p>
+              </div>
+            )}
+            {sfuUrl && (
+              <div className={styles.sfuUrlContainer}>
+                <h4>{t('LiveStreamURL')}</h4>
+                <p>{t('TrackUseTheFollowingURL')}</p>
+                <div className={styles.urlBox}>
+                  <code>{sfuUrl}</code>
+                </div>
+                <Button
+                  label={t('CopyURL')}
+                  onClick={() => {
+                    navigator.clipboard.writeText(sfuUrl);
+                    setToast({
+                      message: t('URLCopied'),
+                      type: 'success',
+                    });
+                  }}
+                  type={ButtonType.secondary}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
