@@ -332,5 +332,24 @@
     "addReaction": "Ajouter une réaction",
     "saveEdit": "Enregistrer",
     "cancelEdit": "Annuler"
-  }
+  },
+  "chatStatistics": {
+    "title": "Statistiques du Chat",
+    "cardsView": "Cartes",
+    "tableView": "Tableau",
+    "totalMessages": "Messages totaux",
+    "uniqueParticipants": "Participants uniques",
+    "totalReactions": "Réactions totales",
+    "engagementRate": "Taux d'engagement",
+    "peakActivityHour": "Heure de pointe",
+    "topEmojis": "Emojis les plus utilisés",
+    "messagesPerHour": "Messages par heure",
+    "trackStats": "Statistiques par piste",
+    "participants": "Participants",
+    "reactions": "Réactions",
+    "topContributors": "Top contributeurs",
+    "topContributor": "Meilleur contributeur"
+  },
+  "messages": "Messages",
+  "track": "Piste"
 }

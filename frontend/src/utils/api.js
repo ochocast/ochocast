@@ -158,6 +158,12 @@ export const clearTrackMessages = (trackId) =>
   api.delete(`/chat/tracks/${trackId}/messages`);
 export const deleteMessage = (messageId) =>
   api.delete(`/chat/messages/${messageId}`);
+export const getEventChatStatistics = (eventId, subscriberCount = 0) =>
+  api.get(
+    `/chat/events/${eventId}/statistics?subscriberCount=${subscriberCount}`,
+  );
+export const getTrackChatStatistics = (trackId) =>
+  api.get(`/chat/tracks/${trackId}/statistics`);
 
 export const searchVideosAdmin = (data) =>
   api.get(`/videos/searchvideoadmin/${data}`);

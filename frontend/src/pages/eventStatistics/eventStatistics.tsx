@@ -8,6 +8,11 @@ import { PublicUser, Track } from '../../utils/EventsProperties';
 import logger from '../../utils/logger';
 import { useTranslation } from 'react-i18next';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
+import ChatStatistics from '../../components/ReworkComponents/Event/ChatStatistics/ChatStatistics';
+import {
+  UsersIcon,
+  MicrophoneIcon,
+} from '../../components/ReworkComponents/Event/ChatStatistics/StatIcons';
 
 interface EventStatisticProps {}
 
@@ -56,29 +61,79 @@ const EventStatistic: FC<EventStatisticProps> = () => {
       />
     );
 
-  const body = (
-    <div className={styles.UserSubscribeWrapper}>
-      <h3 className={styles.UserSubscribeTitle}>
-        {t('registeredUsers')} ({subscribeUser.length})
-      </h3>
-      <div className={styles.UserSubscribeContainer}>
-        {subscribeUser.map((user: PublicUser) => (
-          <p key={user.id} className={styles.UserSubscribe}>
-            {user.firstName + ' ' + user.lastName}
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-
   return (
-    <div className={styles.PageEventSettings}>
+    <div className={styles.pageContainer}>
       <EventDashboard
         eventId={eventId}
         tracks={tracks}
         eventClosed={!eventClosed && userId === creatorId}
       />
-      <div className={styles.bodyWrapper}>{body}</div>
+      <div className={styles.content}>
+        {/* Page Header */}
+        <div className={styles.pageHeader}>
+          <h1 className={styles.pageTitle}>{t('statistics')}</h1>
+          <p className={styles.pageSubtitle}>Vue d'ensemble de l'engagement</p>
+        </div>
+
+        {/* Quick Stats Overview */}
+        <div className={styles.quickStats}>
+          <div className={styles.quickStatCard}>
+            <div className={styles.quickStatIcon}>
+              <UsersIcon size={32} color="var(--theme-color-500)" />
+            </div>
+            <div className={styles.quickStatInfo}>
+              <span className={styles.quickStatValue}>
+                {subscribeUser.length}
+              </span>
+              <span className={styles.quickStatLabel}>
+                {t('registeredUsers')}
+              </span>
+            </div>
+          </div>
+          <div className={styles.quickStatCard}>
+            <div className={styles.quickStatIcon}>
+              <MicrophoneIcon size={32} color="var(--theme-color-500)" />
+            </div>
+            <div className={styles.quickStatInfo}>
+              <span className={styles.quickStatValue}>{tracks.length}</span>
+              <span className={styles.quickStatLabel}>{t('Tracks')}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Registered Users Section */}
+        <div className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              <UsersIcon size={20} style={{ marginRight: 8 }} />{' '}
+              {t('registeredUsers')} ({subscribeUser.length})
+            </h2>
+          </div>
+          <div className={styles.usersGrid}>
+            {subscribeUser.length > 0 ? (
+              subscribeUser.map((user: PublicUser) => (
+                <div key={user.id} className={styles.userCard}>
+                  <div className={styles.userAvatar}>
+                    {user.firstName?.charAt(0)}
+                    {user.lastName?.charAt(0)}
+                  </div>
+                  <span className={styles.userName}>
+                    {user.firstName} {user.lastName}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className={styles.emptyState}>Aucun utilisateur inscrit</p>
+            )}
+          </div>
+        </div>
+
+        {/* Chat Statistics Section */}
+        <ChatStatistics
+          eventId={eventId}
+          subscriberCount={subscribeUser.length}
+        />
+      </div>
     </div>
   );
 };

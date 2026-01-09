@@ -116,9 +116,12 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
 
     expect(result).toBeInstanceOf(VideoObject);
     expect(sharp).toHaveBeenCalledWith(miniatureFile.buffer);
-    expect((sharp as any).resizeMock).toHaveBeenCalledWith(1280, 720);
-    expect((sharp as any).jpegMock).toHaveBeenCalledWith({ quality: 80 });
-    expect((sharp as any).toFileMock).toHaveBeenCalled();
+    expect(sharp().resize).toHaveBeenCalledWith(1280, 720, {
+      fit: 'cover',
+      position: 'center',
+    });
+    expect(sharp().jpeg).toHaveBeenCalledWith({ quality: 80 });
+    expect(sharp().toFile).toHaveBeenCalled();
 
     expect(Upload).toHaveBeenNthCalledWith(
       1,
