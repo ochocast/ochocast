@@ -382,7 +382,7 @@ const EventSettings: FC = () => {
     if (!isPublished) {
       setToast({
         message: t('eventMustBePublished'),
-        type: 'info',
+        type: 'error',
       });
       return;
     }
