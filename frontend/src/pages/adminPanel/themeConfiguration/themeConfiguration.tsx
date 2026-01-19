@@ -4,7 +4,12 @@ import { useTranslation } from 'react-i18next';
 import Card from '../../../components/ReworkComponents/generic/Cards/Card';
 import Toast from '../../../components/ReworkComponents/generic/Toast/Toast';
 import InputFile from '../../../components/ReworkComponents/inputFile/InputFile';
-import { uploadConfig, getBrandingPicture } from '../../../utils/api';
+import {
+  uploadConfig,
+  getBrandingPicture,
+  api,
+  resetConfig,
+} from '../../../utils/api';
 import yaml from 'js-yaml';
 import { BrandingConfig } from '../../../branding/types';
 import { useUser } from '../../../context/UserContext';
@@ -154,10 +159,11 @@ const ThemeConfiguration: FC<ThemeConfigurationProps> = () => {
 
         let configUrl: string | null = null;
         try {
-          const configRes = await fetch('http://localhost:3001/api/config');
+          const configRes = await api.get('/config');
           if (configRes.ok) {
-            const configData = await configRes.json();
-            configUrl = configData.url;
+            const configData = await configRes.data;
+            const typedConfigData = configData as { url?: string };
+            configUrl = typedConfigData.url ?? null;
             console.log('Got config URL from backend:', configUrl);
           }
         } catch (e) {
@@ -245,6 +251,39 @@ const ThemeConfiguration: FC<ThemeConfigurationProps> = () => {
     if (newFormData && originalFormData) {
       setHasChanges(checkForChanges(newFormData, originalFormData));
     }
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm(t('confirmResetConfiguration'))) {
+      return;
+    }
+
+    setIswaiting(true);
+    try {
+      const response = await resetConfig();
+
+      if (response.status === 200 || response.status === 204) {
+        setToast({
+          message: t('configurationResetSuccess'),
+          type: 'success',
+        });
+
+        setTimeout(() => {
+          window.location.reload();
+        }, 200);
+      } else {
+        setToast({
+          message: t('configurationResetError'),
+          type: 'error',
+        });
+      }
+    } catch (error) {
+      setToast({
+        message: t('configurationResetError'),
+        type: 'error',
+      });
+    }
+    setIswaiting(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -446,17 +485,23 @@ const ThemeConfiguration: FC<ThemeConfigurationProps> = () => {
                     )}
                   </div>
                 </div>
-
-                <Button
-                  label={
-                    iswaiting ? t('savingInProgress') : t('saveConfiguration')
-                  }
-                  type={
-                    !iswaiting && hasChanges
-                      ? ButtonType.primary
-                      : ButtonType.disabled
-                  }
-                />
+                <div className={styles.formButtons}>
+                  <Button
+                    label={
+                      iswaiting ? t('savingInProgress') : t('saveConfiguration')
+                    }
+                    type={
+                      !iswaiting && hasChanges
+                        ? ButtonType.primary
+                        : ButtonType.disabled
+                    }
+                  />
+                  <Button
+                    label={t('resetConfiguration')}
+                    type={!iswaiting ? ButtonType.danger : ButtonType.disabled}
+                    onClick={handleReset}
+                  />
+                </div>
               </form>
             </div>
           </Card>

@@ -131,6 +131,13 @@
   margin-top: 1rem;
 }
 
+.formButtons {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
 @media (max-width: 768px) {
   .themeConfiguration {
     padding: 1rem;

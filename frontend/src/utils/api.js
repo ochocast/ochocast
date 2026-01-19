@@ -150,6 +150,7 @@ export const getLikedComments = () => api.get('/users/like');
 export const getConfig = () => api.get('/config');
 export const uploadConfig = (formData) => api.post('/config', formData);
 export const getBrandingPicture = (key) => api.get(`/config/picture/${key}`);
+export const resetConfig = () => api.delete('/config/reset');
 
 //Chat
 export const getTrackMessages = (trackId) =>

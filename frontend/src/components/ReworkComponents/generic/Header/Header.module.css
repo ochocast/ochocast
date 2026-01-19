@@ -26,6 +26,8 @@
   width: 16em;
   height: auto;
   max-height: 4rem;
+  object-fit: contain;
+  aspect-ratio: auto;
 }
 
 .NavBadge {
