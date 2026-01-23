@@ -58,18 +58,6 @@ const Header: FC<HeaderProps> = () => {
               type="button"
               className={navStyles.navItem1}
               onClick={() => {
-                navigate('/community');
-                closeMenu();
-              }}
-            >
-              {t('community')}
-            </button>
-          </div>
-          <div className={navStyles.navItem}>
-            <button
-              type="button"
-              className={navStyles.navItem1}
-              onClick={() => {
                 navigate('/events-home');
                 closeMenu();
               }}
