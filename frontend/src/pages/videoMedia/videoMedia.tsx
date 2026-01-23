@@ -250,7 +250,9 @@ const VideoMedia: FC = () => {
         sender:
           c.creator.username || `${c.creator.firstName} ${c.creator.lastName}`,
         content: c.content,
-        avatar: `${currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE}`,
+        avatar: `${
+          currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE
+        }`,
         created_at: c.createdAt,
         email: c.creator.email,
         likes: c.likes || 0,
@@ -390,7 +392,11 @@ const VideoMedia: FC = () => {
               c.creator?.username ||
               `${c.creator.firstName} ${c.creator.lastName}`,
             content: c.content,
-            avatar: `${currentUser ? currentUser.picture_id || PERSONA_IMAGE : PERSONA_IMAGE}`,
+            avatar: `${
+              currentUser
+                ? currentUser.picture_id || PERSONA_IMAGE
+                : PERSONA_IMAGE
+            }`,
             created_at: c.createdAt,
             email: c.creator.email,
             likes: c.likes || 0,
@@ -524,10 +530,12 @@ const VideoMedia: FC = () => {
             {showEndScreen && (
               <div className={styles.endScreenOverlay}>
                 <div className={styles.endScreenCard}>
-                  <p className={styles.endScreenTitle}>Lecture terminée</p>
+                  <p className={styles.endScreenTitle}>
+                    {t('lectureTerminée')}
+                  </p>
                   {suggestedVideos?.[0] && (
                     <p className={styles.endScreenNextTitle}>
-                      Recommandation :{' '}
+                      {t('recommandation')} :{' '}
                       <strong>{suggestedVideos[0].title}</strong>
                     </p>
                   )}
@@ -537,7 +545,7 @@ const VideoMedia: FC = () => {
                       className={styles.endScreenBtnPrimary}
                       onClick={handleReplay}
                     >
-                      Rejouer
+                      {t('rejouer')}
                     </button>
                     <button
                       type="button"
@@ -545,7 +553,7 @@ const VideoMedia: FC = () => {
                       onClick={handleGoToNextVideo}
                       disabled={!suggestedVideos?.[0]?.id}
                     >
-                      Vidéo suivante
+                      {t('vidéoSuivante')}
                     </button>
                   </div>
                 </div>
@@ -633,7 +641,7 @@ const VideoMedia: FC = () => {
             {Array.isArray(video.internal_speakers) &&
               video.internal_speakers.length > 0 && (
                 <p className={styles.video_metaLine}>
-                  <strong>Orateurs :</strong>{' '}
+                  <strong>{t('orateurs')} :</strong>{' '}
                   {video.internal_speakers
                     .map((u) => `${u.firstName} ${u.lastName}`.trim())
                     .filter(Boolean)
@@ -644,13 +652,13 @@ const VideoMedia: FC = () => {
             {/* Intervenants externes (external_speakers) */}
             {video.external_speakers?.trim() && (
               <p className={styles.video_metaLine}>
-                <strong>Intervenants externes :</strong>{' '}
+                <strong>{t('intervenantsExternes')} :</strong>{' '}
                 {video.external_speakers}
               </p>
             )}
 
             <h3 className={styles.video_date}>
-              Publié le :
+              {t('publiéLe')} :
               <br />
               {`${formattedDate.getDate().toString().padStart(2, '0')}/${(
                 formattedDate.getMonth() + 1

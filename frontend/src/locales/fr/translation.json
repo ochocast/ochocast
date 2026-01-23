@@ -359,5 +359,12 @@
     "topContributor": "Meilleur contributeur"
   },
   "messages": "Messages",
-  "track": "Piste"
+  "track": "Piste",
+  "publiéLe": "Publié le",
+  "orateurs": "Orateurs",
+  "recommandation": "Recommandation",
+  "lectureTerminée": "Lecture terminée",
+  "rejouer": "Rejouer",
+  "vidéoSuivante": "Vidéo suivante",
+  "intervenantsExternes": "Intervenants externes"
 }

@@ -359,5 +359,12 @@
     "topContributor": "Top Contributor"
   },
   "messages": "Messages",
-  "track": "Track"
+  "track": "Track",
+  "publiéLe": "Published on",
+  "orateurs": "Speakers",
+  "recommandation": "Recommendation",
+  "lectureTerminée": "Playback finished",
+  "rejouer": "Replay",
+  "vidéoSuivante": "Next vidéo",
+  "intervenantsExternes": "External stakeholders"
 }

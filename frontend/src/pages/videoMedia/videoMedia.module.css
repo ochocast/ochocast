@@ -100,7 +100,6 @@
   color: var(--theme-color-900);
 }
 
-
 /* === Title & tags === */
 .titleBlock {
   margin-top: 1rem;
@@ -257,7 +256,6 @@
   }
 }
 
-
 .copyButtonIcon {
   width: 26px;
   height: 26px;
@@ -266,4 +264,20 @@
 
 .copyButtonIcon:hover {
   opacity: 0.7;
+}
+
+.favoriteIcon:active {
+  animation: favoriteClick 0.3s ease;
+}
+
+@keyframes favoriteClick {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
