@@ -1,10 +1,10 @@
 # S3 Bucket Management
 
-This guide explains how to configure and manage object storage locally and in the cloud.
+This guide explains how to configure and manage object storage locally and on the cloud.
 
 ---
 
-## 1. Store objects locally with MinIO
+## 1. Store Objects Locally with MinIO
 
 MinIO allows you to emulate S3 storage locally.
 
@@ -25,21 +25,23 @@ Make sure the following environment variables are defined in the **`/backend/.en
 STOCK_MEDIA_BUCKET=media
 STOCK_MINIATURE_BUCKET=miniature
 STOCK_PROFILE_PICTURE_BUCKET=picture
+STOCK_BRANDING_BUCKET=branding
 ```
 
 ### Creating Local Buckets
 
-To store media and image files (thumbnails, profile pictures), create **three folders** in **`/localMinio/run_env`** :
+To store media files and images (thumbnails, profile photos), create **three folders** in **`/localMinio/run_env`**:
 
 - `media`
 - `miniature`
 - `picture`
+- `branding`
 
-### Access the MinIO Console
+### Access MinIO Console
 
 You can view and manage stored files by accessing the MinIO interface:
 
 - **Access URL**: [http://localhost:9000](http://localhost:9000)
 - **Login credentials**:
-  - **Username** : `minioadmin`
-  - **Password** : `minioadmin`
+  - **Username**: `minioadmin`
+  - **Password**: `minioadmin`

@@ -2,7 +2,7 @@
 
 ## Principle
 
-This configuration uses **Husky** and **lint-staged** to automatically perform code checks and corrections **before each commit**.
+This configuration uses **Husky** and **lint-staged** to automatically perform code checks and fixes **before each commit**.
 
 ---
 
@@ -10,21 +10,21 @@ This configuration uses **Husky** and **lint-staged** to automatically perform c
 
 ### For *frontend* files:
 - **ESLint**: automatically fixes formatting errors *and* some best practice errors.
-- **Prettier**: automatically formats code (indentation, spacing, etc.).
+- **Prettier**: automatically formats code (indentation, spaces, etc.).
 
 ### For *backend* files:
-- **Prettier only**: applies automatic formatting (no ESLint linting on backend).
+- **Prettier only**: applies automatic formatting (no ESLint lint on backend).
 
 ---
 
-## What happens in practice
+## What happens concretely
 
 ### Automatic formatting
-- Before each commit, code is **automatically formatted** using Prettier (and ESLint for frontend).
+- Before each commit, code is **automatically formatted** thanks to Prettier (and ESLint for the frontend).
 
 ### Commit blocking
 - The commit will be **blocked** if **ESLint detects errors that cannot be automatically fixed** (frontend only).
-  - This may include errors related to:
+  - This may include errors of:
     - Best practices
     - Security
     - Accessibility
@@ -35,13 +35,14 @@ This configuration uses **Husky** and **lint-staged** to automatically perform c
 
 - **No need to format manually**.
 - **Nothing changes** in the way you commit (`git commit` works normally).
-- **Sometimes best practice errors will be automatically detected**.
+- **Sometimes best practice errors will be raised** automatically.
 
 ### In case of blocking
 - If you are blocked by an error that is difficult to fix:
 
   ```bash
   git commit -m "fix: toto" --no-verify
+  ```
 
 ## Installing dependencies
 After retrieving this update, don't forget to install the new dependencies:
@@ -53,6 +54,6 @@ After retrieving this update, don't forget to install the new dependencies:
 ## Updating pre-commit configs
 **Pre-commit config:** "lint-staged" in the *package.json* at the project root
 
-**ESLint config:** *eslint.config.js* at the project root
+**Eslint config:** *eslint.config.js* at the project root
 
 **Prettier config:** *prettier.config.js* at the project root

@@ -16,19 +16,19 @@ In the interest of fostering an open and welcoming environment, we pledge to mak
 Behaviors that contribute to creating a positive environment include:
 
 - Using welcoming and inclusive language
-- Respecting differing viewpoints and experiences
+- Respecting different points of view and experiences
 - Gracefully accepting constructive criticism
 - Focusing on what is best for the community
 - Showing empathy towards other community members
 
 ## Unacceptable Behaviors
 
-Examples of unacceptable behavior include:
+Examples of unacceptable behaviors include:
 
-- The use of sexualized language or imagery and unwelcome sexual advances
+- The use of sexualized language or images and unwelcome sexual advances
 - Trolling, insulting or derogatory comments, and personal or political attacks
 - Public or private harassment
-- Publishing others' private information without explicit permission
+- Publishing other people's private information without explicit permission
 - Any other conduct that could reasonably be considered inappropriate in a professional setting
 
 ## Our Responsibilities

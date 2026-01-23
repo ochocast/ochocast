@@ -1,18 +1,16 @@
 # RTMP Server
 ## Docker RTMP-HLS
 
-**Docker image for video streaming server that supports RTMP, HLS, and DASH streams.**
-
+**Docker image for video streaming server that supports RTMP, HLS and DASH streams.**
 
 ## Description
 
-This Docker image can be used to create a video streaming server that supports [**RTMP**](https://en.wikipedia.org/wiki/Real-Time_Messaging_Protocol), [**HLS**](https://en.wikipedia.org/wiki/HTTP_Live_Streaming), [**DASH**](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) streams out of the box. It also enables adaptive streaming and custom transcoding of video streams.
-The module is built from source on an Alpine Linux base image.
-
+This Docker image can be used to create a video streaming server supporting [**RTMP**](https://en.wikipedia.org/wiki/Real-Time_Messaging_Protocol), [**HLS**](https://en.wikipedia.org/wiki/HTTP_Live_Streaming), [**DASH**](https://en.wikipedia.org/wiki/Dynamic_Adaptive_Streaming_over_HTTP) streams out of the box. It also allows adaptive streaming and custom transcoding of video streams.
+The module is built from source code on an Alpine Linux base image.
 
 ## Features
 
-* The backend is [**Nginx**](http://nginx.org/) with the [**nginx-rtmp-module**](https://github.com/arut/nginx-rtmp-module).
+* The backend is [**Nginx**](http://nginx.org/en/) with the [**nginx-rtmp-module**](https://github.com/arut/nginx-rtmp-module).
 * [**FFmpeg**](https://www.ffmpeg.org/) for transcoding and adaptive streaming.
 * Default settings:
   * RTMP enabled
@@ -27,7 +25,6 @@ The current image is built with:
 * Nginx-rtmp-module 1.2.2 (compiled from source)
 * FFmpeg 6.0 (compiled from source)
 
-
 ## Usage
 
 ### To build the image
@@ -35,13 +32,11 @@ The current image is built with:
 docker build -t octocast_rtmp_server .
 ```
 
-
 ### To run the server
 ```
 docker run -d -p 1935:1935 -p 8080:8080 octocast_rtmp_server
 ```
 where `1935` is the RTMP port and `8080` is the HTTP port.
-
 
 ### To stream to the server
  * **Stream live RTMP content to:**
@@ -54,8 +49,7 @@ where `1935` is the RTMP port and `8080` is the HTTP port.
 Go to Settings > Stream, choose the following settings:
 * Service: Custom Streaming Server.
 * Server: `rtmp://<server_ip>:1935/live`. 
-* Stream Key: choose what you want, however the provided video players assume the stream key is `test`.
-
+* Stream key: choose what you want, however the provided video players assume the stream key is `test`.
 
 ### To view the stream
 * **With [VLC](https://www.videolan.org/vlc/index.html):**
@@ -70,7 +64,7 @@ Go to Settings > Stream, choose the following settings:
 * **With the provided web players: (provided in the poc repo)**  
 The demo players assume the stream key is called `test`.  
 * To play HLS content: `http://<server_ip>:8080/players/hls.html`
-* To play HLS content with the hls.js library: `http://<server_ip>:8080/players/hls_hlsjs.html`
+* To play HLS content with hls.js library: `http://<server_ip>:8080/players/hls_hlsjs.html`
 * To play DASH content: `http://<server_ip>:8080/players/dash.html`
 
 ## Copyright

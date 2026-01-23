@@ -16,7 +16,7 @@ This guide explains how to install and configure OchoCast locally.
 Clone the project from GitHub:
 
 ```bash
-git clone <URL_DU_REPO_GITHUB>
+git clone <GITHUB_REPO_URL>
 cd octocast-webapp
 ```
 
@@ -38,7 +38,7 @@ This `docker-compose.yml` file initializes the necessary services.
 
 Keycloak is used for user authentication.
 
-1. Navigate to the **localkeycloak** folder:
+1. Access the **localkeycloak** folder:
 
    ```bash
    cd localKeycloak
@@ -62,7 +62,7 @@ Keycloak is used for user authentication.
 
 ### 4. Backend Configuration
 
-1. Navigate to the **backend** folder:
+1. Access the **backend** folder:
 
    ```bash
    cd backend
@@ -71,14 +71,14 @@ Keycloak is used for user authentication.
 
 2. Copy-paste the **"nest-back" client secret** from Keycloak into the `AUTH_SECRET` environment variable.
 
-   **If the displayed secret is `\*\***` or similar, regenerate it before copying.\*\*
+   **If the displayed secret is `\*\***` or similar, regenerate it before copying.**
 
 ---
 
 ### 5. Frontend Configuration
 
 1. Verify that the database and Keycloak are properly configured.
-2. Navigate to the **frontend** folder:
+2. Access the **frontend** folder:
 
    ```bash
    cd frontend
@@ -109,18 +109,18 @@ Launch the frontend:
 npm start
 ```
 
-You can also launch **the backend and frontend at the same time** from the project root.
+You can also launch **the backend and frontend simultaneously** from the project root.
 
 ---
 
 ### Verification
 
 - **Keycloak** is accessible via [http://localhost:8080](http://localhost:8080).
-- **The backend** is accessible at `http://localhost:<PORT_BACKEND>`.
-- **The frontend** is accessible at `http://localhost:<PORT_FRONTEND>`.
+- **The backend** is accessible on `http://localhost:<BACKEND_PORT>`.
+- **The frontend** is accessible on `http://localhost:<FRONTEND_PORT>`.
 
 ---
 
 ### Octocast is now ready to use
 
-If you encounter any problems, make sure all environment variables are properly configured and all Docker services are started.
+If you encounter problems, make sure all environment variables are properly configured and all Docker services are started.
