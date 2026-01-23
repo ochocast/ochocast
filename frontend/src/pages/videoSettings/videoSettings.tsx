@@ -4,7 +4,7 @@ import { useState, ChangeEvent, FC, useEffect } from 'react';
 import type { ApiResponse } from 'apisauce';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Card from '../../components/ReworkComponents/generic/Cards/Card';
+// import Card from '../../components/ReworkComponents/generic/Cards/Card';
 import { useParams } from 'react-router-dom';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 
@@ -30,7 +30,7 @@ import {
   findTag,
   deleteVideo,
 } from '../../utils/api';
-import { Tag_video, User } from '../../utils/VideoProperties';
+import { Tag_video } from '../../utils/VideoProperties';
 
 import { Video } from '../../utils/VideoProperties';
 
@@ -40,10 +40,6 @@ import { useAuth } from 'react-oidc-context';
 import Button, {
   ButtonType,
 } from '../../components/ReworkComponents/generic/Button/Button';
-import SuggestionBar, {
-  SuggestionType,
-  Suggestion,
-} from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
@@ -310,10 +306,89 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setSubtitleInputKey((prev) => prev + 1); // Force input reset
   };
 
-  const [intern_list, setInternList] = useState<User[]>([]);
-  const selectIntern = (userChoosen: Suggestion) => {
-    setInternList([...intern_list, userChoosen as User]);
+  // Internal speakers (Orateurs) - simple string-based input like tags
+  const [speakerNames, setSpeakerNames] = useState<string[]>([]);
+  const [speakerInput, setSpeakerInput] = useState('');
+
+  // Speaker validation constants
+  const MAX_SPEAKERS = 10;
+  const MIN_SPEAKER_LENGTH = 2;
+  const MAX_SPEAKER_LENGTH = 50;
+
+  const handleSpeakerInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setSpeakerInput(e.target.value);
   };
+
+  const handleSpeakerInputKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      processSpeakerInput();
+    }
+  };
+
+  const processSpeakerInput = () => {
+    // Support both comma and semicolon as separators
+    const names = speakerInput
+      .split(/[,;]/)
+      .map((name) => name.trim())
+      .filter((name) => name.length > 0);
+
+    if (names.length === 0) return;
+
+    const currentSpeakers = [...speakerNames];
+    const errorMessages: string[] = [];
+
+    for (const name of names) {
+      // Check if we've reached the max speakers limit
+      if (currentSpeakers.length >= MAX_SPEAKERS) {
+        errorMessages.push(`${name}: Maximum ${MAX_SPEAKERS} orateurs atteint`);
+        continue;
+      }
+
+      // Validate name length
+      if (
+        name.length < MIN_SPEAKER_LENGTH ||
+        name.length > MAX_SPEAKER_LENGTH
+      ) {
+        errorMessages.push(
+          `${name}: ${MIN_SPEAKER_LENGTH}-${MAX_SPEAKER_LENGTH} caractères requis`,
+        );
+        continue;
+      }
+
+      // Check for duplicate
+      if (currentSpeakers.some((s) => s.toLowerCase() === name.toLowerCase())) {
+        errorMessages.push(`${name}: Orateur déjà ajouté`);
+        continue;
+      }
+
+      currentSpeakers.push(name);
+    }
+
+    if (currentSpeakers.length > speakerNames.length) {
+      setSpeakerNames(currentSpeakers);
+      saveToLocalStorage('speakerNames', currentSpeakers);
+    }
+
+    if (errorMessages.length > 0) {
+      setToast({
+        message: errorMessages.join('\n'),
+        type: 'error',
+      });
+    }
+
+    setSpeakerInput('');
+  };
+
+  const handleDeleteSpeaker = (name: string) => {
+    const newSpeakers = speakerNames.filter((s) => s !== name);
+    setSpeakerNames(newSpeakers);
+    saveToLocalStorage('speakerNames', newSpeakers);
+  };
+
   const [tags, setTags] = useState<Tag_video[]>([]);
   const [tagInput, setTagInput] = useState('');
 
@@ -453,12 +528,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     saveToLocalStorage('tags', newTags);
   };
 
-  const handleDeleteUser = (fullName: string) => {
-    setInternList(
-      intern_list.filter(
-        (user) => `${user.firstName} ${user.lastName}` !== fullName,
-      ),
-    );
+  // Combine speakerNames with external speakers for submission
+  const getCombinedSpeakers = () => {
+    const speakers = speakerNames.join(', ');
+    if (speakers && extern_User_List) {
+      return `${speakers}, ${extern_User_List}`;
+    }
+    return speakers || extern_User_List;
   };
 
   const publishVideo = async () => {
@@ -530,15 +606,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
-    form.append('internal_speakers', JSON.stringify(intern_list));
-    form.append('external_speakers', extern_User_List);
+    form.append('internal_speakers', JSON.stringify([]));
+    form.append('external_speakers', getCombinedSpeakers());
     /*form.append(
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
     );*/
     setIsLoading(true);
     await createVideo(form)
-      .then((response) => {
+      .then((response: ApiResponse<unknown>) => {
         if (
           response.status === 202 ||
           response.status === 201 ||
@@ -548,7 +624,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           setIsLoading(false);
           clearLocalStorage(); // Clear saved draft after successful upload
           // Redirect to the created video page
-          const createdVideoId = response.data?.id || response.data;
+          let createdVideoId: string | undefined;
+          if (
+            response.data &&
+            typeof response.data === 'object' &&
+            'id' in response.data &&
+            typeof (response.data as { id?: unknown }).id === 'string'
+          ) {
+            createdVideoId = (response.data as { id: string }).id;
+          } else if (typeof response.data === 'string') {
+            createdVideoId = response.data;
+          }
           if (createdVideoId && typeof createdVideoId === 'string') {
             navigate(`/video/${createdVideoId}`, {
               state: {
@@ -576,7 +662,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           });
         }
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('Erreur lors du chargement de la vidéo :', error);
         setToast({
           message: t('failedLoadingVideo'),
@@ -704,8 +790,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     // Ajoutez les champs qui sont des objets ou des tableaux sous forme de JSON
     form.append('tags', JSON.stringify(tags));
-    form.append('internal_speakers', JSON.stringify(intern_list));
-    form.append('external_speakers', extern_User_List);
+    form.append('internal_speakers', JSON.stringify([]));
+    form.append('external_speakers', getCombinedSpeakers());
     form.append(
       'comments',
       JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
@@ -858,10 +944,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
         if (draft.title) setTitle(draft.title);
         if (draft.description) setDescription(draft.description);
-        if (draft.externSpeakers) setExternUserList(draft.externSpeakers);
         if (draft.tags && Array.isArray(draft.tags)) setTags(draft.tags);
-        if (draft.internSpeakers && Array.isArray(draft.internSpeakers))
-          setInternList(draft.internSpeakers);
+        if (draft.speakerNames && Array.isArray(draft.speakerNames)) {
+          setSpeakerNames(draft.speakerNames);
+        }
       } catch (error) {
         console.error('Error loading from localStorage:', error);
       }
@@ -880,19 +966,22 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       if (draft.description || baseVideo?.description !== undefined) {
         setDescription(draft.description || (baseVideo?.description ?? ''));
       }
-      if (draft.externSpeakers || baseVideo?.external_speakers !== undefined) {
-        setExternUserList(
-          draft.externSpeakers || (baseVideo?.external_speakers ?? ''),
-        );
-      }
       if (draft.tags || baseVideo?.tags !== undefined) {
         setTags(draft.tags || (baseVideo?.tags ?? []));
       }
-      if (draft.internSpeakers || baseVideo?.internal_speakers !== undefined) {
-        setInternList(
-          draft.internSpeakers || (baseVideo?.internal_speakers ?? []),
-        );
+      // Load speaker names from localStorage or external_speakers field
+      if (draft.speakerNames) {
+        setSpeakerNames(draft.speakerNames);
+      } else if (baseVideo?.external_speakers) {
+        // Parse external_speakers as comma-separated names
+        const names = baseVideo.external_speakers
+          .split(',')
+          .map((name: string) => name.trim())
+          .filter((name: string) => name.length > 0);
+        setSpeakerNames(names);
       }
+      // Keep extern_User_List empty since we now use speakerNames for all speakers
+      setExternUserList('');
     };
     if (baseVideo) {
       set_video();
@@ -1123,37 +1212,61 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
                 <div className={styles.inputWrapper}>
                   <label>{t('internalSpeakers')}</label>
-                  <Card
-                    styleAddon={{
-                      flexDirection: 'column',
-                      height: 'auto',
-                      boxShadow: 'none',
-                    }}
-                  >
-                    <div className={styles.tagUserCard}>
-                      <SuggestionBar
-                        onClick={selectIntern}
-                        placeholder={t('internalSpeaker')}
-                        type={SuggestionType.USER}
-                        name="suggestionUser"
+                  <div className={styles.tagUserCard}>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        processSpeakerInput();
+                      }}
+                      style={{ display: 'flex', gap: '0.5rem' }}
+                    >
+                      <input
+                        type="text"
+                        value={speakerInput}
+                        onChange={handleSpeakerInputChange}
+                        onKeyDown={handleSpeakerInputKeyDown}
+                        placeholder="Ajouter des orateurs (séparez par des virgules)"
+                        style={{ flex: 1 }}
                       />
-                      <div
-                        className={styles.tagContainer}
-                        id="intern-container"
-                      >
-                        {intern_list.map((user, index) => (
-                          <Tag
-                            key={index}
-                            content={`${user.firstName} ${user.lastName}`}
-                            type={TagType.DEFAULT}
-                            editable={true}
-                            delete={handleDeleteUser}
-                            style={{ flex: '25%' }}
-                          />
-                        ))}
-                      </div>
+                      {speakerInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            processSpeakerInput();
+                          }}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: 'var(--primary-color)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '1.2rem',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          +
+                        </button>
+                      )}
+                    </form>
+                    <div className={styles.tagContainer}>
+                      {speakerNames.map((name, index) => (
+                        <Tag
+                          key={index}
+                          content={name}
+                          type={TagType.DEFAULT}
+                          editable={true}
+                          delete={handleDeleteSpeaker}
+                          style={{ flex: '25%' }}
+                        />
+                      ))}
                     </div>
-                  </Card>
+                    <span className={styles.formatHint}>
+                      {speakerNames.length} / {MAX_SPEAKERS} orateurs • 2-50
+                      caractères
+                    </span>
+                  </div>
                 </div>
 
                 <div className={styles.inputWrapper}>
