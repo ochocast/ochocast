@@ -8,12 +8,14 @@ import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.enti
 import { Upload } from '@aws-sdk/lib-storage';
 import * as ffmpeg from 'fluent-ffmpeg';
 import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import * as ffprobeInstaller from '@ffprobe-installer/ffprobe';
 import { writeFile, readFile, unlink } from 'node:fs/promises';
 import * as path from 'path';
 import { tmpdir } from 'os';
 import * as sharp from 'sharp';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
 export class CreateNewVideoUsecase {
   constructor(
@@ -59,6 +61,10 @@ export class CreateNewVideoUsecase {
       `${video.media_id}-transcoded.mp4`,
     );
     await writeFile(tempInputPath, file.buffer);
+
+    // Extract video duration before transcoding
+    const videoDuration = await getVideoDuration(tempInputPath);
+    video.duration = videoDuration;
 
     await transcodeVideo(tempInputPath, tempOutputPath);
 
@@ -190,6 +196,19 @@ async function transcodeVideo(
         reject(err);
       });
     command.run();
+  });
+}
+
+async function getVideoDuration(inputPath: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(inputPath, (err, metadata) => {
+      if (err) {
+        reject(err);
+      } else {
+        const duration = metadata.format.duration || 0;
+        resolve(duration);
+      }
+    });
   });
 }
 

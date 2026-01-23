@@ -27,6 +27,7 @@ export interface PreviewMinitureProps {
   showEditButton?: boolean;
   onTagClick?: (tag: string) => void;
   cropTags?: boolean;
+  duration?: number;
 }
 
 const Thumbnail = (props: PreviewMinitureProps) => {
@@ -201,17 +202,36 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     }
   };
 
+  const formatDuration = (seconds?: number): string => {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div
       className={styles.previewMiniture}
       onClick={() => navigate(`/video/${props.Id}`)}
     >
-      <img
-        className={styles.imageTuileEventIcon}
-        alt=""
-        src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
-        sizes="(max-width: 20rem) 100vw, 20rem"
-      />
+      <div className={styles.thumbnailContainer}>
+        <img
+          className={styles.imageTuileEventIcon}
+          alt=""
+          src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
+          sizes="(max-width: 20rem) 100vw, 20rem"
+        />
+        {props.duration && (
+          <div className={styles.durationBadge}>
+            {formatDuration(props.duration)}
+          </div>
+        )}
+      </div>
       <div
         className={
           props.showEditButton ? styles.descriptionNoButton : styles.description

@@ -193,6 +193,7 @@ const Profile: FC<ProfileProps> = () => {
                 onArchived={ArchivedVideo}
                 showEditButton={isCurrentUser}
                 cropTags={true}
+                duration={video.duration}
               />
             ))
           ) : (

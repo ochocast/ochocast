@@ -36,4 +36,6 @@ export class ModifyVideoDto {
   updatedAt: Date;
 
   views: number;
+
+  duration?: number;
 }

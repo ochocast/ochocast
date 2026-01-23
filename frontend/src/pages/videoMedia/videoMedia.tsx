@@ -771,6 +771,7 @@ const VideoMedia: FC = () => {
                     }
                     createdAt={vid.createdAt.toString()}
                     tags={vid.tags.map((tag) => tag.name)}
+                    duration={vid.duration}
                   />
                 </div>
               ))}

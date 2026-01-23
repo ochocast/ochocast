@@ -56,6 +56,9 @@ export class VideoEntity {
   @Column()
   views: number;
 
+  @Column({ type: 'float', nullable: true })
+  duration: number;
+
   @OneToMany(() => CommentEntity, (comment) => comment.video)
   comments: CommentEntity[];
 

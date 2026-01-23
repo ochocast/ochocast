@@ -88,6 +88,13 @@ export class VideoObject {
   views: number;
 
   @ApiProperty({
+    example: 120.5,
+    description: 'The duration of the video in seconds.',
+    required: false,
+  })
+  duration?: number;
+
+  @ApiProperty({
     example:
       '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
     description: 'The comments on the video.',
@@ -117,6 +124,7 @@ export class VideoObject {
     comments: CommentEntity[],
     archived: boolean,
     subtitle_id?: string,
+    duration?: number,
   ) {
     this.id = id;
     this.media_id = media_id;
@@ -133,6 +141,7 @@ export class VideoObject {
     this.views = views;
     this.comments = comments;
     this.archived = archived;
+    this.duration = duration;
   }
 }
 

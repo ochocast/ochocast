@@ -52,9 +52,19 @@ jest.mock('fluent-ffmpeg', () => {
   });
   ffmpegMock.save = jest.fn(() => ffmpegMock);
   ffmpegMock.setFfmpegPath = jest.fn();
+  ffmpegMock.setFfprobePath = jest.fn();
+  ffmpegMock.ffprobe = jest.fn((inputPath, callback) => {
+    callback(null, {
+      format: {
+        duration: 120,
+      },
+    });
+  });
 
   return Object.assign(ffmpegMock, {
     setFfmpegPath: jest.fn(),
+    setFfprobePath: jest.fn(),
+    ffprobe: ffmpegMock.ffprobe,
   });
 });
 

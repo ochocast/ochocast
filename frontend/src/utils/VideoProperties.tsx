@@ -13,6 +13,7 @@ export interface Video {
   views: number;
   tags: Tag_video[];
   archived?: boolean;
+  duration?: number;
 }
 
 export interface User {
