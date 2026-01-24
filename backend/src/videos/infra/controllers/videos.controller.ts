@@ -101,10 +101,11 @@ export class VideosController {
   @UseInterceptors(AnyFilesInterceptor())
   @UsePipes(new ValidationPipe({ transform: true }))
   async modifyVideo(
+    @UploadedFiles() files: Array<Express.Multer.File>,
     @Body() video: ModifyVideoDto,
     @CurrentUserEmail() email: string,
   ) {
-    return this.modifyVideoUseCase.execute(video, email);
+    return this.modifyVideoUseCase.execute(video, email, files);
   }
 
   @Delete(':id')

@@ -29,6 +29,7 @@ import {
   modifyVideo,
   findTag,
   deleteVideo,
+  getMiniature,
 } from '../../utils/api';
 import { Tag_video } from '../../utils/VideoProperties';
 
@@ -248,6 +249,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         // Vérifie explicitement que reader.result est bien une chaîne
         if (typeof reader.result === 'string') {
           setMiniatureUrl(reader.result); // Affecte l'URL de la preview
+          // Si on est en mode édition, persiste aussi cette miniature pour la page liste
+          if (videoId) {
+            try {
+              const raw = localStorage.getItem('customMiniatures') || '{}';
+              const map = JSON.parse(raw) as Record<string, string>;
+              map[videoId] = reader.result;
+              localStorage.setItem('customMiniatures', JSON.stringify(map));
+            } catch (err) {
+              console.error('Error saving custom miniature from file:', err);
+            }
+          }
         } else {
           console.error("Le résultat du FileReader n'est pas une chaîne !");
         }
@@ -267,6 +279,23 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setMiniatureUrl(null);
     setManualMiniatureSelected(false);
     removeFromLocalStorage('miniature');
+    // Clear miniature_id from baseVideo so we don't keep or display the old file
+    setBaseVideo((prev) =>
+      prev ? { ...prev, miniature_id: '' as unknown as string } : prev,
+    );
+    // Also clear any persisted custom miniature override for this video
+    if (videoId) {
+      try {
+        const raw = localStorage.getItem('customMiniatures') || '{}';
+        const map = JSON.parse(raw) as Record<string, string>;
+        if (map[videoId]) {
+          delete map[videoId];
+          localStorage.setItem('customMiniatures', JSON.stringify(map));
+        }
+      } catch (e) {
+        console.error('Error clearing custom miniature override:', e);
+      }
+    }
     setMiniatureInputKey((prev) => prev + 1); // Force input reset
   };
 
@@ -672,6 +701,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setIsLoading(false);
   };
 
+  const handleArchiveClick = () => {
+    const confirmMessage =
+      'Êtes-vous sûr de vouloir archiver cette vidéo ? Cette action peut être définitive.';
+
+    if (window.confirm(confirmMessage)) {
+      void deleteThisVideo();
+    }
+  };
+
   const deleteThisVideo = async () => {
     await deleteVideo(videoId)
       .then((response: ApiResponse<unknown>) => {
@@ -765,16 +803,32 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     //search title in DB
     const form = new FormData();
-    if (baseVideo?.media_id !== undefined) {
-      form.append('id', baseVideo?.id);
+
+    // Toujours envoyer l'id de la vidéo pour l'update
+    if (baseVideo?.id) {
+      form.append('id', baseVideo.id);
     }
-    if (baseVideo?.media_id !== undefined) {
-      form.append('media_id', baseVideo?.media_id);
+
+    // Média : envoyer le fichier s'il est modifié, sinon conserver l'id existant
+    if (media !== undefined) {
+      form.append('file', media);
+      form.append('media_id', media.name);
+    } else if (baseVideo?.media_id !== undefined) {
+      form.append('media_id', baseVideo.media_id);
     }
+
+    // Miniature :
+    //  - si un nouveau fichier est fourni, on envoie SEULEMENT le fichier
+    //    et on laisse le backend gérer/assigner miniature_id.
+    //  - sinon, on renvoie l'id existant pour conserver l'ancienne miniature
+    //    uniquement s'il est encore présent (non vide).
     if (miniature !== undefined) {
       form.append('miniature', miniature);
-      form.append('miniature_id', miniature.name);
+    } else if (baseVideo?.miniature_id) {
+      form.append('miniature_id', baseVideo.miniature_id);
     }
+
+    // Sous-titres : idem, mais on conserve l'ancien id si présent
     if (subtitle !== undefined) {
       form.append('subtitle', subtitle);
       form.append('subtitle_id', subtitle.name);
@@ -817,6 +871,18 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           response.status === 204 ||
           response.status === 200
         ) {
+          // Persist custom miniature preview for this video so the list page can reuse it
+          if (videoId && miniatureUrl) {
+            try {
+              const raw = localStorage.getItem('customMiniatures') || '{}';
+              const map = JSON.parse(raw) as Record<string, string>;
+              map[videoId] = miniatureUrl;
+              localStorage.setItem('customMiniatures', JSON.stringify(map));
+            } catch (e) {
+              console.error('Error saving custom miniature override:', e);
+            }
+          }
+
           navigate('/videos', {
             state: {
               toast: {
@@ -931,13 +997,32 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     const get_video = async () => {
       const response = await getVideo(videoId);
       if (response) {
-        setBaseVideo(response.data[0]); // Mets à jour baseVideo
-        console.log(response.data[0]); // Vérifie les données reçues
+        const videoData = response.data[0];
+        setBaseVideo(videoData); // Mets à jour baseVideo
+        console.log(videoData); // Vérifie les données reçues
+
+        // Charger la miniature existante pour la preview en mode édition
+        try {
+          if (videoData?.id) {
+            const miniatureResponse = await getMiniature(videoData.id);
+            if (
+              miniatureResponse?.data &&
+              typeof miniatureResponse.data === 'string' &&
+              !miniatureResponse.data.includes('miniatureundefined')
+            ) {
+              setMiniatureUrl(miniatureResponse.data);
+            }
+          }
+        } catch (error) {
+          console.error('Error loading existing miniature for preview:', error);
+        }
       }
     };
 
     if (videoId !== undefined) {
-      get_video();
+      // En mode édition, on ignore le draft localStorage et on charge uniquement depuis l'API
+      clearLocalStorage();
+      void get_video();
     } else {
       // Load from localStorage only when creating new video (not editing)
       try {
@@ -954,38 +1039,42 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     }
   }, [videoId]);
 
+  // When baseVideo is loaded (edit mode), sync form fields with it, while
+  // preserving any unsaved draft values from localStorage (speakerNames, tags, etc.).
   useEffect(() => {
-    const set_video = () => {
-      // Load from localStorage first (for refresh scenario)
-      const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-
-      // Set values from baseVideo or localStorage (localStorage takes precedence for unsaved changes)
-      if (draft.title || baseVideo?.title !== undefined) {
-        setTitle(draft.title || (baseVideo?.title ?? ''));
-      }
-      if (draft.description || baseVideo?.description !== undefined) {
-        setDescription(draft.description || (baseVideo?.description ?? ''));
-      }
-      if (draft.tags || baseVideo?.tags !== undefined) {
-        setTags(draft.tags || (baseVideo?.tags ?? []));
-      }
-      // Load speaker names from localStorage or external_speakers field
-      if (draft.speakerNames) {
-        setSpeakerNames(draft.speakerNames);
-      } else if (baseVideo?.external_speakers) {
-        // Parse external_speakers as comma-separated names
-        const names = baseVideo.external_speakers
-          .split(',')
-          .map((name: string) => name.trim())
-          .filter((name: string) => name.length > 0);
-        setSpeakerNames(names);
-      }
-      // Keep extern_User_List empty since we now use speakerNames for all speakers
-      setExternUserList('');
-    };
-    if (baseVideo) {
-      set_video();
+    if (!baseVideo) {
+      return;
     }
+
+    const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+    // Title & description: draft has priority if present
+    if (draft.title || baseVideo.title !== undefined) {
+      setTitle(draft.title || (baseVideo.title ?? ''));
+    }
+    if (draft.description || baseVideo.description !== undefined) {
+      setDescription(draft.description || (baseVideo.description ?? ''));
+    }
+
+    // Tags: merge from draft or baseVideo
+    if (draft.tags || baseVideo.tags !== undefined) {
+      setTags(draft.tags || (baseVideo.tags ?? []));
+    }
+
+    // Speakers: use speakerNames from draft if available, otherwise
+    // derive from baseVideo.external_speakers (comma-separated list).
+    if (draft.speakerNames && Array.isArray(draft.speakerNames)) {
+      setSpeakerNames(draft.speakerNames);
+    } else if (baseVideo.external_speakers) {
+      const names = baseVideo.external_speakers
+        .split(',')
+        .map((name: string) => name.trim())
+        .filter((name: string) => name.length > 0);
+      setSpeakerNames(names);
+    }
+
+    // We no longer use extern_User_List when speakerNames is present
+    setExternUserList('');
   }, [baseVideo]);
 
   if (isLoading) {
@@ -1002,13 +1091,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         {videoId !== undefined && (
           <div className={styles.headerButtons}>
             <Button
-              onClick={deleteThisVideo}
+              onClick={handleArchiveClick}
               label={t('archive')}
-              type={ButtonType.primary}
+              type={ButtonType.danger}
             ></Button>
             <Button
               onClick={updateVideo}
-              label={t('modifyVideo')}
+              label={'Sauvegarder'}
               type={ButtonType.primary}
             ></Button>
           </div>
@@ -1043,13 +1132,21 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             <div className={styles.twoColumnsRow}>
               {/* LEFT COLUMN */}
               <div className={styles.leftColumn}>
-                <div className={`${styles.inputWrapper} ${styles.required}`}>
+                <div
+                  className={
+                    videoId === undefined
+                      ? `${styles.inputWrapper} ${styles.required}`
+                      : styles.inputWrapper
+                  }
+                >
                   <label>
                     {t('addMedia')}
-                    <span className={styles.required}>*</span>
+                    {videoId === undefined && (
+                      <span className={styles.required}>*</span>
+                    )}
                   </label>
                   <div className={styles.fileInputWrapperMedia}>
-                    {media && (
+                    {media && videoId === undefined && (
                       <button
                         className={styles.fileRemoveButton}
                         onClick={handleRemoveMedia}
@@ -1069,7 +1166,8 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                             : t('addMedia')
                       }
                       onChange={handleMediaChange}
-                      disable={baseVideo?.media_id !== undefined}
+                      disable={videoId !== undefined}
+                      required={videoId === undefined}
                     />
                   </div>
                   <span className={styles.formatHint}>
@@ -1101,12 +1199,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                       placeholder={
                         miniature
                           ? miniature.name
-                          : baseVideo?.miniature_id !== undefined
+                          : baseVideo?.miniature_id
                             ? baseVideo.miniature_id
                             : t('addMiniature')
                       }
                       onChange={handleMiniatureChange}
-                      disable={baseVideo?.miniature_id !== undefined}
+                      disable={false}
                     />
                   </div>
                   <span className={styles.formatHint}>
@@ -1137,7 +1235,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                             : t('addSubtitle')
                       }
                       onChange={handleSubtitleChange}
-                      disable={baseVideo?.subtitle_id !== undefined}
+                      disable={false}
                       required={false}
                     />
                   </div>
@@ -1324,13 +1422,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               {videoId !== undefined ? (
                 <>
                   <Button
-                    onClick={deleteThisVideo}
+                    onClick={handleArchiveClick}
                     label={t('archive')}
-                    type={ButtonType.primary}
+                    type={ButtonType.danger}
                   ></Button>
                   <Button
                     onClick={updateVideo}
-                    label={t('modifyVideo')}
+                    label={t('save')}
                     type={ButtonType.primary}
                   ></Button>
                 </>
@@ -1347,7 +1445,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           <div className={styles.preview}>
             <h2>{t('Preview')}</h2>
             <Thumbnail
-              Id="1"
+              Id={videoId ?? ''}
               title={title || t('Titre')}
               imageSrc={
                 miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
@@ -1364,13 +1462,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             {videoId !== undefined ? (
               <>
                 <Button
-                  onClick={deleteThisVideo}
+                  onClick={handleArchiveClick}
                   label={t('archiveVideo')}
-                  type={ButtonType.primary}
+                  type={ButtonType.danger}
                 ></Button>
                 <Button
                   onClick={updateVideo}
-                  label={t('modifyVideo')}
+                  label={t('save')}
                   type={ButtonType.primary}
                 ></Button>
               </>
