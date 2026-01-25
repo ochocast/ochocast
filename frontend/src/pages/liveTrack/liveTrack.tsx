@@ -78,9 +78,7 @@ const LiveTrack = () => {
   const connectionToStreamRefRef = useRef<(() => Promise<void>) | null>(null);
 
   // Control plane URL for SFU discovery
-  const CONTROL_PLANE_URL =
-    process.env.REACT_APP_SFU_CONTROL_PLANE_URL ||
-    'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud';
+  const CONTROL_PLANE_URL = process.env.REACT_APP_SFU_CONTROL_PLANE_URL;
 
   // Calculate exponential backoff delay
   const getReconnectDelay = (attempt: number): number => {
@@ -229,7 +227,9 @@ const LiveTrack = () => {
       const delay = getReconnectDelay(attempt);
       Logger.info(
         'Reconnection',
-        `Attempt ${attempt + 1}/${RECONNECTION_CONFIG.maxAttempts} - waiting ${delay}ms`,
+        `Attempt ${attempt + 1}/${
+          RECONNECTION_CONFIG.maxAttempts
+        } - waiting ${delay}ms`,
       );
 
       setIsReconnecting(true);
@@ -499,7 +499,9 @@ const LiveTrack = () => {
         sfuViewerUrl = await discoverSFU(trackId!);
       } catch (error) {
         throw new Error(
-          `Failed to discover SFU: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to discover SFU: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
         );
       }
 

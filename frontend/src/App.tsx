@@ -66,10 +66,6 @@ function App() {
                     element={<TrackSettings />}
                   />
                   <Route path="/tracks/:trackId" element={<LiveTrack />} />
-                  {/* <Route
-                    path="/tracks/:trackId/streaming"
-                    element={<StreamTrack />}
-                  /> */}
                   <Route
                     path="/video/video-settings"
                     element={<VideoSettings />}

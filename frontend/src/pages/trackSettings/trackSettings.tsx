@@ -26,6 +26,8 @@ import { closeTrack } from '../../utils/api';
 
 import styles from './trackSettings.module.css';
 
+const CONTROL_PLANE_URL = process.env.REACT_APP_SFU_CONTROL_PLANE_URL;
+
 const TrackSettings: FC = () => {
   const { trackId, eventId } = useParams();
   const { t } = useTranslation();
@@ -65,10 +67,7 @@ const TrackSettings: FC = () => {
     setIsCheckingRoom(true);
     try {
       const response = await fetch(
-        // 'https://sfu.demo.ochocast.fr/room/exists?room_id=' + trackId,
-        // 'http://localhost:8090/room/exists?room_id=' + trackId,
-        'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/room/exists?room_id=' +
-          trackId,
+        `${CONTROL_PLANE_URL}/room/exists?room_id=${trackId}`,
         {
           method: 'GET',
           headers: {
@@ -174,20 +173,15 @@ const TrackSettings: FC = () => {
 
     setIsLoadingSfu(true);
     try {
-      const response = await fetch(
-        // 'https://sfu.demo.ochocast.fr/room/create',
-        // 'http://localhost:8090/room/create',
-        'https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/room/create',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            room_id: trackId,
-          }),
+      const response = await fetch(`${CONTROL_PLANE_URL}/room/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify({
+          room_id: trackId,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error('Failed to create room');
@@ -196,7 +190,7 @@ const TrackSettings: FC = () => {
       const data = await response.json();
       // const whipUrl = `https://sfu.demo.ochocast.fr/whip?room_id=${data.room_id}&key=${data.key}`;
       // const whipUrl = `http://localhost:8090/whip?room_id=${data.room_id}&key=${data.key}`;
-      const whipUrl = `https://519ddacd-6411-4de9-886a-a2976087ac84.pub.instances.scw.cloud/whip?room_id=${data.room_id}&key=${data.key}`;
+      const whipUrl = `${CONTROL_PLANE_URL}/whip?room_id=${data.room_id}&key=${data.key}`;
       setSfuUrl(whipUrl);
       setIsOpen(false);
       setToast({
