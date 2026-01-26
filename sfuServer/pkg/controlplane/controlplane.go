@@ -866,17 +866,36 @@ func (cp *ControlPlane) CreateRoom(roomID string) (string, bool, error) {
 	// Generate a new key for the room
 	key := generateRoomKey()
 
-	log.Printf("[CP] Creating new room %s with key %s", roomID, key)
+	// Select an ingestion SFU for this room
+	ingestionSFUID := cp.selectIngestionSFU()
+	if ingestionSFUID == "" {
+		return "", false, fmt.Errorf("no active SFUs available")
+	}
 
-	// Create topology for this room (without ingestion SFU yet - will be assigned on WHIP)
+	log.Printf("[CP] Creating new room %s with key %s on ingestion SFU %s", roomID, key, ingestionSFUID)
+
+	// Create topology for this room with ingestion SFU assigned
 	topology := &models.RoomTopology{
 		RoomID:         roomID,
 		Key:            key,
-		IngestionSFUID: "", // Will be assigned when broadcaster connects
+		IngestionSFUID: ingestionSFUID,
 		Nodes:          make(map[string]*models.TopologyNode),
 		CreatedAt:      time.Now(),
 		LastRebalance:  time.Now(),
 	}
+
+	// Add ingestion SFU as a node in the topology
+	topology.Nodes[ingestionSFUID] = &models.TopologyNode{
+		SFUID:      ingestionSFUID,
+		RoomID:     roomID,
+		Role:       "ingestion",
+		ParentID:   "",
+		Children:   []string{},
+		Load:       0,
+		MaxLoad:    100,
+		LastUpdate: time.Now(),
+	}
+
 	cp.rooms[roomID] = topology
 
 	// Synchronize room creation to all active SFUs
@@ -1596,4 +1615,176 @@ func (cp *ControlPlane) HandleStreamStatus(w http.ResponseWriter, r *http.Reques
 		"room_id": roomID,
 		"sfu_id":  ingestionSFUID,
 	})
+}
+
+// HandleRoomViewerCount returns the total viewer count for a specific room across all SFUs
+func (cp *ControlPlane) HandleRoomViewerCount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[CP-VIEWERS] Getting viewer count for room %s", roomID)
+
+	// Check if room exists in topology
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	if !exists {
+		cp.mu.RUnlock()
+		// Room not found
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"room_id":      roomID,
+			"viewer_count": 0,
+			"message":      "Room not found",
+		})
+		return
+	}
+
+	// Get all SFU nodes in the topology
+	sfuNodes := make(map[string]string) // SFUID -> URL
+	for sfuID := range topology.Nodes {
+		if sfu, ok := cp.sfus[sfuID]; ok && sfu.Active {
+			sfuNodes[sfuID] = sfu.URL
+		}
+	}
+	cp.mu.RUnlock()
+
+	if len(sfuNodes) == 0 {
+		// No active SFUs in topology
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"room_id":      roomID,
+			"viewer_count": 0,
+			"message":      "No active SFUs",
+		})
+		return
+	}
+
+	// Query all SFUs in parallel and sum viewer counts
+	type sfuResult struct {
+		sfuID       string
+		viewerCount int
+		err         error
+	}
+
+	resultChan := make(chan sfuResult, len(sfuNodes))
+	
+	for sfuID, sfuURL := range sfuNodes {
+		go func(id, url string) {
+			result := sfuResult{sfuID: id}
+			
+			viewersURL := fmt.Sprintf("%s/room/viewers?room_id=%s", url, roomID)
+			client := &http.Client{Timeout: 3 * time.Second}
+
+			resp, err := client.Get(viewersURL)
+			if err != nil {
+				log.Printf("[CP-VIEWERS] Failed to query SFU %s: %v", id, err)
+				result.err = err
+				resultChan <- result
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				log.Printf("[CP-VIEWERS] SFU %s returned status %d", id, resp.StatusCode)
+				result.err = fmt.Errorf("status %d", resp.StatusCode)
+				resultChan <- result
+				return
+			}
+
+			// Parse SFU response
+			var sfuResponse map[string]interface{}
+			if err := json.NewDecoder(resp.Body).Decode(&sfuResponse); err != nil {
+				log.Printf("[CP-VIEWERS] Failed to decode response from SFU %s: %v", id, err)
+				result.err = err
+				resultChan <- result
+				return
+			}
+
+			// Extract viewer count
+			if count, ok := sfuResponse["viewer_count"].(float64); ok {
+				result.viewerCount = int(count)
+			}
+
+			resultChan <- result
+		}(sfuID, sfuURL)
+	}
+
+	// Collect results
+	totalViewers := 0
+	sfuCounts := make(map[string]int)
+	successCount := 0
+
+	for i := 0; i < len(sfuNodes); i++ {
+		result := <-resultChan
+		if result.err == nil {
+			totalViewers += result.viewerCount
+			sfuCounts[result.sfuID] = result.viewerCount
+			successCount++
+			log.Printf("[CP-VIEWERS] SFU %s has %d viewer(s)", result.sfuID, result.viewerCount)
+		}
+	}
+
+	log.Printf("[CP-VIEWERS] Room %s total: %d viewer(s) across %d SFU(s) (queried %d/%d)",
+		roomID, totalViewers, successCount, successCount, len(sfuNodes))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"room_id":      roomID,
+		"viewer_count": totalViewers,
+		"sfu_count":    successCount,
+		"sfu_details":  sfuCounts,
+	})
+}
+
+// HandleRoomExists checks if a room exists in the topology (local check only, no SFU queries)
+func (cp *ControlPlane) HandleRoomExists(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("[CP-EXISTS] Checking if room %s exists", roomID)
+
+	// Check if room exists in topology (local check only)
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	if !exists {
+		cp.mu.RUnlock()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"exists": false,
+		})
+		log.Printf("[CP-EXISTS] Room %s does not exist", roomID)
+		return
+	}
+
+	// Room exists - get info from topology
+	roomKey := topology.Key
+	controlPlaneURL := fmt.Sprintf("http://localhost:%s", "8090") // Use control plane URL
+	cp.mu.RUnlock()
+
+	// Room exists - return WHIP URL
+	whipURL := fmt.Sprintf("%s/whip?room_id=%s&key=%s", controlPlaneURL, roomID, roomKey)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"exists":   true,
+		"room_id":  roomID,
+		"whip_url": whipURL,
+	})
+	log.Printf("[CP-EXISTS] Room %s exists", roomID)
 }

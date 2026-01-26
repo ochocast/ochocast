@@ -21,6 +21,41 @@
   letter-spacing: 1px;
 }
 
+.viewerCountBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-color-700, #666);
+}
+
+.viewerCountBadge:hover {
+  color: var(--theme-color-900, #111);
+}
+
+.viewerIcon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewerNumber {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.viewerLabel {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.95;
+  line-height: 1;
+}
+
 .close-button {
   margin: 0;
 }

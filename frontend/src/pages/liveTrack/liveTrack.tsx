@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './liveTrack.module.css';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getTrackById } from '../../utils/api';
+import { getTrackById, getRoomViewerCount } from '../../utils/api';
 import { Track } from '../../utils/EventsProperties';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import WaitingScreen from '../../components/waitingScreen/waitingScreen';
@@ -64,6 +64,7 @@ const LiveTrack = () => {
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [showClosedPolls, setShowClosedPolls] = useState(false);
+  const [viewerCount, setViewerCount] = useState<number>(0);
   const { user } = useUser();
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const noStreamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -76,6 +77,7 @@ const LiveTrack = () => {
   const healthCheckFailCountRef = useRef(0);
   const iceDisconnectedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const connectionToStreamRefRef = useRef<(() => Promise<void>) | null>(null);
+  const viewerCountIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Control plane URL for SFU discovery
   const CONTROL_PLANE_URL = process.env.REACT_APP_SFU_CONTROL_PLANE_URL;
@@ -87,6 +89,35 @@ const LiveTrack = () => {
       Math.pow(RECONNECTION_CONFIG.backoffMultiplier, attempt)
     );
   };
+
+  // Fetch viewer count periodically
+  useEffect(() => {
+    if (!trackId) return;
+
+    const fetchViewerCount = async () => {
+      try {
+        const data = await getRoomViewerCount(trackId);
+        if (data && typeof data.viewer_count === 'number') {
+          setViewerCount(data.viewer_count);
+        }
+      } catch (error) {
+        Logger.error('ViewerCount', 'Failed to fetch viewer count', error);
+      }
+    };
+
+    // Fetch immediately
+    fetchViewerCount();
+
+    // Then fetch every 5 seconds
+    viewerCountIntervalRef.current = setInterval(fetchViewerCount, 5000);
+
+    return () => {
+      if (viewerCountIntervalRef.current) {
+        clearInterval(viewerCountIntervalRef.current);
+        viewerCountIntervalRef.current = null;
+      }
+    };
+  }, [trackId]);
 
   // Discover SFU endpoint from control plane
   const discoverSFU = useCallback(
@@ -796,6 +827,23 @@ const LiveTrack = () => {
                 <div className={styles.trackInfo}>
                   <div className={styles.trackTitle}>
                     <h2>{track.name}</h2>
+                    <div className={styles.viewerCountBadge}>
+                      <svg
+                        className={styles.viewerIcon}
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      <span className={styles.viewerNumber}>{viewerCount}</span>
+                    </div>
                   </div>
                 </div>
               </div>

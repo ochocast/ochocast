@@ -301,6 +301,45 @@ func handleStreamStatus(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[STREAM-STATUS] Room %s status: %v", roomID, isActive)
 }
 
+// handleRoomViewerCount handles getting the viewer count for a specific room
+func handleRoomViewerCount(w http.ResponseWriter, r *http.Request) {
+	setCORSHeaders(w, "GET, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	room, err := sfuServer.GetRoom(roomID)
+	if err != nil {
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	room.mu.RLock()
+	viewerCount := len(room.Viewers)
+	room.mu.RUnlock()
+
+	response := map[string]interface{}{
+		"room_id":      roomID,
+		"viewer_count": viewerCount,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	log.Printf("[ROOM-VIEWERS] Room %s has %d viewer(s)", roomID, viewerCount)
+}
+
 // handleDeleteRoom handles the room deletion endpoint
 func handleDeleteRoom(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[ROOM] Delete room request from %s", r.RemoteAddr)

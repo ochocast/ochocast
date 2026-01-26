@@ -166,6 +166,22 @@ export const getEventChatStatistics = (eventId, subscriberCount = 0) =>
 export const getTrackChatStatistics = (trackId) =>
   api.get(`/chat/tracks/${trackId}/statistics`);
 
+// SFU viewer count
+export const getRoomViewerCount = async (roomId) => {
+  const sfuUrl =
+    process.env.REACT_APP_SFU_CONTROL_PLANE_URL || 'http://localhost:8090';
+  try {
+    const response = await fetch(`${sfuUrl}/room/viewers?room_id=${roomId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch viewer count');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching viewer count:', error);
+    return { viewer_count: 0 };
+  }
+};
+
 export const searchVideosAdmin = (data) =>
   api.get(`/videos/searchvideoadmin/${data}`);
 // Polls

@@ -29,6 +29,7 @@ func main() {
 	http.HandleFunc("/room/get", handleGetRoom)
 	http.HandleFunc("/room/exists", handleRoomExists)
 	http.HandleFunc("/room/delete", handleDeleteRoom)
+	http.HandleFunc("/room/viewers", handleRoomViewerCount)
 	http.HandleFunc("/stream-status", handleStreamStatus)
 	http.HandleFunc("/whip", handleWHIP)
 	http.HandleFunc("/viewer", handleViewer)

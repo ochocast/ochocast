@@ -26,6 +26,8 @@ func main() {
 	http.HandleFunc("/control/join_viewer", corsMiddleware(cp.HandleJoinViewer))
 	http.HandleFunc("/control/topology", corsMiddleware(cp.HandleGetTopology))
 	http.HandleFunc("/room/create", corsMiddleware(cp.HandleCreateRoom))
+	http.HandleFunc("/room/exists", corsMiddleware(cp.HandleRoomExists))
+	http.HandleFunc("/room/viewers", corsMiddleware(cp.HandleRoomViewerCount))
 	http.HandleFunc("/whip", corsMiddleware(cp.HandleWHIP))                  // Proxy WHIP to ingestion SFU
 	http.HandleFunc("/viewer", corsMiddleware(cp.HandleViewer))              // Proxy viewer to optimal SFU
 	http.HandleFunc("/stream-status", corsMiddleware(cp.HandleStreamStatus)) // Check stream status
