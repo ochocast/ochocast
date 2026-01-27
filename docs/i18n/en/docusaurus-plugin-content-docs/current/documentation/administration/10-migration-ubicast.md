@@ -1,31 +1,31 @@
-# POC - Ubicast Video Migration - Scaleway
+# POC - Ubicast Video Migration to Scaleway
 
-This script allows you to retrieve videos from the Ubicast platform and store them on Scaleway using AWS S3. It also records video metadata in the project's PostgreSQL database.
+This script fetches videos from the Ubicast platform and stores them on Scaleway using an S3-compatible API. It also records video metadata into the project's PostgreSQL database.
 
 ## Features
 
-- Connection to Ubicast API to retrieve videos.
-- Video storage on Scaleway via AWS S3.
-- Recording of video metadata in the project's PostgreSQL database.
-- Video search can be done in two ways:
+- Connects to the Ubicast API to fetch videos.
+- Stores videos on Scaleway via S3.
+- Records video metadata into the project's PostgreSQL database.
+- Video discovery can be done by:
   - Loading video identifiers (`oids`) from a CSV file.
-  - Exhaustive video search by browsing various search terms.
+  - Exhaustive search through various search terms.
 
 ---
 
 # Installation and execution
 
-## Installing dependencies
+## Install dependencies
 
-Before running the script, install the necessary dependencies with the command:
+Before running the script, install dependencies with:
 
 ```sh
 npm install
 ```
 
-## Running the script
+## Run the script
 
-Launch the script with the following command:
+Start the script with:
 
 ```sh
 node downloadOctoVideo.js
@@ -33,115 +33,105 @@ node downloadOctoVideo.js
 
 ## Configuration
 
-The script uses several environment variables to store sensitive information:
+The script uses environment variables to store sensitive information.
 
 ### Main features
 
-- Video retrieval (two methods, to see which is most efficient):
-
-  - By direct query via their identifiers (`oids`).
-  - By exhaustive search on the UbiCast API (currently commented out in the code).
+- Video retrieval (two methods):
+  - By direct request using their identifiers (`oids`).
+  - By exhaustive search via the Ubicast API (currently commented in the code).
 
 - Download and upload:
-
-  - Download videos from the UbiCast API.
+  - Download videos from the Ubicast API.
   - Upload to a Scaleway S3 bucket.
 
 - Database:
-  - Connection to a PostgreSQL database.
-  - Insertion of video metadata.
+  - Connect to PostgreSQL.
+  - Insert video metadata.
 
 ## Improvements to implement (TODO)
 
-- Integrate UbiCast thumbnails into the database.
-- Retrieve and store UbiCast thumbnails on Scaleway.
-- Improve video search (via API Search or Excel file).
-- Automate retrieval of all UbiCast videos.
+- Integrate Ubicast thumbnails into the database.
+- Fetch and store Ubicast thumbnails on Scaleway.
+- Improve video search (via API or CSV/Excel input).
+- Automate the retrieval of all Ubicast videos.
 
-## Configuration
+## Environment variables
 
-### 1. **Connection variables**
+Expected variables:
 
-| Variable        | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| `API_KEY`       | API key to access the UbiCast API.                 |
-| `API_BASE_URL`  | UbiCast API URL.                                 |
-| `BUCKET_NAME`   | Name of the Scaleway bucket where videos will be stored. |
-| `REGION`        | Scaleway service region.                           |
-| `S3_ACCESS_KEY` | Scaleway S3 access key.                              |
-| `S3_SECRET_KEY` | Scaleway S3 secret key.                              |
+- `API_KEY`: Ubicast API key
+- `API_BASE_URL`: Ubicast API base URL
+- `BUCKET_NAME`: Scaleway bucket name
+- `REGION`: Scaleway region
+- `S3_ACCESS_KEY` / `S3_SECRET_KEY`: Scaleway S3 credentials
 
-Sensitive variable values must be configured in the .env file or environment secrets.
+Configure these in a `.env` file or via your environment secrets.
 
-### 1. **PostgreSQL database**
+### 1. PostgreSQL connection example
 
 | Parameter  | Value              |
 | ---------- | ------------------- |
 | `user`     | `octocast-db-prod`  |
 | `host`     | `51.159.205.159`    |
 | `database` | `rdb`               |
-| `password` | Password required |
+| `password` | password required   |
 | `port`     | `5253`              |
 
-## Detailed operation
+## Detailed flow
 
-1. **Database connection and closing**
-
-   - `connectDatabase()`: Establishes PostgreSQL connection.
-   - `closeDatabase()`: Closes PostgreSQL connection.
+1. **Database connect / close**
+   - `connectDatabase()`: establishes the PostgreSQL connection.
+   - `closeDatabase()`: closes the PostgreSQL connection.
 
 2. **Loading videos**
+   - `loadOidsFromCsv(filePath)`: loads a list of identifiers (oids) from a CSV exported from Ubicast.
+   - `fetchAllVideosExhaustively()`: retrieves videos using their `oids`.
 
-   - `loadOidsFromCsv(filePath)`: Loads a list of identifiers (oids) from a CSV file extracted from Ubicast, containing all the information of hosted videos.
-   - `fetchAllVideosExhaustively()`: Retrieves all videos from their `oids`.
+3. **Fetching video metadata**
+   - `fetchVideoDetails(oid)`: fetches full metadata for a video.
+   - `fetchVideosWithSearch(searchTerm)`: searches videos by keyword.
 
-3. **Video retrieval**
+4. **Processing videos**
+   - `addUniqueVideos(videos)`: adds videos ensuring no duplicates.
+   - `processVideo(video)`: downloads, uploads and saves a video to the database.
 
-   - `fetchVideoDetails(oid)`: Retrieves complete metadata of a video.
-   - `fetchVideosWithSearch(searchTerm)`: Performs a keyword video search.
-
-4. **Video processing**
-
-   - `addUniqueVideos(videos)`: Adds videos to the list ensuring there are no duplicates.
-   - `processVideo(video)`: Downloads, uploads and records a video in the database.
-
-5. **Complete migration**
-
-   - `migrateVideos()`: Orchestration of the entire process.
+5. **Full migration**
+   - `migrateVideos()`: orchestrates the whole process.
 
 ## Error handling
 
-The script includes several error handling mechanisms:
+The script includes checks for:
 
-- Verification of API and database connections.
-- Verification of API request HTTP status.
-- Upload error handling with progress tracking.
-- Verification and handling of conflicts during database insertion.
+- API and database connectivity.
+- HTTP status checks on API responses.
+- Upload errors with progress tracking.
+- Conflict handling when inserting into the database.
 
-## Performance tracking
+## Performance report
 
-At the end of script execution, an operations summary is displayed:
+At the end of execution a summary is printed:
 
 - Number of videos added to the database.
 - Number of videos uploaded to Scaleway.
 - Number of failed migrations.
 
-## Execution and logs
+## Execution logs
 
-The script displays detailed logs to track progress:
+The script prints detailed logs to follow progress:
 
-- Database connection successful.
+- Database connection succeeded.
 - Search with term: "A"
 - Downloading video: example.mp4
 - Uploading video to Scaleway: example.mp4
 - Video "example.mp4" uploaded successfully.
-- Video "example.mp4" inserted into database.
-- Migration completed!
-- Total number of videos added to database: 42
-- Total number of videos uploaded to Scaleway bucket: 38
-- Total number of failed videos: 4
+- Video "example.mp4" inserted into the database.
+- Migration complete!
+- Total videos added to DB: 42
+- Total videos uploaded to Scaleway bucket: 38
+- Total failures: 4
 
 # Author
 
 - Developer(s): Oriane Margelisch
-- Last update: 2024-01-29
+- Last updated: 2024-01-29

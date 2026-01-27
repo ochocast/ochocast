@@ -21,26 +21,23 @@ npm install
 
 Pour déployer localement :
 
-```
-cd ./frontend
+```bash
+cd frontend
 cp .env.example .env
 npm run start
 ```
 
-## Structure du Front
+Exécuter le backend et le frontend simultanément depuis la racine du projet est possible et pratique pour le développement.
 
-Dans frontend/src, vous trouverez plusieurs dossiers ayant des objectifs différents.
+## Organisation du code
 
-Public : Ce dossier contient des fichiers statiques qui sont servis directement par le serveur web. Ces fichiers ne sont pas traités par le système de build et sont accessibles via l'URL racine de votre application. Les fichiers courants dans ce dossier incluent index.html, favicon et d'autres ressources devant être accessibles publiquement.
+- `public/` : fichiers statiques (index.html, favicon, etc.).
+- `src/assets/` : images, icônes et médias fixes.
+- `src/components/` : composants réutilisables.
+- `src/pages/` : vues correspondant aux routes.
+- `src/utils/` : utilitaires et interfaces partagées.
 
-Assets : Ce dossier contient tous les fichiers statiques tels que des images, des icônes, des médias et d'autres ressources qui ne sont pas censés changer pendant l'exécution de l'application. Ces fichiers sont essentiels pour l'interface et le design de l'application.
+## Design
 
-Components : Dans ce dossier, vous trouverez différents agencements et éléments utilisés dans les différentes pages de l'application. Ils sont réutilisables, peuvent s'adapter aux différentes propriétés et sont souvent séparés en petits éléments.
-
-Pages : Les pages sont également des composants. Cependant, elles ne sont pas destinées à être réutilisées et représentent des vues entières de l'application. Chaque fichier ou sous-dossier dans le dossier pages correspond généralement à une route spécifique de votre application. Cette structure permet de maintenir une séparation claire entre les différentes sections de votre interface utilisateur.
-
-Utils : Ce dossier contient généralement des interfaces, des fonctions utilitaires ou des modules d'aide qui fournissent des fonctionnalités couramment utilisées dans toute l'application. Le but de ce dossier est de centraliser et organiser les fonctions qui ne sont pas liées à un composant ou à un module spécifique. Par exemple, une fonction de formatage de date ou une interface.
-
-## Design UX / UI
-
-Le design de l'application frontend doit respecter le système de design d'OchoCast établi dans Figma.
+Respectez le système de design OchoCast disponible dans Figma pour l'UI/UX.
+```

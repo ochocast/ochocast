@@ -9,6 +9,4 @@ Ochocast est une application de streaming multicanal dédiée aux événements e
 - La partie "stockage vidéo", qui permet de gérer, héberger et diffuser des contenus enregistrés.
 - La partie "streaming en direct", qui permet de lancer des lives.
 
----
-
-*Cette documentation est en cours de développement. De nouvelles sections seront ajoutées prochainement.*
+_Cette documentation est en cours de développement. De nouvelles sections seront ajoutées prochainement._

@@ -1,3 +1,3 @@
 # WebSocket Server
 ## Deployment
-Here is the web server retrieval link: `rg.fr-par.scw.cloud/websocket-server/octocast-webserver:latest`
+Download link for the web server image: `rg.fr-par.scw.cloud/websocket-server/octocast-webserver:latest`

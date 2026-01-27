@@ -1,37 +1,56 @@
-# Administration Panel Guide
+# Admin Panel Guide
 
-The OchoCast administration panel allows administrators to customize the application's appearance in real time without directly modifying the source code. This guide details each feature and its visual impact.
+The OchoCast admin panel allows administrators to customize the application's appearance in real time without directly modifying the source code. This guide details each feature and its visual impact.
 
-## Panel Access
+## Accessing the Panel
 
 **Access URL**: `/admin`
 
-:::warning Required Rights
-Only users with **administrator rights** can access this panel. Non-administrator users will be redirected to a 404 page.
+:::warning Required permissions
+Only users with **administrator privileges** can access this panel. Non-admin users will be redirected to a 404 page.
 :::
 
 ## Overview
 
-The administration panel is organized into several sections:
+The admin panel is organized into several sections:
 
-1. **General Information** - Application name
-2. **Theme Colors** - Primary color palette
-3. **Color Preview** - Preview of generated gradients
-4. **Branding Images** - Custom logos and icons
+1. **General information** – Application name
+2. **Theme colors** – Main color palette
+3. **Color preview** – Preview of generated gradients
+4. **Branding images** – Custom logos and icons
+5. **Content management** – Video archiving and administration ([Go to](#content-management))
 
-![Administration panel overview](/img/admin-panel-overview.png)
-*Complete view of the administration panel with all sections*
+![Admin panel overview](/img/admin-panel-overview2.png)  
+*Full view of the admin panel with all sections*
+
+The **Content management** section (see link above) covers video archiving operations, as well as admin-only features: viewing archived videos, restoring them, and permanently deleting them.
+
+![Switch from the admin panel to admin video management](/img/admin-top-panel.png)
+
+This documentation is organized into two clearly separated parts: **theme configuration** (sections 1–4) and **content management** (video archiving and administration). Use these shortcuts to navigate quickly: [Theme configuration](#theme-configuration) · [Content management](#content-management)
 
 ---
 
-## 1. General Information
+## Quick start
 
-![General information section](/img/admin-general-info.png)
-*Section allowing to modify the application name*
+1. Log in as an administrator.
+2. Open the `/admin` URL.
+3. In **General information**, update `appName` if needed, then click **Save configuration**.
+4. Adjust the colors in **Theme colors**.
+5. Upload images in **Branding images**, then save.
 
-### Application Name
+---
 
-**Field**: `Application Name`
+<a id="theme-configuration"></a>
+
+## 1. General information
+
+![General information section](/img/admin-general-info.png)  
+*Section used to change the application name*
+
+### Application name
+
+**Field**: `Application Name` / `Nom de l'application`
 
 **Description**: This field defines the name displayed throughout the application.
 
@@ -50,74 +69,74 @@ appName: "OchoCast"
 - In the browser tab
 - On the login page
 
-![Logo in navbar](/img/admin-effect-logo-before.png)
-*Example of logo displayed in the navigation bar*
+![Logo in the navbar](/img/admin-effect-logo-before.png)  
+*Example of a logo displayed in the navigation bar*
 
 ---
 
-## 2. Theme Colors
+## 2. Theme colors
 
-![Theme colors section](/img/admin-colors.png)
-*The 5 color fields with their selectors*
+![Theme colors section](/img/admin-colors.png)  
+*The 5 color fields with their pickers*
 
 The color system uses a hexadecimal format with transparency (8 characters: `#RRGGBBAA`).
 
-### 2.1 Primary Color
+### 2.1 Primary color
 
 **Field**: `primary`
 
-**Description**: The primary color of the application, used for interactive elements and important accents.
+**Description**: The primary color of the application, used for interactive elements and key accents.
 
 **Visible effect**:
-- Main buttons (login, save, validate)
+- Primary buttons (login, save, confirm)
 - Clickable links
 - Active navigation elements
 - Progress bars
 - Important icons
 
-**Format**: `#1dac78ff` (green by default)
+**Format**: `#1dac78ff` (default green)
 
-**Example usage**:
-- "Save configuration" button in the admin panel
-- "Login" button on the authentication page
+**Usage examples**:
+- “Save configuration” button in the admin panel
+- “Sign in” button on the authentication page
 - Links in the navigation bar
 
-**Before/After color modification**:
+**Before/after changing colors**:
 
-![Colors before](/img/admin-effect-colors-before.png)
+![Colors before](/img/admin-effect-colors-before.png)  
 *Application with default colors*
 
-![Colors after](/img/admin-effect-colors-after.png)
+![Colors after](/img/admin-effect-colors-after.png)  
 *Application with new customized colors*
 
-**How to modify**:
-1. Click on the color selector (colored square)
+**How to change**:
+1. Click the color selector (colored square)
 2. Choose a color in the picker
-3. OR directly enter a hexadecimal code in the text field
+3. OR type a hex code directly in the text field
 
-![Color selector](/img/admin-color-picker.png)
+![Color picker](/img/admin-color-picker.png)  
 *Color picker open to select a color*
 
-### 2.2 Secondary Color
+### 2.2 Secondary color
 
 **Field**: `secondary`
 
-**Description**: Color used for secondary texts and borders.
+**Description**: Color used for secondary text and borders.
 
 **Visible effect**:
-- Description texts
+- Description text
 - Card borders
 - Separators
-- Form texts
+- Form text
 
-**Format**: `#344054ff` (dark gray by default)
+**Format**: `#344054ff` (default dark gray)
 
-**Example usage**:
-- Text of descriptions under titles
-- Borders of form fields
-- Separation lines between sections
+**Usage examples**:
+- Description text under headings
+- Form field borders
+- Divider lines between sections
 
-### 2.3 Background Color
+### 2.3 Background color
 
 **Field**: `background`
 
@@ -125,17 +144,17 @@ The color system uses a hexadecimal format with transparency (8 characters: `#RR
 
 **Visible effect**:
 - Background of all pages
-- Background of sections
-- Spaces between cards
+- Section backgrounds
+- Spacing between cards
 
-**Format**: `#f9fafbff` (very light gray by default)
+**Format**: `#f9fafbff` (default very light gray)
 
-**Example usage**:
+**Usage examples**:
 - Home page background
-- Administration panel background
-- Video list background
+- Admin panel background
+- Video lists background
 
-### 2.4 Accent Color
+### 2.4 Accent color
 
 **Field**: `accent`
 
@@ -144,17 +163,17 @@ The color system uses a hexadecimal format with transparency (8 characters: `#RR
 **Visible effect**:
 - Notification badges
 - Highlights
-- Information alerts
+- Informational alerts
 - Highlighted elements
 
-**Format**: `#2ecc71ff` (light green by default)
+**Format**: `#2ecc71ff` (default light green)
 
-**Example usage**:
-- "New" badge on recent videos
+**Usage examples**:
+- “New” badge on recent videos
 - Success notifications
 - Featured elements
 
-### 2.5 Error Color
+### 2.5 Error color
 
 **Field**: `error`
 
@@ -166,37 +185,37 @@ The color system uses a hexadecimal format with transparency (8 characters: `#RR
 - Delete buttons
 - Critical alerts
 
-**Format**: `#dc2626ff` (red by default)
+**Format**: `#dc2626ff` (default red)
 
-**Example usage**:
-- "Save error" message
-- Red border around an incorrectly filled field
-- "Delete" button in dangerous actions
+**Usage examples**:
+- “Error while saving” message
+- Red border around an invalid field
+- “Delete” button for dangerous actions
 
 ---
 
-## 3. Color Preview
+## 3. Color preview
 
-![Gradient preview](/img/admin-color-preview.png)
-*Automatically generated color palettes (variants 50-900)*
+![Gradient previews](/img/admin-color-preview.png)  
+*Automatically generated color palettes (variants 50–900)*
 
-This section automatically displays the **generated variants** from base colors.
+This section automatically displays the **generated variants** from the base colors.
 
-### 3.1 Gradient System
+### 3.1 Gradient system
 
 For each base color, the system generates **10 variants** (50, 100, 200, 300, 400, 500, 600, 700, 800, 900):
 
-- **50-400**: Light variants (blend with white)
+- **50–400**: Light variants (mixed with white)
 - **500**: Exact base color
-- **600-900**: Dark variants (blend with black)
+- **600–900**: Dark variants (mixed with black)
 
-### 3.2 Primary Color Preview
+### 3.2 Primary color preview
 
 **Section**: `Primary Color Preview`
 
 **Display**:
-- Complete palette of the 10 variants of the primary color
-- Hexadecimal code of each variant
+- Full palette of the 10 primary color variants
+- Hex code for each variant
 - Real-time visual preview
 
 **Generated CSS variables**:
@@ -213,13 +232,13 @@ For each base color, the system generates **10 variants** (50, 100, 200, 300, 40
 --theme-color-900
 ```
 
-### 3.3 Background Color Preview
+### 3.3 Background color preview
 
 **Section**: `Background Color Preview`
 
 **Display**:
-- Complete palette of the 10 variants of the background color
-- Hexadecimal code of each variant
+- Full palette of the 10 background color variants
+- Hex code for each variant
 - Real-time visual preview
 
 **Generated CSS variables**:
@@ -238,187 +257,187 @@ For each base color, the system generates **10 variants** (50, 100, 200, 300, 40
 
 ---
 
-## 4. Branding Images
+## 4. Branding images
 
-![Branding images section](/img/admin-images.png)
+![Branding images section](/img/admin-images.png)  
 *List of customizable images with previews*
 
-This section allows you to customize all images used in the application.
+This section lets you customize all images used in the application.
 
-### 4.1 Main Logo
+### 4.1 Main logo
 
 **Field**: `logo`
 
 **Description**: Main application logo displayed in the navigation bar.
 
-**Accepted format**: SVG, PNG, JPG
+**Accepted formats**: SVG, PNG, JPG
 
-**Recommended dimensions**: 
-- Width: 150-200px
-- Height: 40-60px
-- Format: SVG (for better quality)
+**Recommended dimensions**:
+- Width: 150–200px
+- Height: 40–60px
+- Format: SVG (best quality)
 
 **Visible effect**:
-- Displayed in the top left of the navigation bar
+- Displayed in the top-left of the navigation bar
 - Visible on all pages
-- Used as favicon
+- Used as the favicon
 
-![Main logo](/img/logo_main.png)
+![Main logo](/img/logo_main.png)  
 *Logo displayed in the navigation bar*
 
-**How to modify**:
-1. Click on "Choose a file" under the current preview
+**How to change**:
+1. Click “Choose file” under the current preview
 2. Select your new logo
-3. The preview appears immediately
-4. Click "Save configuration" to apply
+3. The preview updates immediately
+4. Click “Save configuration” to apply
 
-### 4.2 Default Thumbnail Image
+### 4.2 Default thumbnail image
 
 **Field**: `default_miniature_image`
 
-**Description**: Image used as default thumbnail for videos without custom thumbnail.
+**Description**: Image used as the default thumbnail for videos without a custom thumbnail.
 
-**Accepted format**: PNG, JPG, WEBP
+**Accepted formats**: PNG, JPG, WEBP
 
-**Recommended dimensions**: 
+**Recommended dimensions**:
 - Width: 1280px
 - Height: 720px
 - Ratio: 16:9
 
 **Visible effect**:
-- Displayed on video cards without thumbnail
+- Displayed on video cards without a thumbnail
 - Used in video lists
 - Visible on the home page
 
-**Example usage**:
-- New uploaded video without thumbnail
-- Video being processed
+**Usage examples**:
+- Newly uploaded video without a thumbnail
+- Video currently being processed
 - Placeholder for live events
 
-### 4.3 Add Icon
+### 4.3 Add icon
 
 **Field**: `add`
 
 **Description**: Icon used for add buttons.
 
-**Accepted format**: SVG (recommended), PNG
+**Accepted formats**: SVG (recommended), PNG
 
-**Recommended dimensions**: 24x24px or 32x32px
+**Recommended dimensions**: 24×24px or 32×32px
 
 **Visible effect**:
-- "Add a video" button
-- "Create an event" button
+- “Add a video” button
+- “Create an event” button
 - Add actions in forms
 
-### 4.4 Plus Icon
+### 4.4 Plus icon
 
 **Field**: `plus`
 
-**Description**: Plus icon used in interfaces.
+**Description**: Plus icon used throughout the UI.
 
-**Accepted format**: SVG (recommended), PNG
+**Accepted formats**: SVG (recommended), PNG
 
-**Recommended dimensions**: 24x24px
+**Recommended dimensions**: 24×24px
 
 **Visible effect**:
-- Expansion buttons
+- Expand buttons
 - Quick add actions
 - Dropdown menus
 
-![Plus icon](/img/logo_plus.png)
+![Plus icon](/img/logo_plus.png)  
 *Add icon used in the interface*
 
-### 4.5 Search Icon
+### 4.5 Search icon
 
 **Field**: `search`
 
-**Description**: Magnifying glass icon for search features.
+**Description**: Magnifying-glass icon for search features.
 
-**Accepted format**: SVG (recommended), PNG
+**Accepted formats**: SVG (recommended), PNG
 
-**Recommended dimensions**: 20x20px or 24x24px
+**Recommended dimensions**: 20×20px or 24×24px
 
 **Visible effect**:
 - Search bar in the header
 - Search fields in lists
 - Search filters
 
-![Search icon](/img/logo_search.png)
+![Search icon](/img/logo_search.png)  
 *Search icon in the navigation bar*
 
-### 4.6 Close Icon
+### 4.6 Close icon
 
 **Field**: `cross`
 
-**Description**: Cross icon to close modals and delete elements.
+**Description**: Close (X) icon to close modals and remove elements.
 
-**Accepted format**: SVG (recommended), PNG
+**Accepted formats**: SVG (recommended), PNG
 
-**Recommended dimensions**: 20x20px or 24x24px
+**Recommended dimensions**: 20×20px or 24×24px
 
 **Visible effect**:
-- Modal close button
-- Element deletion
-- Action cancellation
+- Close button on modals
+- Removing elements
+- Canceling actions
 
-![Close icon](/img/logo_cross.png)
-*Close icon used in modal windows*
+![Close icon](/img/logo_cross.png)  
+*Close icon used in modals*
 
-### 4.7 User Placeholder Image
+### 4.7 User placeholder image
 
 **Field**: `user_placeholder`
 
-**Description**: Default image for user profiles without photo.
+**Description**: Default image for user profiles without a photo.
 
-**Accepted format**: PNG, JPG, SVG
+**Accepted formats**: PNG, JPG, SVG
 
-**Recommended dimensions**: 
+**Recommended dimensions**:
 - Width: 200px
 - Height: 200px
 - Format: Square
 
 **Visible effect**:
 - Default avatar in profiles
-- Profile picture in comments
+- Profile image in comments
 - User icon in navigation
 
 ---
 
-## 5. Saving Configuration
+## 5. Saving the configuration
 
-### Save Button
+### Save button
 
-**Label**: `Save Configuration`
+**Label**: `Sauvegarder la configuration` / `Save Configuration`
 
 **Button states**:
 
-1. **Active (green)**: Changes have been detected
-   - The button is clickable
-   - Color: Theme primary color
+1. **Active (green)**: Changes have been detected  
+   - Button is clickable  
+   - Color: theme primary color
 
-![Active button](/img/admin-save-button-active.png)
+![Active button](/img/admin-save-button-active.png)  
 *Active save button (changes detected)*
-   
-2. **Disabled (gray)**: No changes
-   - The button is not clickable
-   - No changes to save
 
-![Disabled button](/img/admin-save-button-disabled.png)
+2. **Disabled (gray)**: No changes  
+   - Button is not clickable  
+   - Nothing to save
+
+![Disabled button](/img/admin-save-button-disabled.png)  
 *Disabled save button (no changes)*
 
-3. **In progress (gray)**: Save in progress
-   - Label: "Saving in progress..."
-   - The button is not clickable
+3. **In progress (gray)**: Saving in progress  
+   - Label: “Sauvegarde en cours...” / “Saving in progress...”  
+   - Button is not clickable
 
-### Save Process
+### Save process
 
-1. **Validation**: Verification of color formats
-2. **Conversion**: Transformation to YAML file
-3. **Upload**: Sending to server with images
-4. **Confirmation**: Success or error message
-5. **Reload**: The page reloads automatically after 200ms
+1. **Validation**: check color formats
+2. **Conversion**: transform into a YAML file
+3. **Upload**: send to the server with images
+4. **Confirmation**: success or error message
+5. **Reload**: page automatically reloads after 200ms
 
-### Return Messages
+### Feedback messages
 
 **Success**:
 ```
@@ -432,47 +451,47 @@ This section allows you to customize all images used in the application.
 ✗ Invalid color for [field_name]
 ```
 - Red toast at the top of the screen
-- Save is cancelled
+- Save is canceled
 
 **Server error**:
 ```
-✗ Error updating configuration
+✗ Error while updating configuration
 ```
 - Red toast at the top of the screen
 - Changes are not applied
 
 ---
 
-## 6. Recommended Workflow
+## 6. Recommended workflow
 
 ### Step 1: Planning
-1. Define your color palette (use tools like [Coolors](https://coolors.co/))
-2. Prepare your images at the right dimensions
-3. Test contrasts for accessibility
+1. Define your color palette (use tools like Coolors)
+2. Prepare your images with the right dimensions
+3. Test contrast for accessibility
 
-### Step 2: Color Modification
-1. Access the admin panel (`/admin`)
-2. Modify the primary color first
-3. Check the gradient preview
+### Step 2: Editing colors
+1. Go to the admin panel (`/admin`)
+2. Change the primary color first
+3. Check the gradient previews
 4. Adjust other colors accordingly
-5. Ensure contrasts are sufficient
+5. Make sure contrast is sufficient
 
-### Step 3: Image Modification
+### Step 3: Editing images
 1. Upload the main logo
 2. Check the preview
-3. Upload other images if necessary
-4. Verify dimensions are correct
+3. Upload other images if needed
+4. Ensure dimensions are correct
 
-### Step 4: Save and Verify
-1. Click "Save configuration"
-2. Wait for confirmation message
+### Step 4: Save and verify
+1. Click “Save configuration”
+2. Wait for the confirmation message
 3. The page reloads automatically
-4. Verify all changes are applied
+4. Verify that all changes are applied
 5. Test navigation in the application
 
 ---
 
-## 7. Tips and Best Practices
+## 7. Tips and best practices
 
 ### Colors
 
@@ -480,33 +499,33 @@ This section allows you to customize all images used in the application.
 - Use colors with good contrast (minimum ratio 4.5:1)
 - Test colors on different screens
 - Keep consistency with your brand guidelines
-- Use complete hexadecimal format (8 characters)
+- Use the full hex format (8 characters)
 
-**Don't**:
-- Colors too light for text
+**Avoid**:
+- Colors that are too light for text
 - Too many different colors (stay consistent)
-- Flashy colors that tire the eyes
-- Forget transparency in hex code
+- Flashy colors that strain the eyes
+- Forgetting transparency in the hex code
 
 ### Images
 
 **Do**:
-- Use SVG for logos and icons (better quality)
+- Use SVG for logos and icons (best quality)
 - Optimize image size (< 500 KB)
-- Respect recommended dimensions
-- Use images with transparent background for logos
+- Follow recommended dimensions
+- Use transparent backgrounds for logos
 
-**Don't**:
-- Too heavy images (> 2 MB)
+**Avoid**:
+- Heavy images (> 2 MB)
 - Poor quality or pixelation
 - Unsupported formats
-- Images with incorrect dimensions
+- Incorrect dimensions
 
 ### Accessibility
 
-- **Contrast**: Verify that text is readable on all backgrounds
-- **Color blindness**: Test your colors with color blindness simulators
-- **Size**: Ensure icons are large enough (minimum 24x24px)
+- **Contrast**: ensure text is readable on all backgrounds
+- **Color blindness**: test colors with color-blindness simulators
+- **Size**: make sure icons are large enough (minimum 24×24px)
 
 ---
 
@@ -516,23 +535,23 @@ This section allows you to customize all images used in the application.
 
 **Cause**: No changes detected
 
-**Solution**: Modify at least one field to activate the button
+**Solution**: Change at least one field to enable the button
 
-### "Invalid color" message
+### “Invalid color” message
 
 **Cause**: Incorrect color format
 
-**Solution**: 
+**Solution**:
 - Use the `#RRGGBBAA` format (8 characters)
 - Valid example: `#1dac78ff`
 - Invalid example: `#1dac78` (missing transparency)
 
-### Images are not displayed
+### Images do not display
 
 **Cause**: Unsupported format or size
 
 **Solution**:
-- Verify format (PNG, JPG, SVG)
+- Check the format (PNG, JPG, SVG)
 - Reduce size if > 2 MB
 - Verify dimensions
 
@@ -542,14 +561,53 @@ This section allows you to customize all images used in the application.
 
 **Solution**:
 1. Clear browser cache (Ctrl + Shift + R)
-2. Or wait for automatic reload after save
+2. Or wait for the automatic reload after saving
 
-### Error during save
+### Error while saving
 
-**Cause**: Server connection problem
+**Cause**: Server connection issue
 
 **Solution**:
 1. Check your internet connection
-2. Verify the backend server is active
+2. Verify the backend server is running
 3. Check server logs
-4. Contact system administrator
+4. Contact the system administrator
+
+---
+
+<a id="content-management"></a>
+
+## Content management {#content-management}
+
+On the right side of the admin panel (see the second screen), a new **Content management** tab lets you manage the service’s videos: listing, archiving, restoring, and permanently deleting.
+
+![Overview of the content management page](/img/admin-video-gestion.png)
+
+### Access and permissions
+
+- **Administrators**: can see all videos, including archived ones; they can **restore** a video (republish it) or **permanently delete** a video and its metadata.
+- **Standard users**: can **archive** their own videos from their user space; an archived video is no longer publicly visible and is not listed for the author in public views. Non-admin users do not see archived videos globally.
+
+### Page layout
+
+The page includes:
+
+- Filters at the top: `All`, `Active`, `Archived` to switch between states.
+- A table listing videos with the columns: **Title**, **Creator**, **Creation date**, **Views**, **Status**, **Actions**.
+
+### Available actions
+
+- **Archive** (user): hides the video from the public catalog and sets its status to “archived”.
+- **Restore** (admin): republishes the video (visible in public lists) with its metadata.
+- **Permanently delete** (admin): removes the video and its metadata from the platform — irreversible action.
+
+### Expected behavior
+
+- When a video is archived by its author, it disappears from public lists and is not visible by default. Only administrators can later restore or permanently delete it.
+- Restoring brings back the visibility and metadata as they were before archiving, provided the media files are still present in storage.
+
+### Best practices
+
+- Verify that a backup exists before any **permanent deletion**.
+- Log critical operations (restore, delete) for auditing.
+- Notify the author before permanent deletion when possible.

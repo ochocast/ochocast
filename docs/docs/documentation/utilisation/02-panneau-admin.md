@@ -18,11 +18,30 @@ Le panneau d'administration est organisé en plusieurs sections :
 2. **Couleurs du thème** - Palette de couleurs principale
 3. **Prévisualisation des couleurs** - Aperçu des dégradés générés
 4. **Images de branding** - Logos et icônes personnalisés
+5. **Gestion des contenus** - Archivage et administration des vidéos ([Accéder](#gestion-des-contenus))
 
-![Vue d'ensemble du panneau d'administration](/img/admin-panel-overview.png)
+![Vue d'ensemble du panneau d'administration](/img/admin-panel-overview2.png)
 *Vue complète du panneau d'administration avec toutes les sections*
 
+La section **Gestion des contenus** (voir lien ci‑dessus) couvre les opérations d'archivage des vidéos, ainsi que les fonctions réservées aux administrateurs : consultation des vidéos archivées, restauration et suppression définitive.
+
+![Vue du switch du panneau d'administration vers la gestion de vidéo admin](/img/admin-top-panel.png)
+
+Cette documentation est organisée en deux parties clairement séparées : la **configuration du thème** (sections 1–4) et la **gestion des contenus** (archivage et administration des vidéos). Utilisez ces raccourcis pour naviguer rapidement : [Configuration du thème](#configuration-du-theme) · [Gestion des contenus](#gestion-des-contenus)
+
 ---
+
+## Démarrage rapide
+
+1. Connectez-vous en tant qu'utilisateur administrateur.
+2. Ouvrez l'URL `/admin`.
+3. Dans **Informations générales**, modifiez `appName` si nécessaire puis cliquez sur **Sauvegarder la configuration**.
+4. Ajustez les couleurs dans **Couleurs du thème**.
+5. Uploadez les images dans **Images de Branding**, puis sauvegardez.
+
+---
+
+<a id="configuration-du-theme"></a>
 
 ## 1. Informations Générales
 
@@ -96,6 +115,7 @@ Le système de couleurs utilise un format hexadécimal avec transparence (8 cara
 3. OU entrez directement un code hexadécimal dans le champ texte
 
 ![Sélecteur de couleur](/img/admin-color-picker.png)
+
 *Color picker ouvert pour sélectionner une couleur*
 
 ### 2.2 Couleur Secondaire (Secondary)
@@ -326,6 +346,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Menus déroulants
 
 ![Icône plus](/img/logo_plus.png)
+
 *Icône d'ajout utilisée dans l'interface*
 
 ### 4.5 Icône de Recherche
@@ -344,6 +365,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Filtres de recherche
 
 ![Icône de recherche](/img/logo_search.png)
+
 *Icône de recherche dans la barre de navigation*
 
 ### 4.6 Icône de Fermeture
@@ -362,6 +384,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 - Annulation d'actions
 
 ![Icône de fermeture](/img/logo_cross.png)
+
 *Icône de fermeture utilisée dans les fenêtres modales*
 
 ### 4.7 Image Placeholder Utilisateur
@@ -397,6 +420,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
    - Couleur : Couleur principale du thème
 
 ![Bouton actif](/img/admin-save-button-active.png)
+
 *Bouton de sauvegarde actif (modifications détectées)*
    
 2. **Désactivé (gris)** : Aucune modification
@@ -404,6 +428,7 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
    - Aucun changement à sauvegarder
 
 ![Bouton désactivé](/img/admin-save-button-disabled.png)
+
 *Bouton de sauvegarde désactivé (aucune modification)*
 
 3. **En cours (gris)** : Sauvegarde en cours
@@ -553,3 +578,38 @@ Cette section permet de personnaliser toutes les images utilisées dans l'applic
 2. Vérifiez que le serveur backend est actif
 3. Consultez les logs du serveur
 4. Contactez l'administrateur système
+
+## Gestion des contenus {#gestion-des-contenus}
+
+Sur la droite du panneau d'administration (voir le second écran), un nouvel onglet **Gestion des contenus** permet d'administrer les vidéos du service : listes, archivage, restauration et suppression définitive.
+
+![Vue d'ensemble de la page gestion des contenus](/img/admin-video-gestion.png)
+
+### Accès et permissions
+
+- **Administrateurs** : peuvent voir toutes les vidéos, y compris les vidéos archivées ; ils peuvent **restaurer** une vidéo (la remettre en ligne) ou **supprimer définitivement** une vidéo et ses métadonnées.
+- **Utilisateurs classiques** : peuvent **archiver** leurs propres vidéos depuis leur espace utilisateur ; une vidéo archivée n'est plus visible publiquement ni listée pour l'auteur dans les vues publiques. Les utilisateurs non‑administrateurs ne voient pas les vidéos archivées globalement.
+
+### Organisation de la page
+
+La page comprend :
+
+- Des filtres en haut : `Toutes`, `Actives`, `Archivées` pour basculer entre les états.
+- Un tableau listant les vidéos avec les colonnes : **Titre**, **Créateur**, **Date de création**, **Vues**, **Statut**, **Actions**.
+
+### Actions disponibles
+
+- **Archiver** (utilisateur) : masque la vidéo du catalogue public et la place en statut "archivée".
+- **Restaurer** (administrateur) : remet la vidéo en publication (visible dans les listes publiques) avec ses métadonnées.
+- **Supprimer définitivement** (administrateur) : supprime la vidéo et ses métadonnées de la plateforme — action irréversible.
+
+### Comportement attendu
+
+- Lorsqu'une vidéo est archivée par son auteur, elle disparaît des listes publiques et n'est pas visible par défaut. Seuls les administrateurs peuvent ensuite restaurer ou supprimer définitivement.
+- La restauration rétablit la visibilité et les métadonnées telles qu'elles étaient avant l'archivage, à condition que les fichiers médias soient toujours présents sur le stockage.
+
+### Bonnes pratiques
+
+- Vérifier l'existence d'une sauvegarde avant toute **suppression définitive**.
+- Journaliser les opérations critiques (restauration, suppression) pour audit.
+- Prévenir l'auteur avant suppression définitive si possible.

@@ -1,4 +1,4 @@
-# Documentation de la structure en diamant du backend
+# Back-End
 
 ## Introduction
 Ce document décrit l'organisation du backend en suivant une architecture en diamant. Cette structure permet une séparation claire des responsabilités et une meilleure maintenabilité du code.

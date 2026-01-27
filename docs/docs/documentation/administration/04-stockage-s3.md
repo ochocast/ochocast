@@ -4,13 +4,13 @@ Ce guide explique comment configurer et gérer le stockage des objets en local e
 
 ---
 
-## 1. Stocker des objets en local avec MinIO
+## Stocker des objets en local avec MinIO
 
 MinIO permet d'émuler un stockage S3 en local.
 
 ### Démarrer MinIO
 
-Si le conteneur MinIO n'est pas lancé, exécutez la commande suivante depuis le dossier `localMinio` :
+Si le conteneur MinIO n'est pas lancé, exécutez depuis le dossier `localMinio` :
 
 ```bash
 cd localMinio
@@ -19,7 +19,7 @@ docker-compose up -d
 
 ### Prérequis
 
-Assurez-vous que les variables d'environnement suivantes sont définies dans le fichier **`/backend/.env`** :
+Définissez les variables suivantes dans `backend/.env` (ou équivalent) :
 
 ```bash
 STOCK_MEDIA_BUCKET=media
@@ -28,20 +28,17 @@ STOCK_PROFILE_PICTURE_BUCKET=picture
 STOCK_BRANDING_BUCKET=branding
 ```
 
-### Création des Buckets Locaux
+### Créer les buckets locaux
 
-Pour stocker les fichiers de médias et d'images (miniatures, photos de profil), créez **trois dossiers** dans **`/localMinio/run_env`** :
+Créez les dossiers suivants dans `localMinio/run_env` pour émuler les buckets :
 
 - `media`
 - `miniature`
 - `picture`
 - `branding`
 
-### Accéder à la Console MinIO
+### Accéder à la console MinIO
 
-Vous pouvez visualiser et gérer les fichiers stockés en accédant à l'interface MinIO :
-
-- **URL d'accès** : [http://localhost:9000](http://localhost:9000)
-- **Identifiants de connexion** :
-  - **Username** : `minioadmin`
-  - **Password** : `minioadmin`
+- **URL** : http://localhost:9000
+- **Username** : `minioadmin`
+- **Password** : `minioadmin`

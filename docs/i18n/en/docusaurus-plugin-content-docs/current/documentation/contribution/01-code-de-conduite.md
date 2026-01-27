@@ -5,36 +5,36 @@ hide_table_of_contents: false
 
 # Code of Conduct
 
-The OchoCast project is committed to providing a welcoming and respectful environment for all contributors, users, and community members.
+The OchoCast project is committed to providing a welcoming and respectful environment for all contributors, users and community members.
 
-## Our Commitments
+## Our commitments
 
-In the interest of fostering an open and welcoming environment, we pledge to make participation in our project and our community a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.
+To foster an open and welcoming environment, we commit to making participation in our project and community harassment-free for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, experience level, nationality, appearance, race, religion, or sexual orientation.
 
-## Our Standards
+## Our standards
 
-Behaviors that contribute to creating a positive environment include:
+Behaviors that contribute to a positive environment include:
 
 - Using welcoming and inclusive language
-- Respecting different points of view and experiences
+- Respecting different viewpoints and experiences
 - Gracefully accepting constructive criticism
 - Focusing on what is best for the community
-- Showing empathy towards other community members
+- Showing empathy toward other community members
 
-## Unacceptable Behaviors
+## Unacceptable behavior
 
-Examples of unacceptable behaviors include:
+Examples of unacceptable behavior include:
 
-- The use of sexualized language or images and unwelcome sexual advances
+- Sexualized language or imagery, and unwelcome sexual attention
 - Trolling, insulting or derogatory comments, and personal or political attacks
-- Public or private harassment
-- Publishing other people's private information without explicit permission
-- Any other conduct that could reasonably be considered inappropriate in a professional setting
+- Harassment, whether public or private
+- Publishing private information about others without explicit permission
+- Any other conduct that is inappropriate in a professional setting
 
-## Our Responsibilities
+## Our responsibilities
 
-Project maintainers are responsible for clarifying the standards of acceptable behavior and are expected to take appropriate and fair corrective action in response to any unacceptable behavior.
+Project maintainers are responsible for clarifying standards of acceptable behavior and taking appropriate and fair corrective action in response to unacceptable behavior.
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team. All complaints will be reviewed and investigated, and will result in a response deemed necessary and appropriate to the circumstances.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project team. All complaints will be reviewed and investigated, and appropriate action will be taken based on the circumstances.

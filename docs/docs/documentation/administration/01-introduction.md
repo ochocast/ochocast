@@ -1,37 +1,15 @@
 # Administration
 
-Bienvenue dans le guide d'administration d'OchoCast ! Cette section est destinée aux administrateurs de la plateforme.
-
-## Infrastructure Scaleway
+Bienvenue dans le guide d'administration d'OchoCast — destiné aux opérateurs et administrateurs de la plateforme.
 
 ![](/img/infra_scaleway.png)
 
-## Frontend
+## Vue d'ensemble
 
-OchoCast est un site web statique stocké dans un Object Storage, permettant de servir le front-end via le CDN (Content Delivery Network) de Scaleway.
+Cette section regroupe les éléments d'infrastructure et d'exploitation : frontend, backend, base de données, stockage et streaming.
 
-En savoir plus à ce sujet [ici](./02-frontend.md).
-
-## Backend
-
-OchoCast est une application Docker en TypeScript qui fonctionne en mode serverless. La dernière image est stockée dans le registre Scaleway et est écrasée à chaque déploiement.
-
-En savoir plus à ce sujet [ici](./03-backend.md).
-
-## Base de données
-
-OchoCast utilise une DB PostgreSQL gérée par Scaleway, exposé sur Internet et protégé uniquement par mot de passe (en raison de l'impossibilité de connecter un service serverless et une base de données gérée sur un réseau privé chez Scaleway).
-
-En savoir plus à ce sujet [ici](./07-base-de-donnees.md).
-
-## Stockage S3
-
-En savoir plus à ce sujet [ici](./04-stockage-s3.md).
-
-## Streaming vidéo
-
-Des instances de calcul standard sont nécessaires, car plusieurs ports sont utilisés (ce qui n'est pas possible en mode serverless).
-
-En savoir plus sur le streaming vidéo :
-- Consultez le [fichier](./08-serveur-rtmp.md) pour le serveur RTMP
-- Consultez le [fichier](./09-serveur-websocket.md) pour le serveur WebSocket
+- Frontend : site statique servi via un Object Storage + CDN. Voir [Front-End](./02-frontend.md).
+- Backend : application TypeScript packagée en conteneur Docker. Voir [Backend](./03-backend.md).
+- Base de données : PostgreSQL (gérée). Voir [Base de données](./07-base-de-donnees.md).
+- Stockage : buckets S3/MinIO pour médias et miniatures. Voir [Stockage S3](./04-stockage-s3.md).
+- Streaming vidéo : services nécessitant instances (RTMP/HLS/DASH, WebSocket). Voir [Serveur RTMP](./08-serveur-rtmp.md) et [Serveur WebSocket](./09-serveur-websocket.md).

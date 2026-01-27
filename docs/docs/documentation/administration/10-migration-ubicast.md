@@ -58,20 +58,17 @@ Le script utilise plusieurs variables d'environnement pour stocker les informati
 - Améliorer la recherche de vidéos (via API Search ou fichier Excel).
 - Automatiser la récupération de toutes les vidéos UbiCast.
 
-## Configuration
+## Configuration (variables d'environnement)
 
-### 1. **Variables de connexion**
+Les principales variables attendues :
 
-| Variable        | Description                                           |
-| --------------- | ----------------------------------------------------- |
-| `API_KEY`       | Clé API pour accéder à l'API UbiCast.                 |
-| `API_BASE_URL`  | URL de l'API UbiCast.                                 |
-| `BUCKET_NAME`   | Nom du bucket Scaleway où les vidéos seront stockées. |
-| `REGION`        | Région du service Scaleway.                           |
-| `S3_ACCESS_KEY` | Clé d'accès Scaleway S3.                              |
-| `S3_SECRET_KEY` | Clé secrète Scaleway S3.                              |
+- `API_KEY` : clé API Ubicast
+- `API_BASE_URL` : URL de l'API Ubicast
+- `BUCKET_NAME` : bucket Scaleway
+- `REGION` : région Scaleway
+- `S3_ACCESS_KEY` / `S3_SECRET_KEY` : accès Scaleway S3
 
-Les valeurs des variables sensibles doivent être configurées dans le fichier .env ou des secrets d'environnement.
+Configurez ces variables dans un fichier `.env` ou via vos secrets d'environnement.
 
 ### 1. **Base de données PostgreSQL**
 

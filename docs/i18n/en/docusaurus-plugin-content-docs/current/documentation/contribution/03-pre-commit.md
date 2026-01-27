@@ -2,58 +2,61 @@
 
 ## Principle
 
-This configuration uses **Husky** and **lint-staged** to automatically perform code checks and fixes **before each commit**.
+This configuration uses **Husky** and **lint-staged** to run checks and fixes automatically **before each commit**.
 
 ---
 
 ## What it does
 
-### For *frontend* files:
-- **ESLint**: automatically fixes formatting errors *and* some best practice errors.
-- **Prettier**: automatically formats code (indentation, spaces, etc.).
+### For frontend files:
+- **ESLint**: automatically fixes formatting issues and some best-practice problems.
+- **Prettier**: automatically formats code (indentation, spacing, etc.).
 
-### For *backend* files:
-- **Prettier only**: applies automatic formatting (no ESLint lint on backend).
+### For backend files:
+- **Prettier only**: applies automatic formatting (no ESLint on backend).
 
 ---
 
-## What happens concretely
+## Behavior
 
 ### Automatic formatting
-- Before each commit, code is **automatically formatted** thanks to Prettier (and ESLint for the frontend).
+- Before each commit, code is **automatically formatted** via Prettier (and ESLint for frontend).
 
 ### Commit blocking
-- The commit will be **blocked** if **ESLint detects errors that cannot be automatically fixed** (frontend only).
-  - This may include errors of:
+- Commits are **blocked** if **ESLint finds non-fixable errors** (frontend only).
+  - These may include issues related to:
     - Best practices
     - Security
     - Accessibility
 
 ---
 
-## In practice
+## Practical notes
 
-- **No need to format manually**.
-- **Nothing changes** in the way you commit (`git commit` works normally).
-- **Sometimes best practice errors will be raised** automatically.
+- **No manual formatting required**.
+- **`git commit` works as usual**.
+- **You may encounter linter errors that need manual fixes**.
 
-### In case of blocking
-- If you are blocked by an error that is difficult to fix:
+### If a commit is blocked
 
-  ```bash
-  git commit -m "fix: toto" --no-verify
-  ```
+Run:
 
-## Installing dependencies
-After retrieving this update, don't forget to install the new dependencies:
-  ```bash
-  npm install
-  ```
+```bash
+git commit -m "fix: message" --no-verify
+```
+
+## Install dependencies
+After pulling updates, install dependencies:
+
+```bash
+npm install
+```
 
 ---
-## Updating pre-commit configs
-**Pre-commit config:** "lint-staged" in the *package.json* at the project root
 
-**Eslint config:** *eslint.config.js* at the project root
+## Update pre-commit configs
+**Pre-commit config:** `lint-staged` in the root `package.json`
 
-**Prettier config:** *prettier.config.js* at the project root
+**ESLint config:** `eslint.config.js` at project root
+
+**Prettier config:** `prettier.config.js` at project root

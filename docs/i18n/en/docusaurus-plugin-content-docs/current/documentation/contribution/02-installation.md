@@ -4,16 +4,16 @@ This guide explains how to install and configure OchoCast locally.
 
 ### Prerequisites
 
-- **Git** installed on your machine
+- **Git** installed
 - **Docker and Docker Compose**
-- **Node.js** (recommended version: LTS)
+- **Node.js** (recommended: LTS)
 - **npm** or **yarn**
 
 ---
 
 ### 1. Clone the project
 
-Clone the project from GitHub:
+Clone the repository from GitHub:
 
 ```bash
 git clone <GITHUB_REPO_URL>
@@ -30,97 +30,93 @@ From the project root, run:
 docker-compose up -d
 ```
 
-This `docker-compose.yml` file initializes the necessary services.
+This `docker-compose.yml` brings up the necessary services.
 
 ---
 
-### 3. Keycloak Configuration
+### 3. Keycloak configuration
 
 Keycloak is used for user authentication.
 
-1. Access the **localkeycloak** folder:
+1. Go to the `localKeycloak` folder:
 
-   ```bash
-   cd localKeycloak
-   cp .env.example .env
-   ```
+```bash
+cd localKeycloak
+cp .env.example .env
+```
 
-2. You can connect to Keycloak by visiting [http://localhost:8080](http://localhost:8080) in your browser.
+2. Open [http://localhost:8080](http://localhost:8080) in your browser to access Keycloak.
 
-3. Normally, the **local realm** is automatically imported via Docker Compose, but no user is created by default.
+3. The local realm is usually imported automatically via Docker Compose, but no users are created by default.
 
 #### Creating a user in Keycloak
 
-1. Access the Keycloak administration console.
-2. Select your realm from the dropdown menu.
-3. Click on **"Users"**, then on **"Add User"**.
-4. Fill in the information (username, email, first name, last name).
-5. Click **"Save"** to register the user.
-6. Go to the **"Credentials"** tab, then set a password for the user.
+1. Open the Keycloak admin console.
+2. Select your realm from the dropdown.
+3. Click “Users”, then “Add User”.
+4. Fill in username, email, first name and last name.
+5. Click “Save”.
+6. In the “Credentials” tab, set a password for the user.
 
 ---
 
-### 4. Backend Configuration
+### 4. Backend configuration
 
-1. Access the **backend** folder:
+1. Go to the `backend` folder:
 
-   ```bash
-   cd backend
-   cp .env.example .env
-   ```
+```bash
+cd backend
+cp .env.example .env
+```
 
-2. Copy-paste the **"nest-back" client secret** from Keycloak into the `AUTH_SECRET` environment variable.
-
-   **If the displayed secret is `\*\***` or similar, regenerate it before copying.**
+2. Copy the `nest-back` client secret from Keycloak into the `AUTH_SECRET` environment variable.
 
 ---
 
-### 5. Frontend Configuration
+### 5. Frontend configuration
 
-1. Verify that the database and Keycloak are properly configured.
-2. Access the **frontend** folder:
+1. Ensure the database and Keycloak are configured.
+2. Go to the `frontend` folder:
 
-   ```bash
-   cd frontend
-   cp .env.example .env
-   ```
+```bash
+cd frontend
+cp .env.example .env
+```
 
-3. Copy the environment variables from the `.env.example` file to `.env` and configure them if necessary.
+3. Copy environment variables from `.env.example` to `.env` and configure them as needed.
 
 ---
 
-### 6. Launch the application
+### 6. Start the application
 
-Once the services are configured, you can start the project.
+After configuration, start the project.
 
-#### Installing dependencies
+#### Install dependencies
 
-In the **frontend** folder, run:
+In the `frontend` folder run:
 
 ```bash
 npm install
 ```
 
-#### Start the project
-
-Launch the frontend:
+#### Start the frontend
 
 ```bash
 npm start
 ```
 
-You can also launch **the backend and frontend simultaneously** from the project root.
+You can also run the backend and frontend together from the project root.
 
 ---
 
 ### Verification
 
-- **Keycloak** is accessible via [http://localhost:8080](http://localhost:8080).
-- **The backend** is accessible on `http://localhost:<BACKEND_PORT>`.
-- **The frontend** is accessible on `http://localhost:<FRONTEND_PORT>`.
+- **Keycloak** should be available at [http://localhost:8080](http://localhost:8080).
+- **Backend** should be accessible at `http://localhost:<BACKEND_PORT>`.
+- **Frontend** should be accessible at `http://localhost:<FRONTEND_PORT>`.
 
 ---
 
-### Octocast is now ready to use
+### OchoCast is ready to use
 
-If you encounter problems, make sure all environment variables are properly configured and all Docker services are started.
+If you encounter issues, verify environment variables and ensure all Docker services are up.

@@ -1,45 +1,52 @@
 # Database
 
-In this project, we use TypeORM to interact with the PostgreSQL database.
+In this project we use TypeORM to interact with a PostgreSQL database.
 
-When you change a property of an entity (example file: /backend/src/tags/infra/gateways/entities/tag.entity.ts), this changes the description of the object in the database (for example adding a "toto" field in the entity will add a "toto" column to the tag_entity table).
+When you change a property of an `Entity` (for example `/backend/src/tags/infra/gateways/entities/tag.entity.ts`), it changes the database schema (e.g., adding a `toto` field in the entity will add a `toto` column to the `tag_entity` table).
 
-These changes can be applied automatically by creating and executing a migration.
+These changes can be applied automatically by creating and running a migration.
 
-## 1- Create a migration
+## 1. Generate a migration
 
-After changing the fields in the entity, open a terminal in the /backend/ folder
+After modifying an `Entity`, open a terminal in the `backend/` folder:
 
-To generate a migration, use the command "npm run migration:generate"
+To generate a migration, run:
+```bash
+npm run migration:generate
+```
 
-A new migration has been created in the /backend/migrations folder, you must ensure that the migration changes (in PostgreSQL queries) correspond to the changes that were made in the entity.
+A new migration file is created in `/backend/migrations`. Make sure the SQL statements in the migration match the entity changes.
 
-## 2- Execute a migration
+## 2. Run migrations
 
-To execute a migration (and therefore apply changes to the database), in the /backend/ folder, use the command "npm run migration:run".
+To apply migrations:
 
-If there are no error messages, the modifications have been applied to the local database.
+```bash
+npm run migration:run
+```
 
-## 3- Production Application
+If the command finishes without errors, the changes are applied to the configured database (see `src/config/typeorm.config.ts`).
 
-Thanks to CI/CD, migrations that have been pushed are automatically executed during production deployment with the same commands as locally
+## 3. Production
 
-## 4- Troubleshooting
+In our CI/CD pipeline, migrations run automatically during deployment. Ensure production database configuration and backups are in place before applying critical migrations.
 
-If problems occur during migration execution, there are several points to check:
-- have the changes already been applied without the migration?
-- are the changes impossible to apply due to constraints (creation of a new column that cannot be NULL and without a default value)
+## 4. Troubleshooting
 
-### 4.1- Changes are already applied
+If an error occurs while running migrations, check:
+- whether the changes were already applied without the migration
+- whether the changes cannot be applied due to constraints (e.g., creating a non-null column without a default value)
 
-If all the migration changes are already in the database, it is possible to directly add the migration to the executed migrations in the PostgreSQL database.
+### 4.1 Changes already applied
 
-To solve this problem:
-- manually connect to the database and check the "migrations" table
-- insert into the "migrations" table the following values: the migration identifier (name) and the current timestamp (timestamp)
+If all migration changes are already present in the database, you can mark the migration as applied in the PostgreSQL migrations table.
 
-verify that the migration has been added by relaunching the command "npm run migration:run"
+To resolve:
+- connect to the database and inspect the `migrations` table
+- insert a row with the migration identifier (`name`) and the current timestamp (`timestamp`)
 
-### 4.2- A NULL column causes problems
+Verify the migration has been recorded by re-running `npm run migration:run`.
 
-Add a default value or remove the NOT NULL constraint from the column in the entity, delete the problematic migration file, then restart the migration generation and execution commands.
+### 4.2 NULL column issue
+
+Add a default value or remove the NOT NULL constraint from the entity, delete the problematic migration file, then regenerate and run migrations again.
