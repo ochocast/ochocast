@@ -84,6 +84,14 @@
   margin: 0;
 }
 
+.title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .tagList {
   display: flex;
   flex-direction: row;

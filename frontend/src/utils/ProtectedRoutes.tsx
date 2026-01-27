@@ -14,6 +14,25 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Mettre à jour le token dans localStorage quand le token change (ex: renouvellement)
+  useEffect(() => {
+    if (auth.user?.access_token) {
+      const userString = localStorage.getItem('backendUser');
+      if (userString) {
+        try {
+          const user = JSON.parse(userString);
+          if (user.token !== auth.user.access_token) {
+            user.token = auth.user.access_token;
+            localStorage.setItem('backendUser', JSON.stringify(user));
+            console.log('Token updated in localStorage');
+          }
+        } catch (e) {
+          console.error('Error updating token in localStorage:', e);
+        }
+      }
+    }
+  }, [auth.user?.access_token]);
+
   useEffect(() => {
     if (auth.isLoading) {
       return;
@@ -27,7 +46,12 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
         try {
           const res = await loginUser();
           //console.log('Backend user:', res.data);
-          localStorage.setItem('backendUser', JSON.stringify(res.data));
+          // Stocker les données utilisateur ET le token pour les requêtes XHR
+          const userWithToken = {
+            ...res.data,
+            token: auth.user?.access_token,
+          };
+          localStorage.setItem('backendUser', JSON.stringify(userWithToken));
 
           // Après authentification réussie, rediriger vers l'URL sauvegardée
           const savedPath = sessionStorage.getItem(REDIRECT_PATH_KEY);

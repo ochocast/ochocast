@@ -360,6 +360,23 @@
   },
   "messages": "Messages",
   "track": "Piste",
+  "uploadPanel": "Panneau de téléversement",
+  "uploads": "Téléversements",
+  "noUploads": "Aucun téléversement en cours",
+  "clearCompleted": "Effacer terminés",
+  "remove": "Supprimer",
+  "viewVideo": "Voir la vidéo",
+  "uploadStatusPending": "En attente...",
+  "uploadStatusUploading": "Téléversement...",
+  "uploadStatusProcessing": "Traitement en cours...",
+  "uploadStatusCompleted": "Terminé !",
+  "uploadStatusError": "Erreur",
+  "uploadStarted": "Téléversement démarré",
+  "uploadCompleted": "Vidéo téléversée avec succès !",
+  "uploadFailed": "Échec du téléversement",
+  "dismiss": "Fermer",
+  "retry": "Réessayer",
+  "goToUploadPage": "Nouvelle tentative",
   "publiéLe": "Publié le",
   "orateurs": "Orateurs",
   "recommandation": "Recommandation",
@@ -369,4 +386,3 @@
   "intervenantsExternes": "Intervenants externes",
   "save": "Sauvegarder"
 }
-

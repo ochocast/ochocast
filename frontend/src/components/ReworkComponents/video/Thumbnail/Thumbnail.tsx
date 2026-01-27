@@ -237,7 +237,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           props.showEditButton ? styles.descriptionNoButton : styles.description
         }
       >
-        <h2 className={styles.createBy}>{props.title}</h2>
+        <h2 className={styles.title}>{props.title}</h2>
         <h3 className={styles.createBy}>
           {' '}
           {t('createdBy')} : {props.createBy}

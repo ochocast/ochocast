@@ -22,7 +22,6 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 import { v4 as uuidv4 } from 'uuid';
 import {
-  createVideo,
   getVideoByTitle,
   createTag,
   getVideo,
@@ -31,6 +30,8 @@ import {
   deleteVideo,
   getMiniature,
 } from '../../utils/api';
+import { uploadVideoWithProgress } from '../../utils/uploadService';
+import { useUploadContext } from '../../context/UploadContext';
 import { Tag_video } from '../../utils/VideoProperties';
 
 import { Video } from '../../utils/VideoProperties';
@@ -54,10 +55,13 @@ interface VideoSettingsProps {}
 const VideoSettings: FC<VideoSettingsProps> = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const auth = useAuth();
   const { videoId } = useParams();
   const [baseVideo, setBaseVideo] = useState<Video>();
+
+  // Upload context for async upload tracking
+  const { addUpload, updateUpload } = useUploadContext();
 
   // LocalStorage helpers
   const STORAGE_KEY = 'videoSettings_draft';
@@ -637,68 +641,54 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     form.append('tags', JSON.stringify(tags));
     form.append('internal_speakers', JSON.stringify([]));
     form.append('external_speakers', getCombinedSpeakers());
-    /*form.append(
-      'comments',
-      JSON.stringify([{ id: uuidv4(), content: 'Super vidéo!' }]),
-    );*/
-    setIsLoading(true);
-    await createVideo(form)
-      .then((response: ApiResponse<unknown>) => {
-        if (
-          response.status === 202 ||
-          response.status === 201 ||
-          response.status === 204 ||
-          response.status === 200
-        ) {
-          setIsLoading(false);
-          clearLocalStorage(); // Clear saved draft after successful upload
-          // Redirect to the created video page
-          let createdVideoId: string | undefined;
-          if (
-            response.data &&
-            typeof response.data === 'object' &&
-            'id' in response.data &&
-            typeof (response.data as { id?: unknown }).id === 'string'
-          ) {
-            createdVideoId = (response.data as { id: string }).id;
-          } else if (typeof response.data === 'string') {
-            createdVideoId = response.data;
-          }
-          if (createdVideoId && typeof createdVideoId === 'string') {
-            navigate(`/video/${createdVideoId}`, {
-              state: {
-                toast: {
-                  message: t('successVideo'),
-                  type: 'success',
-                },
-              },
-            });
-          } else {
-            // Fallback to videos list if no ID
-            navigate('/videos', {
-              state: {
-                toast: {
-                  message: t('successVideo'),
-                  type: 'success',
-                },
-              },
-            });
-          }
-        } else {
-          setToast({
-            message: t('failedLoading') + `:${response}`,
-            type: 'error',
-          });
-        }
-      })
-      .catch((error: unknown) => {
-        console.error('Erreur lors du chargement de la vidéo :', error);
-        setToast({
-          message: t('failedLoadingVideo'),
-          type: 'error',
+
+    // Générer un ID unique pour cet upload
+    const uploadId = uuidv4();
+
+    // Ajouter l'upload au contexte pour le suivi
+    addUpload({
+      id: uploadId,
+      fileName: media!.name,
+      title: title,
+      progress: 0,
+      status: 'uploading',
+    });
+
+    // Clear localStorage and redirect immediately
+    clearLocalStorage();
+
+    // Show toast and redirect to videos page with panel open
+    setToast({
+      message: t('uploadStarted'),
+      type: 'info',
+    });
+
+    // Redirect to videos page - the upload will continue in background
+    navigate('/videos');
+
+    // Start the async upload with progress tracking
+    uploadVideoWithProgress(form, {
+      onProgress: (progress: number) => {
+        updateUpload(uploadId, {
+          progress,
+          status: progress === 100 ? 'processing' : 'uploading',
         });
-      });
-    setIsLoading(false);
+      },
+      onComplete: (response: { id: string }) => {
+        updateUpload(uploadId, {
+          progress: 100,
+          status: 'completed',
+          videoId: response.id,
+        });
+        // The notification will be shown via the UploadPanel
+      },
+      onError: (error: string) => {
+        updateUpload(uploadId, {
+          status: 'error',
+          errorMessage: error,
+        });
+      },
+    });
   };
 
   const handleArchiveClick = () => {
@@ -1084,7 +1074,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   return (
     <>
       <div className={styles.header}>
-        <NavigateBackButton />
+        <NavigateBackButton customPageUrl="/videos" />
         <h1 className={styles.title}>
           {videoId !== undefined ? t('modifyVideo') : t('publish')}
         </h1>
