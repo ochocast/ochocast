@@ -17,6 +17,9 @@ const InputFile = ({
 }: InputFileProps) => {
   const { t } = useTranslation();
   const effectiveplaceholder = placeholder ?? t('DragOrSelectFiles');
+  // Generate a unique ID for each input to avoid conflicts
+  const inputId = React.useId();
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files;
     if (file === null) {
@@ -27,7 +30,7 @@ const InputFile = ({
       const fileArea = e.target.closest(`.${styles.fileArea}`);
       if (fileArea) {
         const fileDummyDefault = fileArea.querySelector(
-          `.${styles.fileDummy} .default`,
+          `.${styles.fileDummy} .${styles.default}`,
         );
         if (fileDummyDefault) {
           fileDummyDefault.innerHTML = file[0].name; // Set the innerHTML to the name of the selected file
@@ -39,17 +42,20 @@ const InputFile = ({
 
   return (
     <div className={styles.fileArea}>
-      {/* <label>Upload Your File <span className="required">*</span></label> */}
+      <label htmlFor={inputId} className={styles.visuallyHidden}>
+        {effectiveplaceholder}
+      </label>
       <input
         type="file"
         name={t('Images')}
-        id="images"
+        id={inputId}
         onChange={handleFileSelect}
         disabled={disable}
         required={required}
+        aria-label={effectiveplaceholder}
       />
-      <div className={styles.fileDummy}>
-        <div className="default">{effectiveplaceholder}</div>
+      <div className={styles.fileDummy} aria-hidden="true">
+        <div className={styles.default}>{effectiveplaceholder}</div>
       </div>
     </div>
   );

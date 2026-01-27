@@ -1094,7 +1094,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         )}
       </div>
 
-      <div className={styles.videoSettings}>
+      <main className={styles.videoSettings}>
         <div className={styles.contentWrapper}>
           <div className={styles.addVideoForm}>
             <div className={styles.requiredNotice}>
@@ -1479,7 +1479,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             onClose={() => setToast(null)}
           />
         )}
-      </div>
+      </main>
     </>
   );
 };
