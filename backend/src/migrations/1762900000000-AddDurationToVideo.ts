@@ -5,7 +5,7 @@ export class AddDurationToVideo1762900000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(
-      `ALTER TABLE "video_entity" ADD COLUMN "duration" integer`,
+      `ALTER TABLE "video_entity" ADD COLUMN "duration" double precision NULL`,
     );
   }
 
