@@ -6,7 +6,7 @@ on:
 jobs:
   build-and-push-front:
     name: build-and-push-front
-    runs-on: ubuntu-latest
+    runs-on: swann-local
     defaults:
       run:
         working-directory: frontend
@@ -36,7 +36,7 @@ jobs:
 
   build-and-push-back:
     name: build-and-push-back
-    runs-on: ubuntu-latest
+    runs-on: swann-local
     defaults:
       run:
         working-directory: backend
@@ -62,10 +62,10 @@ jobs:
           push: true
           # List of tags
           tags: ${{ secrets.SCW_CONTAINER }}
-  
+
   deploy-back:
     name: deploy-back
-    runs-on: ubuntu-latest
+    runs-on: swann-local
     needs: build-and-push-back
 
     steps:
@@ -104,7 +104,7 @@ jobs:
 
   deploy-front:
     name: deploy-front
-    runs-on: ubuntu-latest
+    runs-on: swann-local
     needs: build-and-push-front
 
     steps:
@@ -148,7 +148,7 @@ jobs:
           scw container domain create container-id=$CONTAINER_ID hostname=demo.ochocast.fr
 #  build-and-push-rtmpServer:
 #    name: build-and-push-rtmpServer
-#    runs-on: ubuntu-latest
+#    runs-on: swann-local
 #    defaults:
 #      run:
 #        working-directory: rtmpServer
@@ -173,10 +173,10 @@ jobs:
 #          # Push is a shorthand for --output=type=registry
 #          push: true
 #          tags: ${{ vars.SCW_CONTAINER_RTMP }}
-#  
+#
 #  build-and-push-webSocketServer:
 #    name: build-and-push-webSocketServer
-#    runs-on: ubuntu-latest
+#    runs-on: swann-local
 #    defaults:
 #      run:
 #        working-directory: webSocketServer

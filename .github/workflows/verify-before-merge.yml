@@ -8,7 +8,7 @@ on:
 jobs:
   lint:
     name: lint
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: .
@@ -32,7 +32,7 @@ jobs:
 
   build-front:
     name: build-front
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: frontend
@@ -49,26 +49,31 @@ jobs:
 
   build-back:
     name: build-back
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     defaults:
       run:
         working-directory: backend
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+#      - name: Set up Docker Buildx
+#        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+#        with:
+#          driver: docker
+#
+#      - name: Build backend Docker image
+#        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+#        with:
+#          context: ./backend
+#          load: true
+#          tags: temp-backend:latest
 
       - name: Build backend Docker image
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
-        with:
-          context: ./backend
-          load: true
-          tags: temp-backend:latest
+        run: docker build -t temp-backend:latest .
 
   build-backend-test:
     name: build-backend-test
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-back
     defaults:
       run:
@@ -91,7 +96,7 @@ jobs:
 
   run-tests-bakcend:
     name: run-tests-bakcend
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-backend-test
     defaults:
       run:
