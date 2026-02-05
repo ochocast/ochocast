@@ -18,11 +18,17 @@ import { GetSubtitleUsecase } from './domain/usecases/getSubtitle.usecase';
 import { UsersModule } from 'src/users/users.module';
 import { searchVideoAdminUseCase } from './domain/usecases/searchVideoAdmin.usecase';
 import { RestoreVideoUsecase } from './domain/usecases/restoreVideo.usecase';
+import { QueueModule } from 'src/queue/queue.module';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VideoEntity]), S3Module, UsersModule],
+  imports: [
+    TypeOrmModule.forFeature([VideoEntity]),
+    S3Module,
+    UsersModule,
+    QueueModule,
+  ],
   controllers: [VideosController],
   providers: [
     {

@@ -14,6 +14,7 @@ import { ConfigManagementModule } from './config-management/config-management.mo
 import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from './chat/chat.module';
 import { PollsModule } from './polls/polls.module';
+import { QueueModule } from './queue/queue.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { PollsModule } from './polls/polls.module';
     ConfigManagementModule,
     ChatModule,
     PollsModule,
+    QueueModule,
   ],
 })
 export class AppModule {}

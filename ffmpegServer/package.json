@@ -1,0 +1,31 @@
+{
+  "name": "ffmpeg-transcoding-service",
+  "version": "1.0.0",
+  "description": "FFmpeg video transcoding service with RabbitMQ queue and horizontal scaling",
+  "main": "dist/worker.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/worker.js",
+    "dev": "ts-node src/worker.ts",
+    "test:connection": "ts-node src/test-connection.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.400.0",
+    "@aws-sdk/lib-storage": "^3.400.0",
+    "amqplib": "^0.10.3",
+    "fluent-ffmpeg": "^2.1.2",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "sharp": "^0.33.0",
+    "uuid": "^9.0.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/fluent-ffmpeg": "^2.1.24",
+    "@types/amqplib": "^0.10.4",
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
+  }
+}
