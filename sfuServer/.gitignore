@@ -1,0 +1,17 @@
+server.exe
+server
+
+# Environment variables
+.env
+
+# SSL certificates
+*.pem
+*.crt
+*.key
+
+__pycache__/
+# Binaries
+bin/
+whip-server
+controlplane-server
+.pids

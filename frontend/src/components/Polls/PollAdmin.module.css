@@ -1,0 +1,66 @@
+.container {
+  background: var(--theme-color-50, #f9fafb);
+  border: 1px solid var(--theme-color-200, #e5e7eb);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.container h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-color-900, #111827);
+}
+
+.empty {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  color: var(--theme-color-500, #6b7280);
+  font-size: 12px;
+}
+
+.pollsList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pollCard {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+
+.pollCard:hover {
+  box-shadow: 0 4px 12px var(--shadow-md, rgba(0, 0, 0, 0.08));
+}
+
+.closeBtn {
+  display: block;
+  width: 100%;
+  margin: 8px 0 0 0;
+  padding: 6px 12px;
+  background: var(--theme-color-300, #d1d5db);
+  color: var(--theme-color-900, #111827);
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.closeBtn:hover:not(:disabled) {
+  background: var(--theme-color-400, #9ca3af);
+  transform: translateY(-1px);
+}
+
+.closeBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

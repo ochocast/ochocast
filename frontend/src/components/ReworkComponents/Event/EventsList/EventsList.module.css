@@ -1,0 +1,32 @@
+.eventsList {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  margin: 63px;
+  row-gap: 50px;
+  --arrow-color: var(--theme-color-700);
+}
+
+.title {
+  font-size: 36px;
+  margin-left: 150px;
+  text-shadow: 0 4px 4px var(--theme-color-3400);
+}
+
+.list {
+  display: flex;
+  flex-direction: row;
+  align-self: center;
+  align-items: center;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  column-gap: 44px;
+}
+
+.arrow {
+  cursor: pointer;
+  margin-inline: 40px;
+}

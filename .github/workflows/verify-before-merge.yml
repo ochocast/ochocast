@@ -1,0 +1,106 @@
+name: Check compilation before merging to main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    name: lint
+    # Empêche l'exécution pour les branches commençant par renovate/
+    if: ${{ !startsWith(github.head_ref, 'renovate/') }}
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Show working directory
+        run: pwd
+      - name: Debug — list files
+        run: ls -la
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+      - name: Install dependencies (root)
+        run: npm ci
+      - name: Run ESLint on frontend
+        run: npx eslint frontend --ext .ts,.tsx,.js,.jsx
+      - name: Run Prettier check on frontend and backend
+        run: npx prettier --check "frontend/**/*.{js,jsx,ts,tsx}" "backend/**/*.{js,jsx,ts,tsx}"
+
+  build-front:
+    name: build-front
+    if: ${{ !startsWith(github.head_ref, 'renovate/') }}
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "18.x"
+          cache: "npm"
+          cache-dependency-path: ./frontend
+      - run: npm ci
+      - run: npm run build --if-present
+
+  build-back:
+    name: build-back
+    if: ${{ !startsWith(github.head_ref, 'renovate/') }}
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Build backend Docker image
+        run: docker build -t temp-backend:latest .
+
+  build-backend-test:
+    name: build-backend-test
+    runs-on: self-hosted
+    needs: build-back
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ./backend
+      - name: Install dependencie
+        run: npm ci
+      - name: Check test compilation
+        run: npx tsc --noEmit
+
+  run-tests-bakcend:
+    name: run-tests-bakcend
+    runs-on: self-hosted
+    needs: build-backend-test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: ./backend
+      - name: Install dependencie
+        run: npm ci
+      - name: Compile TypeScript
+        run: npx tsc --noEmit
+      - name: Run unit tests
+        run: |
+          npm test

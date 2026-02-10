@@ -1,0 +1,219 @@
+.adminPanel {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 2.5rem;
+  color: var(--theme-color-1200);
+  margin-bottom: 0.5rem;
+}
+
+.navigation {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.content {
+  margin-top: 2rem;
+}
+
+.cardContent {
+  padding: 2rem;
+  text-align: center;
+}
+
+.cardContent h2 {
+  font-size: 1.8rem;
+  color: var(--theme-color-1200);
+  margin-bottom: 1rem;
+}
+
+.cardContent p {
+  font-size: 1rem;
+  color: var(--theme-color-1200);
+  line-height: 1.6;
+}
+
+/* Styles pour le formulaire de configuration */
+.configForm {
+  text-align: left;
+  margin-top: 2rem;
+}
+
+.formSection {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 8px;
+  background-color: var(--theme-color-150);
+}
+
+.formSection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  color: var(--theme-color-1200);
+  border-bottom: 2px solid var(--theme-color-70);
+  padding-bottom: 0.5rem;
+}
+
+.formField {
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--theme-color-2050);
+  font-size: 0.9rem;
+}
+
+.textInput {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.75rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.textInput:focus {
+  outline: none;
+  border-color: var(--theme-color-500);
+  box-shadow: 0 0 0 2px var(--theme-color-3200);
+}
+
+.colorInputWrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.colorInputWrapper.textOnly {
+  flex-direction: row;
+}
+
+.colorInputWrapper.textOnly .textInput {
+  margin-top: 0;
+  width: 100%;
+  flex: 1;
+}
+
+.colorInput {
+  width: 50px;
+  height: 40px;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  cursor: pointer;
+  background: none;
+}
+
+.colorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.colorInput::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.imagePreview {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  background-color: var(--theme-color-100);
+  text-align: center;
+}
+
+.imagePreview img {
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.submitButton {
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 2rem;
+  transition: background-color 0.2s ease;
+  width: 100%;
+}
+
+.submitButton:hover {
+  background-color: var(--theme-color-700);
+}
+
+.submitButton:active {
+  transform: translateY(1px);
+}
+
+.rgbaColorPicker {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+}
+
+.rgbaColorPicker > div {
+  width: 250px;
+  height: 350px;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Styles pour la section de prévisualisation des couleurs */
+.colorPreviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+  background-color: var(--theme-color-white, #fff);
+  border: 1px solid var(--theme-color-70, #e0e0e0);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .colorGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .colorInputWrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .colorPreviewSection {
+    padding: 0.5rem;
+  }
+}

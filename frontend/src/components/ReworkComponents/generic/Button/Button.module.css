@@ -1,0 +1,64 @@
+.homeCardButton {
+  border-radius: 20px;
+  overflow: hidden;
+  padding: 0.5rem 1rem;
+}
+
+.disabled {
+  background-color: var(--theme-color-gray);
+  border: none;
+}
+
+.secondary {
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-950);
+}
+
+.primary {
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
+  border: none;
+  font-weight: 600;
+}
+
+.danger {
+  background-color: var(--error-color-500);
+  color: var(--theme-color-white);
+  border: none;
+}
+
+.homeCardButton:hover.secondary {
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.homeCardButton:hover.primary {
+  background-color: var(--theme-color-300);
+  color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.homeCardButton:hover.danger {
+  background-color: #c82333;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.homeCardButton:active {
+  animation: flash-white 0.3s ease;
+}
+
+@keyframes flash-white {
+  0% {
+    background-color: var(--theme-color-500);
+  }
+  50% {
+    background-color: var(--theme-color-black);
+  }
+  100% {
+    background-color: var(--theme-color-500);
+  }
+}

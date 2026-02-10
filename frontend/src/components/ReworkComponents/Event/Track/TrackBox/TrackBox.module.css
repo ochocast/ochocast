@@ -1,0 +1,34 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1px solid var(--theme-color-black);
+  border-radius: 20px;
+  padding-inline: 20px;
+}
+
+.wrapper {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 10px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.line {
+  background-color: var(--theme-color-60);
+  height: 5px;
+  width: 100%;
+}
+
+.content {
+  display: flex;
+  align-self: flex-start;
+  margin-top: 7px;
+  margin-bottom: 7px;
+}

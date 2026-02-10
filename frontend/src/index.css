@@ -1,0 +1,149 @@
+:root {
+  /* ===== LAYOUT VARIABLES (non-color) ===== */
+  --width-profile-picture: 192px;
+  --height-profile-picture: 180px;
+
+  /* ===== FALLBACK COLORS (will be overridden by useBranding) ===== */
+  --theme-color: #0056d2;
+  --secondary-color: #800080;
+  --bg-color: #f8f9fa;
+  --accent-color: #ffc107;
+  --error-color: #dc3545;
+  --text-color: #800080;
+
+  /* Basic colors */
+  --theme-color-white: #ffffff;
+  --theme-color-black: #000000;
+}
+
+.primary {
+  background-color: var(--theme-color-500);
+}
+
+.secondary {
+  background-color: var(--secondary-color);
+}
+
+/* ===== UTILITY CLASSES ===== */
+
+/* Background colors */
+.bg-primary {
+  background-color: var(--theme-color-500);
+}
+
+.bg-secondary {
+  background-color: var(--secondary-color);
+}
+
+.bg-accent {
+  background-color: var(--accent-color);
+}
+
+.bg-error {
+  background-color: var(--error-color);
+}
+
+.bg-light {
+  background-color: var(--bg-color);
+}
+
+/* Text colors */
+.text-primary {
+  color: var(--text-color-500);
+}
+
+.text-secondary {
+  color: var(--text-color-600);
+}
+
+.text-muted {
+  color: var(--text-color-300);
+}
+
+.text-strong {
+  color: var(--text-color-800);
+}
+
+.text-accent {
+  color: var(--accent-color);
+}
+
+.text-error {
+  color: var(--error-color);
+}
+
+/* Border colors */
+.border-primary {
+  border-color: var(--theme-color-300);
+}
+
+.border-secondary {
+  border-color: var(--bg-color-300);
+}
+
+.border-light {
+  border-color: var(--bg-color-200);
+}
+
+body,
+input,
+textarea,
+button {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+html {
+  overflow: scroll;
+}
+
+/* Mobile S 
+@media (min-width: 320px) {
+  body {
+    background-color: goldenrod;
+    font-size: small;
+  }
+}
+/* Mobile L / Tablette 
+@media (min-width: 640px) {
+  body {
+    background-color: red;
+    font-size: small;
+  }
+}
+/* Tablette 
+@media (min-width: 768px) {
+  body {
+    background-color: blue;
+    font-size: small;
+  }
+}
+/* Mobile S 
+@media (min-width: 1024px) {
+  body {
+    background-color: blueviolet;
+    font-size: medium;
+  }
+}
+
+/* Laptop 
+@media (min-width: 1280px) {
+  body {
+    background-color: green;
+    font-size: large;
+  }
+}
+
+/* > Laptop L (1440)
+@media (min-width: 1536px) {
+  body {
+    background-color: yellow;
+    font-size: large;
+  }
+}
+*/

@@ -1,0 +1,224 @@
+/* Page Layout */
+.pageContainer {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(180deg, var(--theme-color-50, #f9fafb) 0%, var(--theme-color-white, #ffffff) 100%);
+}
+
+.content {
+  flex: 1;
+  padding: 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Page Header */
+.pageHeader {
+  margin-bottom: 32px;
+}
+
+.pageTitle {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--theme-color-950, #111827);
+  margin: 0 0 8px 0;
+}
+
+.pageSubtitle {
+  font-size: 15px;
+  color: var(--theme-color-500, #6b7280);
+  margin: 0;
+}
+
+/* Quick Stats Overview */
+.quickStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
+}
+
+.quickStatCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--theme-color-white, #ffffff);
+  border-radius: 16px;
+  border: 1px solid var(--theme-color-50, #f0f0f0);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quickStatCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.quickStatIcon {
+  font-size: 2.5rem;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--theme-color-50, #f3f4f6) 0%, var(--theme-color-white, #ffffff) 100%);
+  border-radius: 12px;
+}
+
+.quickStatInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.quickStatValue {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--theme-color-500);
+  line-height: 1;
+}
+
+.quickStatLabel {
+  font-size: 14px;
+  color: var(--theme-color-500, #6b7280);
+  margin-top: 4px;
+}
+
+/* Sections */
+.section {
+  background: var(--theme-color-white, #ffffff);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid var(--theme-color-50, #f0f0f0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--theme-color-50, #f0f0f0);
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--theme-color-950, #111827);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--theme-color-500);
+  color: var(--theme-color-white, #ffffff);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 14px;
+}
+
+/* Users Grid */
+.usersGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.usersGrid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.usersGrid::-webkit-scrollbar-track {
+  background: var(--theme-color-50, #f3f4f6);
+  border-radius: 3px;
+}
+
+.usersGrid::-webkit-scrollbar-thumb {
+  background: var(--theme-color-500);
+  border-radius: 3px;
+  opacity: 0.5;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--theme-color-50, #f9fafb);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+.userCard:hover {
+  background: var(--theme-color-white, #ffffff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.userAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--theme-color-500) 0%, var(--secondary-color, #9333ea) 100%);
+  color: var(--theme-color-white, #ffffff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.userName {
+  font-size: 14px;
+  color: var(--theme-color-950, #111827);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emptyState {
+  color: var(--theme-color-500, #6b7280);
+  font-size: 14px;
+  padding: 24px;
+  text-align: center;
+  margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .content {
+    padding: 20px;
+  }
+
+  .pageTitle {
+    font-size: 24px;
+  }
+
+  .quickStats {
+    grid-template-columns: 1fr;
+  }
+
+  .quickStatCard {
+    padding: 20px;
+  }
+
+  .usersGrid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}

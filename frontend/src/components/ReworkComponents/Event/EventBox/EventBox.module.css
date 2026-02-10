@@ -1,0 +1,140 @@
+.box {
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 4px 0 var(--theme-color-gray);
+  width: 333px;
+  height: 422px;
+  row-gap: 25px;
+  cursor: pointer;
+}
+
+.img {
+  height: 100%;
+  width: 100%;
+}
+
+.eventWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-inline: 20px;
+}
+
+.title {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 0px;
+  margin-left: 10px;
+  color: var(--theme-color-600);
+}
+
+.date {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--theme-color-black);
+  opacity: 70%;
+}
+
+.info {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.event-buttons-wrapper,
+.subscribeWrapper {
+  align-self: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  column-gap: 15%;
+  width: 80%;
+}
+
+.centerWrapper {
+  align-self: center;
+}
+
+.subscriptionsWrapper {
+  display: flex;
+  align-items: center;
+  column-gap: 5px;
+}
+
+.dot {
+  height: 6px;
+  width: 6px;
+  border-radius: 100px;
+  background: var(--theme-color-200);
+}
+
+.subscritpions {
+  font-size: 14px;
+  color: var(--theme-color-black);
+  opacity: 70%;
+}
+
+.imgWrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--theme-color-900);
+  height: 43%;
+}
+
+.editButton {
+  position: absolute;
+  top: 5%;
+  right: 2.5%;
+}
+
+.tagsWrapper {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  background-color: var(--theme-color-150);
+  color: var(--theme-color-1000);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.moreTagsIndicator {
+  background-color: var(--theme-color-100);
+  color: var(--theme-color-700);
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.subscribedContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.organizerBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  background-color: var(--theme-color-150);
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--theme-color-1000);
+  border: 1px solid var(--theme-color-2000);
+}
+
+.organizerContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

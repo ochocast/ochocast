@@ -1,0 +1,42 @@
+# Configuration simple pour le benchmark WebSocket
+
+# Configuration du serveur SFU  
+sfu:
+  # url: "http://localhost:8090"
+  url: "http://51.158.104.60:8090"
+  room_create_endpoint: "/room/create"
+  whip_endpoint: "/whip"
+  viewer_endpoint: "/viewer"
+  stun_url: "stun:stun.l.google.com:19302"
+
+# Configuration du benchmark
+benchmark:
+  total_viewers: 200             # Nombre total de viewers à distribuer
+  duration: 60                   # Durée du test en secondes (après première frame)
+  red_interval: 1.0              # Intervalle entre les frames rouges (secondes)
+  encoding_method: "diagonal"    # Méthode d'encodage: "simple" (0-65535) ou "diagonal" (0-127 avec validation)
+  
+  # Configuration du host (streaming)
+  host:
+    width: 640
+    height: 360
+    fps: 30
+    token: null                  # Token d'authentification (si nécessaire)
+  
+  # Configuration des viewers (optimisations CPU)
+  viewers:
+    active_count: 1              # Nombre de viewers ACTIFS par worker (font de la détection)
+                                 # Les autres sont PASSIFS (consomment juste le flux)
+                                 # Recommandation: 1-2 pour minimiser CPU
+    
+    downscale_size: 1            # Taille de downscaling pour viewers actifs
+                                 # 1 = 1x1 pixel (CPU minimal, suffisant pour couleur unie)
+                                 # 5 = 5x5 pixels (plus robuste)
+                                 # null = résolution complète (maximum CPU)
+                                 # Recommandation: 1 pour charge minimale
+    
+    detection_queue_size: 100    # Taille de la queue de détections par viewer
+
+# Configuration des métriques
+metrics:
+  output_dir: "./benchmark_results"  # Dossier de sortie

@@ -1,0 +1,43 @@
+.header {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 2em;
+  width: 100%;
+  padding-top: 20px;
+}
+
+.searchContainer {
+  width: 50%;
+}
+
+.body {
+  margin-top: 1em;
+  margin-left: 1em;
+}
+
+.body {
+  margin-top: 1em;
+  margin-left: 1em;
+}
+
+.closeTitle {
+  font-size: 36px;
+  margin-left: 213px;
+  text-shadow: 0 4px 4px var(--theme-color-3400);
+  margin-bottom: 1em;
+}
+
+.wrapperCloseEvents {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5rem;
+  width: 100%;
+}
+
+.wrapperEvents {
+  margin-bottom: 3em;
+}

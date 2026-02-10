@@ -1,0 +1,39 @@
+.header {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 2em;
+  width: 100%;
+  padding-top: 20px;
+}
+
+.searchContainer {
+  width: 50%;
+}
+
+.checkBoxSubscribeEventWrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.checkBoxSubscribeEvent {
+  transform: scale(1.5);
+}
+
+.body {
+  margin-top: 1em;
+  margin-left: 1em;
+}
+
+.wrapperEvents {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5rem;
+  width: 100%;
+}

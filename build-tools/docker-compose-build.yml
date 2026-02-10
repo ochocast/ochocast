@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: ${DOCKER_HUB_USERNAME}/ochocast-backend:${APP_VERSION:-latest}
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: ${DOCKER_HUB_USERNAME}/ochocast-frontend:${APP_VERSION:-latest}
+
+  sfu-controlplane:
+    build:
+      context: ../sfuServer
+      dockerfile: Dockerfile.controlplane
+    image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-controlplane:${APP_VERSION:-latest}
+
+  sfu-server:
+    build:
+      context: ../sfuServer
+      dockerfile: Dockerfile.sfu
+    image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-server:${APP_VERSION:-latest}

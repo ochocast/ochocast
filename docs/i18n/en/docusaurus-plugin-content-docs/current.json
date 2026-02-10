@@ -1,0 +1,22 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.tutorialSidebar.category.get-started": {
+    "message": "get-started",
+    "description": "The label for category get-started in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Outils": {
+    "message": "Tools",
+    "description": "The label for category Outils in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Outils.link.generated-index.description": {
+    "message": "Discover the various tools available to help you develop Ochocast",
+    "description": "The generated-index page description for category Outils in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Extras": {
+    "message": "Extras",
+    "description": "The label for category Extras in sidebar tutorialSidebar"
+  }
+}

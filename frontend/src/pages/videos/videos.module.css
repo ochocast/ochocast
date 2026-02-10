@@ -1,0 +1,247 @@
+.videos {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 1.5rem;
+  position: relative;
+}
+
+.titleVideoList {
+  margin-top: 0.5rem;
+}
+
+.side-by-side .input-wrapper .select-wrapper {
+  width: 100%;
+  box-sizing: border-box;
+}
+textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+select {
+  width: 100%;
+  box-sizing: border-box;
+}
+input[type='text'] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input[type='time'] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+input[type='date'] {
+  width: 100%;
+  height: 43px;
+  box-sizing: border-box;
+}
+
+Button {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.side-by-side {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px 3em;
+  width: 100%;
+}
+
+.button-video-creation {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 2.5rem;
+}
+
+.display1 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+}
+
+.video_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  width: 100%;
+  justify-content: center; /* center rows with fewer items */
+  margin: 0 auto;
+  padding: 0 1rem;
+  max-width: 100%;
+}
+
+.video_row > * {
+  box-sizing: border-box;
+  flex: 0 0 22rem; /* fixed card width */
+  max-width: 22rem;
+}
+
+/* Grille dynamique basée sur le nombre de cards par ligne */
+.video_row[data-cards-per-row="5"] {
+  justify-content: center;
+}
+
+.video_row[data-cards-per-row="5"] > * {
+  flex: 1 1 calc((100% - 4 * 1.25rem) / 5);
+  max-width: 22rem;
+  min-width: 10rem; /* allow stronger shrinking so N columns fit */
+}
+
+.video_row[data-cards-per-row="6"] {
+  justify-content: center;
+}
+
+.video_row[data-cards-per-row="6"] > * {
+  flex: 1 1 calc((100% - 5 * 1.25rem) / 6);
+  max-width: 22rem;
+  min-width: 9rem;
+}
+
+.video_row[data-cards-per-row="7"] {
+  justify-content: center;
+}
+
+.video_row[data-cards-per-row="7"] > * {
+  flex: 1 1 calc((100% - 6 * 1.25rem) / 7);
+  max-width: 22rem;
+  min-width: 8.5rem;
+}
+
+.video_row[data-cards-per-row="8"] {
+  justify-content: center;
+}
+
+.video_row[data-cards-per-row="8"] > * {
+  flex: 1 1 calc((100% - 7 * 1.25rem) / 8);
+  max-width: 22rem;
+  min-width: 8rem;
+}
+
+@media (max-width: 1100px) {
+  .video_row {
+    justify-content: center;
+  }
+  .video_row > * {
+    flex: 1 1 18rem; /* allow shrinking/growing */
+    max-width: 22rem;
+  }
+}
+
+@media (max-width: 800px) {
+  .video_row > * {
+    flex: 1 1 16rem;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 500px) {
+  .video_row > * {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
+
+.searchBarRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  gap: 0.25rem;
+}
+
+.centeredSearchBarWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  max-width: 900px;
+  width: 100%;
+}
+
+.centeredSearchBarWrapper :global(.searchBar) {
+  flex-grow: 1;
+  max-width: 100%;
+}
+
+.filterToggleButton {
+  background: transparent;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  width: 28px;
+  position: relative;
+  transition: opacity 0.2s;
+}
+
+.filterToggleButton:hover {
+  opacity: 0.7;
+}
+
+.filterBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: var(--theme-color-red);
+  color: var(--theme-color-white);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.starIconFilterContainer {
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+}
+
+.starIconFilterContainer:hover {
+  opacity: 0.7;
+}
+
+.filterPanelWrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: center;
+  padding-top: 60px;
+}
+
+.copyButtonIcon {
+  width: 26px;
+  height: 26px;
+}
+
+.copyButtonIcon:hover {
+  opacity: 0.7;
+}
+
+

@@ -1,0 +1,17 @@
+appName: "OchoCast"
+
+colors:
+  primary: "#1dac78"      # Primary color (buttons, links, accents)
+  secondary: "#344054"    # Secondary color (texts, borders)
+  background: "#f9fafb"   # Background color
+  accent: "#2ecc71"       # Accent color (alerts, highlights)
+  error: "#dc2626"        # Error color (404 pages, error messages)
+
+images:
+  logo: "::default::ochoIconFull.svg"
+  default_miniature_image: "::default::exemple/image_tuile_event.png"
+  add: "::default::add.svg"
+  plus: "::default::plus.svg"
+  search: "::default::search.svg"
+  cross: "::default::cross.svg"
+  user_placeholder: "::default::persona.png"

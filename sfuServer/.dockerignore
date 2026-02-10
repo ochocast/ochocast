@@ -1,0 +1,9 @@
+.env*
+benchmark/
+dev-dns/
+*.exe
+*.pem
+start-cluster.sh
+Dockerfile
+.dockerignore
+.gitignore

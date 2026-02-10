@@ -1,0 +1,75 @@
+* {
+  box-sizing: border-box;
+}
+
+.userBadgeContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.userBadge {
+  background-color: transparent;
+  border: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.userBadge:hover {
+  opacity: 0.8;
+}
+
+.userBadgePicture {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.dropdown {
+  position: absolute;
+  top: 110%;
+  right: 0;
+  background: var(--theme-color-white);
+  border: 1px solid var(--theme-color-200);
+  border-radius: 8px;
+  padding: 8px 0;
+  margin: 0;
+  z-index: 1000;
+  min-width: 200px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dropdownItem {
+  background-color: transparent;
+  border: none;
+  padding: 10px 16px;
+  cursor: pointer;
+  color: var(--theme-color-black);
+  transition: background-color 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.dropdownItem:hover {
+  background-color: var(--theme-color-100);
+}
+
+.dropdownLanguage {
+  padding: 10px 16px;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.dropdownLanguage:hover {
+  background-color: var(--theme-color-100);
+}
+

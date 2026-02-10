@@ -1,0 +1,209 @@
+.previewMiniture {
+  position: relative;
+  box-shadow: 0px 4px 50px rgba(0, 0, 0, 0.09);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: left;
+  color: var(--theme-color-700);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: visible;
+}
+
+.previewMiniture:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 12px 80px rgba(0, 0, 0, 0.2);
+}
+
+.starIconContainer {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  transition: transform 0.2s ease;
+}
+
+.starIconContainer:hover {
+  transform: scale(1.2);
+}
+
+.starIconContainer:active {
+  animation: favoriteClick 0.3s ease;
+}
+
+@keyframes favoriteClick {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.thumbnailContainer {
+  position: relative;
+  width: 100%;
+}
+
+.durationBadge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: monospace;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.imageTuileEventIcon {
+  width: 100%;
+  width: -moz-available;
+  width: -webkit-fill-available;
+  position: relative;
+  border-radius: 12px 12px 0px 0px;
+  height: 11.313rem;
+  overflow: hidden;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.createBy {
+  margin: 0;
+}
+
+.title {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.tagList {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  margin-top: 1rem;
+  gap: 0.5rem;
+  overflow: visible;
+  height: auto;
+  align-items: center;
+  position: relative;
+}
+
+.tagWrapper {
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.tagWrapper > div {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tagWrapperNoCrop {
+  cursor: pointer;
+}
+
+.tagWrapperNoCrop > div {
+  white-space: normal;
+}
+
+.moreBadgeContainer {
+  position: relative;
+}
+
+.moreBadge {
+  background-color: var(--theme-color-200);
+  color: var(--theme-color-700);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  border: 1px solid var(--theme-color-300);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.moreBadge:hover {
+  background-color: var(--theme-color-300);
+}
+
+.tagsPopup {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-300);
+  border-radius: 8px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem;
+  z-index: 10000;
+  min-width: 200px;
+  max-width: 300px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tagsPopupContent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.description {
+  padding: 1rem;
+  width: 100%;
+  position: relative;
+  border-radius: 0px 0px 12px 12px;
+  background-color: var(--theme-color-white);
+  height: 10.5rem;
+  overflow: visible;
+}
+
+.descriptionNoButton {
+  padding: 1rem;
+  width: 100%;
+  position: relative;
+  border-radius: 0px 0px 12px 12px;
+  background-color: var(--theme-color-white);
+  overflow: visible;
+}
+
+.buttonList {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  margin-top: 1rem;
+  gap: 0.5rem;
+}

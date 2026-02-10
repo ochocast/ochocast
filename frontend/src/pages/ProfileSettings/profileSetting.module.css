@@ -1,0 +1,117 @@
+.imageLarge {
+  width: 12rem;
+  height: 12rem;
+  object-fit: cover;
+  max-width: var(--width-profile-picture);
+  max-height: var(--height-profile-picture);
+  position: relative;
+  border-radius: 50%;
+  align-self: center;
+  z-index: 1;
+}
+
+.name {
+  margin: 0;
+  width: max-content;
+}
+
+.email {
+  margin: 0;
+}
+
+.profileContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.titles {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+Card {
+  margin: 1.5rem;
+}
+
+.descriptionTitle {
+  padding-top: 0.3rem;
+  text-decoration-line: underline;
+}
+
+.description {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.button_line {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+Button {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--width-profile-picture);
+  height: var(--height-profile-picture);
+  border-radius: 50%;
+  opacity: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+}
+
+.relativeContainer:hover .overlay {
+  opacity: 60%;
+  background-color: var(--theme-color-white);
+}
+
+.overlay img {
+  width: 30%;
+  height: auto;
+}
+
+.relativeContainer {
+  position: relative;
+}
+
+.display_with_margin {
+  margin: 1.5rem;
+}
+
+.descriptionTextarea {
+  margin-top: 3px;
+  border: 2px solid var(--theme-color-2000);
+  border-radius: 100px;
+  width: 500px;
+  height: 4em;
+  line-height: 1.5em;
+  text-align: left;
+  font-size: 1rem;
+  padding: 10px;
+  resize: none;
+  margin-left: -10px;
+}
+
+.pseudoInput {
+  border: 2px solid var(--theme-color-2000);
+  border-radius: 100px;
+  width: -webkit-fill-available;
+  height: -webkit-fill-available;
+  text-align: left;
+  padding: 8px;
+  margin-left: -10px;
+}

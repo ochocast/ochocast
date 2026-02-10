@@ -1,0 +1,60 @@
+/* ===================== FILE INPUT ===================== */
+.fileArea {
+  width: -webkit-fill-available;
+  position: relative;
+
+  input[type='file'] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .fileDummy {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    border: none;
+    text-align: center;
+    transition: background 0.3s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &:hover .fileDummy {
+    background: transparent;
+  }
+
+  input[type='file']:focus + .fileDummy {
+    outline: 2px solid #00a86b;
+    outline-offset: 2px;
+  }
+
+  input[type='file']:valid + .fileDummy {
+    background: transparent;
+  }
+}
+
+/* Classe pour masquer visuellement mais garder accessible aux lecteurs d'écran */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Amélioration du contraste pour la classe default */
+.default {
+  color: #1a1a1a;
+  font-weight: 500;
+}

@@ -1,0 +1,18 @@
+{
+  "title": {
+    "message": "OchoCast",
+    "description": "The title in the navbar"
+  },
+  "logo.alt": {
+    "message": "OchoCast Logo",
+    "description": "The alt text of navbar logo"
+  },
+  "item.label.Accéder au produit": {
+    "message": "Access the product",
+    "description": "Navbar item with label Accéder au produit"
+  },
+  "item.label.Documentation": {
+    "message": "Documentation",
+    "description": "Navbar item with label Documentation"
+  }
+}

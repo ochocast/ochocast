@@ -1,0 +1,26 @@
+# editor files
+.idea
+.vscode
+
+# .DS_Store
+**/.DS_Store
+
+# compiled output
+node_modules
+build
+dist
+
+# database files
+database/postgres-data/
+dev-tools/database/postgres-data/
+
+# documentation
+frontend/docs
+backend/docs
+
+.env
+
+localMinio/run_env/*
+dev-tools/localMinio/run_env/*
+
+coverage

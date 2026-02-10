@@ -1,0 +1,327 @@
+.replyDiscordBox {
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+  border-left: 3px solid var(--theme-color-950, #0f766e);
+  border-radius: 1rem;
+  margin: 0.2rem 0 0.2rem 2.2rem;
+  padding: 0.3rem 0.8rem 0.3rem 0.8rem;
+  font-size: 0.93rem;
+  color: #334155;
+  opacity: 0.97;
+  max-width: 90%;
+  word-break: break-word;
+  position: relative;
+}
+
+.replyDiscordContent {
+  color: #0063ee;
+  font-size: 0.93rem;
+  font-style: italic;
+  white-space: pre-line;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 2.5em;
+}
+
+.replyToBox {
+  display: inline-flex;
+  align-items: center;
+  background: #f3f4f6;
+  border-radius: 1rem;
+  margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.97rem;
+  color: #374151;
+  font-weight: 400;
+  position: relative;
+  gap: 0.5rem;
+  box-sizing: border-box;
+  max-width: fit-content;
+}
+
+.replyToName {
+  color: #0066cc;
+  text-decoration: underline;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.replyToCloseBtn {
+  border-color: transparent;
+}
+
+.replyToCloseBtn:hover {
+  background: #e5e7eb;
+  color: #374151;
+  border-color: transparent;
+}
+
+.replyPanelOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  z-index: 2000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.replyPanel {
+  width: 40vw;
+  height: 100vh;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+  overflow: hidden;
+  box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* === HEADER AVEC COMMENTAIRE PARENT === */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 2rem;
+  background: #fff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: var(--theme-color-black);
+  gap: 1rem;
+
+  /* limite la hauteur du header */
+  max-height: 150px;
+}
+
+.parentComment {
+  flex: 1 1 0;
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: var(--theme-color-black);
+  margin: 0;
+  line-height: 1.4;
+  max-height: 90px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+  /* Empêche de dépasser le bouton close */
+  word-break: break-word;
+}
+
+.parentComment::-webkit-scrollbar {
+  width: 6px;
+}
+.parentComment::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 1rem;
+}
+.parentComment::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #6b7280;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  transition: all 0.2s;
+}
+
+.closeBtn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* === MESSAGES === */
+.messages {
+  flex: 1;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow-y: auto;
+  padding: 1rem;
+  gap: 1rem;
+  background: #f8fafc;
+  scroll-behavior: smooth;
+}
+
+.commentWrapper {
+  width: 100%;
+}
+
+/* === INPUT REPLY === */
+.inputRow {
+  display: flex;
+  padding: 1.5rem 2rem;
+  background: #f8fafc;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.input {
+  flex: 1;
+  padding: 0.875rem 1.25rem;
+  border-radius: 2rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+  background: #f9fafb;
+  transition: all 0.2s;
+  outline: none;
+  resize: none;
+}
+
+.input:focus {
+  border-color: var(--theme-color-950);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input::placeholder {
+  color: #9ca3af;
+}
+
+.sendBtn {
+  background-color: var(--theme-color-500);
+  color: var(--theme-color-white);
+  border: none;
+  border-radius: 2rem;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.sendBtn:hover {
+  background-color: var(--theme-color-300);
+  color: var(--theme-color-950);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  transform: translateY(-1px);
+}
+
+.sendBtn:active {
+  transform: translateY(0);
+}
+
+.replyPreviewInInput {
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+  border-left: 3px solid var(--theme-color-950);
+  border-radius: 1rem;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 0.5rem;
+  width: 100%;
+  pointer-events: none;
+  user-select: none;
+}
+
+.replyPreviewMention {
+  color: #0066cc;
+  text-decoration: underline;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 0.2rem;
+}
+
+.replyPreviewSnippet {
+  color: #0063ee;
+  font-size: 0.88rem;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-height: 2.5em;
+}
+
+.textarea {
+  flex: 1;
+  padding: 0.875rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid #d1d5db;
+  font-size: 0.95rem;
+  background: #f9fafb;
+  transition: all 0.2s;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.textarea:focus {
+  border-color: var(--theme-color-950);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.textarea::placeholder {
+  color: #9ca3af;
+}
+
+.inputRow {
+  display: flex;
+  flex-direction: row;
+  padding: 8px;
+  margin-left: 1rem;
+  margin-right: 1rem;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+/* === Scrollbar des messages === */
+.messages::-webkit-scrollbar {
+  width: 6px;
+}
+.messages::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 1rem;
+}
+.messages::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* === Animation du panneau === */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.replyPanel.open {
+  animation: slideInFromRight 0.25s ease-out forwards;
+}
+
+.replyPanel.close {
+  animation: slideOutToRight 0.15s ease-in forwards;
+}

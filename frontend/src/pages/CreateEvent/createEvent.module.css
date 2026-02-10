@@ -1,0 +1,136 @@
+.events {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  padding-top: 1rem;
+}
+
+.addEventForm {
+  display: flex;
+  flex-direction: column;
+  row-gap: 1.5rem;
+  flex: 1;
+  min-width: 350px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Encapsulation locale */
+.inputWrapper textarea,
+.inputWrapper select,
+.inputWrapper input[type='date'],
+.inputWrapper input[type='time'],
+.inputWrapper input[type='text'] {
+  width: 100%;
+  max-width: 100%;
+  padding: 0.3rem;
+  font-size: 1rem;
+  border: 1px solid var(--theme-color-1100);
+  border-radius: 8px;
+  box-sizing: border-box;
+  background-color: var(--bg-color);
+}
+
+.inputWrapper label {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.required {
+  color: var(--error-color);
+  margin-left: 0.25rem;
+  font-weight: bold;
+}
+
+.inputWrapper textarea.error,
+.inputWrapper select.error,
+.inputWrapper input[type='date'].error,
+.inputWrapper input[type='time'].error,
+.inputWrapper input[type='text'].error {
+  border-color: var(--error-color);
+  background-color: var(--error-color-100);
+}
+
+.errorMessage {
+  color: var(--error-color);
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+.contentWrapper {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.preview {
+  width: 400px;
+  flex-shrink: 0;
+}
+
+.buttonEventCreation {
+  margin-top: 1rem;
+}
+
+.desktopOnly {
+  display: block;
+}
+
+.mobileOnly {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .contentWrapper {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .preview {
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .addEventForm {
+    min-width: 100%;
+  }
+
+  .desktopOnly {
+    display: none;
+  }
+
+  .mobileOnly {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+.backButtonContainer {
+  align-self: flex-start;
+  margin-bottom: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1rem;
+  padding: 1rem 2rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: bold;
+}

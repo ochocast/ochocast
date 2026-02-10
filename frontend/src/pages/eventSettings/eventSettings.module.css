@@ -1,0 +1,198 @@
+/* ===== PAGE LAYOUT ===== */
+.pageEventSettings {
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
+  padding-right: 1rem;
+  min-height: 100vh;
+}
+
+.eventSettings {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 2rem auto;
+  max-width: 800px;
+  gap: 1.5rem;
+}
+
+/* ===== HEADER SECTION ===== */
+.topLayout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--theme-color-50, #f0f0f0);
+}
+
+.titleLayout {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.titleLayout h1 {
+  color: var(--theme-color-900, #1a1a1a);
+  font-size: 2rem;
+  margin: 0;
+}
+
+/* ===== INPUT WRAPPER & FORM ELEMENTS ===== */
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inputWrapper label {
+  font-weight: 600;
+  color: var(--theme-color-700, #333333);
+  font-size: 0.95rem;
+}
+
+.inputWrapper input,
+.inputWrapper textarea {
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 1px solid var(--theme-color-100, #e0e0e0);
+  border-radius: 6px;
+  background-color: var(--theme-color-2000, #f9fafb);
+  transition: all 0.3s ease;
+  font-family: 'Outfit', sans-serif;
+}
+
+.inputWrapper input:focus,
+.inputWrapper textarea:focus {
+  outline: none;
+  border-color: var(--theme-color, #0056d2);
+  box-shadow: 0 0 0 3px rgba(0, 86, 210, 0.1);
+  background-color: var(--theme-color-white, #ffffff);
+}
+
+.inputWrapper input:disabled,
+.inputWrapper textarea:disabled {
+  background-color: var(--theme-color-50, #f9fafb);
+  color: var(--theme-color-300, #999999);
+  cursor: not-allowed;
+}
+
+.inputWrapper textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.error {
+  border-color: var(--error-color, #dc3545) !important;
+  background-color: var(--theme-color-white, #ffffff) !important;
+}
+
+.error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+}
+
+/* ===== SECTION GROUPING ===== */
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background-color: var(--theme-color-white, #ffffff);
+  border: 1px solid var(--theme-color-50, #f0f0f0);
+  border-radius: 8px;
+}
+
+.formSection h3 {
+  color: var(--theme-color-900, #1a1a1a);
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ===== BUTTONS SECTION ===== */
+.confirmationButtons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+
+.confirmationButtons button {
+  flex: 1;
+  min-width: 140px;
+}
+
+/* ===== MAIN CONTENT WRAPPER ===== */
+.mainContentWrapper {
+  display: flex;
+  gap: 2rem;
+  width: 100%;
+  align-items: flex-start;
+}
+
+/* ===== PREVIEW SECTION ===== */
+.preview {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: var(--theme-color-white, #ffffff);
+  border: 1px solid var(--theme-color-50, #f0f0f0);
+  border-radius: 8px;
+  min-width: 320px;
+  position: sticky;
+  top: 2rem;
+}
+
+.preview h2 {
+  color: var(--theme-color-900, #1a1a1a);
+  font-size: 1.3rem;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
+}
+
+/* ===== MODAL STYLES ===== */
+.confirmationButtons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1024px) {
+  .mainContentWrapper {
+    flex-direction: column;
+  }
+
+  .preview {
+    position: static;
+    width: 100%;
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .pageEventSettings {
+    flex-direction: column;
+    gap: 1rem;
+    padding-right: 0.5rem;
+  }
+
+  .topLayout {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .titleLayout h1 {
+    font-size: 1.5rem;
+  }
+
+  .confirmationButtons {
+    flex-direction: column;
+  }
+
+  .confirmationButtons button {
+    width: 100%;
+  }
+}

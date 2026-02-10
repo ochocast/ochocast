@@ -1,0 +1,158 @@
+.themeConfiguration {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.content {
+  margin-top: 2rem;
+}
+
+.cardContent {
+  padding: 2rem;
+}
+
+.configForm {
+  text-align: left;
+  margin-top: 2rem;
+}
+
+.formSection {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 8px;
+  background-color: var(--theme-color-150);
+}
+
+.formSection h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  color: var(--theme-color-1200);
+  border-bottom: 2px solid var(--theme-color-70);
+  padding-bottom: 0.5rem;
+}
+
+.formField {
+  margin-bottom: 1rem;
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--theme-color-2050);
+  font-size: 0.9rem;
+}
+
+.textInput {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.75rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.textInput:focus {
+  outline: none;
+  border-color: var(--theme-color-500);
+  box-shadow: 0 0 0 2px var(--theme-color-3200);
+}
+
+.colorInputWrapper {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.colorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.imageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.imagePreview {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  background-color: var(--theme-color-100);
+  text-align: center;
+}
+
+.imagePreview img {
+  max-width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.rgbaColorPicker {
+  display: flex;
+  align-items: center;
+  margin-right: 0.5rem;
+}
+
+.rgbaColorPicker > div {
+  width: 250px;
+  height: 350px;
+  border: 1px solid var(--theme-color-70);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.colorPreviewSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+  background-color: var(--theme-color-white, #fff);
+  border: 1px solid var(--theme-color-70, #e0e0e0);
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.formButtons {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .themeConfiguration {
+    padding: 1rem;
+  }
+
+  .colorGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .colorInputWrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .colorPreviewSection {
+    padding: 0.5rem;
+  }
+}

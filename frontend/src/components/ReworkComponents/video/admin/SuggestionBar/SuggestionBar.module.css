@@ -1,0 +1,61 @@
+.searchcontainer {
+  position: relative;
+  width: 100%;
+}
+
+.searchBar {
+  /* Correspond à la classe 'searchBar' utilisée dans l'input */
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.suggestions_list {
+  /* Correspond à l'id et la classe 'suggestions_list' */
+  display: none;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+  position: absolute;
+  width: 100%;
+  background-color: white;
+  border: 1px solid #ccc;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  display: none; /* La liste est cachée par défaut */
+}
+
+.suggestions_list li {
+  padding: 10px;
+  cursor: pointer;
+  display: flex; /* Pour aligner les éléments si nécessaire */
+  align-items: center; /* Alignement vertical centré */
+  gap: 8px; /* Espace entre les éléments (ex. icône et texte) */
+}
+
+.suggestions_list li:hover {
+  background-color: #f0f0f0;
+}
+
+/* Bouton pour ajouter une suggestion */
+.addbutton {
+  background-color: #007bff; /* Bleu de base */
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 8px 12px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+}
+
+.addbutton:hover {
+  background-color: #5dade2; /* Bleu clair au survol */
+}
