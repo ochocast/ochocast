@@ -47,6 +47,9 @@ const ProfileSetting = () => {
       const userResponse = await getUsers();
       const user = userResponse.data.find((u: User) => u.id === backendUser.id);
       setCurrentUser(user || null);
+
+      setPseudo(user?.username || '');
+      setDescription(user?.description || '');
     } catch (error) {
       console.error('Error fetching videos:', error);
     }
