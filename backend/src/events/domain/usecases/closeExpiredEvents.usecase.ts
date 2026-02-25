@@ -12,6 +12,8 @@ export class CloseExpiredEventsUsecase {
 
   async execute(): Promise<number> {
     const now = new Date();
+    const offsetMs = now.getTimezoneOffset() * 60000;
+    const localDate = new Date(now.getTime() - offsetMs);
 
     const events = await this.eventsRepository.find({
       where: {
@@ -20,10 +22,8 @@ export class CloseExpiredEventsUsecase {
     });
 
     const toClose = events.filter((event) => {
-      const closingTime = new Date(
-        event.endDate.getTime() - 2 * 60 * 60 * 1000,
-      ); // endDate - 2h
-      return now >= closingTime && event.published;
+      const closingTime = new Date(event.endDate.getTime());
+      return localDate >= closingTime && event.published;
     });
 
     for (const event of toClose) {
