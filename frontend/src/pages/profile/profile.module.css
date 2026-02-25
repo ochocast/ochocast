@@ -69,6 +69,17 @@ Button {
   width: 20.313rem;
 }
 
+.videoTitle {
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+
+.videoTitle h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+}
+
 .video_row {
   display: flex;
   flex-wrap: wrap;

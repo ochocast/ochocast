@@ -161,6 +161,10 @@ const Profile: FC<ProfileProps> = () => {
           isCurrentUser={isCurrentUser}
         />
 
+        <div className={style.videoTitle}>
+          <h1>{t('videos')}</h1>
+        </div>
+
         <div className={style.display1}>
           <SearchBar
             onClick={(query) => {
