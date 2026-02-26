@@ -13,8 +13,6 @@ const HomePage: FC<HomeProps> = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  console.log('HomePage rendered');
-
   return (
     <>
       <div className={styles.HomeCard}>
