@@ -3,9 +3,12 @@
   flex-direction: column;
   box-shadow: 0 0 4px 0 var(--theme-color-gray);
   width: 333px;
-  height: 422px;
+  min-height: 422px;
+  height: auto;
   row-gap: 25px;
   cursor: pointer;
+  padding-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 .img {
@@ -25,8 +28,13 @@
   font-weight: 700;
   letter-spacing: 1px;
   margin-bottom: 0px;
-  margin-left: 10px;
+  margin-left: 4px;
+  margin-right: 4px;
   color: var(--theme-color-600);
+  display: block;
+  max-width: calc(100% - 10px);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .date {
