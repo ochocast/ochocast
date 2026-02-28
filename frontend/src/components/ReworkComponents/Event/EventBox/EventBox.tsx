@@ -164,14 +164,18 @@ const EventBox = (props: EventBoxProps) => {
           editButton}
       </div>
       <div className={styles.eventWrapper}>
-        <div className={styles.title}>{event.name}</div>
+        <div className={styles.title}>
+          {event.name.length > 60
+            ? `${event.name.substring(0, 60)}...`
+            : event.name}
+        </div>
         <div className={styles.date}>
           {t('StartDate') +
             `${dateDisplay.getDate()}/${
               dateDisplay.getMonth() + 1
             }/${dateDisplay.getFullYear()}`}
         </div>
-        {/* Affichage des tags (max 2) */}
+        {/* Affichage des tags (max 3) */}
         {event.tags && event.tags.length > 0 && (
           <div className={styles.tagsWrapper}>
             {event.tags.slice(0, 3).map((tag, index) => (
