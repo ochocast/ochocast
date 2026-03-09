@@ -15,9 +15,26 @@
   flex: 1;
   min-width: 350px;
   width: 100%;
-  max-width: 600px;
+  max-width: 800px;
 }
-
+/* ===== SECTION GROUPING ===== */
+.formSection {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background-color: var(--theme-color-white, #ffffff);
+  border: 1px solid var(--theme-color-50, #f0f0f0);
+  border-radius: 8px;
+}
+.formSection h3 {
+  color: var(--theme-color-900, #1a1a1a);
+  font-size: 1.1rem;
+  margin: 0.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 .inputWrapper {
   display: flex;
   flex-direction: column;
@@ -32,16 +49,16 @@
 .inputWrapper input[type='text'] {
   width: 100%;
   max-width: 100%;
-  padding: 0.3rem;
+  padding: 0.75rem;
   font-size: 1rem;
   border: 1px solid var(--theme-color-1100);
-  border-radius: 8px;
+  border-radius: 6px;
   box-sizing: border-box;
   background-color: var(--bg-color);
 }
 
 .inputWrapper label {
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 0.25rem;
 }
 
@@ -71,12 +88,28 @@
   display: flex;
   gap: 2rem;
   align-items: flex-start;
-  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1300px;
+  padding: 0 2rem;
+  box-sizing: border-box;
 }
 
 .preview {
-  width: 400px;
-  flex-shrink: 0;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: var(--theme-color-white, #ffffff);
+  border: 1px solid var(--theme-color-50, #f0f0f0);
+  border-radius: 8px;
+  min-width: 320px;
+  position: sticky;
+  top: 2rem;
+}
+
+.preview h2 {
+  color: var(--theme-color-900, #1a1a1a);
+  font-size: 1.3rem;
+  margin: 0 0 1rem 0;
+  font-weight: 600;
 }
 
 .buttonEventCreation {
