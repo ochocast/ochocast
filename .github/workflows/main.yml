@@ -70,7 +70,7 @@ jobs:
 
     steps:
       - name: remove-old-serverless
-        uses: philibea/scaleway-containers-deploy@20dae59bf0a51a715ea60bd400078c90efb48b15 # v1.1.0
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
         continue-on-error: true
         with:
           type: teardown
@@ -79,7 +79,7 @@ jobs:
           scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
           scw_registry: ${{ secrets.SCW_CONTAINER }}
       - name: deploy-new-serverless
-        uses: philibea/scaleway-containers-deploy@20dae59bf0a51a715ea60bd400078c90efb48b15 # v1.1.0
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
         with:
           # This input can be used for deploy or teardown your environment. type by default is deploy ( deploy | teadown )
           type: deploy
@@ -109,7 +109,7 @@ jobs:
 
     steps:
       - name: remove-old-serverless
-        uses: philibea/scaleway-containers-deploy@20dae59bf0a51a715ea60bd400078c90efb48b15 # v1.1.0
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
         continue-on-error: true
         with:
           type: teardown
@@ -118,7 +118,7 @@ jobs:
           scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }}
           scw_registry: ${{ secrets.SCW_CONTAINER_FRONT }}
       - name: deploy-new-serverless
-        uses: philibea/scaleway-containers-deploy@20dae59bf0a51a715ea60bd400078c90efb48b15 # v1.1.0
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
         with:
           # This input can be used for deploy or teardown your environment. type by default is deploy ( deploy | teadown )
           type: deploy
