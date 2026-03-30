@@ -136,6 +136,16 @@
   object-fit: cover;
 }
 
+.suggestionButton img.suggestionSearchIcon {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0;
+  object-fit: contain;
+  filter: brightness(0);
+  margin-left: 0.175rem;
+  margin-right: 0.175rem;
+}
+
 .selectedTagsContainer {
   display: flex;
   align-items: flex-start;

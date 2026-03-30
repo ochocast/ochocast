@@ -101,14 +101,20 @@ const GlobalSearchBar = ({
     }
   };
 
-  const combinedSuggestions: { name: string; img: string }[] = [
+  const combinedSuggestions: {
+    name: string;
+    img: string;
+    isSearchIcon?: boolean;
+  }[] = [
     ...tagSuggestions.map((tag) => ({
       name: tag.name,
-      img: '/ochoIconFull.svg',
+      img: '/branding/search.svg',
+      isSearchIcon: true,
     })),
     ...userSuggestions.map((user) => ({
       name: user.username || user.firstName,
-      img: user.picture_id || '/ochoIconFull.svg',
+      img: user.picture_id || '/branding/search.svg',
+      isSearchIcon: !user.picture_id,
     })),
   ];
 
@@ -169,7 +175,21 @@ const GlobalSearchBar = ({
                   className={styles.suggestionButton}
                   onClick={() => onSuggestionClick(item.name)}
                 >
-                  <img src={item.img} alt={item.name} />
+                  <img
+                    src={item.img}
+                    alt=""
+                    className={
+                      item.isSearchIcon
+                        ? styles.suggestionSearchIcon
+                        : undefined
+                    }
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '/branding/search.svg';
+                      e.currentTarget.className =
+                        styles.suggestionSearchIcon || '';
+                    }}
+                  />
                   <span>{item.name}</span>
                 </button>
               </li>
