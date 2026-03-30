@@ -36,6 +36,7 @@
 .searchIcon {
   width: 1.7rem;
   height: 1.7rem;
+  filter: brightness(0);
 }
 
 .searchInput {
@@ -58,8 +59,8 @@
   border: 0;
   background: transparent;
   cursor: pointer;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -72,8 +73,8 @@
 }
 
 .filterIcon {
-  width: 0.8rem;
-  height: 0.8rem;
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .filterBadge {
