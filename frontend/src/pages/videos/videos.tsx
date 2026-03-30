@@ -8,11 +8,8 @@ import { Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import logger from '../../utils/logger';
-import SearchBar, {
-  SearchBarIcon,
-} from '../../components/ReworkComponents/navigation/SearchBar/SearchBar';
+import GlobalSearchBar from '../../components/ReworkComponents/navigation/GlobalSearchBar/GlobalSearchBar';
 import FilterPanel from '../../components/ReworkComponents/navigation/FilterPanel/FilterPanel';
-import FilterIcon from '../../assets/filter_icon.svg';
 import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
 import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
@@ -109,7 +106,6 @@ const Videos: FC<VideosProps> = () => {
     parseInt(localStorage.getItem('cardsPerRow') || '6'),
   );
   const filterPanelRef = useRef<HTMLDivElement>(null);
-  const filterButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (location.state?.toast) {
@@ -387,23 +383,17 @@ const Videos: FC<VideosProps> = () => {
       <div className={style.display}>
         <div className={style.display1}>
           <div className={style.searchBarRow}>
-            <SearchBar
-              onClick={(query) => handleSearchWithUrl(query)}
-              needInput={true}
+            <GlobalSearchBar
+              onSearch={(query) => handleSearchWithUrl(query)}
               placeholder={t('exemple')}
-              icon={SearchBarIcon.SEARCH}
               initialValue={searchQuery}
+              onFilterClick={() => setShowFilters(!showFilters)}
+              activeFiltersCount={activeFiltersCount}
+              selectedTags={filters.tags}
+              onRemoveTag={(tag) =>
+                handleTagsChange(filters.tags.filter((t) => t !== tag))
+              }
             />
-            <button
-              ref={filterButtonRef}
-              className={style.filterToggleButton}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <img src={FilterIcon} alt="Filter icon" />
-              {activeFiltersCount > 0 && (
-                <span className={style.filterBadge}>{activeFiltersCount}</span>
-              )}
-            </button>
             <img
               className={style.starIconFilterContainer}
               src={

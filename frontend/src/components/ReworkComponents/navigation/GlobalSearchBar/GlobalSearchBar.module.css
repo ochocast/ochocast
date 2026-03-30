@@ -1,0 +1,229 @@
+.wrapper {
+  width: 100%;
+}
+
+.searchContainer {
+  position: relative;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.7rem;
+  border: 1px solid var(--theme-color-300);
+  border-radius: 999px;
+  background-color: white;
+  padding: 0.25rem 0.2rem 0.25rem 0.45rem;
+  gap: 0.35rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.searchBar:hover,
+.searchBar:focus-within {
+  border-color: var(--theme-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 25%, transparent), 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.searchIconSlot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  flex: 0 0 auto;
+}
+
+.searchIcon {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.searchInput {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 0.9rem;
+  color: var(--theme-color-900);
+  min-width: 0;
+}
+
+.searchInput::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.filterButton {
+  position: relative;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.filterButton:hover {
+  background-color: var(--theme-color-200);
+}
+
+.filterIcon {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.filterBadge {
+  position: absolute;
+  top: -0.12rem;
+  right: -0.12rem;
+  background-color: var(--theme-color-red);
+  color: var(--theme-color-white);
+  border-radius: 999px;
+  min-width: 0.85rem;
+  height: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0 0.15rem;
+}
+
+.suggestionsList {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0.2rem;
+  list-style: none;
+  background-color: var(--theme-color-white);
+  border: 1px solid var(--theme-color-300);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+  z-index: 20;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.suggestionButton {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  color: var(--theme-color-900);
+}
+
+.suggestionButton:hover {
+  background-color: var(--theme-color-200);
+}
+
+.suggestionButton img {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.selectedTagsContainer {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-top: 0.8rem;
+}
+
+.selectedTagsLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: max-content;
+  padding-top: 0.2rem;
+}
+
+.selectedTagsTitle {
+  font-size: 0.9rem;
+  color: var(--theme-color-900);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.deleteAllButton {
+  font-size: 0.80rem;
+  color: var(--theme-color);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-align: left;
+  line-height: 1;
+}
+
+.deleteAllButton:hover {
+  opacity: 0.8;
+}
+
+.pillsRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.tagPill {
+  border: 1px solid var(--theme-color-300);
+  background-color: var(--theme-color-white);
+  border-radius: 20px;
+  height: 1.7rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--theme-color-900);
+  font-size: 0.85rem;
+  overflow: hidden;
+}
+
+.tagPill:hover .pillLabel {
+  background-color: var(--theme-color-300);
+}
+
+.tagPill:hover .pillCloseWrapper {
+  background-color: color-mix(in srgb, var(--theme-color-300) 50%, transparent);
+}
+
+.pillLabel {
+  padding: 0 0.5rem;
+  line-height: 1;
+  background-color: var(--theme-color-200);
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.pillCloseWrapper {
+  height: 100%;
+  min-width: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: color-mix(in srgb, var(--theme-color-200) 50%, transparent);
+  border-left: none;
+}
+
+.pillClose {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1;
+}
