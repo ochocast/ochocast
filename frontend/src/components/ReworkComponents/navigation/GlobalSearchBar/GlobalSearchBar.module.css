@@ -202,7 +202,7 @@
   align-items: center;
   cursor: pointer;
   color: var(--theme-color-900);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   overflow: hidden;
 }
 
@@ -215,8 +215,10 @@
 }
 
 .pillLabel {
-  padding: 0 0.5rem;
-  line-height: 1;
+  padding: 0 0.9rem;
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 0.9;
   background-color: var(--theme-color-200);
   height: 100%;
   display: flex;
@@ -225,7 +227,7 @@
 
 .pillCloseWrapper {
   height: 100%;
-  min-width: 1.35rem;
+  min-width: 1.8rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -234,7 +236,7 @@
 }
 
 .pillClose {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  line-height: 1;
+  line-height: 0.9;
 }
