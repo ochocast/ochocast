@@ -9,7 +9,6 @@ import Button, { ButtonType } from '../../generic/Button/Button';
 import { PublicEvent } from '../../../../utils/EventsProperties';
 import { subscribeEvent, unsubscribeEvent } from '../../../../utils/api';
 import { t } from 'i18next';
-import ReactDOM from 'react-dom';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useUser } from '../../../../context/UserContext';
 import { getProfilePicture } from '../../../../utils/api';
@@ -37,15 +36,9 @@ const EventBox = (props: EventBoxProps) => {
   const [defaultLogoUrl, setDefaultLogoUrl] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
-  const popupRef = React.useRef<HTMLDivElement>(null);
-  const [popupPosition, setPopupPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
-  const moreBadgeRef = React.useRef<HTMLDivElement>(null);
 
   function formatNumber(value: number): string {
     return value < 10 ? `0${value}` : `${value}`;

@@ -1,11 +1,8 @@
-import React, { useState, useEffect, use } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useEffect } from 'react';
 import styles from './Thumbnail.module.css';
-import Tag from '../../generic/Tag/Tag';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
-import Button, { ButtonType } from '../../generic/Button/Button';
 import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
 import { useTranslation } from 'react-i18next';
 import {
@@ -17,7 +14,6 @@ import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg'
 import ViewIcon from '../../../../assets/ViewIcon.svg';
 import EditIcon from '../../../../assets/edit.svg';
 import { getProfilePicture } from '../../../../utils/api';
-import { get } from 'http';
 
 const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
@@ -47,10 +43,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
   const popupRef = React.useRef<HTMLDivElement>(null);
   const moreBadgeRef = React.useRef<HTMLDivElement>(null);
-  const [popupPosition, setPopupPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
@@ -70,17 +62,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     }
   };
 
-  const handleTagClick = (e: React.MouseEvent, tag: string) => {
-    e.stopPropagation();
-    if (props.onTagClick) {
-      props.onTagClick(tag);
-    }
-  };
-
-  const [miniatureURL, setMiniatureUrl] = useState<string>(
-    IMAGE_TUILE_EVENT,
-    // process.env.DEFAULT_MINIATURE_IMAGE
-  );
+  const [miniatureURL, setMiniatureUrl] = useState<string>(IMAGE_TUILE_EVENT);
   const navigate = useNavigate();
   const { t } = useTranslation();
 
