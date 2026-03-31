@@ -450,6 +450,7 @@ const Videos: FC<VideosProps> = () => {
                 key={video.id}
                 Id={video.id}
                 title={video.title}
+                creatorId={video.creator?.id || ''}
                 createBy={
                   video.creator?.username ||
                   `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
