@@ -4,7 +4,7 @@ import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
 import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
-import { useTranslation } from 'react-i18next';
+//import { useTranslation } from 'react-i18next';
 import {
   addToFavorites,
   removeFromFavorites,
