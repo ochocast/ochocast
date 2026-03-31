@@ -64,7 +64,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
   const [miniatureURL, setMiniatureUrl] = useState<string>(IMAGE_TUILE_EVENT);
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  //  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchFallbackMiniature = async () => {
