@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 
 import styles from './NavItems.module.css';
 import { useTranslation } from 'react-i18next';
-import { useUser } from '../../../../../context/UserContext';
 import upload from '../../../../../assets/upload.svg';
 import create from '../../../../../assets/create.svg';
 import add from '../../../../../assets/add.svg';
@@ -11,7 +10,6 @@ import add from '../../../../../assets/add.svg';
 const NavItems = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isAdmin } = useUser();
   const [isOpen, setIsOpen] = useState(false);
 
   // 1. Création de la référence pour le conteneur du menu
