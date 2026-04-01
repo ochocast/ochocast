@@ -14,6 +14,7 @@ import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg'
 import ViewIcon from '../../../../assets/ViewIcon.svg';
 import EditIcon from '../../../../assets/edit.svg';
 import { getProfilePicture } from '../../../../utils/api';
+import { useUser } from '../../../../context/UserContext';
 
 const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
@@ -46,6 +47,11 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
+
+  const { user } = useUser();
+
+  const isCreator = user?.id && props.creatorId && user.id === props.creatorId;
+  const canEdit = props.showEditButton || isCreator;
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -193,7 +199,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         />
 
         {/* Edit button */}
-        {props.showEditButton && (
+        {canEdit && (
           <div className={styles.editContainer}>
             <img
               className={styles.editIcon}
