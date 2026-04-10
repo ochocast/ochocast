@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AlterVideoDurationToFloat1738191953000
-  implements MigrationInterface
-{
+export class AlterVideoDurationToFloat1738191953000 implements MigrationInterface {
   name = 'AlterVideoDurationToFloat1738191953000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

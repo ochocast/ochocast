@@ -6,9 +6,7 @@ import {
   TableIndex,
 } from 'typeorm';
 
-export class AddChatMessageEditsAndReactions1733676000000
-  implements MigrationInterface
-{
+export class AddChatMessageEditsAndReactions1733676000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Add editedAt column to chat_messages table
     await queryRunner.query(`

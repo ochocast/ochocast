@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner, TableColumn } from 'typeorm';
 
-export class AddSessionIdToPollVotes1765971400000
-  implements MigrationInterface
-{
+export class AddSessionIdToPollVotes1765971400000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.changeColumn(
       'poll_votes',
