@@ -6,9 +6,7 @@ import {
   TableForeignKey,
 } from 'typeorm';
 
-export class CreateChatMessagesTable1760381861504
-  implements MigrationInterface
-{
+export class CreateChatMessagesTable1760381861504 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
