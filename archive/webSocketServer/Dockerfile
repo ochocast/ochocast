@@ -1,7 +1,7 @@
 #Write a dockerfile to run the server.js file in a container
 #The docker needs ffmpeg to be installed
 
-FROM node:20.3.0-alpine3.18@sha256:9c92cf1a355d10af63a57d2c71034a6ba36a571d9a83be354c0422f1e7ef6cec
+FROM node:20.13.1-alpine3.18@sha256:53108f67824964a573ea435fed258f6cee4d88343e9859a99d356883e71b490c
 
 RUN apk update && apk add --no-cache ffmpeg
 
