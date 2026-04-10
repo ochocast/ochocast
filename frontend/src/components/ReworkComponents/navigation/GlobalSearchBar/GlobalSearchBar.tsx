@@ -34,6 +34,7 @@ const GlobalSearchBar = ({
   const [userSuggestions, setUserSuggestions] = useState<User[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialValue !== undefined) {
@@ -101,6 +102,19 @@ const GlobalSearchBar = ({
     }
   };
 
+  const handleSearchBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+
+    if (target.closest('button')) {
+      return;
+    }
+
+    inputRef.current?.focus();
+    if (hasSuggestion) {
+      setShowSuggestions(tagSuggestions.length + userSuggestions.length > 0);
+    }
+  };
+
   const combinedSuggestions: {
     name: string;
     img: string;
@@ -129,7 +143,7 @@ const GlobalSearchBar = ({
   return (
     <div className={styles.wrapper} ref={wrapperRef}>
       <div className={styles.searchContainer}>
-        <div className={styles.searchBar}>
+        <div className={styles.searchBar} onClick={handleSearchBarClick}>
           <div className={styles.searchIconSlot}>
             <BrandingImage
               className={styles.searchIcon}
@@ -140,6 +154,7 @@ const GlobalSearchBar = ({
           </div>
 
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={handleInputChange}
