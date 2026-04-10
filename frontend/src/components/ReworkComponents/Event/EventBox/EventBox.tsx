@@ -44,6 +44,24 @@ const EventBox = (props: EventBoxProps) => {
     return value < 10 ? `0${value}` : `${value}`;
   }
 
+  const formatDuration = (diffMs: number): string => {
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor(
+      (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+    );
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    }
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}min`;
+    }
+
+    return `${Math.max(0, minutes)} min`;
+  };
+
   const getEventDisplayTime = (
     startDateRaw: Date | string,
     endDateRaw?: Date | string,
@@ -59,38 +77,11 @@ const EventBox = (props: EventBoxProps) => {
 
     // 2. Si la date de fin est passée : C'est terminé.
     if (end && now > end) {
-      const diffMs = end.getTime() - start.getTime();
-
-      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      const hours = Math.floor(
-        (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-      );
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-      if (days > 0) {
-        return `${days}d ${hours}h`;
-      } else if (hours > 0) {
-        return `${hours}h ${minutes}min`;
-      } else {
-        return `${Math.max(0, minutes)} min`;
-      }
+      return formatDuration(end.getTime() - start.getTime());
     }
 
     // 3. Sinon (now < start), c'est dans le futur : on calcule le temps restant.
-    const diffMs = start.getTime() - now.getTime();
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const hours = Math.floor(
-      (diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
-    );
-    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-    if (days > 0) {
-      return `In ${days}d ${hours}h`;
-    } else if (hours > 0) {
-      return `In ${hours}h ${minutes}min`;
-    } else {
-      return `In ${minutes} min`;
-    }
+    return `In ${formatDuration(start.getTime() - now.getTime())}`;
   };
 
   useEffect(() => {
@@ -139,6 +130,10 @@ const EventBox = (props: EventBoxProps) => {
 
   // Check if current user is the event creator
   const isEventCreator = user && event.creatorId === user.id;
+  const eventDisplayTime = getEventDisplayTime(
+    props.event.startDate,
+    props.event.endDate,
+  );
 
   const editButton = (
     <div className={styles.editContainer}>
@@ -168,7 +163,7 @@ const EventBox = (props: EventBoxProps) => {
             <img
               className={styles.editIcon}
               src={SubscribeIcon}
-              alt="Subscribe"
+              alt="Register"
               onClick={async (e) => {
                 e.stopPropagation();
                 if ((await subscribeEvent(event.id)).status === 200) {
@@ -186,7 +181,7 @@ const EventBox = (props: EventBoxProps) => {
             <img
               className={styles.UnsubscribeIcon}
               src={UnsubscribeIcon}
-              alt="unsubscribe"
+              alt="Unsubscribe"
               onClick={async (e) => {
                 e.stopPropagation();
                 if ((await unsubscribeEvent(event.id)).status === 200) {
@@ -272,18 +267,13 @@ const EventBox = (props: EventBoxProps) => {
         </div>
 
         {/* Time container */}
-        {getEventDisplayTime(props.event.startDate, props.event.endDate) !==
-        'Live' ? (
+        {eventDisplayTime !== 'Live' ? (
           <div className={styles.timeContainer}>
-            <div className={styles.timeValue}>
-              {getEventDisplayTime(props.event.startDate, props.event.endDate)}
-            </div>
+            <div className={styles.timeValue}>{eventDisplayTime}</div>
           </div>
         ) : (
           <div className={styles.timeContainerLive}>
-            <div className={styles.timeValueLive}>
-              {getEventDisplayTime(props.event.startDate, props.event.endDate)}
-            </div>
+            <div className={styles.timeValueLive}>{eventDisplayTime}</div>
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
 import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
-//import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import {
   addToFavorites,
   removeFromFavorites,
@@ -33,6 +33,16 @@ export interface PreviewMinitureProps {
   onTagClick?: (tag: string) => void;
   cropTags?: boolean;
   duration?: number;
+  translations?: Partial<PreviewMinitureTranslations>;
+}
+
+export interface PreviewMinitureTranslations {
+  editButtonLabel: string;
+  addToFavoritesLabel: string;
+  removeFromFavoritesLabel: string;
+  viewsLabel: string;
+  noViewsLabel: string;
+  tagsLabel: string;
 }
 
 const Thumbnail = (props: PreviewMinitureProps) => {
@@ -49,6 +59,18 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   );
 
   const { user } = useUser();
+  const { t } = useTranslation();
+
+  const translations: PreviewMinitureTranslations = {
+    editButtonLabel: props.translations?.editButtonLabel ?? t('modify'),
+    addToFavoritesLabel:
+      props.translations?.addToFavoritesLabel ?? t('addToFavorites'),
+    removeFromFavoritesLabel:
+      props.translations?.removeFromFavoritesLabel ?? t('removeFromFavorites'),
+    viewsLabel: props.translations?.viewsLabel ?? t('views'),
+    noViewsLabel: props.translations?.noViewsLabel ?? t('noViews'),
+    tagsLabel: props.translations?.tagsLabel ?? t('Tags'),
+  };
 
   const isCreator = user?.id && props.creatorId && user.id === props.creatorId;
   const canEdit = props.showEditButton || isCreator;
@@ -70,7 +92,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
   const [miniatureURL, setMiniatureUrl] = useState<string>(IMAGE_TUILE_EVENT);
   const navigate = useNavigate();
-  //  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchFallbackMiniature = async () => {
@@ -204,7 +225,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
             <img
               className={styles.editIcon}
               src={EditIcon}
-              alt="Modifier"
+              alt={translations.editButtonLabel}
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(`/video/video-settings/${props.Id}`);
@@ -218,16 +239,26 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           <img
             className={styles.starIcon}
             src={isFavorite ? FavorisFilterSelected : FavorisNotSelected}
-            alt={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            alt={
+              isFavorite
+                ? translations.removeFromFavoritesLabel
+                : translations.addToFavoritesLabel
+            }
             onClick={toggleFavorite}
           />
         </div>
 
         {/* View container */}
         <div className={styles.viewsContainer}>
-          <img className={styles.viewIcon} src={ViewIcon} alt="Vues" />
+          <img
+            className={styles.viewIcon}
+            src={ViewIcon}
+            alt={translations.viewsLabel}
+          />
           <div className={styles.viewValue}>
-            {props.views !== undefined ? props.views : 'No views'}
+            {props.views !== undefined
+              ? props.views
+              : translations.noViewsLabel}
           </div>
         </div>
 
@@ -281,7 +312,9 @@ const Thumbnail = (props: PreviewMinitureProps) => {
                         className={styles.tagTriggerButton}
                         onClick={handleMoreBadgeClick}
                       >
-                        <span className={styles.tagLabel}>Tags</span>
+                        <span className={styles.tagLabel}>
+                          {translations.tagsLabel}
+                        </span>
                         <span className={styles.tagCount}>
                           {props.tags.length}
                         </span>
