@@ -25,7 +25,7 @@
     "concurrently": "^8.2.1",
     "date-fns": "^4.1.0",
     "react-datepicker": "^8.3.0",
-    "react-player": "^2.13.0",
+    "react-player": "^3.0.0",
     "reflect-metadata": "^0.1.14",
     "typedoc": "^0.28.4",
     "uuid": "^10.0.0"
