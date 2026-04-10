@@ -1,148 +1,364 @@
-.box {
+.previewMiniture {
+  position: relative;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 0 4px 0 var(--theme-color-gray);
-  width: 333px;
-  min-height: 422px;
-  height: auto;
-  row-gap: 25px;
+  width: 400px;
+  align-items: center;
+  justify-content: center;
+  text-align: left;
+  color: var(--theme-color-700);
+  border-radius: 12px;
   cursor: pointer;
-  padding-bottom: 20px;
-  margin-bottom: 10px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  overflow: visible;
 }
 
-.img {
-  height: 100%;
+.previewMiniture:hover {
+  transform: scale(1.05);
+  box-shadow: 0px 12px 80px rgba(0, 0, 0, 0.2);
+}
+
+/* == TOP CONTAINER == */
+.topContainer {
+  position: relative;
   width: 100%;
+  border-radius: 16px; 
+  overflow: hidden;
+  line-height: 0;
 }
 
-.eventWrapper {
+.imageTuileEventIcon {
+  width: 100%;
+  height: 11.313rem;
+  object-fit: cover;
+}
+
+/* Image container */
+.imageTuileEventIcon {
+  width: 100%;
+  width: -moz-available;
+  width: -webkit-fill-available;
+  position: relative;
+  border-radius: 12px 12px 0px 0px;
+  height: 180px;
+  width: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+/* edit Container */
+.editContainer {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width : 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px 0px 12px 0px;
+  background-color: rgb(196, 196, 196, 0.8);
+}
+
+.editContainer:hover {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.editIcon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  filter: drop-shadow(0px 0px 4px rgba(0, 0, 0, 0.5));
+  transition: transform 0.2s ease;
+}
+
+/* subscribe Container */
+.UnsubscribeContainer, .subscribeContainer {
+  position: absolute;
+  top: 0px;
+  right: 0px;
+  width : 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0% 12px 0% 12px;
+  background-color: rgb(196, 196, 196, 0.8);
+}
+
+.UnsubscribeContainer:hover, .subscribeContainer:hover {
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.UnsubscribeIcon, .subscribeIcon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  filter: drop-shadow(0px 0px 4px rgba(0, 0, 0, 0.5));
+  transition: transform 0.2s ease;
+}
+
+/* View Container */
+.viewsContainer {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  height: 24px;
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.viewIcon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.viewValue {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+}
+
+/* Time Container */
+.timeContainer {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  height: 24px;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none;
+  
+}
+
+.timeValue {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+}
+
+.timeContainerLive {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: rgba(255, 0, 0, 0.75);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none;
+  
+}
+
+.timeValueLive {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+  line-height: 1;
+}
+
+/* == Bottom CONTAINER == */
+.bottomContainer {
+  width: 100%;
+  height: 64px;
+  display: flex; 
+  flex-direction: row;
+  align-items: flex-start; /* Aligne le haut de la photo avec le haut du titre */
+}
+
+/* Profile Picture Container */
+.profilePictureContainer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background-color: #eee;
+  margin-top: 8px;
+  margin-left: 8px;
+}
+
+.profilePicture {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Text Container */
+.textContainer {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  margin-inline: 20px;
+  flex: 1;
+  min-width: 0;
+  margin-left: 4px;
+  margin-top: 4px;
+}
+
+.titleContainer {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .title {
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  margin-bottom: 0px;
-  margin-left: 4px;
-  margin-right: 4px;
-  color: var(--theme-color-600);
-  display: block;
-  max-width: calc(100% - 10px);
-  white-space: normal;
-  overflow-wrap: anywhere;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
-.date {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--theme-color-black);
-  opacity: 70%;
-}
-
-.info {
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.event-buttons-wrapper,
-.subscribeWrapper {
-  align-self: center;
+.infoContainer {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  column-gap: 15%;
-  width: 80%;
-}
-
-.centerWrapper {
-  align-self: center;
-}
-
-.subscriptionsWrapper {
-  display: flex;
-  align-items: center;
-  column-gap: 5px;
-}
-
-.dot {
-  height: 6px;
-  width: 6px;
-  border-radius: 100px;
-  background: var(--theme-color-200);
-}
-
-.subscritpions {
-  font-size: 14px;
-  color: var(--theme-color-black);
-  opacity: 70%;
-}
-
-.imgWrapper {
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: var(--theme-color-900);
-  height: 43%;
-}
-
-.editButton {
-  position: absolute;
-  top: 5%;
-  right: 2.5%;
-}
-
-.tagsWrapper {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
 }
 
-.tag {
-  background-color: var(--theme-color-150);
-  color: var(--theme-color-1000);
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
+.authorContainer, 
+.dateContainer {
+  font-size: 0.85rem;
+  color: #606060;
+  white-space: nowrap;
 }
 
-.moreTagsIndicator {
-  background-color: var(--theme-color-100);
-  color: var(--theme-color-700);
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.subscribedContainer {
+.separator {
+  color: #606060;
+  font-size: 0.5rem;
   display: flex;
   align-items: center;
-  justify-content: center;
 }
 
-.organizerBadge {
+/* = options Container = */
+.centerWrapper {
+  display: flex;
+  width: 100%;
+  margin-bottom: 8px;
+  margin-left: 4px;
+}
+
+/* = Tags = */
+.tagsContainer {
+  position: relative; /* Indispensable pour que le popup absolu se positionne par rapport à ce conteneur */
+  width: auto; 
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  background-color: var(--theme-color-150);
-  border-radius: 8px;
-  font-size: 0.875rem;
+  margin-left: auto;
+  margin-right: 4px;
+}
+
+.tagTriggerButton {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f0f0f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: 1px solid #e0e0e0;
+  padding: 4px 8px;
+}
+
+.tagTriggerButton:hover {
+  background-color: #e5e5e5;
+}
+
+.tagLabel {
+  font-size: 0.75rem;
   font-weight: 600;
-  color: var(--theme-color-1000);
-  border: 1px solid var(--theme-color-2000);
+  color: #444;
+  padding-right: 6px;
 }
 
-.organizerContainer {
+.tagCount {
+  font-size: 0.7rem;
+  background-color: #606060;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 8px;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* Le fond invisible pour fermer le popup au clic à côté */
+.tagsPopupOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9998;
+  cursor: default;
+}
+
+/* La boite blanche contenant les tags */
+.tagsPopup {
+  position: absolute;
+  top: calc(100% + 8px); /* S'affiche juste en dessous du bouton avec un espace de 8px */
+  right: 0; /* S'aligne sur le bord droit du bouton */
+  z-index: 9999;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid #eee;
+  width: max-content;
+  max-width: 280px; /* Permet le retour à la ligne automatique comme sur l'image */
+  animation: slideIn 0.2s ease;
+}
+
+.tagsPopupContent {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Le style des tags individuels (vert foncé comme sur l'image) */
+.tag {
+  background-color: white;
+  color: #2b5640; /* Vert foncé de votre capture */
+  padding: 6px 14px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 800; /* Texte bien gras */
+  border: 1.5px solid #2b5640;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

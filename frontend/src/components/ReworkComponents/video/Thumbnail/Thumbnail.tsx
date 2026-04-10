@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom';
 import styles from './Thumbnail.module.css';
-import Tag from '../../generic/Tag/Tag';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
-import Button, { ButtonType } from '../../generic/Button/Button';
 import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,20 +11,38 @@ import {
   isVideoFavorite,
 } from '../../../../utils/api';
 import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg';
+import ViewIcon from '../../../../assets/ViewIcon.svg';
+import EditIcon from '../../../../assets/edit.svg';
+import { getProfilePicture } from '../../../../utils/api';
+import { useUser } from '../../../../context/UserContext';
+
 const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
+const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
 
 export interface PreviewMinitureProps {
   Id: string;
   title: string;
   imageSrc?: string;
+  creatorId?: string;
   createBy: string;
   createdAt: string;
   tags: string[];
+  views?: number; //actuellement pas utilisé, mais peut être utile pour afficher le nombre de vues sur la miniature
   onArchived?: (id: string) => void;
   showEditButton?: boolean;
   onTagClick?: (tag: string) => void;
   cropTags?: boolean;
   duration?: number;
+  translations?: Partial<PreviewMinitureTranslations>;
+}
+
+export interface PreviewMinitureTranslations {
+  editButtonLabel: string;
+  addToFavoritesLabel: string;
+  removeFromFavoritesLabel: string;
+  viewsLabel: string;
+  noViewsLabel: string;
+  tagsLabel: string;
 }
 
 const Thumbnail = (props: PreviewMinitureProps) => {
@@ -36,17 +51,29 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<
     string | null
   >(null);
-  const [visibleTagsCount, setVisibleTagsCount] = useState<number>(
-    props.tags?.length || 0,
-  );
-  const tagListRef = React.useRef<HTMLDivElement>(null);
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
   const popupRef = React.useRef<HTMLDivElement>(null);
   const moreBadgeRef = React.useRef<HTMLDivElement>(null);
-  const [popupPosition, setPopupPosition] = useState<{
-    top: number;
-    left: number;
-  } | null>(null);
+  const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
+    DEFAULT_PERSONA_IMAGE,
+  );
+
+  const { user } = useUser();
+  const { t } = useTranslation();
+
+  const translations: PreviewMinitureTranslations = {
+    editButtonLabel: props.translations?.editButtonLabel ?? t('modify'),
+    addToFavoritesLabel:
+      props.translations?.addToFavoritesLabel ?? t('addToFavorites'),
+    removeFromFavoritesLabel:
+      props.translations?.removeFromFavoritesLabel ?? t('removeFromFavorites'),
+    viewsLabel: props.translations?.viewsLabel ?? t('views'),
+    noViewsLabel: props.translations?.noViewsLabel ?? t('noViews'),
+    tagsLabel: props.translations?.tagsLabel ?? t('Tags'),
+  };
+
+  const isCreator = user?.id && props.creatorId && user.id === props.creatorId;
+  const canEdit = props.showEditButton || isCreator;
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -63,19 +90,8 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     }
   };
 
-  const handleTagClick = (e: React.MouseEvent, tag: string) => {
-    e.stopPropagation();
-    if (props.onTagClick) {
-      props.onTagClick(tag);
-    }
-  };
-
-  const [miniatureURL, setMiniatureUrl] = useState<string>(
-    IMAGE_TUILE_EVENT,
-    // process.env.DEFAULT_MINIATURE_IMAGE
-  );
+  const [miniatureURL, setMiniatureUrl] = useState<string>(IMAGE_TUILE_EVENT);
   const navigate = useNavigate();
-  const { t } = useTranslation();
 
   useEffect(() => {
     const fetchFallbackMiniature = async () => {
@@ -122,41 +138,30 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     fetchFavoriteStatus();
   }, [props.Id, fallbackMiniatureUrl]);
 
-  // Calculer combien de tags peuvent être affichés sur une ligne
   useEffect(() => {
-    if (!props.cropTags || !tagListRef.current || !props.tags) {
-      setVisibleTagsCount(props.tags?.length || 0);
-      return;
-    }
-
-    // Simuler l'affichage pour calculer combien de tags rentrent
-    const containerWidth = tagListRef.current.offsetWidth;
-    let totalWidth = 0;
-    let count = 0;
-    const gapWidth = 8; // 0.5rem = 8px
-    const badgeWidth = 50; // Largeur estimée du badge "+X"
-
-    for (let i = 0; i < props.tags.length; i++) {
-      // Estimation de la largeur d'un tag (padding + texte)
-      const tagText =
-        props.tags[i].length > 8
-          ? props.tags[i].substring(0, 8) + '...'
-          : props.tags[i];
-      const estimatedWidth = tagText.length * 8 + 24; // 8px par caractère + padding
-
-      if (
-        totalWidth + estimatedWidth + (i > 0 ? gapWidth : 0) + badgeWidth >
-        containerWidth
-      ) {
-        break;
+    const fetchMiniatureUrl = async () => {
+      try {
+        if (props.creatorId) {
+          const url = await getProfilePicture(props.creatorId);
+          if (
+            url?.data &&
+            typeof url.data === 'string' &&
+            !url.data.includes('miniatureundefined')
+          ) {
+            setProfilePictureUrl(url.data);
+          } else {
+            setProfilePictureUrl(DEFAULT_PERSONA_IMAGE);
+          }
+        } else {
+          setProfilePictureUrl(DEFAULT_PERSONA_IMAGE);
+        }
+      } catch (error) {
+        console.error('Error fetching profile picture', error);
+        setProfilePictureUrl(DEFAULT_PERSONA_IMAGE);
       }
-
-      totalWidth += estimatedWidth + (i > 0 ? gapWidth : 0);
-      count++;
-    }
-
-    setVisibleTagsCount(Math.max(1, count)); // Au moins 1 tag visible
-  }, [props.tags, props.cropTags]);
+    };
+    fetchMiniatureUrl();
+  }, [props.creatorId]);
 
   // Gérer le clic en dehors du popup
   useEffect(() => {
@@ -184,22 +189,9 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     return value < 10 ? `0${value}` : `${value}`;
   }
 
-  const truncateTag = (tag: string): string => {
-    if (!props.cropTags) return tag;
-    return tag.length > 8 ? tag.substring(0, 8) + '...' : tag;
-  };
-
   const handleMoreBadgeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    const newState = !showAllTags;
-    setShowAllTags(newState);
-    if (newState && moreBadgeRef.current) {
-      const rect = moreBadgeRef.current.getBoundingClientRect();
-      setPopupPosition({
-        top: rect.bottom + window.scrollY + 8, // 8px gap
-        left: rect.left + window.scrollX,
-      });
-    }
+    setShowAllTags(!showAllTags);
   };
 
   const formatDuration = (seconds?: number): string => {
@@ -219,113 +211,145 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       className={styles.previewMiniture}
       onClick={() => navigate(`/video/${props.Id}`)}
     >
-      <div className={styles.thumbnailContainer}>
+      {/* Top container with image and overlays */}
+      <div className={styles.topContainer}>
         <img
           className={styles.imageTuileEventIcon}
-          alt=""
+          alt={props.title}
           src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
-          sizes="(max-width: 20rem) 100vw, 20rem"
         />
-        {props.duration && (
-          <div className={styles.durationBadge}>
-            {formatDuration(props.duration)}
-          </div>
-        )}
-      </div>
-      <div
-        className={
-          props.showEditButton ? styles.descriptionNoButton : styles.description
-        }
-      >
-        <h2 className={styles.title}>{props.title}</h2>
-        <h3 className={styles.createBy}>
-          {' '}
-          {t('createdBy')} : {props.createBy}
-        </h3>
-        <div>
-          {t('postedOn')}{' '}
-          {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
-            dateDisplay.getMonth() + 1,
-          )}/${dateDisplay.getFullYear()}`}
-        </div>
-        <div className={styles.tagList} ref={tagListRef}>
-          {props.tags &&
-            props.tags.slice(0, visibleTagsCount).map((tag) => (
-              <div
-                key={tag}
-                onClick={(e) => handleTagClick(e, tag)}
-                className={
-                  props.cropTags ? styles.tagWrapper : styles.tagWrapperNoCrop
-                }
-              >
-                <Tag content={truncateTag(tag)} />
-              </div>
-            ))}
-          {props.cropTags &&
-            props.tags &&
-            props.tags.length > visibleTagsCount && (
-              <div className={styles.moreBadgeContainer} ref={moreBadgeRef}>
-                <div
-                  className={styles.moreBadge}
-                  onClick={handleMoreBadgeClick}
-                >
-                  +{props.tags.length - visibleTagsCount}
-                </div>
-                {showAllTags &&
-                  (typeof document !== 'undefined'
-                    ? ReactDOM.createPortal(
-                        <div
-                          className={styles.tagsPopup}
-                          ref={popupRef}
-                          style={{
-                            position: 'absolute',
-                            top: popupPosition
-                              ? `${popupPosition.top}px`
-                              : undefined,
-                            left: popupPosition
-                              ? `${popupPosition.left}px`
-                              : undefined,
-                          }}
-                        >
-                          <div className={styles.tagsPopupContent}>
-                            {props.tags.slice(visibleTagsCount).map((tag) => (
-                              <div
-                                key={tag}
-                                onClick={(e) => handleTagClick(e, tag)}
-                                className={styles.tagWrapper}
-                              >
-                                <Tag content={truncateTag(tag)} />
-                              </div>
-                            ))}
-                          </div>
-                        </div>,
-                        document.body,
-                      )
-                    : null)}
-              </div>
-            )}
-        </div>
-        {props.showEditButton ? (
-          <div className={styles.buttonList}>
-            <Button
-              type={ButtonType.primary}
-              label={t('modify')}
+
+        {/* Edit button */}
+        {canEdit && (
+          <div className={styles.editContainer}>
+            <img
+              className={styles.editIcon}
+              src={EditIcon}
+              alt={translations.editButtonLabel}
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(`/video/video-settings/${props.Id}`);
               }}
             />
           </div>
-        ) : (
-          <div />
+        )}
+
+        {/* Star container */}
+        <div className={styles.starContainer}>
+          <img
+            className={styles.starIcon}
+            src={isFavorite ? FavorisFilterSelected : FavorisNotSelected}
+            alt={
+              isFavorite
+                ? translations.removeFromFavoritesLabel
+                : translations.addToFavoritesLabel
+            }
+            onClick={toggleFavorite}
+          />
+        </div>
+
+        {/* View container */}
+        <div className={styles.viewsContainer}>
+          <img
+            className={styles.viewIcon}
+            src={ViewIcon}
+            alt={translations.viewsLabel}
+          />
+          <div className={styles.viewValue}>
+            {props.views !== undefined
+              ? props.views
+              : translations.noViewsLabel}
+          </div>
+        </div>
+
+        {/* Time container */}
+        {props.duration && (
+          <div className={styles.timeContainer}>
+            <div className={styles.timeValue}>
+              {formatDuration(props.duration)}
+            </div>
+          </div>
         )}
       </div>
-      <img
-        className={styles.starIconContainer}
-        src={isFavorite ? FavorisFilterSelected : FavorisNotSelected}
-        alt=""
-        onClick={toggleFavorite}
-      />
+
+      {/* Bottom container with infos */}
+      <div className={styles.bottomContainer}>
+        {/* profilePictureContainer */}
+        <div className={styles.profilePictureContainer}>
+          <img
+            className={styles.profilePicture}
+            src={profilePictureUrl}
+            alt={`${props.createBy}'s profile`}
+          />
+        </div>
+
+        {/* textContainer */}
+        <div className={styles.textContainer}>
+          <div className={styles.titleContainer}>
+            <h2 className={styles.title} title={props.title}>
+              {props.title}
+            </h2>
+          </div>
+
+          <div className={styles.infoContainer}>
+            <div className={styles.authorContainer}>{props.createBy}</div>
+
+            <span className={styles.separator}>•</span>
+
+            <div className={styles.dateContainer}>
+              {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
+                dateDisplay.getMonth() + 1,
+              )}/${dateDisplay.getFullYear()}`}
+            </div>
+
+            <div className={styles.tagsContainer}>
+              {props.tags && props.tags.length > 0 && (
+                <div className={styles.tagTriggerWrapper} ref={moreBadgeRef}>
+                  {/* Le Popup reste le même, on affiche juste TOUS les tags dedans */}
+                  {props.tags && props.tags.length > 0 && (
+                    <div className={styles.tagsContainer}>
+                      <button
+                        className={styles.tagTriggerButton}
+                        onClick={handleMoreBadgeClick}
+                      >
+                        <span className={styles.tagLabel}>
+                          {translations.tagsLabel}
+                        </span>
+                        <span className={styles.tagCount}>
+                          {props.tags.length}
+                        </span>
+                      </button>
+
+                      {showAllTags && (
+                        <>
+                          {/* L'overlay reste au niveau de l'écran entier pour capter le clic de fermeture */}
+                          <div
+                            className={styles.tagsPopupOverlay}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowAllTags(false);
+                            }}
+                          />
+                          {/* Le popup est maintenant positionné par rapport au tagsContainer */}
+                          <div className={styles.tagsPopup}>
+                            <div className={styles.tagsPopupContent}>
+                              {props.tags.map((tag, index) => (
+                                <span key={index} className={styles.tag}>
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
