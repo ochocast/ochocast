@@ -25,7 +25,7 @@
     "@types/react-datepicker": "^6.2.0",
     "@types/react-dom": "^18.2.7",
     "@types/react-router-dom": "^5.3.3",
-    "apisauce": "^3.0.0",
+    "apisauce": "^3.2.2",
     "date-fns": "^4.1.0",
     "dotenv": "^16.3.1",
     "i18next": "^21.10.0",
@@ -72,7 +72,7 @@
     "eslint-plugin-storybook": "^0.12.0",
     "prettier": "^3.0.3",
     "prop-types": "^15.8.1",
-    "storybook": "^8.5.1",
+    "storybook": "^8.6.18",
     "typedoc": "^0.26.11",
     "webpack": "^5.97.1"
   },
