@@ -36,6 +36,7 @@ const EventBox = (props: EventBoxProps) => {
   const [defaultLogoUrl, setDefaultLogoUrl] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
+  const moreBadgeRef = React.useRef<HTMLDivElement>(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
@@ -70,17 +71,14 @@ const EventBox = (props: EventBoxProps) => {
     const start = new Date(startDateRaw);
     const end = endDateRaw ? new Date(endDateRaw) : null;
 
-    // 1. Si on est entre la date de début et la date de fin : C'est en direct !
     if (now >= start && (!end || now <= end)) {
       return 'Live';
     }
 
-    // 2. Si la date de fin est passée : C'est terminé.
     if (end && now > end) {
       return formatDuration(end.getTime() - start.getTime());
     }
 
-    // 3. Sinon (now < start), c'est dans le futur : on calcule le temps restant.
     return `In ${formatDuration(start.getTime() - now.getTime())}`;
   };
 
@@ -96,7 +94,6 @@ const EventBox = (props: EventBoxProps) => {
     fetchDefaultLogo();
   }, [getImageUrl]);
 
-  // Check if current user is subscribed to this event
   useEffect(() => {
     if (user && event.subscribedUserIds) {
       setIsSubscribed(event.subscribedUserIds.includes(user.id));
@@ -128,7 +125,6 @@ const EventBox = (props: EventBoxProps) => {
     fetchMiniatureUrl();
   }, [props.event.creatorId]);
 
-  // Check if current user is the event creator
   const isEventCreator = user && event.creatorId === user.id;
   const eventDisplayTime = getEventDisplayTime(
     props.event.startDate,
@@ -232,6 +228,9 @@ const EventBox = (props: EventBoxProps) => {
     setShowAllTags(!showAllTags);
   };
 
+  const displayedTags = event.tags?.slice(0, 2) ?? [];
+  const hiddenTags = event.tags?.slice(2) ?? [];
+
   return (
     <div
       className={styles.previewMiniture}
@@ -280,51 +279,66 @@ const EventBox = (props: EventBoxProps) => {
 
       {/* Bottom container with infos */}
       <div className={styles.bottomContainer}>
-        {/* profilePictureContainer */}
-        <div className={styles.profilePictureContainer}>
-          <img
-            className={styles.profilePicture}
-            src={profilePictureUrl}
-            alt={`${props.event.creator.firstName} ${props.event.creator.lastName}'s profile`}
-          />
-        </div>
-
-        {/* textContainer */}
-        <div className={styles.textContainer}>
-          <div className={styles.titleContainer}>
-            <h2 className={styles.title} title={props.event.name}>
-              {props.event.name}
-            </h2>
+        <div className={styles.bottomContainerUpperPart}>
+          {/* profilePictureContainer */}
+          <div className={styles.profilePictureContainer}>
+            <img
+              className={styles.profilePicture}
+              src={profilePictureUrl}
+              alt={`${props.event.creator.firstName} ${props.event.creator.lastName}'s profile`}
+            />
           </div>
 
-          <div className={styles.infoContainer}>
-            <div className={styles.authorContainer}>
-              {props.event.creator.firstName +
-                ' ' +
-                props.event.creator.lastName}
+          {/* textContainer */}
+          <div className={styles.textContainer}>
+            <div className={styles.titleContainer}>
+              <h2 className={styles.title} title={props.event.name}>
+                {props.event.name}
+              </h2>
             </div>
 
-            <span className={styles.separator}>•</span>
+            <div className={styles.infoContainer}>
+              <div className={styles.authorContainer}>
+                {props.event.creator.firstName +
+                  ' ' +
+                  props.event.creator.lastName}
+              </div>
 
-            <div className={styles.dateContainer}>
-              {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
-                dateDisplay.getMonth() + 1,
-              )}/${dateDisplay.getFullYear()}`}
+              <span className={styles.separator}>•</span>
+
+              <div className={styles.dateContainer}>
+                {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
+                  dateDisplay.getMonth() + 1,
+                )}/${dateDisplay.getFullYear()}`}
+              </div>
             </div>
+          </div>
+        </div>
 
-            {event.tags && event.tags.length > 0 && (
-              <div className={styles.tagsContainer}>
+        <div className={styles.bottomContainerLowerPart}>
+          <div className={styles.tagsContainer}>
+            {displayedTags.length > 0 && (
+              <>
+                {displayedTags.map((tag, index) => (
+                  <span key={index} className={styles.tag}>
+                    {tag.name}
+                  </span>
+                ))}
+              </>
+            )}
+
+            {hiddenTags.length > 0 && (
+              <div className={styles.tagTriggerWrapper} ref={moreBadgeRef}>
                 <button
                   className={styles.tagTriggerButton}
                   onClick={handleMoreBadgeClick}
+                  aria-label={`+${hiddenTags.length} tags restants`}
                 >
-                  <span className={styles.tagLabel}>Tags</span>
-                  <span className={styles.tagCount}>{event.tags.length}</span>
+                  <span className={styles.tagCount}>+{hiddenTags.length}</span>
                 </button>
 
                 {showAllTags && (
                   <>
-                    {/* L'overlay reste au niveau de l'écran entier pour capter le clic de fermeture */}
                     <div
                       className={styles.tagsPopupOverlay}
                       onClick={(e) => {
@@ -332,11 +346,10 @@ const EventBox = (props: EventBoxProps) => {
                         setShowAllTags(false);
                       }}
                     />
-                    {/* Le popup est maintenant positionné par rapport au tagsContainer */}
                     <div className={styles.tagsPopup}>
                       <div className={styles.tagsPopupContent}>
-                        {event.tags.map((tag, index) => (
-                          <span key={index} className={styles.tag}>
+                        {hiddenTags.map((tag, index) => (
+                          <span key={index} className={styles.popupTag}>
                             {tag.name}
                           </span>
                         ))}
@@ -348,11 +361,14 @@ const EventBox = (props: EventBoxProps) => {
             )}
           </div>
         </div>
-      </div>
 
-      {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}
-      {props.eventStatus === EventStatus.Finished && buttonsFinished}
-      {props.eventStatus === EventStatus.Preview && buttonsPreview}
+        <div className={styles.buttonsContainer}>
+          {props.eventStatus === EventStatus.NotPublished &&
+            buttonsNotPublished}
+          {props.eventStatus === EventStatus.Finished && buttonsFinished}
+          {props.eventStatus === EventStatus.Preview && buttonsPreview}
+        </div>
+      </div>
     </div>
   );
 };

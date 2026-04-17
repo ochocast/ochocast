@@ -3,14 +3,14 @@ import styles from './Thumbnail.module.css';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
-import FavorisNotSelected from '../../../../assets/FavorisNotSelected.svg';
+import Star from '../../../../assets/star.svg';
 import { useTranslation } from 'react-i18next';
 import {
   addToFavorites,
   removeFromFavorites,
   isVideoFavorite,
 } from '../../../../utils/api';
-import FavorisFilterSelected from '../../../../assets/FavorisFilterSelected.svg';
+import FavorisFilterSelected from '../../../../assets/FavorisSelected.svg';
 import ViewIcon from '../../../../assets/ViewIcon.svg';
 import EditIcon from '../../../../assets/edit.svg';
 import { getProfilePicture } from '../../../../utils/api';
@@ -163,7 +163,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     fetchMiniatureUrl();
   }, [props.creatorId]);
 
-  // Gérer le clic en dehors du popup
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -183,16 +182,13 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     };
   }, [showAllTags]);
 
-  const dateDisplay = new Date(props.createdAt); // to be able to getDay..
-
-  function formatNumber(value: number): string {
-    return value < 10 ? `0${value}` : `${value}`;
-  }
-
   const handleMoreBadgeClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowAllTags(!showAllTags);
   };
+
+  const displayedTags = props.tags?.slice(0, 2) ?? [];
+  const hiddenTags = props.tags?.slice(2) ?? [];
 
   const formatDuration = (seconds?: number): string => {
     if (!seconds) return '';
@@ -204,6 +200,37 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getRelativeTime = (dateString: string): string => {
+    const past = new Date(dateString).getTime();
+    const now = new Date().getTime();
+    const diffInSeconds = Math.floor((now - past) / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+
+    if (diffInMinutes < 60) {
+      const mins = Math.max(diffInMinutes, 0);
+      if (mins === 0) return t('timeAgo.now');
+      return t('timeAgo.minutes', { count: mins });
+    }
+
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+      return t('timeAgo.hours', { count: diffInHours });
+    }
+
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 30) {
+      return t('timeAgo.days', { count: diffInDays });
+    }
+
+    const diffInMonths = Math.floor(diffInDays / 30);
+    if (diffInMonths < 12) {
+      return t('timeAgo.months', { count: diffInMonths });
+    }
+
+    const diffInYears = Math.floor(diffInDays / 365);
+    return t('timeAgo.years', { count: diffInYears });
   };
 
   return (
@@ -238,7 +265,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         <div className={styles.starContainer}>
           <img
             className={styles.starIcon}
-            src={isFavorite ? FavorisFilterSelected : FavorisNotSelected}
+            src={isFavorite ? FavorisFilterSelected : Star}
             alt={
               isFavorite
                 ? translations.removeFromFavoritesLabel
@@ -274,79 +301,80 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
       {/* Bottom container with infos */}
       <div className={styles.bottomContainer}>
-        {/* profilePictureContainer */}
-        <div className={styles.profilePictureContainer}>
-          <img
-            className={styles.profilePicture}
-            src={profilePictureUrl}
-            alt={`${props.createBy}'s profile`}
-          />
-        </div>
-
-        {/* textContainer */}
-        <div className={styles.textContainer}>
-          <div className={styles.titleContainer}>
-            <h2 className={styles.title} title={props.title}>
-              {props.title}
-            </h2>
+        <div className={styles.bottomContainerUpperPart}>
+          {/* profilePictureContainer */}
+          <div className={styles.profilePictureContainer}>
+            <img
+              className={styles.profilePicture}
+              src={profilePictureUrl}
+              alt={`${props.createBy}'s profile`}
+            />
           </div>
 
-          <div className={styles.infoContainer}>
-            <div className={styles.authorContainer}>{props.createBy}</div>
-
-            <span className={styles.separator}>•</span>
-
-            <div className={styles.dateContainer}>
-              {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
-                dateDisplay.getMonth() + 1,
-              )}/${dateDisplay.getFullYear()}`}
+          {/* textContainer */}
+          <div className={styles.textContainer}>
+            <div className={styles.titleContainer}>
+              <h2 className={styles.title} title={props.title}>
+                {props.title}
+              </h2>
             </div>
 
-            <div className={styles.tagsContainer}>
-              {props.tags && props.tags.length > 0 && (
-                <div className={styles.tagTriggerWrapper} ref={moreBadgeRef}>
-                  {/* Le Popup reste le même, on affiche juste TOUS les tags dedans */}
-                  {props.tags && props.tags.length > 0 && (
-                    <div className={styles.tagsContainer}>
-                      <button
-                        className={styles.tagTriggerButton}
-                        onClick={handleMoreBadgeClick}
-                      >
-                        <span className={styles.tagLabel}>
-                          {translations.tagsLabel}
-                        </span>
-                        <span className={styles.tagCount}>
-                          {props.tags.length}
-                        </span>
-                      </button>
+            <div className={styles.infoContainer}>
+              <div className={styles.authorContainer}>{props.createBy}</div>
 
-                      {showAllTags && (
-                        <>
-                          {/* L'overlay reste au niveau de l'écran entier pour capter le clic de fermeture */}
-                          <div
-                            className={styles.tagsPopupOverlay}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowAllTags(false);
-                            }}
-                          />
-                          {/* Le popup est maintenant positionné par rapport au tagsContainer */}
-                          <div className={styles.tagsPopup}>
-                            <div className={styles.tagsPopupContent}>
-                              {props.tags.map((tag, index) => (
-                                <span key={index} className={styles.tag}>
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
+              <span className={styles.separator}>•</span>
+
+              <div className={styles.dateContainer}>
+                {getRelativeTime(props.createdAt)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={styles.bottomContainerLowerPart}>
+          <div className={styles.tagsContainer}>
+            {displayedTags.length > 0 && (
+              <>
+                {displayedTags.map((tag, index) => (
+                  <span key={index} className={styles.tag}>
+                    {tag}
+                  </span>
+                ))}
+              </>
+            )}
+
+            {hiddenTags.length > 0 && (
+              <div className={styles.tagTriggerWrapper} ref={moreBadgeRef}>
+                <button
+                  className={styles.tagTriggerButton}
+                  onClick={handleMoreBadgeClick}
+                  aria-label={`+${hiddenTags.length} tags restants`}
+                >
+                  <span className={styles.tagCount}>+{hiddenTags.length}</span>
+                </button>
+
+                {showAllTags && (
+                  <>
+                    <div
+                      className={styles.tagsPopupOverlay}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAllTags(false);
+                      }}
+                    />
+                    <div className={styles.tagsPopup}>
+                      <div className={styles.tagsPopupContent}>
+                        {hiddenTags.map((tag, index) => (
+                          <span key={index} className={styles.tag}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
