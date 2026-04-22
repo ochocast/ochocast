@@ -45,12 +45,6 @@ import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/Loadi
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
 
-type ApiResponse<T> = {
-  ok: boolean;
-  status: number;
-  data: T;
-};
-
 const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 type BackendMsgKey = 'videonotallowdeleted' | 'videonotallowmodify';
 const isBackendMsgKey = (val: unknown): val is BackendMsgKey =>
@@ -707,7 +701,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const deleteThisVideo = async () => {
     await deleteVideo(videoId)
-      .then((response: ApiResponse<unknown>) => {
+      .then((response) => {
         if (
           response.status === 202 ||
           response.status === 201 ||
@@ -859,7 +853,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     );
 
     await modifyVideo(form)
-      .then((response: ApiResponse<unknown>) => {
+      .then((response) => {
         if (
           response.status === 202 ||
           response.status === 201 ||
