@@ -1,5 +1,5 @@
 {
-  "profile": "Profil",
+  "profile": "Paramètres du profil",
   "language": "Langue",
   "replyTo": "Répondre à",
   "cancelReply": "Annuler la réponse",
@@ -184,6 +184,7 @@
   "Images": "Images",
   "Speakers": "Orateurs",
   "myEvents": "Mes évènements",
+  "myVideos": "Mes vidéos",
   "isRegistered": "est inscrit",
   "PublicEvents": "Évènements public",
   "ClosedEvents": "Évènements cloturé",

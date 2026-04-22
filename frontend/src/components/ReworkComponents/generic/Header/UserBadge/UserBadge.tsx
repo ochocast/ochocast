@@ -14,12 +14,12 @@ interface Props {
 export const UserBadge = ({ username }: Props): JSX.Element => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { isAdmin } = useUser();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pictureUrl, setPictureUrl] = useState<string>(profilePicture);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Load profile picture
   useEffect(() => {
     const fetchProfilePicture = async () => {
       try {
@@ -37,7 +37,6 @@ export const UserBadge = ({ username }: Props): JSX.Element => {
     fetchProfilePicture();
   }, [user?.id, user?.picture_id]);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -74,6 +73,43 @@ export const UserBadge = ({ username }: Props): JSX.Element => {
           >
             {t('profile')}
           </div>
+
+          <hr className={styles.divider} />
+
+          <div
+            className={styles.dropdownItem}
+            onClick={() => {
+              navigate('/profile');
+              setMenuOpen(false);
+            }}
+          >
+            <span>{t('myVideos')}</span>
+          </div>
+
+          <div
+            className={styles.dropdownItem}
+            onClick={() => {
+              navigate('/my-events');
+              setMenuOpen(false);
+            }}
+          >
+            <span>{t('myEvents')}</span>
+          </div>
+
+          <hr className={styles.divider} />
+
+          {isAdmin && (
+            <div
+              className={styles.dropdownItem}
+              onClick={() => {
+                navigate('/admin');
+                setMenuOpen(false);
+              }}
+            >
+              {t('adminPanel')}
+            </div>
+          )}
+
           <div className={styles.dropdownLanguage}>
             <LanguageSwitcher />
           </div>
