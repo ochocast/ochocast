@@ -57,7 +57,7 @@ const SearchBar = ({
         setUser(userResponse.data);
       }
     } catch (error) {
-      logger.error('Error fetching users and tags:', error);
+      logger.error({ err: error }, 'Error fetching users and tags');
     }
   };
 

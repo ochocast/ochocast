@@ -32,7 +32,7 @@ export const useTrackSettings = () => {
       .then((res) => {
         if (res.status === 200) setAllUsers(res.data);
       })
-      .catch((err) => logger.error(`Failed to fetch users: ${err}`));
+      .catch((err) => logger.error({ err }, 'Failed to fetch users'));
   }, []);
 
   // Get event + tracks
@@ -45,7 +45,7 @@ export const useTrackSettings = () => {
           setTracks(res.data.tracks);
         }
       })
-      .catch((err) => logger.error(`Failed to fetch event: ${err}`));
+      .catch((err) => logger.error({ err }, 'Failed to fetch event'));
   }, [eventId]);
 
   // Get track details if editing
@@ -78,7 +78,7 @@ export const useTrackSettings = () => {
         }
       })
       .catch((err) => {
-        logger.error(`Failed to fetch track ${trackId}: ${err}`);
+        logger.error({ err, trackId }, `Failed to fetch track ${trackId}`);
         navigate('/my-events');
       })
       .finally(() => setLoading(false));
@@ -181,7 +181,7 @@ export const useTrackSettings = () => {
         navigate(`/events/${eventId}/track-settings/${res.data.id}`);
       }
     } catch (err) {
-      logger.error(err);
+      logger.error({ err }, 'Failed to save track');
       setMessage(t('ErrorSavingTrack'));
       return false;
     }
@@ -194,7 +194,7 @@ export const useTrackSettings = () => {
       await deleteTrack(trackId);
       navigate(`/events/${eventId}/event-settings`);
     } catch (err) {
-      logger.error(err);
+      logger.error({ err }, 'Failed to delete track');
       setMessage(t('DeleteTrackError'));
     }
   };

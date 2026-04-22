@@ -1,7 +1,7 @@
 {
   "version": "0.0.2",
   "scripts": {
-    "postinstall": "concurrently \"cd backend && npm install\" \"cd frontend && npm install\"",
+    "postinstall": "concurrently \"cd backend && npm install --legacy-peer-deps\" \"cd frontend && npm install\"",
     "set-up:db": "cd database && docker compose up -d",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "start:backend": "cd backend && npm run start:dev",
@@ -20,8 +20,8 @@
   "type": "module",
   "name": "ochocast-webapp",
   "dependencies": {
-    "@nestjs/common": "^10.4.19",
-    "@nestjs/core": "^10.4.19",
+    "@nestjs/common": "^11.1.19",
+    "@nestjs/core": "^11.1.19",
     "concurrently": "^8.2.1",
     "date-fns": "^4.1.0",
     "react-datepicker": "^8.3.0",

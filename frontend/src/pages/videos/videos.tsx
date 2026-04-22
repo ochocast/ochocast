@@ -163,7 +163,7 @@ const Videos: FC<VideosProps> = () => {
         setVideos(result);
       }
     } catch (error) {
-      logger.error('Error fetching suggestions:', error);
+      logger.error({ err: error }, 'Error fetching suggestions');
     }
   }, []);
 
@@ -208,7 +208,7 @@ const Videos: FC<VideosProps> = () => {
         setVideos(allVideos);
         setFilteredVideos(allVideos);
       } catch (error) {
-        logger.error('Error fetching videos:', error);
+        logger.error({ err: error }, 'Error fetching videos');
       }
       setIsLoading(false);
     };
@@ -314,7 +314,7 @@ const Videos: FC<VideosProps> = () => {
 
       setVideos(response.data || []);
     } catch (error) {
-      logger.error('Error toggling favorite filter:', error);
+      logger.error({ err: error }, 'Error toggling favorite filter');
     }
   };
 

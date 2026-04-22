@@ -1,7 +1,6 @@
 import styles from './videoSettings.module.css';
 
 import { useState, ChangeEvent, FC, useEffect } from 'react';
-import type { ApiResponse } from 'apisauce';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 // import Card from '../../components/ReworkComponents/generic/Cards/Card';
@@ -45,6 +44,12 @@ import Button, {
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 // import PreviewMiniture from '../../components/ReworkComponents/PreviewMiniture/PreviewMiniture';
 // import { useAuth } from 'react-oidc-context';
+
+type ApiResponse<T> = {
+  ok: boolean;
+  status: number;
+  data: T;
+};
 
 const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 type BackendMsgKey = 'videonotallowdeleted' | 'videonotallowmodify';
