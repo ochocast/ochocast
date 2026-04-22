@@ -20,7 +20,6 @@ export const UserBadge = ({ username }: Props): JSX.Element => {
   const [pictureUrl, setPictureUrl] = useState<string>(profilePicture);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Load profile picture
   useEffect(() => {
     const fetchProfilePicture = async () => {
       try {
@@ -38,7 +37,6 @@ export const UserBadge = ({ username }: Props): JSX.Element => {
     fetchProfilePicture();
   }, [user?.id, user?.picture_id]);
 
-  // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {

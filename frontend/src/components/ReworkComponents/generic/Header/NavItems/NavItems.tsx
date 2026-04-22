@@ -12,14 +12,10 @@ const NavItems = () => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
-  // 1. Création de la référence pour le conteneur du menu
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 2. Ajout de l'écouteur d'événement pour fermer au clic à l'extérieur
   useEffect(() => {
-    // 1. On précise que "event" est de type MouseEvent
     const handleClickOutside = (event: MouseEvent) => {
-      // 2. On précise que event.target doit être traité comme un Node
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
@@ -53,12 +49,7 @@ const NavItems = () => {
       </div>
 
       <div className={styles.navButtons}>
-        <div
-          className={styles.dropdownContainer}
-          ref={menuRef} /* 3. On attache la référence ici */
-          /* J'ai supprimé le onClick ici qui faisait doublon avec le bouton */
-        >
-          {/* Bouton principal "Create" */}
+        <div className={styles.dropdownContainer} ref={menuRef}>
           <button
             className={styles.mainCreateButton}
             onClick={() => setIsOpen(!isOpen)}
@@ -67,10 +58,8 @@ const NavItems = () => {
             {t('Create')}
           </button>
 
-          {/* Menu déroulant */}
           {isOpen && (
             <div className={styles.dropdownMenu}>
-              {/* Option : Upload Video */}
               <div
                 className={styles.menuItem}
                 onClick={() => {
@@ -82,7 +71,6 @@ const NavItems = () => {
                 <span>{t('publishVideo')}</span>
               </div>
 
-              {/* Option : Create Event */}
               <div
                 className={styles.menuItem}
                 onClick={() => {
