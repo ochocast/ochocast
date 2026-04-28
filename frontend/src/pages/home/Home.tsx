@@ -117,8 +117,6 @@ const HomePage: FC<HomeProps> = () => {
     return allVideos.slice(0, itemsPerRow);
   }, [allVideos, itemsPerRow]);
 
-  // Plus besoin de `displayedEventIds` grâce à useMemo, tu peux effacer cette ligne !
-
   useEffect(() => {
     const fetchMiniatures = async () => {
       if (displayedEvents.length === 0) return;
@@ -133,7 +131,6 @@ const HomePage: FC<HomeProps> = () => {
               newURLs[event.id] = res.data.url;
             }
           } catch (error) {
-            // FIX ESLINT (no-empty) : On met un console.debug pour ne pas laisser le catch vide
             console.debug(
               `Miniature indisponible pour l'événement ${event.id}`,
             );
@@ -145,8 +142,6 @@ const HomePage: FC<HomeProps> = () => {
     };
 
     fetchMiniatures();
-
-    // FIX ESLINT (exhaustive-deps) : On met la vraie dépendance ici
   }, [displayedEvents]);
 
   return (
