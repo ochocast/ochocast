@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import styles from './Thumbnail.module.css';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
@@ -54,12 +54,87 @@ const Thumbnail = (props: PreviewMinitureProps) => {
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
   const popupRef = React.useRef<HTMLDivElement>(null);
   const moreBadgeRef = React.useRef<HTMLDivElement>(null);
+  const tagsContainerRef = React.useRef<HTMLDivElement>(null);
+  const tagMeasureRef = React.useRef<HTMLDivElement>(null);
+  const [visibleTagCount, setVisibleTagCount] = useState<number>(
+    props.tags.length,
+  );
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
 
   const { user } = useUser();
   const { t } = useTranslation();
+
+  useLayoutEffect(() => {
+    const updateVisibleTags = () => {
+      const container = tagsContainerRef.current;
+      const measurement = tagMeasureRef.current;
+      if (!container || !measurement) {
+        setVisibleTagCount(props.tags.length);
+        return;
+      }
+
+      const availableWidth = container.clientWidth;
+      if (availableWidth <= 0) {
+        setVisibleTagCount(props.tags.length);
+        return;
+      }
+
+      const tagElements = Array.from(
+        measurement.querySelectorAll<HTMLSpanElement>(`.${styles.tag}`),
+      );
+      const plusButtons = Array.from(
+        measurement.querySelectorAll<HTMLButtonElement>(
+          '[data-measure-plus="true"]',
+        ),
+      );
+      const plusWidthByCount = new Map<number, number>();
+      plusButtons.forEach((button) => {
+        const count = Number(button.dataset.count ?? '0');
+        plusWidthByCount.set(count, button.getBoundingClientRect().width);
+      });
+
+      const gap = 6;
+      let usedWidth = 0;
+      let count = 0;
+
+      for (let i = 0; i < tagElements.length; i += 1) {
+        const tagWidth = tagElements[i].getBoundingClientRect().width;
+        const nextWidth = usedWidth + (count > 0 ? gap : 0) + tagWidth;
+        const hiddenCount = props.tags.length - (i + 1);
+        const plusWidth =
+          hiddenCount > 0 ? (plusWidthByCount.get(hiddenCount) ?? 0) : 0;
+        const requiredWidth =
+          hiddenCount > 0 ? nextWidth + gap + plusWidth : nextWidth;
+
+        if (requiredWidth <= availableWidth) {
+          usedWidth = nextWidth;
+          count += 1;
+        } else {
+          break;
+        }
+      }
+
+      setVisibleTagCount(count);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateVisibleTags();
+    });
+
+    if (tagsContainerRef.current) {
+      resizeObserver.observe(tagsContainerRef.current);
+    }
+
+    window.addEventListener('resize', updateVisibleTags);
+    updateVisibleTags();
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateVisibleTags);
+    };
+  }, [props.tags]);
 
   const translations: PreviewMinitureTranslations = {
     editButtonLabel: props.translations?.editButtonLabel ?? t('modify'),
@@ -187,8 +262,12 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     setShowAllTags(!showAllTags);
   };
 
-  const displayedTags = props.tags?.slice(0, 2) ?? [];
-  const hiddenTags = props.tags?.slice(2) ?? [];
+  const visibleCount = Math.max(
+    0,
+    Math.min(visibleTagCount, props.tags.length),
+  );
+  const displayedTags = props.tags?.slice(0, visibleCount) ?? [];
+  const hiddenTags = props.tags?.slice(visibleCount) ?? [];
 
   const formatDuration = (seconds?: number): string => {
     if (!seconds) return '';
@@ -237,16 +316,14 @@ const Thumbnail = (props: PreviewMinitureProps) => {
     <div
       className={styles.previewMiniture}
       onClick={() => navigate(`/video/${props.Id}`)}
+      onMouseLeave={() => setShowAllTags(false)}
     >
-      {/* Top container with image and overlays */}
       <div className={styles.topContainer}>
         <img
           className={styles.imageTuileEventIcon}
           alt={props.title}
           src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
         />
-
-        {/* Edit button */}
         {canEdit && (
           <div className={styles.editContainer}>
             <img
@@ -260,8 +337,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
             />
           </div>
         )}
-
-        {/* Star container */}
         <div className={styles.starContainer}>
           <img
             className={styles.starIcon}
@@ -275,7 +350,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           />
         </div>
 
-        {/* View container */}
         <div className={styles.viewsContainer}>
           <img
             className={styles.viewIcon}
@@ -289,7 +363,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           </div>
         </div>
 
-        {/* Time container */}
         {props.duration && (
           <div className={styles.timeContainer}>
             <div className={styles.timeValue}>
@@ -299,10 +372,8 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         )}
       </div>
 
-      {/* Bottom container with infos */}
       <div className={styles.bottomContainer}>
         <div className={styles.bottomContainerUpperPart}>
-          {/* profilePictureContainer */}
           <div className={styles.profilePictureContainer}>
             <img
               className={styles.profilePicture}
@@ -311,7 +382,6 @@ const Thumbnail = (props: PreviewMinitureProps) => {
             />
           </div>
 
-          {/* textContainer */}
           <div className={styles.textContainer}>
             <div className={styles.titleContainer}>
               <h2 className={styles.title} title={props.title}>
@@ -332,7 +402,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
         </div>
 
         <div className={styles.bottomContainerLowerPart}>
-          <div className={styles.tagsContainer}>
+          <div className={styles.tagsContainer} ref={tagsContainerRef}>
             {displayedTags.length > 0 && (
               <>
                 {displayedTags.map((tag, index) => (
@@ -375,6 +445,28 @@ const Thumbnail = (props: PreviewMinitureProps) => {
                 )}
               </div>
             )}
+          </div>
+          <div
+            className={styles.tagMeasurementContainer}
+            ref={tagMeasureRef}
+            aria-hidden="true"
+          >
+            {props.tags.map((tag, index) => (
+              <span key={index} className={styles.tag}>
+                {tag}
+              </span>
+            ))}
+            {Array.from({ length: props.tags.length + 1 }, (_, count) => (
+              <button
+                key={count}
+                data-count={count}
+                data-measure-plus="true"
+                className={styles.tagTriggerButton}
+                type="button"
+              >
+                <span className={styles.tagCount}>+{count}</span>
+              </button>
+            ))}
           </div>
         </div>
       </div>

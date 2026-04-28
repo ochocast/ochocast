@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useState, useCallback, useRef } from 'react';
+import { FC, useEffect, useState, useRef, useMemo } from 'react';
 import styles from './Home.module.css';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -15,27 +15,18 @@ import { EventStatus } from '../../utils/EventStatus';
 
 export interface HomeProps {}
 
-// Constantes (1rem = 16px)
-const GAP_PX = 1.25 * 16; // 20px, gap entre cartes
-const HORIZONTAL_PADDING_PX = 2 * 16; // padding horizontal du container
-const FULL_CARD_WIDTH_PX = 22 * 16; // 352px : taille pleine souhaitée
-const MIN_CARD_WIDTH_PX = 10 * 16; // 160px : largeur mini en dernier recours
+const GAP_PX = 1.25 * 16;
+const HORIZONTAL_PADDING_PX = 2 * 16;
+const FULL_CARD_WIDTH_PX = 22 * 16;
+const MIN_CARD_WIDTH_PX = 10 * 16;
 const MIN_ITEMS = 2;
 const MAX_ITEMS = 8;
 
-/**
- * Logique :
- * 1. On calcule combien de cartes à TAILLE PLEINE (22rem) tiennent sur une ligne.
- * 2. Si >= MIN_ITEMS, on garde ce nombre → cartes pleines (priorité visuelle).
- * 3. Sinon, on force MIN_ITEMS cartes qui se réduiront pour tenir sur la ligne
- *    (bornées par MIN_CARD_WIDTH_PX côté CSS implicite via le layout flex).
- */
 const computeItemsPerRow = (containerWidth: number): number => {
   if (containerWidth <= 0) return MIN_ITEMS;
 
   const innerWidth = containerWidth - HORIZONTAL_PADDING_PX;
 
-  // Combien de cartes PLEINES tiennent ?
   const fullSizeCount = Math.floor(
     (innerWidth + GAP_PX) / (FULL_CARD_WIDTH_PX + GAP_PX),
   );
@@ -44,9 +35,6 @@ const computeItemsPerRow = (containerWidth: number): number => {
     return Math.min(MAX_ITEMS, fullSizeCount);
   }
 
-  // Pas assez de place pour MIN_ITEMS cartes pleines → on garde MIN_ITEMS
-  // mais elles seront réduites par le flex (jusqu'à MIN_CARD_WIDTH_PX).
-  // Si vraiment ultra étroit, on peut même tomber à 1 carte.
   const shrunkCount = Math.floor(
     (innerWidth + GAP_PX) / (MIN_CARD_WIDTH_PX + GAP_PX),
   );
@@ -67,7 +55,6 @@ const HomePage: FC<HomeProps> = () => {
 
   const pageRef = useRef<HTMLDivElement>(null);
 
-  // Recalcule au mount et à chaque resize
   useEffect(() => {
     if (!pageRef.current) return;
 
@@ -122,38 +109,45 @@ const HomePage: FC<HomeProps> = () => {
     fetchEvents();
   }, []);
 
-  // Slice dynamique selon la largeur
-  const displayedEvents = allEvents.slice(0, itemsPerRow);
-  const displayedVideos = allVideos.slice(0, itemsPerRow);
+  const displayedEvents = useMemo(() => {
+    return allEvents.slice(0, itemsPerRow);
+  }, [allEvents, itemsPerRow]);
 
-  const displayedEventIds = displayedEvents.map((e) => e.id).join(',');
+  const displayedVideos = useMemo(() => {
+    return allVideos.slice(0, itemsPerRow);
+  }, [allVideos, itemsPerRow]);
 
-  const fetchMiniatures = useCallback(async () => {
-    const newURLs: Record<string, string> = {};
-
-    await Promise.all(
-      displayedEvents.map(async (event) => {
-        try {
-          const res = await getEventsMiniature(event.id);
-
-          if (res?.data?.url) {
-            newURLs[event.id] = res.data.url;
-          } else {
-            newURLs[event.id] = '/exemple/image_tuile_event.png';
-          }
-        } catch {
-          newURLs[event.id] = '/exemple/image_tuile_event.png';
-        }
-      }),
-    );
-
-    setMiniatureURLs((prev) => ({ ...prev, ...newURLs }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [displayedEventIds]);
+  // Plus besoin de `displayedEventIds` grâce à useMemo, tu peux effacer cette ligne !
 
   useEffect(() => {
-    if (displayedEvents.length > 0) fetchMiniatures();
-  }, [displayedEvents, fetchMiniatures]);
+    const fetchMiniatures = async () => {
+      if (displayedEvents.length === 0) return;
+
+      const newURLs: Record<string, string> = {};
+
+      await Promise.all(
+        displayedEvents.map(async (event) => {
+          try {
+            const res = await getEventsMiniature(event.id);
+            if (res?.data?.url) {
+              newURLs[event.id] = res.data.url;
+            }
+          } catch (error) {
+            // FIX ESLINT (no-empty) : On met un console.debug pour ne pas laisser le catch vide
+            console.debug(
+              `Miniature indisponible pour l'événement ${event.id}`,
+            );
+          }
+        }),
+      );
+
+      setMiniatureURLs((prev) => ({ ...prev, ...newURLs }));
+    };
+
+    fetchMiniatures();
+
+    // FIX ESLINT (exhaustive-deps) : On met la vraie dépendance ici
+  }, [displayedEvents]);
 
   return (
     <div ref={pageRef} className={styles.page}>
@@ -196,6 +190,7 @@ const HomePage: FC<HomeProps> = () => {
               key={video.id}
               Id={video.id}
               title={video.title}
+              creatorId={video.creator?.id}
               createBy={
                 video.creator?.username ||
                 `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()

@@ -17,6 +17,7 @@ import SubscribeIcon from '../../../../assets/subscribe.svg';
 import UnsubscribeIcon from '../../../../assets/unsubscribe.svg';
 
 const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
+const DEFAULT_EVENT_IMAGE = '/branding/exemple/image_tuile_event.png';
 
 interface EventBoxProps {
   event: PublicEvent;
@@ -33,13 +34,17 @@ const EventBox = (props: EventBoxProps) => {
   const [nbSubscribe, setNbSubscribe] = useState(event.nbSubscription);
   const { getImageUrl } = useBrandingContext();
   const { user } = useUser();
-  const [defaultLogoUrl, setDefaultLogoUrl] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
   const moreBadgeRef = React.useRef<HTMLDivElement>(null);
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
+  const [miniatureURL, setMiniatureUrl] = useState<string>(DEFAULT_EVENT_IMAGE);
+
+  useEffect(() => {
+    setNbSubscribe(event.nbSubscription);
+  }, [event.nbSubscription]);
 
   function formatNumber(value: number): string {
     return value < 10 ? `0${value}` : `${value}`;
@@ -52,14 +57,8 @@ const EventBox = (props: EventBoxProps) => {
     );
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    if (days > 0) {
-      return `${days}d ${hours}h`;
-    }
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}min`;
-    }
-
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}min`;
     return `${Math.max(0, minutes)} min`;
   };
 
@@ -71,14 +70,9 @@ const EventBox = (props: EventBoxProps) => {
     const start = new Date(startDateRaw);
     const end = endDateRaw ? new Date(endDateRaw) : null;
 
-    if (now >= start && (!end || now <= end)) {
-      return 'Live';
-    }
-
-    if (end && now > end) {
+    if (now >= start && (!end || now <= end)) return 'Live';
+    if (end && now > end)
       return formatDuration(end.getTime() - start.getTime());
-    }
-
     return `In ${formatDuration(start.getTime() - now.getTime())}`;
   };
 
@@ -86,7 +80,7 @@ const EventBox = (props: EventBoxProps) => {
     const fetchDefaultLogo = async () => {
       try {
         const url = await getImageUrl('default_miniature_image');
-        setDefaultLogoUrl(url);
+        if (url) setMiniatureUrl(url);
       } catch (error) {
         console.error('Error fetching default logo:', error);
       }
@@ -95,13 +89,19 @@ const EventBox = (props: EventBoxProps) => {
   }, [getImageUrl]);
 
   useEffect(() => {
+    if (props.imageURL) {
+      setMiniatureUrl(props.imageURL);
+    }
+  }, [props.imageURL]);
+
+  useEffect(() => {
     if (user && event.subscribedUserIds) {
       setIsSubscribed(event.subscribedUserIds.includes(user.id));
     }
   }, [user, event]);
 
   useEffect(() => {
-    const fetchMiniatureUrl = async () => {
+    const fetchProfilePicture = async () => {
       try {
         if (props.event.creatorId) {
           const url = await getProfilePicture(props.event.creatorId);
@@ -122,7 +122,7 @@ const EventBox = (props: EventBoxProps) => {
         setProfilePictureUrl(DEFAULT_PERSONA_IMAGE);
       }
     };
-    fetchMiniatureUrl();
+    fetchProfilePicture();
   }, [props.event.creatorId]);
 
   const isEventCreator = user && event.creatorId === user.id;
@@ -240,32 +240,28 @@ const EventBox = (props: EventBoxProps) => {
         }
       }}
     >
-      {/* Top container with image and overlays */}
       <div className={styles.topContainer}>
         <img
           className={styles.imageTuileEventIcon}
-          alt={props.event.name}
-          src={
-            props.imageURL || defaultLogoUrl || '/exemple/image_tuile_event.png'
-          }
+          src={miniatureURL}
+          onError={(e) => {
+            e.currentTarget.src = DEFAULT_EVENT_IMAGE;
+            e.currentTarget.onerror = null;
+          }}
         />
 
-        {/* Edit button */}
         {props.event.canBeEditByUser &&
           props.eventStatus !== EventStatus.Preview &&
           editButton}
 
-        {/* Subscribe button */}
         {props.eventStatus === EventStatus.Published && subscribeButton}
 
-        {/* View container */}
         <div className={styles.viewsContainer}>
           <div className={styles.viewValue}>
             {`${nbSubscribe} ` + t('registered')}
           </div>
         </div>
 
-        {/* Time container */}
         {eventDisplayTime !== 'Live' ? (
           <div className={styles.timeContainer}>
             <div className={styles.timeValue}>{eventDisplayTime}</div>
@@ -277,10 +273,8 @@ const EventBox = (props: EventBoxProps) => {
         )}
       </div>
 
-      {/* Bottom container with infos */}
       <div className={styles.bottomContainer}>
         <div className={styles.bottomContainerUpperPart}>
-          {/* profilePictureContainer */}
           <div className={styles.profilePictureContainer}>
             <img
               className={styles.profilePicture}
@@ -289,7 +283,6 @@ const EventBox = (props: EventBoxProps) => {
             />
           </div>
 
-          {/* textContainer */}
           <div className={styles.textContainer}>
             <div className={styles.titleContainer}>
               <h2 className={styles.title} title={props.event.name}>

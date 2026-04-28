@@ -162,10 +162,19 @@ const CreateEventPage: React.FC = () => {
         const [e_hour, e_minute] = endHour.split(':');
 
         const startDateISOString = new Date(
-          Date.UTC(+year, +month - 1, +day, +s_hour, +s_minute),
+          +year,
+          +month - 1,
+          +day,
+          +s_hour,
+          +s_minute,
         ).toISOString();
+
         const endDateISOString = new Date(
-          Date.UTC(+year, +month - 1, +day, +e_hour, +e_minute),
+          +year,
+          +month - 1,
+          +day,
+          +e_hour,
+          +e_minute,
         ).toISOString();
 
         const formData = new FormData();
@@ -201,8 +210,8 @@ const CreateEventPage: React.FC = () => {
   const getPreviewEvent = (): PublicEvent => {
     const now = new Date();
     const startDate =
-      date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
-    const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
+      date && startHour ? new Date(`${date}T${startHour}`) : now;
+    const endDate = date && endHour ? new Date(`${date}T${endHour}`) : now;
 
     const mockUser: PublicUser = {
       id: 'preview-user',
