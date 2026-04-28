@@ -1,15 +1,32 @@
-import React from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import styles from './NavItems.module.css';
-import Button from '../../Button/Button';
 import { useTranslation } from 'react-i18next';
-import { useUser } from '../../../../../context/UserContext';
+import upload from '../../../../../assets/upload.svg';
+import create from '../../../../../assets/create.svg';
+import add from '../../../../../assets/add.svg';
 
 const NavItems = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { isAdmin } = useUser();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className={styles.navItems}>
       <div className={styles.navItem}>
@@ -30,22 +47,46 @@ const NavItems = () => {
           {t('videos')}
         </button>
       </div>
-      {isAdmin && (
-        <div className={styles.navItem}>
+
+      <div className={styles.navButtons}>
+        <div className={styles.dropdownContainer} ref={menuRef}>
           <button
-            type="button"
-            className={styles.navItem1}
-            onClick={() => navigate('/admin')}
+            className={styles.mainCreateButton}
+            onClick={() => setIsOpen(!isOpen)}
           >
-            {t('adminPanel')}
+            <img className={styles.plusIcon} src={add} alt="+" />
+            {t('Create')}
           </button>
+
+          {isOpen && (
+            <div className={styles.dropdownMenu}>
+              <div
+                className={styles.menuItem}
+                onClick={() => {
+                  navigate('/video/video-settings');
+                  setIsOpen(false);
+                }}
+              >
+                <img className={styles.menuIcon} src={upload} alt="Upload" />
+                <span>{t('publishVideo')}</span>
+              </div>
+
+              <div
+                className={styles.menuItem}
+                onClick={() => {
+                  navigate('/my-events/create');
+                  setIsOpen(false);
+                }}
+              >
+                <img className={styles.menuIcon} src={create} alt="Create" />
+                <span>{t('CreateAnEvent')}</span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-      <Button
-        label={t('publishVideo')}
-        onClick={() => navigate('/video/video-settings')}
-      />
+      </div>
     </div>
   );
 };
+
 export default NavItems;

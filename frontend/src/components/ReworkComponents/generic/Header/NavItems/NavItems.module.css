@@ -20,5 +20,94 @@
 .navItems {
   display: flex;
   gap: 1rem;
+  margin-right: 32px;
   color: var(--theme-color-white);
+}
+
+.createEventButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.navButtons {
+  display: flex;
+  align-items: center;
+}
+
+.dropdownContainer {
+  position: relative;
+  display: inline-block;
+  font-family: inherit;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 180px;
+  z-index: 100;
+}
+
+.dropdownMenu::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: transparent;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
+  transition: opacity 0.2s;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+
+.menuItem:hover {
+  opacity: 0.6;
+}
+
+.menuIcon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.mainCreateButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 20px 8px 16px;
+  background-color: #e6e6e6; 
+  border: none;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.plusIcon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }

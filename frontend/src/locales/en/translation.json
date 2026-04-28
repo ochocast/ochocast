@@ -1,5 +1,5 @@
 {
-  "profile": "Profile",
+  "profile": "Profile settings",
   "language": "Language",
   "replyTo": "Reply to",
   "cancelReply": "Cancel reply",
@@ -13,7 +13,7 @@
   "events": "Events",
   "seeMore": "See more",
   "streaming": "Streaming",
-  "publishVideo": "Publish a video",
+  "publishVideo": "Upload a video",
   "getAvailableLiveEvents": "Click here to get available live events.",
   "getAvailableVideos": "Click here to get available videos.",
   "searchAnEvent": "Search for an event",
@@ -186,6 +186,7 @@
   "Images": "Images",
   "Speakers": "Speakers",
   "myEvents": "My events",
+  "myVideos": "My videos",
   "isRegistered": "is registered",
   "PublicEvents": "Public events",
   "ClosedEvents": "Closed events",
