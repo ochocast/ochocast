@@ -25,9 +25,50 @@ env:
   OPS_BASE_BRANCH: ${{ vars.OPS_REPO_BASE_BRANCH || 'main' }}
 
 jobs:
+  detect-changes:
+    name: Detect image changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend_changed: ${{ steps.filter.outputs.frontend }}
+      backend_changed: ${{ steps.filter.outputs.backend }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      target_environment: ${{ steps.target.outputs.environment }}
+      values_file: ${{ steps.target.outputs.values_file }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050 # v3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+      - name: Resolve target environment
+        id: target
+        run: |
+          target="${{ inputs.environment || 'staging' }}"
+          if [ "$target" = "production" ]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+            echo "values_file=kubernetes/ochocast-webapp/values-prod.yaml" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging" >> "$GITHUB_OUTPUT"
+            echo "values_file=kubernetes/ochocast-webapp/values-staging.yaml" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Resolve image tag
+        id: meta
+        run: |
+          short_sha="$(git rev-parse --short=12 HEAD)"
+          echo "image_tag=sha-${short_sha}" >> "$GITHUB_OUTPUT"
+
   validate-frontend:
     name: Validate frontend
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend_changed == 'true'
     defaults:
       run:
         working-directory: frontend
@@ -49,6 +90,8 @@ jobs:
   validate-backend:
     name: Validate backend
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.backend_changed == 'true'
     defaults:
       run:
         working-directory: backend
@@ -67,34 +110,15 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-  build-and-push:
-    name: Build and push immutable images
+  build-and-push-frontend:
+    name: Build and push frontend image
     runs-on: ubuntu-latest
     needs:
+      - detect-changes
       - validate-frontend
-      - validate-backend
-    outputs:
-      image_tag: ${{ steps.meta.outputs.image_tag }}
-      target_environment: ${{ steps.target.outputs.environment }}
-      values_file: ${{ steps.target.outputs.values_file }}
+    if: needs.detect-changes.outputs.frontend_changed == 'true'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - name: Resolve target environment
-        id: target
-        run: |
-          target="${{ inputs.environment || 'staging' }}"
-          if [ "$target" = "production" ]; then
-            echo "environment=production" >> "$GITHUB_OUTPUT"
-            echo "values_file=kubernetes/ochocast-webapp/values-prod.yaml" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=staging" >> "$GITHUB_OUTPUT"
-            echo "values_file=kubernetes/ochocast-webapp/values-staging.yaml" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Resolve image tag
-        id: meta
-        run: |
-          short_sha="$(git rev-parse --short=12 HEAD)"
-          echo "image_tag=sha-${short_sha}" >> "$GITHUB_OUTPUT"
       - name: Docker Setup Buildx
         uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
       - name: Docker Login
@@ -109,19 +133,49 @@ jobs:
           context: ./frontend
           push: true
           tags: |
-            ${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ steps.meta.outputs.image_tag }}
+            ${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
+
+  build-and-push-backend:
+    name: Build and push backend image
+    runs-on: ubuntu-latest
+    needs:
+      - detect-changes
+      - validate-backend
+    if: needs.detect-changes.outputs.backend_changed == 'true'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+      - name: Docker Login
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ secrets.SCW_REGISTRY }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
       - name: Build and push backend image
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           context: ./backend
           push: true
           tags: |
-            ${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ steps.meta.outputs.image_tag }}
+            ${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
   propose-gitops-promotion:
     name: Propose GitOps promotion
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs:
+      - detect-changes
+      - build-and-push-frontend
+      - build-and-push-backend
+    if: |
+      always() &&
+      needs.detect-changes.result == 'success' &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled') &&
+      (
+        needs.detect-changes.outputs.frontend_changed == 'true' ||
+        needs.detect-changes.outputs.backend_changed == 'true'
+      )
     steps:
       - name: Checkout ops repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -133,26 +187,36 @@ jobs:
       - name: Update Helm image tags
         uses: mikefarah/yq@v4.44.3
         env:
-          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
-          VALUES_FILE: ops-architecture-lab/${{ needs.build-and-push.outputs.values_file }}
+          BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend_changed }}
+          FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend_changed }}
+          IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
+          VALUES_FILE: ops-architecture-lab/${{ needs.detect-changes.outputs.values_file }}
         with:
-          cmd: yq -i '.frontend.image.tag = strenv(IMAGE_TAG) | .backend.image.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+          cmd: |
+            if [ "$FRONTEND_CHANGED" = "true" ]; then
+              yq -i '.frontend.image.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+            fi
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              yq -i '.backend.image.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+            fi
       - name: Create promotion pull request
         uses: peter-evans/create-pull-request@v6
         with:
           path: ops-architecture-lab
           token: ${{ secrets.OPS_REPO_TOKEN }}
-          branch: promote/ochocast-${{ needs.build-and-push.outputs.target_environment }}-${{ needs.build-and-push.outputs.image_tag }}
+          branch: promote/ochocast-${{ needs.detect-changes.outputs.target_environment }}-${{ needs.detect-changes.outputs.image_tag }}
           base: ${{ env.OPS_BASE_BRANCH }}
-          commit-message: "promote ochocast ${{ needs.build-and-push.outputs.target_environment }} to ${{ needs.build-and-push.outputs.image_tag }}"
-          title: "Promote Ochocast ${{ needs.build-and-push.outputs.target_environment }} to ${{ needs.build-and-push.outputs.image_tag }}"
+          commit-message: "promote ochocast ${{ needs.detect-changes.outputs.target_environment }} to ${{ needs.detect-changes.outputs.image_tag }}"
+          title: "Promote Ochocast ${{ needs.detect-changes.outputs.target_environment }} to ${{ needs.detect-changes.outputs.image_tag }}"
           body: |
             Automated promotion proposal from ochocast.
 
             - Source commit: ${{ github.sha }}
-            - Target environment: ${{ needs.build-and-push.outputs.target_environment }}
-            - Frontend image: `${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}`
-            - Backend image: `${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ needs.build-and-push.outputs.image_tag }}`
+            - Target environment: ${{ needs.detect-changes.outputs.target_environment }}
+            - Frontend changed: `${{ needs.detect-changes.outputs.frontend_changed }}`
+            - Backend changed: `${{ needs.detect-changes.outputs.backend_changed }}`
+            - Frontend image: `${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}`
+            - Backend image: `${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}`
 
             Deployment remains controlled by ops-architecture-lab and ArgoCD after this PR is reviewed and merged.
           labels: |
