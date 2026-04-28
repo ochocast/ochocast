@@ -1,18 +1,103 @@
-.HomeCard {
-  padding: 5rem;
+.page {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  padding: 2rem 3rem;
 }
 
-/* Tablette */
-@media (min-width: 768px) {
-  .HomeCard {
-    flex-direction: row;
+.section {
+  display: flex;
+  flex-direction: column;
+  padding: 2rem 0;
+  margin-bottom: 20px;
+}
+
+.sectionTitle {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--theme-color-black);
+  margin: 0 0 1.5rem 0;
+}
+
+.seeMoreRow {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  margin-top: 1.5rem;
+}
+
+.seeMoreRow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #e0e0e0;
+}
+
+.seeMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--theme-color-black);
+  background: var(--theme-color-white);
+  border: 1px solid var(--theme-color-black);
+  border-radius: 999px;
+  padding: 8px 24px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  position: relative;
+  z-index: 1;
+}
+
+.seeMore:hover {
+  background: var(--theme-color-black);
+  color: var(--theme-color-white);
+}
+
+/* Une seule ligne, pas de wrap */
+.eventsGrid,
+.videosGrid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 1.25rem;
+  width: 100%;
+  justify-content: center;
+  margin: 0 auto;
+  padding: 0 1rem;
+  max-width: 100%;
+}
+
+.eventsGrid > *,
+.videosGrid > * {
+  box-sizing: border-box;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 22rem;
+}
+
+@media (max-width: 800px) {
+  .page {
+    padding: 1.5rem 1rem;
   }
 }
 
-.cardContainer {
-  width: 100%;
-  height: auto;
+@media (max-width: 500px) {
+  .page {
+    padding: 1rem 0.5rem;
+  }
+}
+
+.arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s;
+}
+
+.seeMore:hover .arrow {
+  transform: translate(2px, -2px);
 }
