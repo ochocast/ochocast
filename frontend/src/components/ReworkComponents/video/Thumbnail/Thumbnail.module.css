@@ -7,7 +7,7 @@
   justify-content: center;
   text-align: left;
   color: var(--theme-color-700);
-  border-radius: 12px;
+  border-radius: 16px;
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   overflow: visible;
@@ -39,7 +39,7 @@
   width: -moz-available;
   width: -webkit-fill-available;
   position: relative;
-  border-radius: 12px 12px 0px 0px;
+  border-radius: 16px 16px 0px 0px;
   height: 180px;
   width: 100%;
   overflow: hidden;
@@ -57,7 +57,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0% 12px 0% 12px;
+  border-radius: 0% 16px 0% 16px;
   background-color: rgb(196, 196, 196, 0.8);
 }
 
@@ -84,7 +84,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px 0px 12px 0px;
+  border-radius: 16px 0px 16px 0px;
   background-color: rgb(196, 196, 196, 0.8);
 }
 
@@ -160,10 +160,19 @@
 /* == Bottom CONTAINER == */
 .bottomContainer {
   width: 100%;
-  height: 64px;
-  display: flex; 
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 8px;
+  padding-top: 4px;
+}
+
+.bottomContainerUpperPart {
+  width: 100%;
+  display: flex;
   flex-direction: row;
-  align-items: flex-start; /* Aligne le haut de la photo avec le haut du titre */
+  align-items: center;
+  padding: 0;
 }
 
 /* Profile Picture Container */
@@ -171,13 +180,21 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   border-radius: 50%;
   overflow: hidden;
   background-color: #eee;
-  margin-top: 8px;
-  margin-left: 8px;
+}
+
+.textContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+  margin-left: 4px;
 }
 
 .profilePicture {
@@ -193,7 +210,6 @@
   flex: 1;
   min-width: 0;
   margin-left: 4px;
-  margin-top: 4px;
 }
 
 .titleContainer {
@@ -236,13 +252,24 @@
 }
 
 /* = Tags = */
+.bottomContainerLowerPart {
+  width: 100%;
+  display: flex; 
+  flex-direction: row;
+  align-items: flex-start;
+  margin-top: 4px;
+  padding-bottom: 4px;
+}
+
 .tagsContainer {
-  position: relative; /* Indispensable pour que le popup absolu se positionne par rapport à ce conteneur */
+  position: relative;
   width: auto; 
   display: flex;
   align-items: center;
-  margin-left: auto;
-  margin-right: 4px;
+  margin-left: 0;
+  margin-right: 0;
+  gap: 2px;
+  flex-wrap: wrap;
 }
 
 .tagTriggerButton {
@@ -277,7 +304,6 @@
   text-align: center;
 }
 
-/* Le fond invisible pour fermer le popup au clic à côté */
 .tagsPopupOverlay {
   position: fixed;
   top: 0;
@@ -288,11 +314,10 @@
   cursor: default;
 }
 
-/* La boite blanche contenant les tags */
 .tagsPopup {
   position: absolute;
-  top: calc(100% + 8px); /* S'affiche juste en dessous du bouton avec un espace de 8px */
-  right: 0; /* S'aligne sur le bord droit du bouton */
+  top: calc(100% + 8px);
+  right: 0;
   z-index: 9999;
   background: white;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -300,7 +325,7 @@
   padding: 12px;
   border: 1px solid #eee;
   width: max-content;
-  max-width: 280px; /* Permet le retour à la ligne automatique comme sur l'image */
+  max-width: 280px;
   animation: slideIn 0.2s ease;
 }
 
@@ -310,14 +335,34 @@
   gap: 8px;
 }
 
-/* Le style des tags individuels (vert foncé comme sur l'image) */
 .tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  color: #444;
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  min-height: 28px;
+  margin-right: 4px;
+}
+
+.tag:last-child {
+  margin-right: 0;
+}
+
+.popupTag {
   background-color: white;
-  color: #2b5640; /* Vert foncé de votre capture */
+  color: #2b5640;
   padding: 6px 14px;
   border-radius: 16px;
   font-size: 0.85rem;
-  font-weight: 800; /* Texte bien gras */
+  font-weight: 800;
   border: 1.5px solid #2b5640;
 }
 
