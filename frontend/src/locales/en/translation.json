@@ -409,5 +409,7 @@
     "months_other": "{{count}} months ago",
     "years_one": "{{count}} year ago",
     "years_other": "{{count}} years ago"
-  }
+  },
+  "Selected tags": "Selected tags",
+  "Delete all": "Delete all"
 }

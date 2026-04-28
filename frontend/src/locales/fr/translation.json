@@ -409,5 +409,7 @@
     "months_other": "il y a {{count}} mois",
     "years_one": "il y a {{count}} an",
     "years_other": "il y a {{count}} ans"
-  }
+  },
+  "Selected tags": "Tags sélectionnés",
+  "Delete all": "Tout effacer"
 }
