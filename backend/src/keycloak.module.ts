@@ -20,8 +20,6 @@ import { APP_GUARD } from '@nestjs/core';
       clientId: process.env.AUTH_CLIENT_ID,
       secret: process.env.AUTH_SECRET,
       cookieKey: 'KEYCLOAK_JWT',
-      logLevels: ['verbose', 'log', 'warn', 'error'],
-      useNestLogger: true,
       policyEnforcement: PolicyEnforcementMode.PERMISSIVE,
       tokenValidation: TokenValidation.ONLINE,
     }),
