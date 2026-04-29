@@ -50,9 +50,11 @@ export class ConfigController {
     @Body('imageIds') imageIds: string[],
   ): Promise<ConfigObject> {
     try {
+      const uploadedFiles = files ?? [];
+
       // Séparer le fichier de config des images
-      const configFile = files.find((f) => f.fieldname === 'file');
-      const images = files.filter((f) => f.fieldname === 'images');
+      const configFile = uploadedFiles.find((f) => f.fieldname === 'file');
+      const images = uploadedFiles.filter((f) => f.fieldname === 'images');
 
       if (!configFile) {
         throw new HttpException(

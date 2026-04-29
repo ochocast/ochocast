@@ -31,7 +31,20 @@ export class CreateNewVideoUsecase {
     miniatureFile: Express.Multer.File,
     subtitleFile?: Express.Multer.File,
   ): Promise<VideoObject> {
-    const baseName = path.parse(videoToCreate.media_id).name;
+    if (!file || !file.buffer) {
+      throw new Error('Missing video file in upload payload');
+    }
+
+    const creator =
+      typeof videoToCreate.creator === 'string'
+        ? ({ id: videoToCreate.creator } as any)
+        : videoToCreate.creator;
+
+    const parsedBaseName = path.parse(videoToCreate.media_id || '').name;
+    const sanitizedBaseName = parsedBaseName
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const baseName = sanitizedBaseName || 'video';
     const media_id = Date.now() + '.' + baseName + '.mp4';
     const miniature_id = `miniature${Date.now()}.jpg`;
     let subtitle_id: string | undefined;
@@ -45,7 +58,7 @@ export class CreateNewVideoUsecase {
       videoToCreate.title,
       videoToCreate.description,
       videoToCreate.tags,
-      videoToCreate.creator,
+      creator,
       new Date(Date.now()),
       new Date(Date.now()),
       videoToCreate.internal_speakers,
@@ -55,27 +68,36 @@ export class CreateNewVideoUsecase {
       false,
       subtitle_id,
     );
-    const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
-    const tempOutputPath = path.join(
-      tmpdir(),
-      `${video.media_id}-transcoded.mp4`,
-    );
+    const tempInputPath = path.join(tmpdir(), `${uuid()}-input`);
+    const tempOutputPath = path.join(tmpdir(), `${uuid()}-transcoded.mp4`);
+
+    let mediaBuffer: Buffer = file.buffer;
+    let thumbnailSourcePath = tempInputPath;
+
     await writeFile(tempInputPath, file.buffer);
 
-    // Extract video duration before transcoding
-    const videoDuration = await getVideoDuration(tempInputPath);
-    video.duration = videoDuration;
+    try {
+      // Extract video duration before transcoding
+      const videoDuration = await getVideoDuration(tempInputPath);
+      video.duration = videoDuration;
 
-    await transcodeVideo(tempInputPath, tempOutputPath);
+      await transcodeVideo(tempInputPath, tempOutputPath);
 
-    const transcodedBuffer = await readFile(tempOutputPath);
+      mediaBuffer = await readFile(tempOutputPath);
+      thumbnailSourcePath = tempOutputPath;
+    } catch (error) {
+      console.error(
+        'Video transcoding failed, uploading original file:',
+        error,
+      );
+    }
 
     const upload = new Upload({
       client: this.s3Client,
       params: {
         Bucket: process.env.STOCK_MEDIA_BUCKET,
         Key: video.media_id,
-        Body: transcodedBuffer,
+        Body: mediaBuffer,
         ContentType: 'video/mp4',
         ContentDisposition: 'inline',
         CacheControl: 'max-age=31536000',
@@ -84,10 +106,7 @@ export class CreateNewVideoUsecase {
 
     const video_result = await upload.done();
 
-    const tempMiniaturePath = path.join(
-      tmpdir(),
-      `miniature${video.media_id}.jpg`,
-    );
+    const tempMiniaturePath = path.join(tmpdir(), `miniature-${uuid()}.jpg`);
 
     if (miniatureFile) {
       await sharp(miniatureFile.buffer)
@@ -98,7 +117,7 @@ export class CreateNewVideoUsecase {
         .jpeg({ quality: 80 })
         .toFile(tempMiniaturePath);
     } else {
-      await generateThumbnailFromVideo(tempOutputPath, tempMiniaturePath);
+      await generateThumbnailFromVideo(thumbnailSourcePath, tempMiniaturePath);
     }
 
     // Upload subtitle file if provided

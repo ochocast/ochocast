@@ -16,8 +16,8 @@ import { CreateNewUserUsecase } from '../../domain/usecases/createNewUser.usecas
 import { LoginUserUseCase } from 'src/users/domain/usecases/loginUser.usecase';
 import { GetUsersUsecase } from '../../domain/usecases/getUsers.usecase';
 import { UserObject } from '../../domain/user';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
 import { ApiTags } from '@nestjs/swagger';
+import { KeycloakUser } from 'nest-keycloak-connect';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { GetProfilePictureUsecase } from 'src/users/domain/usecases/getProfilePicture.usecase';
 import { GetListUsersUsecase } from 'src/users/domain/usecases/getListUsers.usecase';
@@ -74,7 +74,7 @@ export class UsersController {
   }
 
   @Get('login')
-  login(@AuthenticatedUser() keycloak_user: any): Promise<UserObject> {
+  login(@KeycloakUser() keycloak_user: any): Promise<UserObject> {
     return this.loginUserUsecase.execute(keycloak_user);
   }
 
@@ -90,7 +90,7 @@ export class UsersController {
 
   @Post('/favorites/:videoId')
   async addFavorite(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Param('videoId') videoId: string,
   ): Promise<{ success: boolean }> {
     await this.addFavoriteVideoUsecase.execute(user.email, videoId);
@@ -99,7 +99,7 @@ export class UsersController {
 
   @Delete('/favorites/:videoId')
   async removeFavorite(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Param('videoId') videoId: string,
   ): Promise<{ success: boolean }> {
     await this.removeFavoriteVideoUsecase.execute(user.email, videoId);
@@ -108,7 +108,7 @@ export class UsersController {
 
   @Get('/favorites/:videoId')
   async isFavorite(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Param('videoId') videoId: string,
   ): Promise<{ isFavorite: boolean }> {
     const result = await this.isFavoriteVideoUsecase.execute(
@@ -119,7 +119,7 @@ export class UsersController {
   }
 
   @Get('/favorites')
-  async getFavoriteVideosByEmail(@AuthenticatedUser() user: any) {
+  async getFavoriteVideosByEmail(@KeycloakUser() user: any) {
     return this.getFavoriteVideosUsecase.execute(user.email);
   }
 
@@ -127,7 +127,7 @@ export class UsersController {
   @UseInterceptors(FileInterceptor('file'))
   @UsePipes(new ValidationPipe())
   async updateUser(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Body() newProfile: UpdateUserDto,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<{ success: boolean }> {
@@ -138,7 +138,7 @@ export class UsersController {
   @Post(`/update2`)
   @UsePipes(new ValidationPipe())
   async updateUser2(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Body() newProfile: UpdateUserDto,
   ): Promise<{ success: boolean }> {
     await this.updateProfileWithoutImageUsecase.execute(user.email, newProfile);
@@ -147,7 +147,7 @@ export class UsersController {
 
   @Post('/like/:commentId')
   async addLike(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Param('commentId') commentId: string,
   ): Promise<{ success: boolean }> {
     await this.addLikedCommentUsecase.execute(user.email, commentId);
@@ -156,7 +156,7 @@ export class UsersController {
 
   @Delete('/like/:commentId')
   async removeLike(
-    @AuthenticatedUser() user: any,
+    @KeycloakUser() user: any,
     @Param('commentId') commentId: string,
   ): Promise<{ success: boolean }> {
     await this.removeLikedCommentUsecase.execute(user.email, commentId);
@@ -164,7 +164,7 @@ export class UsersController {
   }
 
   @Get('/like')
-  async getLikedCommentsByEmail(@AuthenticatedUser() user: any) {
+  async getLikedCommentsByEmail(@KeycloakUser() user: any) {
     return this.getLikedCommentUsecase.execute(user.email);
   }
 }

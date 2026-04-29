@@ -68,6 +68,7 @@ export function uploadVideoWithProgress(
       console.error('Upload Service: Forbidden');
       callbacks.onError('Accès refusé. Permissions insuffisantes.');
     } else {
+      console.error('Upload Service: Response body:', xhr.responseText);
       let errorMessage = `Erreur ${xhr.status} lors du téléversement`;
       try {
         const errorResponse = JSON.parse(xhr.responseText);

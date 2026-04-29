@@ -10,7 +10,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 // Global WebRTC API with custom settings for NAT traversal
