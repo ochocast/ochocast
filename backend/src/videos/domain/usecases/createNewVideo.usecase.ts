@@ -68,11 +68,8 @@ export class CreateNewVideoUsecase {
       false,
       subtitle_id,
     );
-    const tempInputPath = path.join(tmpdir(), `${video.media_id}-input`);
-    const tempOutputPath = path.join(
-      tmpdir(),
-      `${video.media_id}-transcoded.mp4`,
-    );
+    const tempInputPath = path.join(tmpdir(), `${uuid()}-input`);
+    const tempOutputPath = path.join(tmpdir(), `${uuid()}-transcoded.mp4`);
 
     let mediaBuffer: Buffer = file.buffer;
     let thumbnailSourcePath = tempInputPath;
@@ -109,10 +106,7 @@ export class CreateNewVideoUsecase {
 
     const video_result = await upload.done();
 
-    const tempMiniaturePath = path.join(
-      tmpdir(),
-      `miniature${video.media_id}.jpg`,
-    );
+    const tempMiniaturePath = path.join(tmpdir(), `miniature-${uuid()}.jpg`);
 
     if (miniatureFile) {
       await sharp(miniatureFile.buffer)
