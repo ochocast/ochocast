@@ -20,8 +20,8 @@
   "type": "module",
   "name": "ochocast-webapp",
   "dependencies": {
-    "@nestjs/common": "^11.1.19",
-    "@nestjs/core": "^11.1.19",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0",
     "concurrently": "^8.2.1",
     "date-fns": "^4.1.0",
     "react-datepicker": "^8.3.0",
