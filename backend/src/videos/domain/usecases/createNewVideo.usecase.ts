@@ -40,7 +40,11 @@ export class CreateNewVideoUsecase {
         ? ({ id: videoToCreate.creator } as any)
         : videoToCreate.creator;
 
-    const baseName = path.parse(videoToCreate.media_id).name;
+    const parsedBaseName = path.parse(videoToCreate.media_id || '').name;
+    const sanitizedBaseName = parsedBaseName
+      .replace(/[^a-zA-Z0-9._-]/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const baseName = sanitizedBaseName || 'video';
     const media_id = Date.now() + '.' + baseName + '.mp4';
     const miniature_id = `miniature${Date.now()}.jpg`;
     let subtitle_id: string | undefined;
