@@ -18,29 +18,95 @@ export class VideoGateway implements IVideoGateway {
   async createNewVideo(videoDetails: VideoObject): Promise<VideoObject> {
     console.log(videoDetails);
 
-    // Parse les tags s'ils sont au format JSON
-    let tags: TagEntity[] = [];
-    if (typeof videoDetails.tags === 'string') {
-      tags = JSON.parse(videoDetails.tags).map(
-        (tag: any) => new TagEntity(tag),
-      );
-    } else if (Array.isArray(videoDetails.tags)) {
-      tags = videoDetails.tags.map((tag: any) => new TagEntity(tag));
+    const entityManager = this.videosRepository.manager;
+    const tagsRepository = entityManager.getRepository(TagEntity);
+    const usersRepository = entityManager.getRepository(UserEntity);
+
+    // Normalize creator relation and ensure it exists.
+    const creatorId =
+      typeof (videoDetails as any).creator === 'string'
+        ? (videoDetails as any).creator
+        : (videoDetails as any).creator?.id;
+
+    if (!creatorId) {
+      throw new Error('Creator is required to create a video');
     }
 
-    // Parse les internal_speakers s'ils sont au format JSON
-    let internal_speakers: UserEntity[] = [];
-    if (typeof videoDetails.internal_speakers === 'string') {
-      internal_speakers = JSON.parse(videoDetails.internal_speakers).map(
-        (user: any) => new UserEntity(user),
-      );
-    } else if (Array.isArray(videoDetails.internal_speakers)) {
-      internal_speakers = videoDetails.internal_speakers.map(
-        (user: any) => new UserEntity(user),
-      );
+    const creator = await usersRepository.findOneBy({ id: creatorId });
+    if (!creator) {
+      throw new Error(`Creator not found: ${creatorId}`);
     }
+
+    // Parse les tags s'ils sont au format JSON
+    const parsedTags =
+      typeof videoDetails.tags === 'string'
+        ? JSON.parse(videoDetails.tags)
+        : Array.isArray(videoDetails.tags)
+          ? videoDetails.tags
+          : [];
+
+    const uniqueTags = new Map<string, TagEntity>();
+
+    for (const rawTag of parsedTags) {
+      const tagId = rawTag?.id;
+      const tagName =
+        typeof rawTag?.name === 'string' ? rawTag.name.trim() : '';
+
+      let resolvedTag: TagEntity | null = null;
+
+      if (tagId) {
+        resolvedTag = await tagsRepository.findOneBy({ id: tagId });
+      }
+
+      if (!resolvedTag && tagName) {
+        resolvedTag = await tagsRepository
+          .createQueryBuilder('tag')
+          .where('LOWER(tag.name) = LOWER(:name)', { name: tagName })
+          .getOne();
+      }
+
+      if (!resolvedTag && tagName) {
+        resolvedTag = await tagsRepository.save(
+          new TagEntity({
+            name: tagName,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        );
+      }
+
+      if (resolvedTag) {
+        uniqueTags.set(resolvedTag.id, resolvedTag);
+      }
+    }
+
+    const tags = Array.from(uniqueTags.values());
+
+    // Parse les internal_speakers s'ils sont au format JSON
+    const parsedInternalSpeakers =
+      typeof videoDetails.internal_speakers === 'string'
+        ? JSON.parse(videoDetails.internal_speakers)
+        : Array.isArray(videoDetails.internal_speakers)
+          ? videoDetails.internal_speakers
+          : [];
+
+    const uniqueInternalSpeakers = new Map<string, UserEntity>();
+
+    for (const rawUser of parsedInternalSpeakers) {
+      const userId = rawUser?.id;
+      if (!userId) continue;
+
+      const resolvedUser = await usersRepository.findOneBy({ id: userId });
+      if (resolvedUser) {
+        uniqueInternalSpeakers.set(resolvedUser.id, resolvedUser);
+      }
+    }
+
+    const internal_speakers = Array.from(uniqueInternalSpeakers.values());
+
     const video: VideoEntity = new VideoEntity({
       ...videoDetails,
+      creator,
       tags,
       internal_speakers,
     });

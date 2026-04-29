@@ -169,7 +169,7 @@ const Videos: FC<VideosProps> = () => {
 
   useEffect(() => {
     applyFilters(filters);
-  });
+  }, [videos, filters]);
 
   // Synchroniser les filtres avec l'état URL
   useEffect(() => {
