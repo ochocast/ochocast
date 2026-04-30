@@ -14,6 +14,21 @@ on:
         options:
           - staging
           - production
+      force_components:
+        description: Components to run even when no path change is detected
+        required: true
+        default: changed-only
+        type: choice
+        options:
+          - changed-only
+          - frontend
+          - backend
+          - all
+      dry_run:
+        description: Build and show the GitOps diff without pushing images or opening a PR
+        required: true
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -29,11 +44,12 @@ jobs:
     name: Detect image changes
     runs-on: ubuntu-latest
     outputs:
-      frontend_changed: ${{ steps.filter.outputs.frontend }}
-      backend_changed: ${{ steps.filter.outputs.backend }}
+      frontend_changed: ${{ steps.effective.outputs.frontend }}
+      backend_changed: ${{ steps.effective.outputs.backend }}
       image_tag: ${{ steps.meta.outputs.image_tag }}
       target_environment: ${{ steps.target.outputs.environment }}
       values_file: ${{ steps.target.outputs.values_file }}
+      dry_run: ${{ steps.effective.outputs.dry_run }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -63,6 +79,30 @@ jobs:
         run: |
           short_sha="$(git rev-parse --short=12 HEAD)"
           echo "image_tag=sha-${short_sha}" >> "$GITHUB_OUTPUT"
+      - name: Resolve effective changes
+        id: effective
+        run: |
+          frontend="${{ steps.filter.outputs.frontend }}"
+          backend="${{ steps.filter.outputs.backend }}"
+          force_components="${{ inputs.force_components || 'changed-only' }}"
+          dry_run="${{ inputs.dry_run || 'false' }}"
+
+          case "$force_components" in
+            frontend)
+              frontend="true"
+              ;;
+            backend)
+              backend="true"
+              ;;
+            all)
+              frontend="true"
+              backend="true"
+              ;;
+          esac
+
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
 
   validate-frontend:
     name: Validate frontend
@@ -131,7 +171,7 @@ jobs:
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           context: ./frontend
-          push: true
+          push: ${{ needs.detect-changes.outputs.dry_run != 'true' }}
           tags: |
             ${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
@@ -156,7 +196,7 @@ jobs:
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           context: ./backend
-          push: true
+          push: ${{ needs.detect-changes.outputs.dry_run != 'true' }}
           tags: |
             ${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
@@ -200,6 +240,7 @@ jobs:
               yq -i '.backend.image.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
             fi
       - name: Create promotion pull request
+        if: needs.detect-changes.outputs.dry_run != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           path: ops-architecture-lab
@@ -222,3 +263,8 @@ jobs:
           labels: |
             promotion
             ochocast
+      - name: Show dry-run promotion diff
+        if: needs.detect-changes.outputs.dry_run == 'true'
+        working-directory: ops-architecture-lab
+        run: |
+          git diff -- "${{ needs.detect-changes.outputs.values_file }}"
