@@ -34,6 +34,8 @@ permissions:
   contents: read
 
 env:
+  FRONTEND_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/frontend-images
+  BACKEND_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/backend-images
   FRONTEND_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/frontend-images/ochocast-frontend
   BACKEND_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/backend-images/octocast-backend
   OPS_REPOSITORY: ochocast/ops-architecture-lab
@@ -165,7 +167,7 @@ jobs:
         if: needs.detect-changes.outputs.dry_run != 'true'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
-          registry: ${{ secrets.SCW_REGISTRY }}
+          registry: ${{ env.FRONTEND_REGISTRY_ENDPOINT }}
           username: ${{ secrets.SCW_REG_USER }}
           password: ${{ secrets.SCW_SECRET_KEY }}
       - name: Build and push frontend image
@@ -191,7 +193,7 @@ jobs:
         if: needs.detect-changes.outputs.dry_run != 'true'
         uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
         with:
-          registry: ${{ secrets.SCW_REGISTRY }}
+          registry: ${{ env.BACKEND_REGISTRY_ENDPOINT }}
           username: ${{ secrets.SCW_REG_USER }}
           password: ${{ secrets.SCW_SECRET_KEY }}
       - name: Build and push backend image
