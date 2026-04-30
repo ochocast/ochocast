@@ -191,7 +191,7 @@ const CreateEventPage: React.FC = () => {
           throw new Error('Création échouée');
         }
       } catch (error) {
-        logger.error(error);
+        logger.error({ err: error }, 'Error creating event');
         setToast({ message: t('ErrorCreatingEvent'), type: 'error' });
         setIsCreatingEvent(false); // Réactiver seulement en cas d'erreur
       }

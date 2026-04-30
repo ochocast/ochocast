@@ -28,13 +28,17 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 const ToastWrapper = (args: {
-  message: string;
+  message?: string;
   type?: 'success' | 'error' | 'info';
   duration?: number;
 }) => {
   const [visible, setVisible] = useState(true);
 
-  return visible ? <Toast {...args} onClose={() => setVisible(false)} /> : null;
+  if (!visible || !args.message) return null;
+
+  return (
+    <Toast {...args} message={args.message} onClose={() => setVisible(false)} />
+  );
 };
 
 export const Info: Story = {

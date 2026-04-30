@@ -163,13 +163,64 @@ const Videos: FC<VideosProps> = () => {
         setVideos(result);
       }
     } catch (error) {
-      logger.error('Error fetching suggestions:', error);
+      logger.error({ err: error }, 'Error fetching suggestions');
     }
   }, []);
 
+  const applyFilters = useCallback(
+    (newFilters: {
+      tags: string[];
+      users: string[];
+      startDate: Date | null;
+      endDate: Date | null;
+      archived: boolean | null;
+    }) => {
+      let result = [...videos];
+
+      if (newFilters.tags.length > 0) {
+        result = result.filter((video) =>
+          video.tags?.some((tag) => newFilters.tags.includes(tag.name)),
+        );
+      }
+
+      if (newFilters.users.length > 0) {
+        result = result.filter((video) => {
+          const uname = video.creator?.username;
+          const fullname =
+            `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim();
+          return newFilters.users.includes(uname || fullname);
+        });
+      }
+
+      if (newFilters.startDate && newFilters.endDate) {
+        result = result.filter((video) => {
+          const createdAt = new Date(video.createdAt);
+          return (
+            createdAt >= newFilters.startDate! &&
+            createdAt <= newFilters.endDate!
+          );
+        });
+      }
+      if (newFilters.archived !== null) {
+        result = result.filter(
+          (video) => video.archived === newFilters.archived,
+        );
+      }
+
+      // Sort by creation date descending
+      result.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+
+      setFilteredVideos(result);
+    },
+    [videos],
+  );
+
   useEffect(() => {
     applyFilters(filters);
-  });
+  }, [videos, filters, applyFilters]);
 
   // Synchroniser les filtres avec l'état URL
   useEffect(() => {
@@ -208,52 +259,13 @@ const Videos: FC<VideosProps> = () => {
         setVideos(allVideos);
         setFilteredVideos(allVideos);
       } catch (error) {
-        logger.error('Error fetching videos:', error);
+        logger.error({ err: error }, 'Error fetching videos');
       }
       setIsLoading(false);
     };
 
     fetchVideos();
   }, [userString]);
-
-  const applyFilters = (newFilters = filters) => {
-    let result = [...videos];
-
-    if (newFilters.tags.length > 0) {
-      result = result.filter((video) =>
-        video.tags?.some((tag) => newFilters.tags.includes(tag.name)),
-      );
-    }
-
-    if (newFilters.users.length > 0) {
-      result = result.filter((video) => {
-        const uname = video.creator?.username;
-        const fullname =
-          `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim();
-        return newFilters.users.includes(uname || fullname);
-      });
-    }
-
-    if (newFilters.startDate && newFilters.endDate) {
-      result = result.filter((video) => {
-        const createdAt = new Date(video.createdAt);
-        return (
-          createdAt >= newFilters.startDate! && createdAt <= newFilters.endDate!
-        );
-      });
-    }
-    if (newFilters.archived !== null) {
-      result = result.filter((video) => video.archived === newFilters.archived);
-    }
-
-    // Sort by creation date descending
-    result.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
-
-    setFilteredVideos(result);
-  };
 
   const handleTagClick = (tag: string) => {
     const updatedTags = filters.tags.includes(tag)
@@ -314,7 +326,7 @@ const Videos: FC<VideosProps> = () => {
 
       setVideos(response.data || []);
     } catch (error) {
-      logger.error('Error toggling favorite filter:', error);
+      logger.error({ err: error }, 'Error toggling favorite filter');
     }
   };
 
