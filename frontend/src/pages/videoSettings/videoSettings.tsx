@@ -1,7 +1,6 @@
 import styles from './videoSettings.module.css';
 
 import { useState, ChangeEvent, FC, useEffect } from 'react';
-import type { ApiResponse } from 'apisauce';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 // import Card from '../../components/ReworkComponents/generic/Cards/Card';
@@ -702,7 +701,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
   const deleteThisVideo = async () => {
     await deleteVideo(videoId)
-      .then((response: ApiResponse<unknown>) => {
+      .then((response) => {
         if (
           response.status === 202 ||
           response.status === 201 ||
@@ -854,7 +853,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     );
 
     await modifyVideo(form)
-      .then((response: ApiResponse<unknown>) => {
+      .then((response) => {
         if (
           response.status === 202 ||
           response.status === 201 ||

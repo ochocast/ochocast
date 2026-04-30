@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 
 	"whip-server/internal/models"
 	"whip-server/pkg/metrics"

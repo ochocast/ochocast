@@ -34,8 +34,6 @@ const resolveTokenValidation = (): TokenValidation => {
       clientId: process.env.AUTH_CLIENT_ID,
       secret: process.env.AUTH_SECRET,
       cookieKey: 'KEYCLOAK_JWT',
-      logLevels: ['warn', 'error'],
-      useNestLogger: true,
       policyEnforcement: PolicyEnforcementMode.PERMISSIVE,
       tokenValidation: resolveTokenValidation(),
     }),
