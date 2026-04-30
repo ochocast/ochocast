@@ -1,0 +1,126 @@
+name: Deploy serverless production
+
+on:
+  push:
+    branches:
+      - prod
+  workflow_dispatch:
+
+jobs:
+  build-and-push-front:
+    name: build-and-push-front
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Docker Login
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ secrets.SCW_REGISTRY }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ secrets.SCW_CONTAINER_FRONT }}
+          build-args: |
+            REACT_APP_API_URL=${{ secrets.API_URL }}
+            REACT_APP_API_PORT=${{ secrets.API_PORT }}
+            REACT_APP_AUTHORIZATION_ENDPOINT=${{ vars.AUTHORIZATION_ENDPOINT }}
+            REACT_APP_CLIENT_ID=${{ vars.CLIENT_ID }}
+            REACT_APP_REDIRECT_URI=${{ vars.REDIRECT_URI }}
+            REACT_APP_SFU_CONTROL_PLANE_URL=${{ vars.SFU_CONTROL_PLANE_URL }}
+
+  build-and-push-back:
+    name: build-and-push-back
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - name: Docker Login
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ secrets.SCW_REGISTRY }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
+      - name: Build and push Docker images
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ secrets.SCW_CONTAINER }}
+
+  deploy-back:
+    name: deploy-back
+    runs-on: self-hosted
+    needs: build-and-push-back
+    steps:
+      - name: remove-old-serverless
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
+        continue-on-error: true
+        with:
+          type: teardown
+          scw_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
+          scw_registry: ${{ secrets.SCW_CONTAINER }}
+      - name: deploy-new-serverless
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
+        with:
+          type: deploy
+          scw_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID }}
+          scw_registry: ${{ secrets.SCW_CONTAINER }}
+          scw_region: fr-par
+          scw_container_port: 80
+          scw_memory_limit: 512
+          scw_environment_variables: NODE_ENV=production,AUTH_CLIENT_ID=${{secrets.AUTH_CLIENT_ID}},AUTH_REALM=${{secrets.AUTH_REALM}},AUTH_SECRET=${{secrets.AUTH_SECRET}},AUTH_SERVER_URL=${{secrets.AUTH_SERVER_URL}},PG_USERNAME=${{secrets.PG_USERNAME}},PG_PASSWORD=${{secrets.PG_PASSWORD}},PG_DATABASE=${{secrets.PG_DATABASE}},PG_HOST=${{secrets.PG_HOST}},PG_PORT=${{secrets.PG_PORT}},STOCK_SERVER_URL=${{secrets.STOCK_SERVER_URL}},STOCK_CLIENT_ID=${{secrets.STOCK_CLIENT_ID}},STOCK_SECRET=${{secrets.STOCK_SECRET}},STOCK_MEDIA_BUCKET=${{secrets.STOCK_MEDIA_BUCKET}},STOCK_REGION=${{secrets.STOCK_REGION}},STOCK_MINIATURE_BUCKET=${{secrets.STOCK_MINIATURE_BUCKET}},STOCK_PROFILE_PICTURE_BUCKET=${{secrets.STOCK_PROFILE_PICTURE_BUCKET}},STOCK_BRANDING_BUCKET=${{secrets.STOCK_BRANDING_BUCKET}},RECORDING_VM_URL=${{secrets.RECORDING_VM_URL}}
+
+  deploy-front:
+    name: deploy-front
+    runs-on: self-hosted
+    needs: build-and-push-front
+    steps:
+      - name: remove-old-serverless
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
+        continue-on-error: true
+        with:
+          type: teardown
+          scw_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }}
+          scw_registry: ${{ secrets.SCW_CONTAINER_FRONT }}
+      - name: deploy-new-serverless
+        uses: philibea/scaleway-containers-deploy@0d640c31f4e7d2e3c7b830e89d19b9253624c40f # v1.1.5
+        with:
+          type: deploy
+          scw_access_key: ${{ secrets.SCW_ACCESS_KEY }}
+          scw_secret_key: ${{ secrets.SCW_SECRET_KEY }}
+          scw_containers_namespace_id: ${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }}
+          scw_registry: ${{ secrets.SCW_CONTAINER_FRONT }}
+          scw_region: fr-par
+          scw_container_port: 80
+          scw_memory_limit: 512
+          scw_environment_variables: REACT_APP_API_URL=${{secrets.API_URL}},REACT_APP_API_PORT=${{secrets.API_PORT}},REACT_APP_AUTHORIZATION_ENDPOINT=${{vars.AUTHORIZATION_ENDPOINT}},REACT_APP_CLIENT_ID=${{vars.CLIENT_ID}},REACT_APP_REDIRECT_URI=${{vars.REDIRECT_URI}},REACT_APP_SFU_CONTROL_PLANE_URL=${{vars.SFU_CONTROL_PLANE_URL}}
+      - name: Add Scaleway endpoint
+        env:
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_DEFAULT_ORGANIZATION_ID: ${{ secrets.SCW_ORGANIZATION_ID }}
+          SCW_DEFAULT_REGION: fr-par
+          SCW_DEFAULT_ZONE: fr-par-1
+        run: |
+          curl -s https://raw.githubusercontent.com/scaleway/scaleway-cli/master/scripts/get.sh | sh
+          CONTAINER_ID=$(scw container container list namespace-id=${{ secrets.SCW_CONTAINER_NAMESPACE_ID_FRONT }} -o json | jq -r '.[0].id')
+          scw container domain create container-id="$CONTAINER_ID" hostname=demo.ochocast.fr

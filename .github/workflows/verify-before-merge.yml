@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies (root)
         run: npm ci
       - name: Run ESLint on frontend
-        run: npx eslint frontend --ext .ts,.tsx,.js,.jsx
+        run: npx eslint "frontend/**/*.{js,jsx,ts,tsx}"
       - name: Run Prettier check on frontend and backend
         run: npx prettier --check "frontend/**/*.{js,jsx,ts,tsx}" "backend/**/*.{js,jsx,ts,tsx}"
 

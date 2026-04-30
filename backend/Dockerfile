@@ -31,5 +31,5 @@ COPY --from=builder /usr/src/app/dist ./dist
 
 EXPOSE 80/tcp
 
-# Use the production migration script and then start the app
-CMD ["sh", "-c", "npm run migration:run && node dist/main.js"]
+# Run compiled migrations and then start the app
+CMD ["sh", "-c", "npm run migration:run:prod && node dist/main.js"]
