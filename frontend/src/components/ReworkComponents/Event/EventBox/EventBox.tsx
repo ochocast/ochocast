@@ -244,6 +244,7 @@ const EventBox = (props: EventBoxProps) => {
         <img
           className={styles.imageTuileEventIcon}
           src={miniatureURL}
+          alt={event.name}
           onError={(e) => {
             e.currentTarget.src = DEFAULT_EVENT_IMAGE;
             e.currentTarget.onerror = null;

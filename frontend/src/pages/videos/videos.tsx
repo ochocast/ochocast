@@ -89,7 +89,6 @@ const Videos: FC<VideosProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
-  const user = userString ? JSON.parse(userString) : null;
   const location = useLocation();
   const navigate = useNavigate();
   const [toast, setToast] = useState<{
@@ -124,7 +123,7 @@ const Videos: FC<VideosProps> = () => {
 
   const [showFilters, setShowFilters] = useState(false);
 
-  const [showFavorites, setShowFavorites] = useState(() => {
+  const [, setShowFavorites] = useState(() => {
     const params = parseQueryParams(location.search);
     return params.favoris;
   });
@@ -240,7 +239,6 @@ const Videos: FC<VideosProps> = () => {
     searchState.users,
     searchState.dateFrom,
     searchState.dateTo,
-    searchState.favoris,
     searchState.archived,
     searchQuery,
     handleSearch,
@@ -285,7 +283,7 @@ const Videos: FC<VideosProps> = () => {
     };
 
     fetchVideos();
-  }, [userString]);
+  }, [location.search, userString]);
 
   const handleTagClick = (tag: string) => {
     const updatedTags = filters.tags.includes(tag)
@@ -330,24 +328,6 @@ const Videos: FC<VideosProps> = () => {
       dateFrom: startDate?.toISOString() || null,
       dateTo: endDate?.toISOString() || null,
     });
-  };
-
-  const handleToggleFavorites = async () => {
-    if (!user?.id) return;
-
-    const nextState = !showFavorites;
-    setShowFavorites(nextState);
-    setSearchState({ favoris: nextState });
-
-    try {
-      const response = nextState
-        ? await getFavoriteVideos()
-        : await getVideos();
-
-      setVideos(response.data || []);
-    } catch (error) {
-      logger.error({ err: error }, 'Error toggling favorite filter');
-    }
   };
 
   const handleResetFilters = () => {

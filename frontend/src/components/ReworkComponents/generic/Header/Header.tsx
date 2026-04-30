@@ -37,17 +37,14 @@ const Header: FC<HeaderProps> = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [videos, setVideos] = useState<Video[]>([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
+  const [, setFilteredVideos] = useState<Video[]>([]);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
   const [showFavorites, setShowFavorites] = useState(false);
-  const [toast, setToast] = useState<{
+  const [, setToast] = useState<{
     message: string;
     type?: 'success' | 'error' | 'info';
   } | null>(null);
-  const [cardsPerRow, setCardsPerRow] = useState<number>(
-    parseInt(localStorage.getItem('cardsPerRow') || '6'),
-  );
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [searchWrapperHeight, setSearchWrapperHeight] = useState(0);
 
@@ -71,6 +68,7 @@ const Header: FC<HeaderProps> = () => {
   const useUrlStateSync = (initialState: SearchState) => {
     const [state, setState] = useState<SearchState>(initialState);
     const navigate = useNavigate();
+    const location = useLocation();
 
     const parseQueryParams = (search: string): SearchState => {
       const params = new URLSearchParams(search);
@@ -126,7 +124,7 @@ const Header: FC<HeaderProps> = () => {
     return [state, setSearchState] as const;
   };
 
-  const [searchState, setSearchState] = useUrlStateSync({
+  const [, setSearchState] = useUrlStateSync({
     q: '',
     tags: [],
     users: [],
