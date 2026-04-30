@@ -1,31 +1,20 @@
-# CI/CD
+# CI/CD contract
 
-![CI/CD](../images/CI_CD.png)
+`ochocast` owns application code and application CI only.
 
-## Build and push Rtmp-server and WebSocketServer
+The GitOps promotion workflow:
 
-1. Download repo
-2. Setup docker and the scaleway registery
-3. Build and push docker image
+1. validates the frontend and backend;
+2. builds Docker images;
+3. pushes immutable `sha-<commit>` image tags to Scaleway Registry;
+4. opens a pull request in `ochocast/ops-architecture-lab` to promote those image tags.
 
-# Scaleway
+This repository must not contain kubeconfigs, ArgoCD tokens, Terraform credentials, or direct deployment steps. Kubernetes manifests, Helm values, runtime secrets, ArgoCD Applications, and infrastructure as code stay in `ops-architecture-lab`.
 
-## Running Intance
+The serverless production path is kept separately in `serverless-prod.yml` while Kubernetes production remains experimental. It deploys on pushes to the `prod` branch and can also be triggered manually.
 
-Yoiu can find the Intance panel on [this page](https://console.scaleway.com/instance/servers).
+Required GitHub configuration:
 
-## Container registery 
-
-You can find every container registery of eatch application in eatch namespace on [this page](https://console.scaleway.com/registry/namespaces).
-
-## Containers Running
-
-You can find the running prod container in his specific namespace on [this page](https://console.scaleway.com/containers/namespaces).
-
-## Object Storage Bucket 
-
-You can find the static prod frontend in a bucket on [this page](https://console.scaleway.com/object-storage/buckets).
-
-## Managed Database for PostgreSQL
-
-You can find the managed sql prod database on [this page](https://console.scaleway.com/rdb/instances).
+- secrets: `SCW_REGISTRY`, `SCW_REG_USER`, `SCW_SECRET_KEY`
+- secret: `OPS_REPO_TOKEN` with permission to create branches and pull requests in `ochocast/ops-architecture-lab`
+- optional variable: `OPS_REPO_BASE_BRANCH`, defaulting to `main`
