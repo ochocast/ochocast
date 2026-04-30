@@ -152,7 +152,7 @@ const Header: FC<HeaderProps> = () => {
         setVideos(result);
       }
     } catch (error) {
-      logger.error('Error fetching suggestions:', error);
+      logger.error(`Error fetching suggestions: ${error}`);
     }
   }, []);
 

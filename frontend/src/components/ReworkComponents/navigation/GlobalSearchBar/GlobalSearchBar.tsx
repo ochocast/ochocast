@@ -88,7 +88,7 @@ const GlobalSearchBar = ({
       setUserSuggestions(userResponse.data || []);
       setShowSuggestions(true);
     } catch (error) {
-      logger.error('Error fetching users and tags:', error);
+      logger.error(`Error fetching users and tags: ${error}`);
       setTagSuggestions([]);
       setUserSuggestions([]);
       setShowSuggestions(false);
