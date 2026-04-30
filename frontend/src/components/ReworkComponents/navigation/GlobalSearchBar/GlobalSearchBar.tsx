@@ -6,6 +6,9 @@ import logger from '../../../../utils/logger';
 import { useTranslation } from 'react-i18next';
 import BrandingImage from '../../BrandingImage/BrandingImage';
 import FilterIcon from '../../../../assets/filter_icon.svg';
+import Star from '../../../../assets/star.svg';
+import FavorisFilterSelected from '../../../../assets/FavorisSelected.svg';
+import CopyButtonIcon from '../../../../assets/copy.svg';
 
 export interface GlobalSearchBarProps {
   onSearch: (query: string) => void;
@@ -13,6 +16,9 @@ export interface GlobalSearchBarProps {
   initialValue?: string;
   hasSuggestion?: boolean;
   onFilterClick?: () => void;
+  onFavoriteClick?: () => void;
+  isFavoriteActive?: boolean;
+  onShareClick?: () => void;
   activeFiltersCount?: number;
   selectedTags?: string[];
   onRemoveTag?: (tag: string) => void;
@@ -24,6 +30,9 @@ const GlobalSearchBar = ({
   initialValue,
   hasSuggestion = true,
   onFilterClick,
+  onFavoriteClick,
+  onShareClick,
+  isFavoriteActive = false,
   activeFiltersCount = 0,
   selectedTags = [],
   onRemoveTag,
@@ -33,6 +42,7 @@ const GlobalSearchBar = ({
   const [tagSuggestions, setTagSuggestions] = useState<Tag_video[]>([]);
   const [userSuggestions, setUserSuggestions] = useState<User[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -178,6 +188,32 @@ const GlobalSearchBar = ({
             {activeFiltersCount > 0 && (
               <span className={styles.filterBadge}>{activeFiltersCount}</span>
             )}
+          </button>
+
+          <button
+            type="button"
+            className={styles.favoriteButton}
+            onClick={onFavoriteClick}
+            aria-label="Open filters"
+          >
+            <img
+              className={styles.starIcon}
+              src={isFavoriteActive ? FavorisFilterSelected : Star}
+              alt="Filtrer par favoris"
+            />
+          </button>
+
+          <button
+            type="button"
+            className={styles.copyButton}
+            onClick={onShareClick}
+            aria-label="Open filters"
+          >
+            <img
+              className={styles.copyIcon}
+              src={CopyButtonIcon}
+              alt="Partager les filtres"
+            />
           </button>
         </div>
 

@@ -1,6 +1,5 @@
 .navItem1 {
   flex: 1;
-  background: none;
   border: none;
   color: inherit;
   font: inherit;
@@ -46,8 +45,9 @@
   top: 100%;
   right: 0;
   margin-top: 8px;
-  background-color: #ffffff;
-  border-radius: 16px;
+  background-color: white;
+  border-radius: 13px;
+  border: 1px solid var(--theme-color-200);
   box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.08);
   padding: 16px;
   display: flex;
@@ -72,8 +72,6 @@
   align-items: center;
   gap: 12px;
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
   color: #1a1a1a;
   transition: opacity 0.2s;
   background: none;
@@ -97,12 +95,12 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 20px 8px 16px;
-  background-color: #e6e6e6; 
+  height: 2.7rem;
+  min-height: 2.7rem;
+  padding: 0 1.2rem;
+  background-color: white;
   border: none;
-  border-radius: 24px;
-  font-size: 16px;
-  font-weight: 500;
+  border-radius: 999px;
   cursor: pointer;
 }
 

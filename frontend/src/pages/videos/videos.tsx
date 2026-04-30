@@ -1,21 +1,16 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import style from './videos.module.css';
 import { useTranslation } from 'react-i18next';
-
 import { FC } from 'react';
 import { getVideos, searchVideos } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import logger from '../../utils/logger';
-import GlobalSearchBar from '../../components/ReworkComponents/navigation/GlobalSearchBar/GlobalSearchBar';
 import FilterPanel from '../../components/ReworkComponents/navigation/FilterPanel/FilterPanel';
-import FavorisFilterNotSelected from '../../assets/FavorisFilterNotSelected.svg';
-import FavorisFilterSelected from '../../assets/FavorisFilterSelected.svg';
 import { getFavoriteVideos } from '../../utils/api';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import CopyButtonIcon from '../../assets/copy.svg';
 
 interface VideosProps {}
 
@@ -94,7 +89,6 @@ const Videos: FC<VideosProps> = () => {
   const userString = localStorage.getItem('backendUser');
   const [isLoading, setIsLoading] = useState(false);
   const { t } = useTranslation();
-  const [showFavorites, setShowFavorites] = useState(false);
   const user = userString ? JSON.parse(userString) : null;
   const location = useLocation();
   const navigate = useNavigate();
@@ -117,22 +111,28 @@ const Videos: FC<VideosProps> = () => {
     return () => clearTimeout(timer);
   }, [location.state, navigate, location.pathname]);
 
-  const [filters, setFilters] = useState<{
-    tags: string[];
-    users: string[];
-    startDate: Date | null;
-    endDate: Date | null;
-    archived: boolean | null;
-  }>({
-    tags: [],
-    users: [],
-    startDate: null,
-    endDate: null,
-    archived: null,
+  const [filters, setFilters] = useState(() => {
+    const params = parseQueryParams(location.search);
+    return {
+      tags: params.tags,
+      users: params.users,
+      startDate: params.dateFrom ? new Date(params.dateFrom) : null,
+      endDate: params.dateTo ? new Date(params.dateTo) : null,
+      archived: params.archived,
+    };
   });
 
   const [showFilters, setShowFilters] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const [showFavorites, setShowFavorites] = useState(() => {
+    const params = parseQueryParams(location.search);
+    return params.favoris;
+  });
+
+  const [searchQuery, setSearchQuery] = useState(() => {
+    const params = parseQueryParams(location.search);
+    return params.q;
+  });
 
   const [searchState, setSearchState] = useUrlStateSync({
     q: '',
@@ -167,7 +167,6 @@ const Videos: FC<VideosProps> = () => {
     applyFilters(filters);
   });
 
-  // Synchroniser les filtres avec l'état URL
   useEffect(() => {
     const updatedFilters = {
       tags: searchState.tags,
@@ -184,6 +183,7 @@ const Videos: FC<VideosProps> = () => {
       handleSearch([searchState.q]);
     }
   }, [
+    searchState.favoris,
     searchState.q,
     searchState.tags,
     searchState.users,
@@ -199,10 +199,34 @@ const Videos: FC<VideosProps> = () => {
     const fetchVideos = async () => {
       setIsLoading(true);
       try {
-        const res = await getVideos();
+        const initialParams = parseQueryParams(location.search);
+        const res = initialParams.favoris
+          ? await getFavoriteVideos()
+          : await getVideos();
         const allVideos = res.data || [];
         setVideos(allVideos);
-        setFilteredVideos(allVideos);
+
+        let result = [...allVideos];
+        if (initialParams.tags.length > 0) {
+          result = result.filter((v) =>
+            v.tags?.some((tag: { name: string }) =>
+              initialParams.tags.includes(tag.name),
+            ),
+          );
+        }
+        if (initialParams.users.length > 0) {
+          result = result.filter((v) => {
+            const uname = v.creator?.username;
+            const fullname =
+              `${v.creator?.firstName ?? ''} ${v.creator?.lastName ?? ''}`.trim();
+            return initialParams.users.includes(uname || fullname);
+          });
+        }
+        result.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        setFilteredVideos(result);
       } catch (error) {
         logger.error('Error fetching videos:', error);
       }
@@ -210,7 +234,7 @@ const Videos: FC<VideosProps> = () => {
     };
 
     fetchVideos();
-  }, [userString]);
+  }, [userString, searchState.favoris]);
 
   const applyFilters = (newFilters = filters) => {
     let result = [...videos];
@@ -242,7 +266,6 @@ const Videos: FC<VideosProps> = () => {
       result = result.filter((video) => video.archived === newFilters.archived);
     }
 
-    // Sort by creation date descending
     result.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -296,24 +319,6 @@ const Videos: FC<VideosProps> = () => {
     });
   };
 
-  const handleToggleFavorites = async () => {
-    if (!user?.id) return;
-
-    const nextState = !showFavorites;
-    setShowFavorites(nextState);
-    setSearchState({ favoris: nextState });
-
-    try {
-      const response = nextState
-        ? await getFavoriteVideos()
-        : await getVideos();
-
-      setVideos(response.data || []);
-    } catch (error) {
-      logger.error('Error toggling favorite filter:', error);
-    }
-  };
-
   const handleResetFilters = () => {
     setFilters({
       tags: [],
@@ -343,7 +348,6 @@ const Videos: FC<VideosProps> = () => {
     [handleSearch, setSearchState],
   );
 
-  // On first load, wait for initial fetch to finish then simulate a user search once
   useEffect(() => {
     if (
       isFirstLoadRef.current &&
@@ -357,23 +361,6 @@ const Videos: FC<VideosProps> = () => {
     }
   }, [isLoading, searchState.q, handleSearchWithUrl]);
 
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      setToast({
-        message: t('linkCopied'),
-        type: 'success',
-      });
-      setTimeout(() => setToast(null), 500);
-    });
-  };
-
-  // Calculer le nombre de filtres actifs
-  const activeFiltersCount =
-    filters.tags.length +
-    filters.users.length +
-    (filters.startDate || filters.endDate ? 1 : 0) +
-    (filters.archived !== null ? 1 : 0);
-
   if (isLoading) {
     return <LoadingCircle />;
   }
@@ -382,33 +369,6 @@ const Videos: FC<VideosProps> = () => {
     <div className={style.videos}>
       <div className={style.display}>
         <div className={style.display1}>
-          <div className={style.searchBarRow}>
-            <GlobalSearchBar
-              onSearch={(query) => handleSearchWithUrl(query)}
-              placeholder={t('exemple')}
-              initialValue={searchQuery}
-              onFilterClick={() => setShowFilters(!showFilters)}
-              activeFiltersCount={activeFiltersCount}
-              selectedTags={filters.tags}
-              onRemoveTag={(tag) =>
-                handleTagsChange(filters.tags.filter((t) => t !== tag))
-              }
-            />
-            <img
-              className={style.starIconFilterContainer}
-              src={
-                showFavorites ? FavorisFilterSelected : FavorisFilterNotSelected
-              }
-              onClick={handleToggleFavorites}
-              alt="Filtrer par favoris"
-            />
-            <img
-              className={`${style.copyButtonIcon} ${style.smallButton}`}
-              src={CopyButtonIcon}
-              alt="Partager les filtres"
-              onClick={handleShare}
-            />
-          </div>
           {showFilters && (
             <div
               className={style.filterPanelWrapper}

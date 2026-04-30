@@ -3,13 +3,13 @@ import styles from './Thumbnail.module.css';
 import { useBrandingContext } from '../../../../context/BrandingContext';
 import { useNavigate } from 'react-router-dom';
 import { getMiniature } from '../../../../utils/api';
-import Star from '../../../../assets/star.svg';
 import { useTranslation } from 'react-i18next';
 import {
   addToFavorites,
   removeFromFavorites,
   isVideoFavorite,
 } from '../../../../utils/api';
+import Star from '../../../../assets/star.svg';
 import FavorisFilterSelected from '../../../../assets/FavorisSelected.svg';
 import ViewIcon from '../../../../assets/ViewIcon.svg';
 import EditIcon from '../../../../assets/edit.svg';

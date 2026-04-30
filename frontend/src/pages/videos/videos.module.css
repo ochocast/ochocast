@@ -92,7 +92,6 @@ Button {
   min-width: 22rem;
 }
 
-/* Grille dynamique basée sur le nombre de cards par ligne */
 .video_row[data-cards-per-row="5"] > * {
   flex: 0 0 calc((100% - 4 * 1.25rem) / 5);
   max-width: calc((100% - 4 * 1.25rem) / 5);
@@ -197,16 +196,6 @@ Button {
   font-weight: bold;
 }
 
-.starIconFilterContainer {
-  width: 26px;
-  height: 26px;
-  cursor: pointer;
-}
-
-.starIconFilterContainer:hover {
-  opacity: 0.7;
-}
-
 .filterPanelWrapper {
   position: fixed;
   top: 0;
@@ -218,15 +207,6 @@ Button {
   display: flex;
   justify-content: center;
   padding-top: 60px;
-}
-
-.copyButtonIcon {
-  width: 26px;
-  height: 26px;
-}
-
-.copyButtonIcon:hover {
-  opacity: 0.7;
 }
 
 

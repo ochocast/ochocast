@@ -11,7 +11,6 @@
   align-items: center;
   width: 100%;
   min-height: 2.7rem;
-  border: 1px solid var(--theme-color-300);
   border-radius: 999px;
   background-color: white;
   padding: 0.25rem 0.2rem 0.25rem 0.45rem;
@@ -21,7 +20,6 @@
 
 .searchBar:hover,
 .searchBar:focus-within {
-  border-color: var(--theme-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-color) 25%, transparent), 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
@@ -94,6 +92,52 @@
   padding: 0 0.15rem;
 }
 
+.favoriteButton {
+  position: relative;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.favoriteButton:hover {
+  background-color: var(--theme-color-200);
+}
+
+.starIcon {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.copyButton {
+  position: relative;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.copyButton:hover {
+  background-color: var(--theme-color-200);
+}
+
+.copyIcon {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
 .suggestionsList {
   position: absolute;
   top: calc(100% + 0.25rem);
@@ -103,8 +147,7 @@
   padding: 0.2rem;
   list-style: none;
   background-color: var(--theme-color-white);
-  border: 1px solid var(--theme-color-300);
-  border-radius: 0.75rem;
+  border-radius: 8px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
   z-index: 20;
   max-height: 16rem;

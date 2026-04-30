@@ -29,25 +29,6 @@ const NavItems = () => {
 
   return (
     <div className={styles.navItems}>
-      <div className={styles.navItem}>
-        <button
-          type="button"
-          className={styles.navItem1}
-          onClick={() => navigate('/events-home')}
-        >
-          {t('streaming')}
-        </button>
-      </div>
-      <div className={styles.navItem}>
-        <button
-          type="button"
-          className={styles.navItem1}
-          onClick={() => navigate('/videos')}
-        >
-          {t('videos')}
-        </button>
-      </div>
-
       <div className={styles.navButtons}>
         <div className={styles.dropdownContainer} ref={menuRef}>
           <button
