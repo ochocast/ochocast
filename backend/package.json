@@ -54,12 +54,12 @@
     "socket.io": "^4.8.1",
     "tsconfig-paths-jest": "^0.0.1",
     "typeorm": "^0.3.17",
-    "uuid": "^9.0.1"
-  },
-  "devDependencies": {
     "@aws-sdk/client-s3": "^3.1031.0",
     "@aws-sdk/lib-storage": "^3.1031.0",
     "@aws-sdk/s3-request-presigner": "^3.1031.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
     "@nestjs/cli": "^11.0.21",
     "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.19",
