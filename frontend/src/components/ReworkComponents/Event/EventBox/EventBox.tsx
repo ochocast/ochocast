@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { EventStatus } from '../../../../utils/EventStatus';
@@ -37,10 +37,85 @@ const EventBox = (props: EventBoxProps) => {
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
   const moreBadgeRef = React.useRef<HTMLDivElement>(null);
+  const [visibleTagCount, setVisibleTagCount] = useState<number>(
+    props.event.tags.length,
+  );
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
   const [miniatureURL, setMiniatureUrl] = useState<string>(DEFAULT_EVENT_IMAGE);
+  const tagMeasureRef = React.useRef<HTMLDivElement>(null);
+  const tagsContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const updateVisibleTags = () => {
+      const container = tagsContainerRef.current;
+      const measurement = tagMeasureRef.current;
+      if (!container || !measurement) {
+        setVisibleTagCount(props.event.tags.length);
+        return;
+      }
+
+      const availableWidth = container.clientWidth;
+      if (availableWidth <= 0) {
+        setVisibleTagCount(props.event.tags.length);
+        return;
+      }
+
+      const tagElements = Array.from(
+        measurement.querySelectorAll<HTMLSpanElement>(`.${styles.tag}`),
+      );
+      const plusButtons = Array.from(
+        measurement.querySelectorAll<HTMLButtonElement>(
+          '[data-measure-plus="true"]',
+        ),
+      );
+      const plusWidthByCount = new Map<number, number>();
+      plusButtons.forEach((button) => {
+        const count = Number(button.dataset.count ?? '0');
+        plusWidthByCount.set(count, button.getBoundingClientRect().width);
+      });
+
+      const gap = 6;
+      let usedWidth = 0;
+      let count = 0;
+
+      for (let i = 0; i < tagElements.length; i += 1) {
+        const tagWidth = tagElements[i].getBoundingClientRect().width;
+        const nextWidth = usedWidth + (count > 0 ? gap : 0) + tagWidth;
+        const hiddenCount = props.event.tags.length - (i + 1);
+        const plusWidth =
+          hiddenCount > 0 ? (plusWidthByCount.get(hiddenCount) ?? 0) : 0;
+        const requiredWidth =
+          hiddenCount > 0 ? nextWidth + gap + plusWidth : nextWidth;
+
+        if (requiredWidth <= availableWidth) {
+          usedWidth = nextWidth;
+          count += 1;
+        } else {
+          break;
+        }
+      }
+
+      setVisibleTagCount(count);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateVisibleTags();
+    });
+
+    if (tagsContainerRef.current) {
+      resizeObserver.observe(tagsContainerRef.current);
+    }
+
+    window.addEventListener('resize', updateVisibleTags);
+    updateVisibleTags();
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateVisibleTags);
+    };
+  }, [props.event.tags]);
 
   useEffect(() => {
     setNbSubscribe(event.nbSubscription);
@@ -228,8 +303,8 @@ const EventBox = (props: EventBoxProps) => {
     setShowAllTags(!showAllTags);
   };
 
-  const displayedTags = event.tags?.slice(0, 2) ?? [];
-  const hiddenTags = event.tags?.slice(2) ?? [];
+  const displayedTags = event.tags?.slice(0, visibleTagCount) ?? [];
+  const hiddenTags = event.tags?.slice(visibleTagCount) ?? [];
 
   return (
     <div
@@ -309,7 +384,7 @@ const EventBox = (props: EventBoxProps) => {
         </div>
 
         <div className={styles.bottomContainerLowerPart}>
-          <div className={styles.tagsContainer}>
+          <div className={styles.tagsContainer} ref={tagsContainerRef}>
             {displayedTags.length > 0 && (
               <>
                 {displayedTags.map((tag, index) => (
@@ -342,7 +417,7 @@ const EventBox = (props: EventBoxProps) => {
                     <div className={styles.tagsPopup}>
                       <div className={styles.tagsPopupContent}>
                         {hiddenTags.map((tag, index) => (
-                          <span key={index} className={styles.popupTag}>
+                          <span key={index} className={styles.tag}>
                             {tag.name}
                           </span>
                         ))}
@@ -352,6 +427,29 @@ const EventBox = (props: EventBoxProps) => {
                 )}
               </div>
             )}
+          </div>
+
+          <div
+            className={styles.tagMeasurementContainer}
+            ref={tagMeasureRef}
+            aria-hidden="true"
+          >
+            {props.event.tags.map((tag, index) => (
+              <span key={index} className={styles.tag}>
+                {tag.name}
+              </span>
+            ))}
+            {Array.from({ length: props.event.tags.length + 1 }, (_, count) => (
+              <button
+                key={count}
+                data-count={count}
+                data-measure-plus="true"
+                className={styles.tagTriggerButton}
+                type="button"
+              >
+                <span className={styles.tagCount}>+{count}</span>
+              </button>
+            ))}
           </div>
         </div>
 
