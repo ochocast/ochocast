@@ -37,7 +37,7 @@ const CreateEventPage: React.FC = () => {
   const { t } = useTranslation();
   const { getImageUrl } = useBrandingContext();
   const { user } = useUser();
-  const [eventClosed, setEventClosed] = useState(false);
+  const [eventClosed] = useState(false);
   const { eventId } = useParams();
 
   const [name, setName] = useState('');
