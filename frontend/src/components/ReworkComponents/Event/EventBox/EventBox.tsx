@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { EventStatus } from '../../../../utils/EventStatus';
@@ -17,6 +17,7 @@ import SubscribeIcon from '../../../../assets/subscribe.svg';
 import UnsubscribeIcon from '../../../../assets/unsubscribe.svg';
 
 const DEFAULT_PERSONA_IMAGE = '/branding/persona.png';
+const DEFAULT_EVENT_IMAGE = '/branding/exemple/image_tuile_event.png';
 
 interface EventBoxProps {
   event: PublicEvent;
@@ -33,12 +34,92 @@ const EventBox = (props: EventBoxProps) => {
   const [nbSubscribe, setNbSubscribe] = useState(event.nbSubscription);
   const { getImageUrl } = useBrandingContext();
   const { user } = useUser();
-  const [defaultLogoUrl, setDefaultLogoUrl] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [showAllTags, setShowAllTags] = useState<boolean>(false);
+  const moreBadgeRef = React.useRef<HTMLDivElement>(null);
+  const [visibleTagCount, setVisibleTagCount] = useState<number>(
+    props.event.tags.length,
+  );
   const [profilePictureUrl, setProfilePictureUrl] = useState<string>(
     DEFAULT_PERSONA_IMAGE,
   );
+  const [miniatureURL, setMiniatureUrl] = useState<string>(DEFAULT_EVENT_IMAGE);
+  const tagMeasureRef = React.useRef<HTMLDivElement>(null);
+  const tagsContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const updateVisibleTags = () => {
+      const container = tagsContainerRef.current;
+      const measurement = tagMeasureRef.current;
+      if (!container || !measurement) {
+        setVisibleTagCount(props.event.tags.length);
+        return;
+      }
+
+      const availableWidth = container.clientWidth;
+      if (availableWidth <= 0) {
+        setVisibleTagCount(props.event.tags.length);
+        return;
+      }
+
+      const tagElements = Array.from(
+        measurement.querySelectorAll<HTMLSpanElement>(`.${styles.tag}`),
+      );
+      const plusButtons = Array.from(
+        measurement.querySelectorAll<HTMLButtonElement>(
+          '[data-measure-plus="true"]',
+        ),
+      );
+      const plusWidthByCount = new Map<number, number>();
+      plusButtons.forEach((button) => {
+        const count = Number(button.dataset.count ?? '0');
+        plusWidthByCount.set(count, button.getBoundingClientRect().width);
+      });
+
+      const gap = 6;
+      let usedWidth = 0;
+      let count = 0;
+
+      for (let i = 0; i < tagElements.length; i += 1) {
+        const tagWidth = tagElements[i].getBoundingClientRect().width;
+        const nextWidth = usedWidth + (count > 0 ? gap : 0) + tagWidth;
+        const hiddenCount = props.event.tags.length - (i + 1);
+        const plusWidth =
+          hiddenCount > 0 ? (plusWidthByCount.get(hiddenCount) ?? 0) : 0;
+        const requiredWidth =
+          hiddenCount > 0 ? nextWidth + gap + plusWidth : nextWidth;
+
+        if (requiredWidth <= availableWidth) {
+          usedWidth = nextWidth;
+          count += 1;
+        } else {
+          break;
+        }
+      }
+
+      setVisibleTagCount(count);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateVisibleTags();
+    });
+
+    if (tagsContainerRef.current) {
+      resizeObserver.observe(tagsContainerRef.current);
+    }
+
+    window.addEventListener('resize', updateVisibleTags);
+    updateVisibleTags();
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateVisibleTags);
+    };
+  }, [props.event.tags]);
+
+  useEffect(() => {
+    setNbSubscribe(event.nbSubscription);
+  }, [event.nbSubscription]);
 
   function formatNumber(value: number): string {
     return value < 10 ? `0${value}` : `${value}`;
@@ -51,14 +132,8 @@ const EventBox = (props: EventBoxProps) => {
     );
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
-    if (days > 0) {
-      return `${days}d ${hours}h`;
-    }
-
-    if (hours > 0) {
-      return `${hours}h ${minutes}min`;
-    }
-
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}min`;
     return `${Math.max(0, minutes)} min`;
   };
 
@@ -70,17 +145,9 @@ const EventBox = (props: EventBoxProps) => {
     const start = new Date(startDateRaw);
     const end = endDateRaw ? new Date(endDateRaw) : null;
 
-    // 1. Si on est entre la date de début et la date de fin : C'est en direct !
-    if (now >= start && (!end || now <= end)) {
-      return 'Live';
-    }
-
-    // 2. Si la date de fin est passée : C'est terminé.
-    if (end && now > end) {
+    if (now >= start && (!end || now <= end)) return 'Live';
+    if (end && now > end)
       return formatDuration(end.getTime() - start.getTime());
-    }
-
-    // 3. Sinon (now < start), c'est dans le futur : on calcule le temps restant.
     return `In ${formatDuration(start.getTime() - now.getTime())}`;
   };
 
@@ -88,7 +155,7 @@ const EventBox = (props: EventBoxProps) => {
     const fetchDefaultLogo = async () => {
       try {
         const url = await getImageUrl('default_miniature_image');
-        setDefaultLogoUrl(url);
+        if (url) setMiniatureUrl(url);
       } catch (error) {
         console.error('Error fetching default logo:', error);
       }
@@ -96,7 +163,12 @@ const EventBox = (props: EventBoxProps) => {
     fetchDefaultLogo();
   }, [getImageUrl]);
 
-  // Check if current user is subscribed to this event
+  useEffect(() => {
+    if (props.imageURL) {
+      setMiniatureUrl(props.imageURL);
+    }
+  }, [props.imageURL]);
+
   useEffect(() => {
     if (user && event.subscribedUserIds) {
       setIsSubscribed(event.subscribedUserIds.includes(user.id));
@@ -104,7 +176,7 @@ const EventBox = (props: EventBoxProps) => {
   }, [user, event]);
 
   useEffect(() => {
-    const fetchMiniatureUrl = async () => {
+    const fetchProfilePicture = async () => {
       try {
         if (props.event.creatorId) {
           const url = await getProfilePicture(props.event.creatorId);
@@ -125,10 +197,9 @@ const EventBox = (props: EventBoxProps) => {
         setProfilePictureUrl(DEFAULT_PERSONA_IMAGE);
       }
     };
-    fetchMiniatureUrl();
+    fetchProfilePicture();
   }, [props.event.creatorId]);
 
-  // Check if current user is the event creator
   const isEventCreator = user && event.creatorId === user.id;
   const eventDisplayTime = getEventDisplayTime(
     props.event.startDate,
@@ -232,6 +303,9 @@ const EventBox = (props: EventBoxProps) => {
     setShowAllTags(!showAllTags);
   };
 
+  const displayedTags = event.tags?.slice(0, visibleTagCount) ?? [];
+  const hiddenTags = event.tags?.slice(visibleTagCount) ?? [];
+
   return (
     <div
       className={styles.previewMiniture}
@@ -241,32 +315,29 @@ const EventBox = (props: EventBoxProps) => {
         }
       }}
     >
-      {/* Top container with image and overlays */}
       <div className={styles.topContainer}>
         <img
           className={styles.imageTuileEventIcon}
-          alt={props.event.name}
-          src={
-            props.imageURL || defaultLogoUrl || '/exemple/image_tuile_event.png'
-          }
+          src={miniatureURL}
+          alt={event.name}
+          onError={(e) => {
+            e.currentTarget.src = DEFAULT_EVENT_IMAGE;
+            e.currentTarget.onerror = null;
+          }}
         />
 
-        {/* Edit button */}
         {props.event.canBeEditByUser &&
           props.eventStatus !== EventStatus.Preview &&
           editButton}
 
-        {/* Subscribe button */}
         {props.eventStatus === EventStatus.Published && subscribeButton}
 
-        {/* View container */}
         <div className={styles.viewsContainer}>
           <div className={styles.viewValue}>
             {`${nbSubscribe} ` + t('registered')}
           </div>
         </div>
 
-        {/* Time container */}
         {eventDisplayTime !== 'Live' ? (
           <div className={styles.timeContainer}>
             <div className={styles.timeValue}>{eventDisplayTime}</div>
@@ -278,53 +349,65 @@ const EventBox = (props: EventBoxProps) => {
         )}
       </div>
 
-      {/* Bottom container with infos */}
       <div className={styles.bottomContainer}>
-        {/* profilePictureContainer */}
-        <div className={styles.profilePictureContainer}>
-          <img
-            className={styles.profilePicture}
-            src={profilePictureUrl}
-            alt={`${props.event.creator.firstName} ${props.event.creator.lastName}'s profile`}
-          />
-        </div>
-
-        {/* textContainer */}
-        <div className={styles.textContainer}>
-          <div className={styles.titleContainer}>
-            <h2 className={styles.title} title={props.event.name}>
-              {props.event.name}
-            </h2>
+        <div className={styles.bottomContainerUpperPart}>
+          <div className={styles.profilePictureContainer}>
+            <img
+              className={styles.profilePicture}
+              src={profilePictureUrl}
+              alt={`${props.event.creator.firstName} ${props.event.creator.lastName}'s profile`}
+            />
           </div>
 
-          <div className={styles.infoContainer}>
-            <div className={styles.authorContainer}>
-              {props.event.creator.firstName +
-                ' ' +
-                props.event.creator.lastName}
+          <div className={styles.textContainer}>
+            <div className={styles.titleContainer}>
+              <h2 className={styles.title} title={props.event.name}>
+                {props.event.name}
+              </h2>
             </div>
 
-            <span className={styles.separator}>•</span>
+            <div className={styles.infoContainer}>
+              <div className={styles.authorContainer}>
+                {props.event.creator.firstName +
+                  ' ' +
+                  props.event.creator.lastName}
+              </div>
 
-            <div className={styles.dateContainer}>
-              {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
-                dateDisplay.getMonth() + 1,
-              )}/${dateDisplay.getFullYear()}`}
+              <span className={styles.separator}>•</span>
+
+              <div className={styles.dateContainer}>
+                {`${formatNumber(dateDisplay.getDate())}/${formatNumber(
+                  dateDisplay.getMonth() + 1,
+                )}/${dateDisplay.getFullYear()}`}
+              </div>
             </div>
+          </div>
+        </div>
 
-            {event.tags && event.tags.length > 0 && (
-              <div className={styles.tagsContainer}>
+        <div className={styles.bottomContainerLowerPart}>
+          <div className={styles.tagsContainer} ref={tagsContainerRef}>
+            {displayedTags.length > 0 && (
+              <>
+                {displayedTags.map((tag, index) => (
+                  <span key={index} className={styles.tag}>
+                    {tag.name}
+                  </span>
+                ))}
+              </>
+            )}
+
+            {hiddenTags.length > 0 && (
+              <div className={styles.tagTriggerWrapper} ref={moreBadgeRef}>
                 <button
                   className={styles.tagTriggerButton}
                   onClick={handleMoreBadgeClick}
+                  aria-label={`+${hiddenTags.length} tags restants`}
                 >
-                  <span className={styles.tagLabel}>Tags</span>
-                  <span className={styles.tagCount}>{event.tags.length}</span>
+                  <span className={styles.tagCount}>+{hiddenTags.length}</span>
                 </button>
 
                 {showAllTags && (
                   <>
-                    {/* L'overlay reste au niveau de l'écran entier pour capter le clic de fermeture */}
                     <div
                       className={styles.tagsPopupOverlay}
                       onClick={(e) => {
@@ -332,10 +415,9 @@ const EventBox = (props: EventBoxProps) => {
                         setShowAllTags(false);
                       }}
                     />
-                    {/* Le popup est maintenant positionné par rapport au tagsContainer */}
                     <div className={styles.tagsPopup}>
                       <div className={styles.tagsPopupContent}>
-                        {event.tags.map((tag, index) => (
+                        {hiddenTags.map((tag, index) => (
                           <span key={index} className={styles.tag}>
                             {tag.name}
                           </span>
@@ -347,12 +429,38 @@ const EventBox = (props: EventBoxProps) => {
               </div>
             )}
           </div>
+
+          <div
+            className={styles.tagMeasurementContainer}
+            ref={tagMeasureRef}
+            aria-hidden="true"
+          >
+            {props.event.tags.map((tag, index) => (
+              <span key={index} className={styles.tag}>
+                {tag.name}
+              </span>
+            ))}
+            {Array.from({ length: props.event.tags.length + 1 }, (_, count) => (
+              <button
+                key={count}
+                data-count={count}
+                data-measure-plus="true"
+                className={styles.tagTriggerButton}
+                type="button"
+              >
+                <span className={styles.tagCount}>+{count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.buttonsContainer}>
+          {props.eventStatus === EventStatus.NotPublished &&
+            buttonsNotPublished}
+          {props.eventStatus === EventStatus.Finished && buttonsFinished}
+          {props.eventStatus === EventStatus.Preview && buttonsPreview}
         </div>
       </div>
-
-      {props.eventStatus === EventStatus.NotPublished && buttonsNotPublished}
-      {props.eventStatus === EventStatus.Finished && buttonsFinished}
-      {props.eventStatus === EventStatus.Preview && buttonsPreview}
     </div>
   );
 };

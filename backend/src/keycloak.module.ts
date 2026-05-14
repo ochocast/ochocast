@@ -12,6 +12,20 @@ import {
 } from 'nest-keycloak-connect';
 import { APP_GUARD } from '@nestjs/core';
 
+const resolveTokenValidation = (): TokenValidation => {
+  const tokenValidation = process.env.KEYCLOAK_TOKEN_VALIDATION?.toUpperCase();
+
+  if (tokenValidation === 'OFFLINE') {
+    return TokenValidation.OFFLINE;
+  }
+
+  if (tokenValidation === 'NONE') {
+    return TokenValidation.NONE;
+  }
+
+  return TokenValidation.ONLINE;
+};
+
 @Module({
   imports: [
     KeycloakConnectModule.register({
@@ -20,10 +34,8 @@ import { APP_GUARD } from '@nestjs/core';
       clientId: process.env.AUTH_CLIENT_ID,
       secret: process.env.AUTH_SECRET,
       cookieKey: 'KEYCLOAK_JWT',
-      logLevels: ['verbose', 'log', 'warn', 'error'],
-      useNestLogger: true,
       policyEnforcement: PolicyEnforcementMode.PERMISSIVE,
-      tokenValidation: TokenValidation.ONLINE,
+      tokenValidation: resolveTokenValidation(),
     }),
   ],
   providers: [

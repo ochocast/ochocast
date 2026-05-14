@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v4"
 )
 
 // Grace period before cleaning up a room when the host disconnects

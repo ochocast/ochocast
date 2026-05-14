@@ -13,8 +13,8 @@
   height: 100px;
   position: relative;
   padding: 0 2%;
-  max-width: 100vw; /* empêche le débordement */
-  overflow-x: visible; /* renforce l’interdiction du scroll horizontal */
+  max-width: 100vw;
+  overflow-x: visible;
 }
 
 .LogoDiv {
@@ -28,19 +28,46 @@
   max-height: 4rem;
   object-fit: contain;
   aspect-ratio: auto;
+  margin-right: 16px;
+}
+
+.RightActions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.ProfilBadge {
+  display: flex;
+  width: auto !important;
 }
 
 .NavBadge {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  margin-right: 2%;
-  text-align: center;
+  width: auto !important;
 }
 
-/* Hamburger icon (visible only on small screens) */
+.SearchWrapper {
+  flex: 1 1 0;
+  min-width: 20rem;
+  max-width: 60rem; 
+  width: 100%;
+  position: relative;
+}
+
+.FilterPanelWrapper {
+  position: absolute;
+  right: 0;
+  z-index: 1000;
+  margin-top: 44px;
+}
+
+.FilterPanelContainer {
+  width: max-content; 
+  border: 1px solid var(--theme-color-200);
+  border-radius: 13px;
+}
+
 .Hamburger {
   display: none;
   flex-direction: column;
@@ -56,7 +83,6 @@
   border-radius: 2px;
 }
 
-/* Mobile dropdown menu */
 .MobileMenu {
   position: absolute;
   top: 100%;
@@ -75,7 +101,6 @@
   color: var(--theme-color-white);
 }
 
-/* Responsive */
 @media (max-width: 1350px) {
   .NavBadge {
     display: none;

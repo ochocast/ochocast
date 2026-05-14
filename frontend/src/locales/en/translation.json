@@ -1,5 +1,5 @@
 {
-  "profile": "Profile",
+  "profile": "Profile settings",
   "language": "Language",
   "replyTo": "Reply to",
   "cancelReply": "Cancel reply",
@@ -10,8 +10,10 @@
   "reply": "Reply",
   "welcome": "Welcome",
   "videos": "Videos",
+  "events": "Events",
+  "seeMore": "See more",
   "streaming": "Streaming",
-  "publishVideo": "Publish a video",
+  "publishVideo": "Upload a video",
   "getAvailableLiveEvents": "Click here to get available live events.",
   "getAvailableVideos": "Click here to get available videos.",
   "searchAnEvent": "Search for an event",
@@ -184,6 +186,7 @@
   "Images": "Images",
   "Speakers": "Speakers",
   "myEvents": "My events",
+  "myVideos": "My videos",
   "isRegistered": "is registered",
   "PublicEvents": "Public events",
   "ClosedEvents": "Closed events",
@@ -393,5 +396,20 @@
   "rejouer": "Replay",
   "vidéoSuivante": "Next vidéo",
   "intervenantsExternes": "External stakeholders",
-  "save": "Save"
+  "save": "Save",
+  "timeAgo": {
+    "now": "just now",
+    "minutes_one": "{{count}} minute ago",
+    "minutes_other": "{{count}} minutes ago",
+    "hours_one": "{{count}} hour ago",
+    "hours_other": "{{count}} hours ago",
+    "days_one": "{{count}} day ago",
+    "days_other": "{{count}} days ago",
+    "months_one": "{{count}} month ago",
+    "months_other": "{{count}} months ago",
+    "years_one": "{{count}} year ago",
+    "years_other": "{{count}} years ago"
+  },
+  "Selected tags": "Selected tags",
+  "Delete all": "Delete all"
 }

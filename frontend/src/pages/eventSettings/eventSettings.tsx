@@ -199,7 +199,7 @@ const EventSettings: FC = () => {
           setIsPublished(data.published);
         }
       } catch (error) {
-        logger.error('Error fetching event', error);
+        logger.error({ err: error }, 'Error fetching event');
         setIsFetchError(true);
       }
     };
@@ -274,7 +274,7 @@ const EventSettings: FC = () => {
         });
       }
     } catch (error) {
-      logger.error('Error updating event', error);
+      logger.error({ err: error }, 'Error updating event');
       setToast({
         message: t('eventCouldNotBeModified'),
         type: 'error',

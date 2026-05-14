@@ -14,6 +14,10 @@ export class GetProfilePictureUsecase {
   async execute(id: any): Promise<string> {
     const users = await this.userGateway.getUsers({ id: id });
 
+    if (!users || users.length === 0 || !users[0]?.picture_id) {
+      return '';
+    }
+
     const command = new GetObjectCommand({
       Bucket: process.env.STOCK_PROFILE_PICTURE_BUCKET,
       Key: users[0].picture_id,

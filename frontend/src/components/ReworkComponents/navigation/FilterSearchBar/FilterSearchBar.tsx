@@ -79,7 +79,7 @@ const FilterSearchBar = ({
         setShowSuggestions(true);
       }
     } catch (error) {
-      logger.error('Error fetching suggestions:', error);
+      logger.error({ err: error }, 'Error fetching suggestions');
       setNoResults(true);
       setShowSuggestions(true);
     }
