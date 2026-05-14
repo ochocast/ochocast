@@ -230,7 +230,6 @@ const EventSettings: FC = () => {
       return;
     }
 
-    // Validate date/time
     const startDateTime = new Date(`${date}T${startHour}:00Z`);
     const endDateTime = new Date(`${date}T${endHour}:00Z`);
 
@@ -257,7 +256,6 @@ const EventSettings: FC = () => {
 
       const res = await updateEvent(eventId, formData);
       if (res.status === 200) {
-        // Refresh event data to ensure tracks are up-to-date with speaker info
         const refreshedEvent = await getPrivateEvent(eventId);
         if (refreshedEvent.status === 200) {
           setTracks(refreshedEvent.data.tracks);
@@ -378,7 +376,6 @@ const EventSettings: FC = () => {
 
   const handleShareEvent = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-
     if (!isPublished) {
       setToast({
         message: t('eventMustBePublished'),
@@ -386,9 +383,7 @@ const EventSettings: FC = () => {
       });
       return;
     }
-
     const invitationLink = `${window.location.origin}/events/${eventId}/tracks`;
-
     try {
       await navigator.clipboard.writeText(invitationLink);
       setToast({
@@ -396,7 +391,6 @@ const EventSettings: FC = () => {
         type: 'success',
       });
     } catch (err) {
-      // Fallback pour les navigateurs qui ne supportent pas l'API clipboard
       const textArea = document.createElement('textarea');
       textArea.value = invitationLink;
       document.body.appendChild(textArea);
@@ -427,129 +421,98 @@ const EventSettings: FC = () => {
         eventClosed={!eventClosed && userId === creatorId}
       />
 
-      <div className={styles.mainContentWrapper}>
-        <div className={styles.eventSettings}>
-          <div className={styles.topLayout}>
-            <div className={styles.titleLayout}>
-              <NavigateBackButton />
-              <h1>{t('EditEvent')}</h1>
-            </div>
+      <div className={styles.eventsContainer}>
+        {/* TITRE PLEINE LARGEUR */}
+        <div className={styles.topLayout}>
+          <div className={styles.titleLayout}>
+            <NavigateBackButton />
+            <h1>{t('EditEvent')}</h1>
           </div>
+        </div>
 
-          <Modal
-            isOpen={isCloseModalOpen}
-            toggle={() => setIsCloseModalOpen(false)}
-          >
-            <h2>{t('SureCloseEvent')}</h2>
-            <div className={styles.confirmationButtons}>
-              <Button label={t('Confirm')} onClick={handleCloseEvent} />
-              <Button
-                label={t('Cancel')}
-                onClick={() => setIsCloseModalOpen(false)}
-              />
-            </div>
-            {modalMessage && <p>{modalMessage}</p>}
-          </Modal>
-
-          {/* BASIC INFORMATION SECTION */}
-          <div className={styles.formSection}>
-            <h3>{t('BasicInformation') || 'Basic Information'}</h3>
-
-            <div className={styles.inputWrapper}>
-              <label>{t('NameEvent')}</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setButtonDisabled(false);
-                }}
-                disabled={eventClosed}
-                required
-                className={errorName ? styles.error : ''}
-              />
-            </div>
-
-            <div className={styles.inputWrapper}>
-              <label>{t('EventDescription')}</label>
-              <textarea
-                value={description}
-                onChange={(e) => {
-                  setDescription(e.target.value);
-                  setButtonDisabled(false);
-                }}
-                className={errorDescription ? styles.error : ''}
-                disabled={eventClosed}
-                required
-              />
+        <div className={styles.mainContentWrapper}>
+          {/* COLONNE GAUCHE (FORME) */}
+          <div className={styles.eventSettings}>
+            <div className={styles.formSection}>
+              <h3>{t('BasicInformation')}</h3>
+              <div className={styles.inputWrapper}>
+                <label>{t('NameEvent')}</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setButtonDisabled(false);
+                  }}
+                  disabled={eventClosed}
+                  className={errorName ? styles.error : ''}
+                />
+              </div>
+              <div className={styles.inputWrapper}>
+                <label>{t('EventDescription')}</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    setButtonDisabled(false);
+                  }}
+                  className={errorDescription ? styles.error : ''}
+                  disabled={eventClosed}
+                />
+              </div>
+              <div className={styles.inputWrapper}>
+                <label>{t('Thumbnail')}</label>
+                <InputFile
+                  placeholder={t('ChooseThumbnail')}
+                  onChange={handleImageChange}
+                  disable={eventClosed}
+                />
+              </div>
             </div>
 
-            <div className={styles.inputWrapper}>
-              <label>{t('Thumbnail')}</label>
-              <InputFile
-                placeholder={t('ChooseThumbnail')}
-                onChange={handleImageChange}
-                disable={eventClosed}
-                required={false}
-              />
-            </div>
-          </div>
-
-          {/* SCHEDULE SECTION */}
-          <div className={styles.formSection}>
-            <h3>{t('Schedule') || 'Schedule'}</h3>
-
-            <div className={styles.inputWrapper}>
-              <label>{t('DateEvent')}</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => {
-                  setDate(e.target.value);
-                  setButtonDisabled(false);
-                }}
-                min={new Date().toISOString().split('T')[0]}
-                disabled={eventClosed}
-                required
-              />
-            </div>
-
-            <div className={styles.inputWrapper}>
-              <label>{t('StartEvent')}</label>
-              <input
-                type="time"
-                value={startHour}
-                onChange={(e) => {
-                  setStartHour(e.target.value);
-                  setButtonDisabled(false);
-                }}
-                disabled={eventClosed}
-                required
-              />
+            <div className={styles.formSection}>
+              <h3>{t('Schedule')}</h3>
+              <div className={styles.inputWrapper}>
+                <label>{t('DateEvent')}</label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => {
+                    setDate(e.target.value);
+                    setButtonDisabled(false);
+                  }}
+                  min={new Date().toISOString().split('T')[0]}
+                  disabled={eventClosed}
+                />
+              </div>
+              <div className={styles.inputWrapper}>
+                <label>{t('StartEvent')}</label>
+                <input
+                  type="time"
+                  value={startHour}
+                  onChange={(e) => {
+                    setStartHour(e.target.value);
+                    setButtonDisabled(false);
+                  }}
+                  disabled={eventClosed}
+                />
+              </div>
+              <div className={styles.inputWrapper}>
+                <label>{t('EndEvent')}</label>
+                <input
+                  type="time"
+                  value={endHour}
+                  onChange={(e) => {
+                    setEndHour(e.target.value);
+                    setButtonDisabled(false);
+                  }}
+                  disabled={eventClosed}
+                />
+              </div>
             </div>
 
-            <div className={styles.inputWrapper}>
-              <label>{t('EndEvent')}</label>
-              <input
-                type="time"
-                value={endHour}
-                onChange={(e) => {
-                  setEndHour(e.target.value);
-                  setButtonDisabled(false);
-                }}
-                disabled={eventClosed}
-                required
-              />
-            </div>
-          </div>
-
-          {/* TAGS & METADATA SECTION */}
-          <div className={styles.formSection}>
-            <h3>{t('Tags') || 'Tags'}</h3>
-
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-            >
+            <div className={styles.formSection}>
+              <h3>{t('Tags')}</h3>
               <SuggestionBar
                 onClick={selectTag}
                 placeholder="Tags"
@@ -557,15 +520,7 @@ const EventSettings: FC = () => {
                 name="suggestionTag"
                 onAdd={addTag}
               />
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'row',
-                  flexWrap: 'wrap',
-                  justifyContent: 'flex-start',
-                  gap: '10px',
-                }}
-              >
+              <div className={styles.tagList}>
                 {tags.map((tag, index) => (
                   <Tag
                     key={index}
@@ -573,86 +528,91 @@ const EventSettings: FC = () => {
                     type={TagType.DEFAULT}
                     editable={!eventClosed}
                     delete={handleDeleteTag}
-                    style={{ flex: '25%' }}
                   />
                 ))}
               </div>
             </div>
+
+            {!eventClosed && (
+              <div className={styles.formSection}>
+                <h3>{t('Actions')}</h3>
+                <div className={styles.confirmationButtons}>
+                  {!isPublished ? (
+                    <Button
+                      label={t('PublishEvent')}
+                      onClick={handlePublishEvent}
+                      type={ButtonType.primary}
+                    />
+                  ) : (
+                    <Button
+                      label={t('CloseEvent')}
+                      onClick={() => setIsCloseModalOpen(true)}
+                      type={ButtonType.primary}
+                    />
+                  )}
+                  <Button
+                    label={t('shareEvent')}
+                    onClick={handleShareEvent}
+                    type={ButtonType.secondary}
+                  />
+                  <Button
+                    label={t('Save')}
+                    type={
+                      isButtonDisabled
+                        ? ButtonType.disabled
+                        : ButtonType.secondary
+                    }
+                    onClick={handleSubmit}
+                  />
+                  <Button
+                    label={t('DeleteEvent')}
+                    onClick={() => setIsDeleteOpen(true)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {!eventClosed && (
-            <div className={styles.formSection}>
-              <h3>{t('Actions') || 'Actions'}</h3>
-              <div className={styles.confirmationButtons}>
-                {!isPublished ? (
-                  <Button
-                    label={t('PublishEvent')}
-                    onClick={handlePublishEvent}
-                    type={ButtonType.primary}
-                  />
-                ) : (
-                  <Button
-                    label={t('CloseEvent')}
-                    onClick={() => setIsCloseModalOpen(true)}
-                    type={ButtonType.primary}
-                  />
-                )}
-                <Button
-                  label={t('shareEvent')}
-                  onClick={handleShareEvent}
-                  type={ButtonType.secondary}
-                />
-                <Button
-                  label={t('Save')}
-                  type={
-                    isButtonDisabled
-                      ? ButtonType.disabled
-                      : ButtonType.secondary
-                  }
-                  onClick={handleSubmit}
-                />
-                <Button
-                  label={t('DeleteEvent')}
-                  onClick={() => setIsDeleteOpen(true)}
-                />
-              </div>
-            </div>
-          )}
-
-          {eventClosed && (
-            <div className={styles.formSection}>
-              <h2 style={{ color: 'var(--theme-color-700, #666)', margin: 0 }}>
-                {t('EventClosed')}
-              </h2>
-            </div>
-          )}
-
-          <Modal isOpen={isDeleteOpen} toggle={() => setIsDeleteOpen(false)}>
-            <h2>{t('SureDeleteEvent')}</h2>
-            <div className={styles.confirmationButtons}>
-              <Button label={t('Delete')} onClick={deleteEventHandler} />
-              <Button
-                label={t('Cancel')}
-                onClick={() => setIsDeleteOpen(false)}
-              />
-            </div>
-          </Modal>
-        </div>
-
-        <div className={styles.preview}>
-          <h2>{t('Preview')}</h2>
-          <EventBox
-            event={getPreviewEvent()}
-            imageURL={
-              imageUrl ||
-              previewMiniatureUrl ||
-              fallbackMiniatureUrl ||
-              '/exemple/image_tuile_event.png'
-            }
-            eventStatus={EventStatus.Preview}
-          />
+          {/* COLONNE DROITE (PREVIEW) */}
+          <div className={styles.preview}>
+            <h2>{t('Preview')}</h2>
+            <EventBox
+              event={getPreviewEvent()}
+              imageURL={
+                imageUrl ||
+                previewMiniatureUrl ||
+                fallbackMiniatureUrl ||
+                '/exemple/image_tuile_event.png'
+              }
+              eventStatus={EventStatus.Preview}
+            />
+          </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={isCloseModalOpen}
+        toggle={() => setIsCloseModalOpen(false)}
+      >
+        <h2>{t('SureCloseEvent')}</h2>
+        <div className={styles.confirmationButtons}>
+          <Button label={t('Confirm')} onClick={handleCloseEvent} />
+          <Button
+            label={t('Cancel')}
+            onClick={() => setIsCloseModalOpen(false)}
+          />
+        </div>
+        {modalMessage && <p>{modalMessage}</p>}
+      </Modal>
+
+      <Modal isOpen={isDeleteOpen} toggle={() => setIsDeleteOpen(false)}>
+        <h2>{t('SureDeleteEvent')}</h2>
+        <div className={styles.confirmationButtons}>
+          <Button label={t('Delete')} onClick={deleteEventHandler} />
+          <Button label={t('Cancel')} onClick={() => setIsDeleteOpen(false)} />
+        </div>
+      </Modal>
+
       {toast && (
         <Toast
           key={`${toast.message}-${toast.type}`}

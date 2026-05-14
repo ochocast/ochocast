@@ -1,10 +1,11 @@
 import React, { useState, ChangeEvent, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from 'react-oidc-context';
 import { createEvent, createTag, findTag } from '../../utils/api';
 import { api } from '../../utils/api';
 import logger from '../../utils/logger';
+import { useUser } from '../../context/UserContext';
 
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 import Button, {
@@ -29,11 +30,15 @@ import SuggestionBar, {
 import Tag, {
   TagType,
 } from '../../components/ReworkComponents/generic/Tag/Tag';
+
 const CreateEventPage: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { getImageUrl } = useBrandingContext();
+  const { user } = useUser();
+  const [eventClosed, setEventClosed] = useState(false);
+  const { eventId } = useParams();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -68,6 +73,8 @@ const CreateEventPage: React.FC = () => {
     };
     fetchFallbackMiniature();
   }, [getImageUrl]);
+
+  console.log(user);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
@@ -210,32 +217,31 @@ const CreateEventPage: React.FC = () => {
   const getPreviewEvent = (): PublicEvent => {
     const now = new Date();
     const startDate =
-      date && startHour ? new Date(`${date}T${startHour}`) : now;
-    const endDate = date && endHour ? new Date(`${date}T${endHour}`) : now;
+      date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
+    const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
 
-    const mockUser: PublicUser = {
-      id: 'preview-user',
-      firstName: auth.user?.profile?.given_name || 'John',
-      lastName: auth.user?.profile?.family_name || 'Doe',
+    const creator: PublicUser = {
+      id: user?.id || '',
+      firstName: user?.firstName || '...',
+      lastName: user?.lastName || '...',
     };
 
     return {
-      id: 'preview-id',
+      id: eventId || '',
       name: name || t('NameEvent'),
       description,
       tags: tags,
       startDate,
       endDate,
       published: false,
-      private: false,
-      closed: false,
-      imageSlug: selectedImage?.name || '',
+      private: true,
+      closed: eventClosed,
+      imageSlug: imageUrl ? imageUrl : '',
       tracks: [],
-      creatorId: mockUser.id,
+      creatorId: user?.id || '',
       canBeEditByUser: true,
-      creator: mockUser,
-      nbSubscription: 12,
-      subscribedUserIds: [],
+      creator,
+      nbSubscription: 0,
     };
   };
 
@@ -274,167 +280,187 @@ const CreateEventPage: React.FC = () => {
   };
 
   return (
-    <>
-      <div className={styles.header}>
-        <NavigateBackButton />
-        <h1 className={styles.title}>{t('CreateNewEvent')}</h1>
-      </div>
-
+    <div className={styles.pageCreateEvent}>
       <div className={styles.events}>
-        <div className={styles.contentWrapper}>
+        <div className={styles.topLayout}>
+          <div className={styles.titleLayout}>
+            <NavigateBackButton />
+            <h1>{t('CreateNewEvent')}</h1>
+          </div>
+        </div>
+
+        <div className={styles.mainContentWrapper}>
           <div className={styles.addEventForm}>
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('NameEvent')}
-                <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t('MyEvent')}
-                className={errorName ? styles.error : ''}
-                required
-              />
-              {errorName && (
-                <span className={styles.errorMessage}>
-                  This field is required
-                </span>
-              )}
-            </div>
+            <div className={styles.formSection}>
+              <h3>{t('BasicInformation') || 'Basic Information'}</h3>
 
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('DateEvent')}
-                <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="date"
-                value={date}
-                min={new Date().toISOString().split('T')[0]}
-                onChange={(e) => setDate(e.target.value)}
-                className={errorDate ? styles.error : ''}
-                required
-              />
-              {errorDate && (
-                <span className={styles.errorMessage}>
-                  This field is required
-                </span>
-              )}
-            </div>
-
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('StartEvent')}
-                <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="time"
-                value={startHour}
-                onChange={(e) => setStartHour(e.target.value)}
-                className={errorStartHour ? styles.error : ''}
-                required
-              />
-              {errorStartHour && (
-                <span className={styles.errorMessage}>
-                  This field is required
-                </span>
-              )}
-            </div>
-
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('EndEvent')}
-                <span className={styles.required}>*</span>
-              </label>
-              <input
-                type="time"
-                value={endHour}
-                onChange={(e) => setEndHour(e.target.value)}
-                className={errorEndHour || errorTimeOrder ? styles.error : ''}
-                required
-              />
-              {errorEndHour && (
-                <span className={styles.errorMessage}>
-                  This field is required
-                </span>
-              )}
-              {errorTimeOrder && (
-                <span className={styles.errorMessage}>
-                  End time must be after start time
-                </span>
-              )}
-            </div>
-
-            <div className={styles.inputWrapper}>
-              <label>{t('Thumbnail')}</label>
-              <InputFile
-                placeholder={t('ChooseThumbnail')}
-                onChange={handleImageChange}
-                disable={false}
-                required={false}
-              />
-            </div>
-
-            <div className={styles.inputWrapper}>
-              <label>
-                {t('EventDescription')}
-                <span className={styles.required}>*</span>
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder={t('DescriptionEvent')}
-                className={errorDescription ? styles.error : ''}
-                required
-              />
-              {errorDescription && (
-                <span className={styles.errorMessage}>
-                  This field is required
-                </span>
-              )}
-            </div>
-            <div className={styles.inputWrapper}>
-              <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
-                <SuggestionBar
-                  onClick={selectTag}
-                  placeholder="Tags"
-                  type={SuggestionType.TAG}
-                  name="suggestionTag"
-                  onAdd={addTag}
+              <div className={styles.inputWrapper}>
+                <label>
+                  {t('NameEvent')}
+                  <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={t('MyEvent')}
+                  className={errorName ? styles.error : ''}
+                  required
                 />
-                <div
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    justifyContent: 'center',
-                    gap: '10px',
-                  }}
-                >
-                  {tags.map((tag, index) => (
-                    <Tag
-                      key={index}
-                      content={tag.name}
-                      type={TagType.DEFAULT}
-                      editable={true}
-                      delete={handleDeleteTag}
-                      style={{ flex: '25%' }}
-                    />
-                  ))}
-                </div>
-              </Card>
+                {errorName && (
+                  <span className={styles.errorMessage}>
+                    This field is required
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.inputWrapper}>
+                <label>
+                  {t('EventDescription')}
+                  <span className={styles.required}>*</span>
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={t('DescriptionEvent')}
+                  className={errorDescription ? styles.error : ''}
+                  required
+                />
+                {errorDescription && (
+                  <span className={styles.errorMessage}>
+                    This field is required
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.inputWrapper}>
+                <label>{t('Thumbnail')}</label>
+                <InputFile
+                  placeholder={t('ChooseThumbnail')}
+                  onChange={handleImageChange}
+                  disable={false}
+                  required={false}
+                />
+              </div>
             </div>
-            <div
-              className={`${styles.buttonEventCreation} ${styles.desktopOnly}`}
-            >
-              <Button
-                onClick={handleSubmit}
-                label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
-                type={
-                  isCreatingEvent ? ButtonType.disabled : ButtonType.primary
-                }
-              />
+
+            <div className={styles.formSection}>
+              <h3>{t('Schedule') || 'Schedule'}</h3>
+
+              <div className={styles.inputWrapper}>
+                <label>
+                  {t('DateEvent')}
+                  <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setDate(e.target.value)}
+                  className={errorDate ? styles.error : ''}
+                  required
+                />
+                {errorDate && (
+                  <span className={styles.errorMessage}>
+                    This field is required
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.inputWrapper}>
+                <label>
+                  {t('StartEvent')}
+                  <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="time"
+                  value={startHour}
+                  onChange={(e) => setStartHour(e.target.value)}
+                  className={errorStartHour ? styles.error : ''}
+                  required
+                />
+                {errorStartHour && (
+                  <span className={styles.errorMessage}>
+                    This field is required
+                  </span>
+                )}
+              </div>
+
+              <div className={styles.inputWrapper}>
+                <label>
+                  {t('EndEvent')}
+                  <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="time"
+                  value={endHour}
+                  onChange={(e) => setEndHour(e.target.value)}
+                  className={errorEndHour || errorTimeOrder ? styles.error : ''}
+                  required
+                />
+                {errorEndHour && (
+                  <span className={styles.errorMessage}>
+                    This field is required
+                  </span>
+                )}
+                {errorTimeOrder && (
+                  <span className={styles.errorMessage}>
+                    End time must be after start time
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.formSection}>
+              <h3>{t('Tags') || 'Tags'}</h3>
+
+              <div className={styles.inputWrapper}>
+                <Card styleAddon={{ flexDirection: 'column', height: 'auto' }}>
+                  <SuggestionBar
+                    onClick={selectTag}
+                    placeholder="Tags"
+                    type={SuggestionType.TAG}
+                    name="suggestionTag"
+                    onAdd={addTag}
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-start',
+                      gap: '10px',
+                    }}
+                  >
+                    {tags.map((tag, index) => (
+                      <Tag
+                        key={index}
+                        content={tag.name}
+                        type={TagType.DEFAULT}
+                        editable={true}
+                        delete={handleDeleteTag}
+                        style={{ flex: '25%' }}
+                      />
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            <div className={styles.formSection}>
+              <h3>{t('Actions') || 'Actions'}</h3>
+
+              <div className={styles.confirmationButtons}>
+                <Button
+                  onClick={handleSubmit}
+                  label={
+                    isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')
+                  }
+                  type={
+                    isCreatingEvent ? ButtonType.disabled : ButtonType.primary
+                  }
+                />
+              </div>
             </div>
           </div>
 
@@ -450,14 +476,6 @@ const CreateEventPage: React.FC = () => {
               eventStatus={EventStatus.Preview}
             />
           </div>
-
-          <div className={`${styles.buttonEventCreation} ${styles.mobileOnly}`}>
-            <Button
-              onClick={handleSubmit}
-              label={isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')}
-              type={isCreatingEvent ? ButtonType.disabled : ButtonType.primary}
-            />
-          </div>
         </div>
 
         {toast && (
@@ -468,7 +486,7 @@ const CreateEventPage: React.FC = () => {
           />
         )}
       </div>
-    </>
+    </div>
   );
 };
 
