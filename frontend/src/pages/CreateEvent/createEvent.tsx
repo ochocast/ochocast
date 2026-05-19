@@ -108,21 +108,18 @@ const CreateEventPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    // Empêcher les double-clics
     if (isCreatingEvent) {
       return;
     }
 
     let isError = false;
 
-    // Valider tous les champs obligatoires
     const hasNameError = !name.trim();
     const hasDescriptionError = !description.trim();
     const hasDateError = !date.trim();
     const hasStartHourError = !startHour.trim();
     const hasEndHourError = !endHour.trim();
 
-    // Vérifier que endHour > startHour
     let hasTimeOrderError = false;
     if (startHour && endHour) {
       const [startH, startM] = startHour.split(':').map(Number);
@@ -158,7 +155,7 @@ const CreateEventPage: React.FC = () => {
     }
 
     if (!isError) {
-      setIsCreatingEvent(true); // Désactiver le bouton
+      setIsCreatingEvent(true);
       try {
         if (auth.user?.access_token) {
           api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
@@ -200,16 +197,15 @@ const CreateEventPage: React.FC = () => {
 
         if (res.status === 201) {
           setToast({ message: t('EventSuccessfullyCreated'), type: 'success' });
-          // Ne pas réactiver le bouton en cas de succès - on reste désactivé jusqu'à la redirection
           setTimeout(() => navigate('/my-events'), 1500);
-          return; // Sortir sans passer par finally
+          return;
         } else {
           throw new Error('Création échouée');
         }
       } catch (error) {
         logger.error({ err: error }, 'Error creating event');
         setToast({ message: t('ErrorCreatingEvent'), type: 'error' });
-        setIsCreatingEvent(false); // Réactiver seulement en cas d'erreur
+        setIsCreatingEvent(false);
       }
     }
   };
@@ -217,8 +213,8 @@ const CreateEventPage: React.FC = () => {
   const getPreviewEvent = (): PublicEvent => {
     const now = new Date();
     const startDate =
-      date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
-    const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
+      date && startHour ? new Date(`${date}T${startHour}:00`) : now;
+    const endDate = date && endHour ? new Date(`${date}T${endHour}:00`) : now;
 
     const creator: PublicUser = {
       id: user?.id || '',

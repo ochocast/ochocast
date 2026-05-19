@@ -189,9 +189,22 @@ const EventSettings: FC = () => {
           const data = res.data;
           setName(data.name);
           setDescription(data.description);
-          setDate(data.startDate.split('T')[0]);
-          setStartHour(data.startDate.match(/\d{2}:\d{2}/)?.[0] || '');
-          setEndHour(data.endDate.match(/\d{2}:\d{2}/)?.[0] || '');
+
+          const start = new Date(data.startDate);
+          const end = new Date(data.endDate);
+
+          const localYear = start.getFullYear();
+          const localMonth = String(start.getMonth() + 1).padStart(2, '0');
+          const localDay = String(start.getDate()).padStart(2, '0');
+          setDate(`${localYear}-${localMonth}-${localDay}`);
+
+          setStartHour(
+            `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`,
+          );
+          setEndHour(
+            `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`,
+          );
+
           setTracks(data.tracks);
           setTags(data.tags);
           setCreatorId(data.creator.id);
@@ -230,10 +243,26 @@ const EventSettings: FC = () => {
       return;
     }
 
-    const startDateTime = new Date(`${date}T${startHour}:00Z`);
-    const endDateTime = new Date(`${date}T${endHour}:00Z`);
+    const [year, month, day] = date.split('-');
+    const [s_hour, s_minute] = startHour.split(':');
+    const [e_hour, e_minute] = endHour.split(':');
 
-    if (startDateTime >= endDateTime) {
+    const startDateISOString = new Date(
+      +year,
+      +month - 1,
+      +day,
+      +s_hour,
+      +s_minute,
+    ).toISOString();
+    const endDateISOString = new Date(
+      +year,
+      +month - 1,
+      +day,
+      +e_hour,
+      +e_minute,
+    ).toISOString();
+
+    if (new Date(startDateISOString) >= new Date(endDateISOString)) {
       setToast({
         message: t('StartTimeError'),
         type: 'error',
@@ -249,8 +278,9 @@ const EventSettings: FC = () => {
       );
       formData.append('name', name);
       formData.append('description', description);
-      formData.append('startDate', date + 'T' + startHour + ':00.000Z');
-      formData.append('endDate', date + 'T' + endHour + ':00.000Z');
+
+      formData.append('startDate', startDateISOString);
+      formData.append('endDate', endDateISOString);
       formData.append('tags', JSON.stringify(tags));
       if (selectedImage) formData.append('miniature', selectedImage);
 
@@ -316,6 +346,10 @@ const EventSettings: FC = () => {
           message: t('eventClosed'),
           type: 'success',
         });
+
+        setTimeout(() => {
+          navigate('/events-home');
+        }, 1000);
       }
     } catch {
       setToast({
@@ -345,9 +379,10 @@ const EventSettings: FC = () => {
 
   const getPreviewEvent = (): PublicEvent => {
     const now = new Date();
+    // Sans le "Z" pour que la prévisualisation soit dans le fuseau horaire local
     const startDate =
-      date && startHour ? new Date(`${date}T${startHour}:00Z`) : now;
-    const endDate = date && endHour ? new Date(`${date}T${endHour}:00Z`) : now;
+      date && startHour ? new Date(`${date}T${startHour}:00`) : now;
+    const endDate = date && endHour ? new Date(`${date}T${endHour}:00`) : now;
 
     const creator: PublicUser = {
       id: user?.id || creatorId,
@@ -422,7 +457,6 @@ const EventSettings: FC = () => {
       />
 
       <div className={styles.eventsContainer}>
-        {/* TITRE PLEINE LARGEUR */}
         <div className={styles.topLayout}>
           <div className={styles.titleLayout}>
             <NavigateBackButton />
@@ -431,7 +465,6 @@ const EventSettings: FC = () => {
         </div>
 
         <div className={styles.mainContentWrapper}>
-          {/* COLONNE GAUCHE (FORME) */}
           <div className={styles.eventSettings}>
             <div className={styles.formSection}>
               <h3>{t('BasicInformation')}</h3>
@@ -537,6 +570,15 @@ const EventSettings: FC = () => {
               <div className={styles.formSection}>
                 <h3>{t('Actions')}</h3>
                 <div className={styles.confirmationButtons}>
+                  <Button
+                    label={t('Save')}
+                    type={
+                      isButtonDisabled
+                        ? ButtonType.disabled
+                        : ButtonType.primary
+                    }
+                    onClick={handleSubmit}
+                  />
                   {!isPublished ? (
                     <Button
                       label={t('PublishEvent')}
@@ -547,7 +589,7 @@ const EventSettings: FC = () => {
                     <Button
                       label={t('CloseEvent')}
                       onClick={() => setIsCloseModalOpen(true)}
-                      type={ButtonType.primary}
+                      type={ButtonType.danger}
                     />
                   )}
                   <Button
@@ -555,25 +597,17 @@ const EventSettings: FC = () => {
                     onClick={handleShareEvent}
                     type={ButtonType.secondary}
                   />
-                  <Button
-                    label={t('Save')}
-                    type={
-                      isButtonDisabled
-                        ? ButtonType.disabled
-                        : ButtonType.secondary
-                    }
-                    onClick={handleSubmit}
-                  />
+                  {/*
                   <Button
                     label={t('DeleteEvent')}
                     onClick={() => setIsDeleteOpen(true)}
-                  />
+                    type={ButtonType.danger}
+                  />*/}
                 </div>
               </div>
             )}
           </div>
 
-          {/* COLONNE DROITE (PREVIEW) */}
           <div className={styles.preview}>
             <h2>{t('Preview')}</h2>
             <EventBox
