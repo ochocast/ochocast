@@ -1,4 +1,4 @@
-import { FC, useEffect, useState, useRef, useMemo } from 'react';
+import { FC, useEffect, useState, useRef, useMemo, ReactNode } from 'react';
 import styles from './Home.module.css';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,68 @@ const FULL_CARD_WIDTH_PX = 22 * 16;
 const MIN_CARD_WIDTH_PX = 10 * 16;
 const MIN_ITEMS = 2;
 const MAX_ITEMS = 8;
+
+type SectionEmptyStateProps = {
+  kickerLabel: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+};
+
+const SectionEmptyState = ({
+  kickerLabel,
+  title,
+  description,
+  actionLabel,
+  onAction,
+}: SectionEmptyStateProps) => (
+  <div className={styles.emptyState} role="status" aria-live="polite">
+    <p className={styles.emptyStateKicker}>{kickerLabel}</p>
+    <h3 className={styles.emptyStateTitle}>{title}</h3>
+    <p className={styles.emptyStateDescription}>{description}</p>
+    <button className={styles.emptyStateAction} onClick={onAction}>
+      {actionLabel}
+    </button>
+  </div>
+);
+
+type HomeSectionProps = {
+  title: string;
+  isEmpty: boolean;
+  emptyKickerLabel: string;
+  emptyTitle: string;
+  emptyDescription: string;
+  emptyActionLabel: string;
+  emptyAction: () => void;
+  children: ReactNode;
+};
+
+const HomeSection = ({
+  title,
+  isEmpty,
+  emptyKickerLabel,
+  emptyTitle,
+  emptyDescription,
+  emptyActionLabel,
+  emptyAction,
+  children,
+}: HomeSectionProps) => (
+  <section className={styles.section}>
+    <h2 className={styles.sectionTitle}>{title}</h2>
+    {isEmpty ? (
+      <SectionEmptyState
+        kickerLabel={emptyKickerLabel}
+        title={emptyTitle}
+        description={emptyDescription}
+        actionLabel={emptyActionLabel}
+        onAction={emptyAction}
+      />
+    ) : (
+      children
+    )}
+  </section>
+);
 
 const computeItemsPerRow = (containerWidth: number): number => {
   if (containerWidth <= 0) return MIN_ITEMS;
@@ -117,6 +179,9 @@ const HomePage: FC<HomeProps> = () => {
     return allVideos.slice(0, itemsPerRow);
   }, [allVideos, itemsPerRow]);
 
+  const hasEvents = displayedEvents.length > 0;
+  const hasVideos = displayedVideos.length > 0;
+
   useEffect(() => {
     const fetchMiniatures = async () => {
       if (displayedEvents.length === 0) return;
@@ -146,8 +211,15 @@ const HomePage: FC<HomeProps> = () => {
 
   return (
     <div ref={pageRef} className={styles.page}>
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{t('events')}</h2>
+      <HomeSection
+        title={t('events')}
+        isEmpty={!hasEvents}
+        emptyKickerLabel={t('homeEventsZero')}
+        emptyTitle={t('homeEventsEmptyTitle')}
+        emptyDescription={t('homeEventsEmptyDescription')}
+        emptyActionLabel={t('CreateEvent')}
+        emptyAction={() => navigate('/my-events/create')}
+      >
         <div className={styles.eventsGrid}>
           {displayedEvents.map((event) => (
             <EventBox
@@ -175,10 +247,17 @@ const HomePage: FC<HomeProps> = () => {
             </svg>
           </button>
         </div>
-      </section>
+      </HomeSection>
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>{t('videos')}</h2>
+      <HomeSection
+        title={t('videos')}
+        isEmpty={!hasVideos}
+        emptyKickerLabel={t('homeVideosZero')}
+        emptyTitle={t('homeVideosEmptyTitle')}
+        emptyDescription={t('homeVideosEmptyDescription')}
+        emptyActionLabel={t('publishVideo')}
+        emptyAction={() => navigate('/video/video-settings')}
+      >
         <div className={styles.videosGrid}>
           {displayedVideos.map((video) => (
             <Thumbnail
@@ -214,7 +293,7 @@ const HomePage: FC<HomeProps> = () => {
             </svg>
           </button>
         </div>
-      </section>
+      </HomeSection>
     </div>
   );
 };

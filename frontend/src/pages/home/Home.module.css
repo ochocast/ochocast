@@ -11,6 +11,139 @@
   margin-bottom: 20px;
 }
 
+.fullEmptyState,
+.emptyState {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--theme-color-white);
+}
+
+.fullEmptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin: 0.5rem 0 1.5rem;
+  padding: 1.5rem;
+  border-radius: 20px;
+}
+
+.fullEmptyTitle {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+  color: var(--theme-color-black);
+  max-width: 18ch;
+}
+
+.fullEmptyDescription {
+  margin: 0;
+  max-width: 48rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #606060;
+}
+
+.fullEmptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.fullEmptyPrimaryAction,
+.fullEmptySecondaryAction,
+.emptyStateAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.8rem 1.2rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.fullEmptyPrimaryAction {
+  border: 1px solid var(--theme-color-black);
+  background: var(--theme-color-black);
+  color: var(--theme-color-white);
+}
+
+.fullEmptySecondaryAction {
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  background: var(--theme-color-white);
+  color: var(--theme-color-black);
+}
+
+.fullEmptyPrimaryAction:hover,
+.fullEmptySecondaryAction:hover,
+.emptyStateAction:hover {
+  transform: translateY(-1px);
+}
+
+.fullEmptyPrimaryAction:hover {
+  background: #111111;
+}
+
+.fullEmptySecondaryAction:hover,
+.emptyStateAction:hover {
+  border-color: var(--theme-color-black);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  width: min(100%, 50rem);
+  margin: 0 auto;
+  padding: 1.5rem;
+  border-radius: 20px;
+}
+
+.emptyStateKicker {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #606060;
+}
+
+.emptyStateTitle {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--theme-color-black);
+}
+
+.emptyStateDescription {
+  margin: 0;
+  max-width: 40rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #606060;
+}
+
+.emptyStateAction {
+  border: 1px solid var(--theme-color-black);
+  background: var(--theme-color-white);
+  color: var(--theme-color-black);
+}
+
 .sectionTitle {
   font-family: 'Outfit', sans-serif;
   font-size: 1.5rem;
