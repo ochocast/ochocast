@@ -293,7 +293,6 @@ const EventBox = (props: EventBoxProps) => {
       <Button label={t('Register')} type={ButtonType.primary} />
       <div className={styles.subscriptionsWrapper}>
         <span className={styles.dot}></span>
-        <span className={styles.subscritpions}>{`12 ` + t('registered')}</span>
       </div>
     </div>
   );
