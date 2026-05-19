@@ -8,13 +8,16 @@
 }
 
 .userBadge {
-  background-color: transparent;
+  background-color: var(--theme-color-white, var(--bg-color, #f8f9fa));
   border: none;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  width: 44px;
+  height: 44px;
+  padding: 2px;
+  box-sizing: border-box;
   cursor: pointer;
   transition: opacity 0.2s ease;
 }
@@ -24,9 +27,9 @@
 }
 
 .userBadgePicture {
-  width: 44px;
-  height: 44px;
-  object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   cursor: pointer;
   border-radius: 50%;
 }
