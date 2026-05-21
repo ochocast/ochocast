@@ -1,0 +1,238 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 1.25rem 3rem 2.5rem;
+  background: linear-gradient(180deg, #fbfbfb 0%, #f5f5f5 100%);
+  color: var(--theme-color-black);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.kicker,
+.sectionKicker {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.75rem;
+  color: #606060;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.2vw, 1.9rem);
+  line-height: 1.1;
+  font-family: 'Outfit', sans-serif;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  max-width: 38rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #606060;
+}
+
+.resultMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.resultMetaChip,
+.resultMetaChipAccent {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 999px;
+  padding: 0.55rem 0.8rem;
+  background: var(--theme-color-white);
+  color: var(--theme-color-black);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.resultMetaChipAccent {
+  background: linear-gradient(135deg, rgba(28, 28, 28, 0.04), rgba(28, 28, 28, 0.08));
+}
+
+.errorBanner {
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  background: #fff4f4;
+  border: 1px solid rgba(255, 102, 102, 0.28);
+}
+
+.sections {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.section {
+  padding: 1rem;
+  border-radius: 24px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--theme-color-white);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-family: 'Outfit', sans-serif;
+}
+
+.sectionEmpty,
+.emptyState {
+  border-radius: 22px;
+  border: 1px dashed rgba(0, 0, 0, 0.14);
+  background: #fcfcfc;
+}
+
+.sectionEmpty {
+  padding: 1rem 1.1rem;
+}
+
+.emptyState {
+  margin-top: 1rem;
+  padding: 1.4rem 1.25rem;
+  text-align: center;
+}
+
+.emptyState h2 {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+}
+
+.emptyState p {
+  margin: 0.75rem auto 0;
+  max-width: 42rem;
+  color: #606060;
+  line-height: 1.6;
+}
+
+.emptyStateActions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.emptyStateActions button {
+  border: 1px solid var(--theme-color-black);
+  background: var(--theme-color-white);
+  color: var(--theme-color-black);
+  padding: 0.8rem 1.1rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.emptyStateActions button:hover {
+  background: var(--theme-color-black);
+  color: var(--theme-color-white);
+}
+
+.videoGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.videoCard {
+  min-width: 0;
+  flex: 1 1 22rem;
+  max-width: 22rem;
+}
+
+.eventGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.eventCard {
+  flex: 1 1 22rem;
+  max-width: 22rem;
+  display: grid;
+  gap: 0.85rem;
+}
+
+.trackMatches {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0 0.25rem;
+}
+
+.trackMatchesLabel {
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #606060;
+}
+
+.trackPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trackPill {
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  background: #f4f4f4;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 0.86rem;
+}
+
+@media (max-width: 1100px) {
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .resultMeta {
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 0.75rem 0.75rem 1.5rem;
+  }
+
+  .section {
+    padding: 1rem;
+    border-radius: 18px;
+  }
+
+  .videoGrid,
+  .eventGrid {
+    flex-direction: column;
+  }
+
+  .videoCard,
+  .eventCard {
+    max-width: 100%;
+  }
+}

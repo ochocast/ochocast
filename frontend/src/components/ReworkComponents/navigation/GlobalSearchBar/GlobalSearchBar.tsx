@@ -12,6 +12,7 @@ import CopyButtonIcon from '../../../../assets/copy.svg';
 
 export interface GlobalSearchBarProps {
   onSearch: (query: string) => void;
+  onClear?: () => void;
   placeholder?: string;
   initialValue?: string;
   hasSuggestion?: boolean;
@@ -26,6 +27,7 @@ export interface GlobalSearchBarProps {
 
 const GlobalSearchBar = ({
   onSearch,
+  onClear,
   placeholder,
   initialValue,
   hasSuggestion = true,
@@ -110,6 +112,21 @@ const GlobalSearchBar = ({
     if (e.key === 'Enter') {
       handleSubmit();
     }
+  };
+
+  const handleClear = () => {
+    // If input is empty, simply trigger onClear (navigate home)
+    if (query.trim() === '') {
+      onClear?.();
+      return;
+    }
+
+    // clear local state and suggestions, then notify host to handle navigation
+    setQuery('');
+    setTagSuggestions([]);
+    setUserSuggestions([]);
+    setShowSuggestions(false);
+    onClear?.();
   };
 
   const handleSearchBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -214,6 +231,15 @@ const GlobalSearchBar = ({
               src={CopyButtonIcon}
               alt="Partager les filtres"
             />
+          </button>
+
+          <button
+            type="button"
+            className={styles.clearButton}
+            onClick={handleClear}
+            aria-label="Clear search"
+          >
+            ×
           </button>
         </div>
 

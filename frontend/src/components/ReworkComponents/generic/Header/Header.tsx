@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styles from './Header.module.css';
 import navStyles from './NavItems/NavItems.module.css';
-import { getVideos, searchVideos } from '../../../../utils/api';
 import { useUser } from '../../../../context/UserContext';
 import { UserBadge } from './UserBadge/UserBadge';
 import NavItems from './NavItems/NavItems';
@@ -12,8 +11,7 @@ import { useBrandingContext } from '../../../../context/BrandingContext';
 import BrandingImage from '../../BrandingImage/BrandingImage';
 import GlobalSearchBar from '../../navigation/GlobalSearchBar/GlobalSearchBar';
 import FilterPanel from '../../navigation/FilterPanel/FilterPanel';
-import { Video } from '@/utils/VideoProperties';
-import logger from '../../../../utils/logger';
+import { Video } from '../../../../utils/VideoProperties';
 
 export interface HeaderProps {}
 
@@ -137,35 +135,22 @@ const Header: FC<HeaderProps> = () => {
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const closeMenu = () => setMenuOpen(false);
 
-  const handleSearch = React.useCallback(async (keywords: string[]) => {
-    try {
-      if (keywords[0] !== '') {
-        const response = await searchVideos(keywords[0]);
-
-        const result = response.data || [];
-        setVideos(result);
-      } else {
-        const response = await getVideos();
-        const result = response.data || [];
-        setVideos(result);
-      }
-    } catch (error) {
-      logger.error(`Error fetching suggestions: ${error}`);
-    }
-  }, []);
-
   const handleSearchWithUrl = useCallback(
     (query: string) => {
       setSearchQuery(query);
 
-      if (location.pathname !== '/videos') {
-        navigate(`/videos?q=${encodeURIComponent(query)}`);
-      } else {
-        setSearchState({ q: query });
-        handleSearch([query]);
+      const trimmedQuery = query.trim();
+      const encodedQuery = encodeURIComponent(trimmedQuery);
+      const nextPath = trimmedQuery ? `/search?q=${encodedQuery}` : '/home';
+
+      if (
+        location.pathname !== (trimmedQuery ? '/search' : '/home') ||
+        location.search !== (trimmedQuery ? `?q=${encodedQuery}` : '')
+      ) {
+        navigate(nextPath, { replace: true });
       }
     },
-    [location.pathname, navigate, setSearchState, handleSearch],
+    [location.pathname, location.search, navigate],
   );
 
   const applyFilters = (newFilters = filters) => {
@@ -173,7 +158,9 @@ const Header: FC<HeaderProps> = () => {
 
     if (newFilters.tags.length > 0) {
       result = result.filter((video) =>
-        video.tags?.some((tag) => newFilters.tags.includes(tag.name)),
+        video.tags?.some((tag: { name: string }) =>
+          newFilters.tags.includes(tag.name),
+        ),
       );
     }
 
@@ -365,12 +352,16 @@ const Header: FC<HeaderProps> = () => {
       <div className={styles.SearchWrapper} ref={filterPanelRef}>
         <GlobalSearchBar
           onSearch={(query) => handleSearchWithUrl(query)}
-          placeholder={t('exemple')}
+          placeholder={t('searchVideosAndEvents')}
           initialValue={searchQuery}
           onFilterClick={() => setShowFilters(!showFilters)}
           onFavoriteClick={() => handleToggleFavorites()}
           isFavoriteActive={showFavorites}
           onShareClick={() => handleShare()}
+          onClear={() => {
+            setSearchQuery('');
+            navigate('/home', { replace: true });
+          }}
           activeFiltersCount={activeFiltersCount}
           selectedTags={filters.tags}
           onRemoveTag={(tag) =>
