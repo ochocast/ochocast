@@ -46,6 +46,34 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
+const linkExpirationTime = 3600;
+const renewalThreshold = 300;
+const PERSONA_IMAGE = '/branding/persona.png';
+
+const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
+  const parentComments = comments.filter((c) => c.parentid === null);
+  const childComments = comments.filter((c) => c.parentid !== null);
+
+  parentComments.sort((a, b) => {
+    const likesA = a.likes || 0;
+    const likesB = b.likes || 0;
+
+    if (likesB !== likesA) return likesB - likesA;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  return [...parentComments, ...childComments];
+};
+
+const removeH1 = () => {
+  return (tree: Root) => {
+    if (!tree || !tree.children) return;
+    tree.children = tree.children.filter(
+      (node: RootContent) => !(node.type === 'heading' && node.depth === 1),
+    );
+  };
+};
+
 const VideoMedia: FC = () => {
   const { t } = useTranslation();
   const [replyPanelOpen, setReplyPanelOpen] = useState(false);
@@ -116,6 +144,7 @@ const VideoMedia: FC = () => {
           const viewedVideos = JSON.parse(
             sessionStorage.getItem(viewedVideosKey) || '[]',
           );
+
           if (!viewedVideos.includes(currentVideoId)) {
             const result = await incrementVideoViews(currentVideoId);
             viewedVideos.push(currentVideoId);
@@ -161,43 +190,10 @@ const VideoMedia: FC = () => {
     }
   };
 
-  const linkExpirationTime = 3600;
-  const renewalThreshold = 300;
-  const PERSONA_IMAGE = '/branding/persona.png';
-
   const playerRef = useRef<_ReactPlayer | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showEndScreen, setShowEndScreen] = useState(false);
-
-  const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
-    const parentComments = comments.filter((c) => c.parentid === null);
-    const childComments = comments.filter((c) => c.parentid !== null);
-
-    parentComments.sort((a, b) => {
-      const likesA = a.likes || 0;
-      const likesB = b.likes || 0;
-
-      if (likesB !== likesA) return likesB - likesA;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
-    return [...parentComments, ...childComments];
-  };
-
-  const renewSignedUrl = async () => {
-    const url_response = await getMedia(videoId);
-    if (url_response) setUrl(url_response.data);
-  };
-
-  const removeH1 = () => {
-    return (tree: Root) => {
-      if (!tree || !tree.children) return;
-      tree.children = tree.children.filter(
-        (node: RootContent) => !(node.type === 'heading' && node.depth === 1),
-      );
-    };
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -267,6 +263,11 @@ const VideoMedia: FC = () => {
   }, [userString, videoId]);
 
   useEffect(() => {
+    const renewSignedUrl = async () => {
+      const url_response = await getMedia(videoId);
+      if (url_response) setUrl(url_response.data);
+    };
+
     const ms = (linkExpirationTime - renewalThreshold) * 1000;
     const id = window.setTimeout(renewSignedUrl, ms);
     return () => window.clearTimeout(id);
