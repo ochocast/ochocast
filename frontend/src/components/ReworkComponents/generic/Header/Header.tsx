@@ -38,7 +38,6 @@ const Header: FC<HeaderProps> = () => {
   const [, setFilteredVideos] = useState<Video[]>([]);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
-  const [showFavorites, setShowFavorites] = useState(false);
   const [, setToast] = useState<{
     message: string;
     type?: 'success' | 'error' | 'info';
@@ -122,7 +121,7 @@ const Header: FC<HeaderProps> = () => {
     return [state, setSearchState] as const;
   };
 
-  const [, setSearchState] = useUrlStateSync({
+  const [searchState] = useUrlStateSync({
     q: '',
     tags: [],
     users: [],
@@ -140,17 +139,20 @@ const Header: FC<HeaderProps> = () => {
       setSearchQuery(query);
 
       const trimmedQuery = query.trim();
-      const encodedQuery = encodeURIComponent(trimmedQuery);
-      const nextPath = trimmedQuery ? `/search?q=${encodedQuery}` : '/home';
 
-      if (
-        location.pathname !== (trimmedQuery ? '/search' : '/home') ||
-        location.search !== (trimmedQuery ? `?q=${encodedQuery}` : '')
-      ) {
-        navigate(nextPath, { replace: true });
+      if (!trimmedQuery) {
+        navigate('/home', { replace: true });
+        return;
       }
+
+      navigate(
+        buildGlobalSearchUrl({
+          q: trimmedQuery,
+        }),
+        { replace: true },
+      );
     },
-    [location.pathname, location.search, navigate],
+    [buildGlobalSearchUrl, navigate],
   );
 
   const applyFilters = (newFilters = filters) => {
@@ -193,38 +195,19 @@ const Header: FC<HeaderProps> = () => {
     setFilteredVideos(result);
   };
 
-  const navigateToVideosWithFilters = (overrides: {
-    tags?: string[];
-    users?: string[];
-    startDate?: Date | null;
-    endDate?: Date | null;
-  }) => {
-    const merged = { ...filters, ...overrides };
-    const params = new URLSearchParams();
-    if (merged.tags.length > 0) params.set('tags', merged.tags.join(','));
-    if (merged.users.length > 0) params.set('users', merged.users.join(','));
-    if (merged.startDate)
-      params.set('dateFrom', merged.startDate.toISOString());
-    if (merged.endDate) params.set('dateTo', merged.endDate.toISOString());
-    navigate(`/videos?${params.toString()}`);
-  };
-
   const handleTagsChange = (tags: string[]) => {
     const updated = { ...filters, tags };
     setFilters(updated);
     applyFilters(updated);
 
-    if (location.pathname !== '/videos') {
-      const params = new URLSearchParams();
-      if (tags.length > 0) params.set('tags', tags.join(','));
-      navigateToVideosWithFilters({ tags });
-    } else {
-      setSearchState({
+    navigate(
+      buildGlobalSearchUrl({
         tags,
         dateFrom: updated.startDate?.toISOString() || null,
         dateTo: updated.endDate?.toISOString() || null,
-      });
-    }
+      }),
+      { replace: true },
+    );
   };
 
   const handleUsersChange = (users: string[]) => {
@@ -232,17 +215,14 @@ const Header: FC<HeaderProps> = () => {
     setFilters(updated);
     applyFilters(updated);
 
-    if (location.pathname !== '/videos') {
-      const params = new URLSearchParams();
-      if (users.length > 0) params.set('users', users.join(','));
-      navigateToVideosWithFilters({ users });
-    } else {
-      setSearchState({
+    navigate(
+      buildGlobalSearchUrl({
         users,
         dateFrom: updated.startDate?.toISOString() || null,
         dateTo: updated.endDate?.toISOString() || null,
-      });
-    }
+      }),
+      { replace: true },
+    );
   };
 
   const handleDateFilter = (startDate: Date | null, endDate: Date | null) => {
@@ -250,17 +230,13 @@ const Header: FC<HeaderProps> = () => {
     setFilters(updated);
     applyFilters(updated);
 
-    if (location.pathname !== '/videos') {
-      const params = new URLSearchParams();
-      if (startDate) params.set('dateFrom', startDate.toISOString());
-      if (endDate) params.set('dateTo', endDate.toISOString());
-      navigateToVideosWithFilters({ startDate, endDate });
-    } else {
-      setSearchState({
+    navigate(
+      buildGlobalSearchUrl({
         dateFrom: startDate?.toISOString() || null,
         dateTo: endDate?.toISOString() || null,
-      });
-    }
+      }),
+      { replace: true },
+    );
   };
 
   const handleResetFilters = () => {
@@ -274,14 +250,17 @@ const Header: FC<HeaderProps> = () => {
 
     setFilters(updated);
     setFilteredVideos(videos);
-    setSearchState({
-      tags: [],
-      users: [],
-      dateFrom: null,
-      dateTo: null,
-      favoris: false,
-      archived: false,
-    });
+    navigate(
+      buildGlobalSearchUrl({
+        tags: [],
+        users: [],
+        dateFrom: null,
+        dateTo: null,
+        favoris: false,
+        archived: null,
+      }),
+      { replace: true },
+    );
   };
 
   const [filters, setFilters] = useState<{
@@ -298,21 +277,48 @@ const Header: FC<HeaderProps> = () => {
     archived: null,
   });
 
+  function buildGlobalSearchUrl(overrides: Partial<SearchState> = {}) {
+    const currentState: SearchState = {
+      q: searchQuery,
+      tags: filters.tags,
+      users: filters.users,
+      dateFrom: filters.startDate?.toISOString() || null,
+      dateTo: filters.endDate?.toISOString() || null,
+      favoris: searchState.favoris,
+      archived: filters.archived,
+    };
+
+    const nextState = { ...currentState, ...overrides };
+    const params = new URLSearchParams();
+
+    if (nextState.q.trim()) params.set('q', nextState.q.trim());
+    if (nextState.tags.length > 0) params.set('tags', nextState.tags.join(','));
+    if (nextState.users.length > 0)
+      params.set('users', nextState.users.join(','));
+    if (nextState.dateFrom) params.set('dateFrom', nextState.dateFrom);
+    if (nextState.dateTo) params.set('dateTo', nextState.dateTo);
+    if (nextState.favoris) params.set('favoris', 'true');
+    if (nextState.archived !== null) {
+      params.set('archived', String(nextState.archived));
+    }
+
+    const queryString = params.toString();
+    return queryString ? `/search?${queryString}` : '/search';
+  }
+
   const activeFiltersCount =
     filters.tags.length +
     filters.users.length +
     (filters.startDate || filters.endDate ? 1 : 0) +
-    (filters.archived !== null ? 1 : 0);
+    (filters.archived !== null ? 1 : 0) +
+    (searchState.favoris ? 1 : 0);
+
+  const handleFavoritesChange = (favoris: boolean) => {
+    navigate(buildGlobalSearchUrl({ favoris }), { replace: true });
+  };
 
   const handleToggleFavorites = () => {
-    const nextState = !showFavorites;
-    setShowFavorites(nextState);
-
-    if (location.pathname !== '/videos') {
-      navigate(`/videos?favoris=${nextState}`);
-    } else {
-      setSearchState({ favoris: nextState });
-    }
+    handleFavoritesChange(!searchState.favoris);
   };
 
   const handleShare = () => {
@@ -355,8 +361,6 @@ const Header: FC<HeaderProps> = () => {
           placeholder={t('searchVideosAndEvents')}
           initialValue={searchQuery}
           onFilterClick={() => setShowFilters(!showFilters)}
-          onFavoriteClick={() => handleToggleFavorites()}
-          isFavoriteActive={showFavorites}
           onShareClick={() => handleShare()}
           onClear={() => {
             setSearchQuery('');
@@ -380,6 +384,8 @@ const Header: FC<HeaderProps> = () => {
                 onDateFilter={handleDateFilter}
                 closePanel={() => setShowFilters(false)}
                 onResetFilters={handleResetFilters}
+                initialFavoritesOnly={searchState.favoris}
+                onFavoritesChange={handleFavoritesChange}
                 initialTags={filters.tags}
                 initialUsers={filters.users}
                 initialStartDate={filters.startDate}
