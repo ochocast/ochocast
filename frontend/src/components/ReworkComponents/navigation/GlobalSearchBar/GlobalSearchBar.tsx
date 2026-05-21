@@ -6,18 +6,15 @@ import logger from '../../../../utils/logger';
 import { useTranslation } from 'react-i18next';
 import BrandingImage from '../../BrandingImage/BrandingImage';
 import FilterIcon from '../../../../assets/filter_icon.svg';
-import Star from '../../../../assets/star.svg';
-import FavorisFilterSelected from '../../../../assets/FavorisSelected.svg';
 import CopyButtonIcon from '../../../../assets/copy.svg';
 
 export interface GlobalSearchBarProps {
   onSearch: (query: string) => void;
+  onClear?: () => void;
   placeholder?: string;
   initialValue?: string;
   hasSuggestion?: boolean;
   onFilterClick?: () => void;
-  onFavoriteClick?: () => void;
-  isFavoriteActive?: boolean;
   onShareClick?: () => void;
   activeFiltersCount?: number;
   selectedTags?: string[];
@@ -26,13 +23,12 @@ export interface GlobalSearchBarProps {
 
 const GlobalSearchBar = ({
   onSearch,
+  onClear,
   placeholder,
   initialValue,
   hasSuggestion = true,
   onFilterClick,
-  onFavoriteClick,
   onShareClick,
-  isFavoriteActive = false,
   activeFiltersCount = 0,
   selectedTags = [],
   onRemoveTag,
@@ -110,6 +106,21 @@ const GlobalSearchBar = ({
     if (e.key === 'Enter') {
       handleSubmit();
     }
+  };
+
+  const handleClear = () => {
+    // If input is empty, simply trigger onClear (navigate home)
+    if (query.trim() === '') {
+      onClear?.();
+      return;
+    }
+
+    // clear local state and suggestions, then notify host to handle navigation
+    setQuery('');
+    setTagSuggestions([]);
+    setUserSuggestions([]);
+    setShowSuggestions(false);
+    onClear?.();
   };
 
   const handleSearchBarClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -192,19 +203,6 @@ const GlobalSearchBar = ({
 
           <button
             type="button"
-            className={styles.favoriteButton}
-            onClick={onFavoriteClick}
-            aria-label="Open filters"
-          >
-            <img
-              className={styles.starIcon}
-              src={isFavoriteActive ? FavorisFilterSelected : Star}
-              alt="Filtrer par favoris"
-            />
-          </button>
-
-          <button
-            type="button"
             className={styles.copyButton}
             onClick={onShareClick}
             aria-label="Open filters"
@@ -214,6 +212,15 @@ const GlobalSearchBar = ({
               src={CopyButtonIcon}
               alt="Partager les filtres"
             />
+          </button>
+
+          <button
+            type="button"
+            className={styles.clearButton}
+            onClick={handleClear}
+            aria-label="Clear search"
+          >
+            ×
           </button>
         </div>
 

@@ -27,6 +27,7 @@ import MyEvents from './pages/myEvents/myEvents';
 import CreateEvent from './pages/CreateEvent/createEvent';
 import AdminPanel from './pages/adminPanel/adminPanel';
 import PublicTrack from './pages/publicTrack/publicTrack';
+import GlobalSearchPage from './pages/globalSearch/globalSearch';
 
 function App() {
   return (
@@ -46,8 +47,10 @@ function App() {
                   <UploadNotifications />
                   <Routes>
                     <Route path="/" element={<HomePage />} />
+                    <Route path="/home" element={<HomePage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/events-home" element={<EventsHomePage />} />
+                    <Route path="/search" element={<GlobalSearchPage />} />
                     <Route path="/my-events" element={<MyEvents />} />
                     <Route path="/my-events/create" element={<CreateEvent />} />
                     <Route
