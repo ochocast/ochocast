@@ -13,6 +13,7 @@ import {
   getUsers,
   getVideo,
   getVideoSuggestions,
+  incrementVideoViews,
 } from '../../utils/api';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CommentObject, User, Video } from '../../utils/VideoProperties';
@@ -105,6 +106,47 @@ const VideoMedia: FC = () => {
     checkFavorite();
     // we intentionally do not include isVideoFavorite in deps
   }, [video]);
+
+  useEffect(() => {
+    const incrementViews = async () => {
+      try {
+        if (video && video.id) {
+          const viewedVideosKey = 'viewedVideos';
+          const viewedVideos = JSON.parse(
+            sessionStorage.getItem(viewedVideosKey) || '[]',
+          );
+
+          // Check if video has already been viewed in this session
+          if (!viewedVideos.includes(video.id)) {
+            const result = await incrementVideoViews(video.id);
+            viewedVideos.push(video.id);
+            sessionStorage.setItem(
+              viewedVideosKey,
+              JSON.stringify(viewedVideos),
+            );
+
+            // Update local video state with new view count
+            if (result?.data) {
+              setVideo((prevVideo) =>
+                prevVideo
+                  ? { ...prevVideo, views: result.data.views }
+                  : prevVideo,
+              );
+            }
+
+            // Refresh suggestions to show updated view counts
+            const suggestionsRes = await getVideoSuggestions(video.id);
+            if (suggestionsRes) {
+              setSuggestedVideos(suggestionsRes.data.slice(0, 3));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error incrementing video views', err);
+      }
+    };
+    incrementViews();
+  }, [video?.id]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -769,6 +811,7 @@ const VideoMedia: FC = () => {
                       vid.creator?.username ||
                       `${vid.creator.firstName} ${vid.creator.lastName}`
                     }
+                    views={vid.views}
                     createdAt={vid.createdAt.toString()}
                     tags={vid.tags.map((tag) => tag.name)}
                     duration={vid.duration}
