@@ -92,11 +92,13 @@ const VideoMedia: FC = () => {
     return () => clearTimeout(timer);
   }, [location.state, navigate, location.pathname]);
 
+  const currentVideoId = video?.id;
+
   useEffect(() => {
     const checkFavorite = async () => {
       try {
-        if (video && video.id) {
-          const fav = await isVideoFavorite(video.id);
+        if (currentVideoId) {
+          const fav = await isVideoFavorite(currentVideoId);
           setIsFavorite(!!fav);
         }
       } catch (err) {
@@ -104,30 +106,24 @@ const VideoMedia: FC = () => {
       }
     };
     checkFavorite();
-    // we intentionally do not include isVideoFavorite in deps
-  }, [video]);
-
-  const currentVideoId = video?.id;
+  }, [currentVideoId]);
 
   useEffect(() => {
     const incrementViews = async () => {
       try {
-        if (video && video.id) {
+        if (currentVideoId) {
           const viewedVideosKey = 'viewedVideos';
           const viewedVideos = JSON.parse(
             sessionStorage.getItem(viewedVideosKey) || '[]',
           );
-
-          // Check if video has already been viewed in this session
-          if (!viewedVideos.includes(video.id)) {
-            const result = await incrementVideoViews(video.id);
-            viewedVideos.push(video.id);
+          if (!viewedVideos.includes(currentVideoId)) {
+            const result = await incrementVideoViews(currentVideoId);
+            viewedVideos.push(currentVideoId);
             sessionStorage.setItem(
               viewedVideosKey,
               JSON.stringify(viewedVideos),
             );
 
-            // Update local video state with new view count
             if (result?.data) {
               setVideo((prevVideo) =>
                 prevVideo
@@ -136,8 +132,7 @@ const VideoMedia: FC = () => {
               );
             }
 
-            // Refresh suggestions to show updated view counts
-            const suggestionsRes = await getVideoSuggestions(video.id);
+            const suggestionsRes = await getVideoSuggestions(currentVideoId);
             if (suggestionsRes) {
               setSuggestedVideos(suggestionsRes.data.slice(0, 3));
             }
@@ -170,7 +165,6 @@ const VideoMedia: FC = () => {
   const renewalThreshold = 300;
   const PERSONA_IMAGE = '/branding/persona.png';
 
-  // ✅ Player / end screen
   const playerRef = useRef<_ReactPlayer | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -272,12 +266,10 @@ const VideoMedia: FC = () => {
     window.scrollTo(0, 0);
   }, [userString, videoId]);
 
-  // ✅ renew signed url (avoid re-arming every render)
   useEffect(() => {
     const ms = (linkExpirationTime - renewalThreshold) * 1000;
     const id = window.setTimeout(renewSignedUrl, ms);
     return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
   const handleReplyClick = (index: number) => {
@@ -455,7 +447,6 @@ const VideoMedia: FC = () => {
     }
   };
 
-  // ✅ End screen actions
   const handleVideoEnded = () => {
     setIsPlaying(false);
     setShowEndScreen(true);
@@ -475,7 +466,6 @@ const VideoMedia: FC = () => {
     const next = suggestedVideos?.[0];
     if (!next?.id) return;
 
-    // si on est en plein écran, on sort du fullscreen avant de changer de page
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen();
@@ -486,10 +476,8 @@ const VideoMedia: FC = () => {
 
     setShowEndScreen(false);
 
-    // reset local state pour pas garder l'overlay sur la vidéo suivante
     setIsPlaying(false);
 
-    // ✅ navigation vers la vidéo suivante (1ère recommandation)
     navigate(`/video/${next.id}`);
   };
 
