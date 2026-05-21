@@ -259,6 +259,17 @@ export class VideoGateway implements IVideoGateway {
     return query.getMany();
   }
 
+  async incrementVideoViews(videoId: string): Promise<VideoObject> {
+    const video = await this.videosRepository.findOneBy({ id: videoId });
+
+    if (!video) {
+      throw new NotFoundException(`Video with id ${videoId} not found`);
+    }
+
+    video.views = (video.views || 0) + 1;
+    return await this.videosRepository.save(video);
+  }
+
   async getSuggestions(videoId: string): Promise<VideoObject[]> {
     const referenceVideo = await this.videosRepository.findOne({
       where: { id: videoId },

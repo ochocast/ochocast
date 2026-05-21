@@ -18,6 +18,7 @@ import { GetSubtitleUsecase } from './domain/usecases/getSubtitle.usecase';
 import { UsersModule } from 'src/users/users.module';
 import { searchVideoAdminUseCase } from './domain/usecases/searchVideoAdmin.usecase';
 import { RestoreVideoUsecase } from './domain/usecases/restoreVideo.usecase';
+import { IncrementVideoViewsUsecase } from './domain/usecases/incrementVideoViews.usecase';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
@@ -42,6 +43,7 @@ import { RestoreVideoUsecase } from './domain/usecases/restoreVideo.usecase';
     searchVideoUseCase,
     GetSuggestionsUsecase,
     searchVideoAdminUseCase,
+    IncrementVideoViewsUsecase,
     // GetUsersUsecase,
   ],
   exports: [CreateNewVideoUsecase, 'VideoGateway'],

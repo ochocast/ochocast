@@ -33,6 +33,7 @@ import { searchVideoUseCase } from 'src/videos/domain/usecases/searchVideo.useca
 import { Public } from 'nest-keycloak-connect';
 import { GetSuggestionsUsecase } from 'src/videos/domain/usecases/getSuggestions.usecase';
 import { GetSubtitleUsecase } from 'src/videos/domain/usecases/getSubtitle.usecase';
+import { IncrementVideoViewsUsecase } from 'src/videos/domain/usecases/incrementVideoViews.usecase';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 @ApiTags('Videos')
 @Controller('videos')
@@ -50,6 +51,7 @@ export class VideosController {
     private searchVideoUseCase: searchVideoUseCase,
     private getSuggestionsUseCase: GetSuggestionsUsecase,
     private restoreVideoUsecase: RestoreVideoUsecase,
+    private incrementVideoViewsUsecase: IncrementVideoViewsUsecase,
     //private getUsersUsecase: GetUsersUsecase,
   ) {}
 
@@ -154,6 +156,16 @@ export class VideosController {
   @Get('/subtitle/:id')
   async getSubtitle(@Param('id') id: string): Promise<string | null> {
     return await this.getSubtitleUseCase.execute(id);
+  }
+
+  @Public()
+  @Post(':id/views')
+  async incrementViews(@Param('id') id: string): Promise<VideoObject> {
+    if (!isUUID(id)) {
+      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
+    }
+
+    return await this.incrementVideoViewsUsecase.execute(id);
   }
 
   @Get(':userId')

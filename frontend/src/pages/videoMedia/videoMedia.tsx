@@ -13,6 +13,7 @@ import {
   getUsers,
   getVideo,
   getVideoSuggestions,
+  incrementVideoViews,
 } from '../../utils/api';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CommentObject, User, Video } from '../../utils/VideoProperties';
@@ -44,6 +45,34 @@ import CopyButtonIcon from '../../assets/copy.svg';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
+
+const linkExpirationTime = 3600;
+const renewalThreshold = 300;
+const PERSONA_IMAGE = '/branding/persona.png';
+
+const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
+  const parentComments = comments.filter((c) => c.parentid === null);
+  const childComments = comments.filter((c) => c.parentid !== null);
+
+  parentComments.sort((a, b) => {
+    const likesA = a.likes || 0;
+    const likesB = b.likes || 0;
+
+    if (likesB !== likesA) return likesB - likesA;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  return [...parentComments, ...childComments];
+};
+
+const removeH1 = () => {
+  return (tree: Root) => {
+    if (!tree || !tree.children) return;
+    tree.children = tree.children.filter(
+      (node: RootContent) => !(node.type === 'heading' && node.depth === 1),
+    );
+  };
+};
 
 const VideoMedia: FC = () => {
   const { t } = useTranslation();
@@ -91,11 +120,13 @@ const VideoMedia: FC = () => {
     return () => clearTimeout(timer);
   }, [location.state, navigate, location.pathname]);
 
+  const currentVideoId = video?.id;
+
   useEffect(() => {
     const checkFavorite = async () => {
       try {
-        if (video && video.id) {
-          const fav = await isVideoFavorite(video.id);
+        if (currentVideoId) {
+          const fav = await isVideoFavorite(currentVideoId);
           setIsFavorite(!!fav);
         }
       } catch (err) {
@@ -103,8 +134,45 @@ const VideoMedia: FC = () => {
       }
     };
     checkFavorite();
-    // we intentionally do not include isVideoFavorite in deps
-  }, [video]);
+  }, [currentVideoId]);
+
+  useEffect(() => {
+    const incrementViews = async () => {
+      try {
+        if (currentVideoId) {
+          const viewedVideosKey = 'viewedVideos';
+          const viewedVideos = JSON.parse(
+            sessionStorage.getItem(viewedVideosKey) || '[]',
+          );
+
+          if (!viewedVideos.includes(currentVideoId)) {
+            const result = await incrementVideoViews(currentVideoId);
+            viewedVideos.push(currentVideoId);
+            sessionStorage.setItem(
+              viewedVideosKey,
+              JSON.stringify(viewedVideos),
+            );
+
+            if (result?.data) {
+              setVideo((prevVideo) =>
+                prevVideo
+                  ? { ...prevVideo, views: result.data.views }
+                  : prevVideo,
+              );
+            }
+
+            const suggestionsRes = await getVideoSuggestions(currentVideoId);
+            if (suggestionsRes) {
+              setSuggestedVideos(suggestionsRes.data.slice(0, 3));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error incrementing video views', err);
+      }
+    };
+    incrementViews();
+  }, [currentVideoId]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -122,44 +190,10 @@ const VideoMedia: FC = () => {
     }
   };
 
-  const linkExpirationTime = 3600;
-  const renewalThreshold = 300;
-  const PERSONA_IMAGE = '/branding/persona.png';
-
-  // ✅ Player / end screen
   const playerRef = useRef<_ReactPlayer | null>(null);
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showEndScreen, setShowEndScreen] = useState(false);
-
-  const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
-    const parentComments = comments.filter((c) => c.parentid === null);
-    const childComments = comments.filter((c) => c.parentid !== null);
-
-    parentComments.sort((a, b) => {
-      const likesA = a.likes || 0;
-      const likesB = b.likes || 0;
-
-      if (likesB !== likesA) return likesB - likesA;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-
-    return [...parentComments, ...childComments];
-  };
-
-  const renewSignedUrl = async () => {
-    const url_response = await getMedia(videoId);
-    if (url_response) setUrl(url_response.data);
-  };
-
-  const removeH1 = () => {
-    return (tree: Root) => {
-      if (!tree || !tree.children) return;
-      tree.children = tree.children.filter(
-        (node: RootContent) => !(node.type === 'heading' && node.depth === 1),
-      );
-    };
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -228,12 +262,15 @@ const VideoMedia: FC = () => {
     window.scrollTo(0, 0);
   }, [userString, videoId]);
 
-  // ✅ renew signed url (avoid re-arming every render)
   useEffect(() => {
+    const renewSignedUrl = async () => {
+      const url_response = await getMedia(videoId);
+      if (url_response) setUrl(url_response.data);
+    };
+
     const ms = (linkExpirationTime - renewalThreshold) * 1000;
     const id = window.setTimeout(renewSignedUrl, ms);
     return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
   const handleReplyClick = (index: number) => {
@@ -411,7 +448,6 @@ const VideoMedia: FC = () => {
     }
   };
 
-  // ✅ End screen actions
   const handleVideoEnded = () => {
     setIsPlaying(false);
     setShowEndScreen(true);
@@ -431,7 +467,6 @@ const VideoMedia: FC = () => {
     const next = suggestedVideos?.[0];
     if (!next?.id) return;
 
-    // si on est en plein écran, on sort du fullscreen avant de changer de page
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen();
@@ -442,10 +477,8 @@ const VideoMedia: FC = () => {
 
     setShowEndScreen(false);
 
-    // reset local state pour pas garder l'overlay sur la vidéo suivante
     setIsPlaying(false);
 
-    // ✅ navigation vers la vidéo suivante (1ère recommandation)
     navigate(`/video/${next.id}`);
   };
 
@@ -769,6 +802,7 @@ const VideoMedia: FC = () => {
                       vid.creator?.username ||
                       `${vid.creator.firstName} ${vid.creator.lastName}`
                     }
+                    views={vid.views}
                     createdAt={vid.createdAt.toString()}
                     tags={vid.tags.map((tag) => tag.name)}
                     duration={vid.duration}
