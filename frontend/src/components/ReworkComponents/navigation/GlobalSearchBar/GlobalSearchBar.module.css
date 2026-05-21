@@ -92,29 +92,6 @@
   padding: 0 0.15rem;
 }
 
-.favoriteButton {
-  position: relative;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease;
-}
-
-.favoriteButton:hover {
-  background-color: var(--theme-color-200);
-}
-
-.starIcon {
-  width: 1.2rem;
-  height: 1.2rem;
-}
-
 .copyButton {
   position: relative;
   border: 0;

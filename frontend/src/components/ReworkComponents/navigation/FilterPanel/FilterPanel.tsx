@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -6,6 +6,8 @@ import style from './FilterPanel.module.css';
 import FilterSearchBar, {
   FilterSearchBarIcon,
 } from '../FilterSearchBar/FilterSearchBar';
+import Star from '../../../../assets/star.svg';
+import FavorisFilterSelected from '../../../../assets/FavorisSelected.svg';
 
 interface FilterPanelProps {
   onTagsChange: (tags: string[]) => void;
@@ -13,6 +15,8 @@ interface FilterPanelProps {
   onDateFilter: (start: Date | null, end: Date | null) => void;
   closePanel: () => void;
   onResetFilters?: () => void;
+  initialFavoritesOnly?: boolean;
+  onFavoritesChange?: (value: boolean) => void;
   initialTags: string[];
   initialUsers: string[];
   initialStartDate: Date | null;
@@ -31,6 +35,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   initialUsers,
   initialStartDate,
   initialEndDate,
+  initialFavoritesOnly = false,
+  onFavoritesChange,
   onCardsPerRowChange,
   initialCardsPerRow,
 }) => {
@@ -38,12 +44,24 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   const [users, setUsers] = useState<string[]>(initialUsers);
   const [startDate, setStartDate] = useState<Date | null>(initialStartDate);
   const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
+  const [favoritesOnly, setFavoritesOnly] =
+    useState<boolean>(initialFavoritesOnly);
   const [nextTag, setNextTag] = useState<string | null>(null);
   const [nextUser, setNextUser] = useState<string | null>(null);
   const [cardsPerRow, setCardsPerRow] = useState<number>(
     initialCardsPerRow || 6,
   );
   const { t } = useTranslation();
+
+  useEffect(() => {
+    setFavoritesOnly(initialFavoritesOnly);
+  }, [initialFavoritesOnly]);
+
+  const handleFavoriteToggle = () => {
+    const nextValue = !favoritesOnly;
+    setFavoritesOnly(nextValue);
+    onFavoritesChange?.(nextValue);
+  };
 
   const handleTagClick = (query: string) => {
     if (nextTag === query) {
@@ -111,9 +129,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     setUsers([]);
     setStartDate(null);
     setEndDate(null);
+    setFavoritesOnly(false);
     onTagsChange([]);
     onUsersChange([]);
     onDateFilter(null, null);
+    onFavoritesChange?.(false);
     onResetFilters?.();
   };
 
@@ -121,8 +141,38 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     <div className={style.panel}>
       <div className={style.panelHeader}>
         <h2 className={style.panelTitle}>{t('filterPanel.filters')}</h2>
-        <button onClick={handleResetFilters} className={style.resetButton}>
+        <button
+          type="button"
+          onClick={handleResetFilters}
+          className={style.resetButton}
+        >
           {t('filterPanel.resetFilters')}
+        </button>
+      </div>
+      <div className={style.section}>
+        <h3 className={style.title}>{t('filterPanel.favorites')}</h3>
+        <button
+          type="button"
+          className={`${style.favoriteToggle} ${favoritesOnly ? style.favoriteToggleActive : ''}`}
+          onClick={handleFavoriteToggle}
+          aria-pressed={favoritesOnly}
+        >
+          <span className={style.favoriteIconWrap}>
+            <img
+              src={favoritesOnly ? FavorisFilterSelected : Star}
+              alt=""
+              aria-hidden="true"
+              className={style.favoriteIcon}
+            />
+          </span>
+          <span className={style.favoriteCopy}>
+            <span className={style.favoriteLabel}>
+              {t('filterPanel.favoritesOnly')}
+            </span>
+            <span className={style.favoriteDescription}>
+              {t('filterPanel.favoritesDescription')}
+            </span>
+          </span>
         </button>
       </div>
       <div className={style.section}>
