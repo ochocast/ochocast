@@ -107,6 +107,8 @@ const VideoMedia: FC = () => {
     // we intentionally do not include isVideoFavorite in deps
   }, [video]);
 
+  const currentVideoId = video?.id;
+
   useEffect(() => {
     const incrementViews = async () => {
       try {
@@ -146,7 +148,7 @@ const VideoMedia: FC = () => {
       }
     };
     incrementViews();
-  }, [video?.id]);
+  }, [currentVideoId]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
