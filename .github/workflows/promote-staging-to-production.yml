@@ -1,0 +1,96 @@
+name: Promote staging to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Show the production GitOps diff without opening a PR
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  OPS_REPOSITORY: ochocast/ops-architecture-lab
+  OPS_BASE_BRANCH: ${{ vars.OPS_REPO_BASE_BRANCH || 'main' }}
+  STAGING_VALUES_FILE: kubernetes/ochocast-webapp/values-staging.yaml
+  PROD_VALUES_FILE: kubernetes/ochocast-webapp/values-prod.yaml
+
+jobs:
+  promote:
+    name: Promote validated staging images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ops repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: ${{ env.OPS_REPOSITORY }}
+          ref: ${{ env.OPS_BASE_BRANCH }}
+          token: ${{ secrets.OPS_REPO_TOKEN }}
+          path: ops-architecture-lab
+
+      - name: Resolve staging image tags
+        id: tags
+        uses: mikefarah/yq@v4.44.3
+        env:
+          STAGING_VALUES_FILE: ops-architecture-lab/${{ env.STAGING_VALUES_FILE }}
+        with:
+          cmd: |
+            frontend_tag="$(yq '.frontend.image.tag' "$STAGING_VALUES_FILE")"
+            backend_tag="$(yq '.backend.image.tag' "$STAGING_VALUES_FILE")"
+
+            if [ -z "$frontend_tag" ] || [ "$frontend_tag" = "null" ]; then
+              echo "Missing staging frontend image tag" >&2
+              exit 1
+            fi
+
+            if [ -z "$backend_tag" ] || [ "$backend_tag" = "null" ]; then
+              echo "Missing staging backend image tag" >&2
+              exit 1
+            fi
+
+            echo "frontend_tag=$frontend_tag" >> "$GITHUB_OUTPUT"
+            echo "backend_tag=$backend_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Promote staging tags to production values
+        uses: mikefarah/yq@v4.44.3
+        env:
+          FRONTEND_TAG: ${{ steps.tags.outputs.frontend_tag }}
+          BACKEND_TAG: ${{ steps.tags.outputs.backend_tag }}
+          PROD_VALUES_FILE: ops-architecture-lab/${{ env.PROD_VALUES_FILE }}
+        with:
+          cmd: |
+            yq -i '.frontend.image.tag = strenv(FRONTEND_TAG)' "$PROD_VALUES_FILE"
+            yq -i '.backend.image.tag = strenv(BACKEND_TAG)' "$PROD_VALUES_FILE"
+
+      - name: Create production promotion pull request
+        if: inputs.dry_run != true
+        uses: peter-evans/create-pull-request@v6
+        with:
+          path: ops-architecture-lab
+          token: ${{ secrets.OPS_REPO_TOKEN }}
+          branch: promote/ochocast-production-from-staging-${{ steps.tags.outputs.frontend_tag }}
+          base: ${{ env.OPS_BASE_BRANCH }}
+          commit-message: "promote ochocast production from staging"
+          title: "Promote Ochocast production from staging"
+          body: |
+            Promote the image tags currently validated in staging to production.
+
+            - Source environment: staging
+            - Target environment: production
+            - Frontend image tag: `${{ steps.tags.outputs.frontend_tag }}`
+            - Backend image tag: `${{ steps.tags.outputs.backend_tag }}`
+
+            This PR does not rebuild images. It only copies the staging image tags from `${{ env.STAGING_VALUES_FILE }}` to `${{ env.PROD_VALUES_FILE }}`.
+          labels: |
+            promotion
+            ochocast
+            production
+
+      - name: Show dry-run promotion diff
+        if: inputs.dry_run == true
+        working-directory: ops-architecture-lab
+        run: |
+          git diff -- "${{ env.PROD_VALUES_FILE }}"
