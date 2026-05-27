@@ -317,10 +317,6 @@ const Header: FC<HeaderProps> = () => {
     navigate(buildGlobalSearchUrl({ favoris }), { replace: true });
   };
 
-  const handleToggleFavorites = () => {
-    handleFavoritesChange(!searchState.favoris);
-  };
-
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {
       setToast({
