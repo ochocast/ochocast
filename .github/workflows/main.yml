@@ -49,6 +49,7 @@ jobs:
       frontend_changed: ${{ steps.effective.outputs.frontend }}
       backend_changed: ${{ steps.effective.outputs.backend }}
       image_tag: ${{ steps.meta.outputs.image_tag }}
+      source_commit_subject: ${{ steps.meta.outputs.source_commit_subject }}
       target_environment: ${{ steps.target.outputs.environment }}
       values_file: ${{ steps.target.outputs.values_file }}
       dry_run: ${{ steps.effective.outputs.dry_run }}
@@ -80,7 +81,9 @@ jobs:
         id: meta
         run: |
           short_sha="$(git rev-parse --short=12 HEAD)"
+          source_commit_subject="$(git log -1 --pretty=%s)"
           echo "image_tag=sha-${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "source_commit_subject=${source_commit_subject}" >> "$GITHUB_OUTPUT"
       - name: Resolve effective changes
         id: effective
         run: |
@@ -251,13 +254,15 @@ jobs:
           token: ${{ secrets.OPS_REPO_TOKEN }}
           branch: promote/ochocast-${{ needs.detect-changes.outputs.target_environment }}-${{ needs.detect-changes.outputs.image_tag }}
           base: ${{ env.OPS_BASE_BRANCH }}
-          commit-message: "promote ochocast ${{ needs.detect-changes.outputs.target_environment }} to ${{ needs.detect-changes.outputs.image_tag }}"
-          title: "Promote Ochocast ${{ needs.detect-changes.outputs.target_environment }} to ${{ needs.detect-changes.outputs.image_tag }}"
+          commit-message: "promote ochocast ${{ needs.detect-changes.outputs.target_environment }}: ${{ needs.detect-changes.outputs.source_commit_subject }}"
+          title: "Promote Ochocast ${{ needs.detect-changes.outputs.target_environment }}: ${{ needs.detect-changes.outputs.source_commit_subject }}"
           body: |
             Automated promotion proposal from ochocast.
 
             - Source commit: ${{ github.sha }}
+            - Source change: ${{ needs.detect-changes.outputs.source_commit_subject }}
             - Target environment: ${{ needs.detect-changes.outputs.target_environment }}
+            - Image tag: `${{ needs.detect-changes.outputs.image_tag }}`
             - Frontend changed: `${{ needs.detect-changes.outputs.frontend_changed }}`
             - Backend changed: `${{ needs.detect-changes.outputs.backend_changed }}`
             - Frontend image: `${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}`
