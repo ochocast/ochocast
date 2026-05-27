@@ -33,11 +33,10 @@ const Header: FC<HeaderProps> = () => {
   const branding = useBrandingContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [videos, setVideos] = useState<Video[]>([]);
+  const [videos] = useState<Video[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [, setFilteredVideos] = useState<Video[]>([]);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
-  const location = useLocation();
   const [, setToast] = useState<{
     message: string;
     type?: 'success' | 'error' | 'info';
@@ -133,27 +132,6 @@ const Header: FC<HeaderProps> = () => {
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const closeMenu = () => setMenuOpen(false);
-
-  const handleSearchWithUrl = useCallback(
-    (query: string) => {
-      setSearchQuery(query);
-
-      const trimmedQuery = query.trim();
-
-      if (!trimmedQuery) {
-        navigate('/home', { replace: true });
-        return;
-      }
-
-      navigate(
-        buildGlobalSearchUrl({
-          q: trimmedQuery,
-        }),
-        { replace: true },
-      );
-    },
-    [buildGlobalSearchUrl, navigate],
-  );
 
   const applyFilters = (newFilters = filters) => {
     let result = [...videos];
@@ -277,34 +255,67 @@ const Header: FC<HeaderProps> = () => {
     archived: null,
   });
 
-  function buildGlobalSearchUrl(overrides: Partial<SearchState> = {}) {
-    const currentState: SearchState = {
-      q: searchQuery,
-      tags: filters.tags,
-      users: filters.users,
-      dateFrom: filters.startDate?.toISOString() || null,
-      dateTo: filters.endDate?.toISOString() || null,
-      favoris: searchState.favoris,
-      archived: filters.archived,
-    };
+  const buildGlobalSearchUrl = useCallback(
+    (overrides: Partial<SearchState> = {}) => {
+      const currentState: SearchState = {
+        q: searchQuery,
+        tags: filters.tags,
+        users: filters.users,
+        dateFrom: filters.startDate?.toISOString() || null,
+        dateTo: filters.endDate?.toISOString() || null,
+        favoris: searchState.favoris,
+        archived: filters.archived,
+      };
 
-    const nextState = { ...currentState, ...overrides };
-    const params = new URLSearchParams();
+      const nextState = { ...currentState, ...overrides };
+      const params = new URLSearchParams();
 
-    if (nextState.q.trim()) params.set('q', nextState.q.trim());
-    if (nextState.tags.length > 0) params.set('tags', nextState.tags.join(','));
-    if (nextState.users.length > 0)
-      params.set('users', nextState.users.join(','));
-    if (nextState.dateFrom) params.set('dateFrom', nextState.dateFrom);
-    if (nextState.dateTo) params.set('dateTo', nextState.dateTo);
-    if (nextState.favoris) params.set('favoris', 'true');
-    if (nextState.archived !== null) {
-      params.set('archived', String(nextState.archived));
-    }
+      if (nextState.q.trim()) params.set('q', nextState.q.trim());
+      if (nextState.tags.length > 0)
+        params.set('tags', nextState.tags.join(','));
+      if (nextState.users.length > 0)
+        params.set('users', nextState.users.join(','));
+      if (nextState.dateFrom) params.set('dateFrom', nextState.dateFrom);
+      if (nextState.dateTo) params.set('dateTo', nextState.dateTo);
+      if (nextState.favoris) params.set('favoris', 'true');
+      if (nextState.archived !== null) {
+        params.set('archived', String(nextState.archived));
+      }
 
-    const queryString = params.toString();
-    return queryString ? `/search?${queryString}` : '/search';
-  }
+      const queryString = params.toString();
+      return queryString ? `/search?${queryString}` : '/search';
+    },
+    [
+      filters.archived,
+      filters.endDate,
+      filters.startDate,
+      filters.tags,
+      filters.users,
+      searchQuery,
+      searchState.favoris,
+    ],
+  );
+
+  const handleSearchWithUrl = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+
+      const trimmedQuery = query.trim();
+
+      if (!trimmedQuery) {
+        navigate('/home', { replace: true });
+        return;
+      }
+
+      navigate(
+        buildGlobalSearchUrl({
+          q: trimmedQuery,
+        }),
+        { replace: true },
+      );
+    },
+    [buildGlobalSearchUrl, navigate],
+  );
 
   const activeFiltersCount =
     filters.tags.length +
