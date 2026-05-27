@@ -11,4 +11,5 @@ export interface IVideoGateway {
   deleteVideoAdmin: (id: string) => Promise<VideoObject>;
   searchVideoAdmin(data: string): Promise<VideoObject[]>;
   restoreVideo: (id: string) => Promise<VideoObject>;
+  incrementVideoViews: (id: string) => Promise<VideoObject>;
 }

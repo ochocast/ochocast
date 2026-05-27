@@ -357,7 +357,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
             alt={translations.viewsLabel}
           />
           <div className={styles.viewValue}>
-            {props.views !== undefined
+            {props.views !== undefined && props.views > 0
               ? props.views
               : translations.noViewsLabel}
           </div>

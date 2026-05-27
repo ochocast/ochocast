@@ -1393,6 +1393,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 imageSrc={
                   miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
                 }
+                views={baseVideo?.views}
                 createBy={auth.user?.profile.given_name || 'Non connecté'}
                 createdAt={new Date().toString()}
                 tags={tags.flatMap((tag) => {
@@ -1439,6 +1440,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
               imageSrc={
                 miniatureUrl !== null ? miniatureUrl : IMAGE_TUILE_EVENT
               }
+              views={baseVideo?.views}
               createBy={auth.user?.profile.given_name || 'Non connecté'}
               createdAt={new Date().toString()}
               tags={tags.flatMap((tag) => {

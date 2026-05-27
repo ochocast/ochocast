@@ -190,6 +190,7 @@ const HomePage: FC<HomeProps> = () => {
                 video.creator?.username ||
                 `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
               }
+              views={video.views}
               createdAt={video.createdAt.toString()}
               tags={video.tags?.map((tag) => tag.name)}
               duration={video.duration}

@@ -117,6 +117,8 @@ export const findUsers = (user) => api.get(`/users/find?value=${user}`);
 export const searchVideos = (data) => api.get(`/videos/searchvideo/${data}`);
 export const getVideoSuggestions = (id) =>
   api.get(`/videos/videoSuggestions/${id}`);
+export const incrementVideoViews = (videoId) =>
+  publicApi.post(`/videos/${videoId}/views`);
 
 //favori
 export const addToFavorites = (videoId) =>
