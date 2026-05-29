@@ -48,11 +48,13 @@
 }
 
 .SearchWrapper {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 20rem;
   max-width: 60rem; 
   width: 100%;
   position: relative;
+  margin-left: auto;
+  margin-right: 2rem;
 }
 
 .FilterPanelWrapper {
