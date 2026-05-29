@@ -1,6 +1,6 @@
 import styles from './videoSettings.module.css';
 
-import { useState, ChangeEvent, FC, useEffect, useRef } from 'react';
+import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
