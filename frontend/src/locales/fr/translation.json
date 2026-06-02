@@ -443,5 +443,7 @@
     "years_other": "il y a {{count}} ans"
   },
   "Selected tags": "Tags sélectionnés",
+  "Selected users": "Utilisateurs sélectionnés",
+  "Selected dates": "Dates sélectionnées",
   "Delete all": "Tout effacer"
 }

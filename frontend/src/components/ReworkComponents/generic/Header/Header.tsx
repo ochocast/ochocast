@@ -423,34 +423,111 @@ const Header: FC<HeaderProps> = () => {
       </div>
 
       {/* Tags row — inside the header, below the main bar */}
-      {filters.tags.length > 0 && (
-        <div className={styles.TagsRow}>
-          <div className={styles.TagsRowLeft}>
-            <span className={styles.TagsRowTitle}>{t('Selected tags')}</span>
-            <button
-              type="button"
-              className={styles.TagsDeleteAll}
-              onClick={() => handleTagsChange([])}
-            >
-              {t('Delete all')}
-            </button>
-          </div>
-          <div className={styles.TagsPillsRow}>
-            {filters.tags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className={styles.TagsPill}
-                onClick={() =>
-                  handleTagsChange(filters.tags.filter((t) => t !== tag))
-                }
-                aria-label={`Remove tag ${tag}`}
-              >
-                <span className={styles.TagsPillLabel}>{tag}</span>
-                <span className={styles.TagsPillClose}>×</span>
-              </button>
-            ))}
-          </div>
+      {(filters.tags.length > 0 ||
+        filters.users.length > 0 ||
+        filters.startDate !== null) && (
+        <div className={styles.FilteredItemsContainer}>
+          {filters.tags.length > 0 && (
+            <div className={styles.TagsRow}>
+              <div className={styles.TagsRowLeft}>
+                <span className={styles.TagsRowTitle}>
+                  {t('Selected tags')}
+                </span>
+                <button
+                  type="button"
+                  className={styles.TagsDeleteAll}
+                  onClick={() => handleTagsChange([])}
+                >
+                  {t('Delete all')}
+                </button>
+              </div>
+              <div className={styles.TagsPillsRow}>
+                {filters.tags.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={styles.TagsPill}
+                    onClick={() =>
+                      handleTagsChange(filters.tags.filter((t) => t !== tag))
+                    }
+                    aria-label={`Remove tag ${tag}`}
+                  >
+                    <span className={styles.TagsPillLabel}>{tag}</span>
+                    <span className={styles.TagsPillClose}>×</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filters.users.length > 0 && (
+            <div className={styles.TagsRow}>
+              <div className={styles.TagsRowLeft}>
+                <span className={styles.TagsRowTitle}>
+                  {t('Selected users')}
+                </span>
+                <button
+                  type="button"
+                  className={styles.TagsDeleteAll}
+                  onClick={() => handleUsersChange([])}
+                >
+                  {t('Delete all')}
+                </button>
+              </div>
+              <div className={styles.TagsPillsRow}>
+                {filters.users.map((user) => (
+                  <button
+                    key={user}
+                    type="button"
+                    className={styles.TagsPill}
+                    onClick={() =>
+                      handleUsersChange(filters.users.filter((u) => u !== user))
+                    }
+                    aria-label={`Remove user ${user}`}
+                  >
+                    <span className={styles.TagsPillLabel}>{user}</span>
+                    <span className={styles.TagsPillClose}>×</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {filters.startDate !== null && (
+            <div className={styles.TagsRow}>
+              <div className={styles.TagsRowLeft}>
+                <span className={styles.TagsRowTitle}>
+                  {t('Selected dates')}
+                </span>
+                <button
+                  type="button"
+                  className={styles.TagsDeleteAll}
+                  onClick={() => handleDateFilter(null, null)}
+                >
+                  {t('Delete all')}
+                </button>
+              </div>
+              <div className={styles.TagsPillsRow}>
+                <button
+                  key={filters.startDate.toISOString()}
+                  type="button"
+                  className={styles.TagsPill}
+                  onClick={() => handleDateFilter(null, null)}
+                  aria-label={`Remove date range ${filters.startDate.toLocaleDateString()} to ${filters.endDate?.toLocaleDateString() || 'today'}`}
+                >
+                  <span className={styles.TagsPillLabel}>
+                    {filters.startDate.toLocaleDateString()}
+                    {filters.endDate &&
+                    filters.endDate.toISOString() !==
+                      filters.startDate.toISOString()
+                      ? ` → ${filters.endDate.toLocaleDateString()}`
+                      : ''}
+                  </span>
+                  <span className={styles.TagsPillClose}>×</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

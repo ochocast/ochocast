@@ -108,15 +108,28 @@
   color: var(--theme-color-white);
 }
 
+/* ── Filtered items container ── */
+.FilteredItemsContainer {
+  display: flex;
+  flex-direction: row;
+  background: color-mix(in srgb, var(--theme-color-600, var(--theme-color-700)) 80%, black 20%);
+  border-top: 1px solid color-mix(in srgb, var(--theme-color-white) 10%, transparent);
+  animation: tagsRowSlideDown 0.18s ease;
+}
+
 /* ── Tags row ── */
 .TagsRow {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 2% 0.65rem;
-  background: color-mix(in srgb, var(--theme-color-600, var(--theme-color-700)) 80%, black 20%);
-  border-top: 1px solid color-mix(in srgb, var(--theme-color-white) 10%, transparent);
-  animation: tagsRowSlideDown 0.18s ease;
+  flex: 1;
+  min-width: 200px;
+  border-right: 1px solid color-mix(in srgb, var(--theme-color-white) 10%, transparent);
+}
+
+.FilteredItemsContainer .TagsRow:last-child {
+  border-right: none;
 }
 
 @keyframes tagsRowSlideDown {
