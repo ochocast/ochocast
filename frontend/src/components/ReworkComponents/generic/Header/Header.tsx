@@ -34,6 +34,7 @@ const Header: FC<HeaderProps> = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [videos] = useState<Video[]>([]);
+  const location = useLocation();
   const [showFilters, setShowFilters] = useState(false);
   const [, setFilteredVideos] = useState<Video[]>([]);
   const filterPanelRef = useRef<HTMLDivElement | null>(null);
@@ -254,6 +255,31 @@ const Header: FC<HeaderProps> = () => {
     endDate: null,
     archived: null,
   });
+
+  // Sync filters and searchQuery from URL on mount and whenever the URL changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlTags = params.get('tags')?.split(',').filter(Boolean) ?? [];
+    const urlUsers = params.get('users')?.split(',').filter(Boolean) ?? [];
+    const urlDateFrom = params.get('dateFrom') || null;
+    const urlDateTo = params.get('dateTo') || null;
+    const urlArchived =
+      params.get('archived') === 'true'
+        ? true
+        : params.get('archived') === 'false'
+          ? false
+          : null;
+    const urlQuery = params.get('q') || '';
+
+    setFilters({
+      tags: urlTags,
+      users: urlUsers,
+      startDate: urlDateFrom ? new Date(urlDateFrom) : null,
+      endDate: urlDateTo ? new Date(urlDateTo) : null,
+      archived: urlArchived,
+    });
+    setSearchQuery(urlQuery);
+  }, [location.search]);
 
   const buildGlobalSearchUrl = useCallback(
     (overrides: Partial<SearchState> = {}) => {
