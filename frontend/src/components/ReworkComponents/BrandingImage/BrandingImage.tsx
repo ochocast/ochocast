@@ -30,7 +30,6 @@ const BrandingImage: React.FC<BrandingImageProps> = ({
 
       try {
         const url = await getImageUrl(imageKey);
-        console.log('Fetched image URL for key:', imageKey, 'URL:', url);
         if (url) {
           setImageUrl(url);
         } else {

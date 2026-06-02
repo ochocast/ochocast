@@ -27,7 +27,7 @@ export interface PreviewMinitureProps {
   createBy: string;
   createdAt: string;
   tags: string[];
-  views?: number; //actuellement pas utilisé, mais peut être utile pour afficher le nombre de vues sur la miniature
+  views?: number;
   onArchived?: (id: string) => void;
   showEditButton?: boolean;
   onTagClick?: (tag: string) => void;
