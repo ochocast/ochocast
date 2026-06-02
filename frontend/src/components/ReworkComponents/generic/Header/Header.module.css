@@ -50,7 +50,7 @@
 .SearchWrapper {
   flex: 1 1 0;
   min-width: 20rem;
-  max-width: 60rem; 
+  max-width: 60rem;
   width: 100%;
   position: relative;
 }
@@ -63,7 +63,7 @@
 }
 
 .FilterPanelContainer {
-  width: max-content; 
+  width: max-content;
   border: 1px solid var(--theme-color-200);
   border-radius: 13px;
 }
@@ -108,5 +108,24 @@
 
   .Hamburger {
     display: flex;
+  }
+}
+
+@media (min-width: 1351px) {
+  .LogoDiv {
+    flex: 1 1 300px;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .SearchWrapper {
+    flex: 0 2 60rem;
+  }
+
+  .RightActions {
+    flex: 1 1 300px;
+    display: flex;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 }
