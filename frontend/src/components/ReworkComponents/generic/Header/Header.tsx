@@ -351,73 +351,108 @@ const Header: FC<HeaderProps> = () => {
 
   return (
     <div className={styles.Header}>
-      <div className={styles.LogoDiv}>
-        <BrandingImage
-          imageKey="logo"
-          alt={`${branding.appName} logo`}
-          className={styles.Logo}
-          onClick={() => navigate('/')}
-          fallbackSrc={`ochoIconFull.svg`}
-        />
-      </div>
+      <div className={styles.HeaderMain}>
+        <div className={styles.LogoDiv}>
+          <BrandingImage
+            imageKey="logo"
+            alt={`${branding.appName} logo`}
+            className={styles.Logo}
+            onClick={() => navigate('/')}
+            fallbackSrc={`ochoIconFull.svg`}
+          />
+        </div>
 
-      {/* Desktop menu */}
-      <div className={styles.SearchWrapper} ref={filterPanelRef}>
-        <GlobalSearchBar
-          onSearch={(query) => handleSearchWithUrl(query)}
-          placeholder={t('searchVideosAndEvents')}
-          initialValue={searchQuery}
-          onFilterClick={() => setShowFilters(!showFilters)}
-          onShareClick={() => handleShare()}
-          onClear={() => {
-            setSearchQuery('');
-            navigate('/home', { replace: true });
-          }}
-          activeFiltersCount={activeFiltersCount}
-          selectedTags={filters.tags}
-          onRemoveTag={(tag) =>
-            handleTagsChange(filters.tags.filter((t) => t !== tag))
-          }
-        />
-        {showFilters && (
-          <div
-            className={styles.FilterPanelWrapper}
-            style={{ top: `calc(${searchWrapperHeight}px + 0.5rem)` }}
-          >
-            <div className={styles.FilterPanelContainer}>
-              <FilterPanel
-                onTagsChange={handleTagsChange}
-                onUsersChange={handleUsersChange}
-                onDateFilter={handleDateFilter}
-                closePanel={() => setShowFilters(false)}
-                onResetFilters={handleResetFilters}
-                initialFavoritesOnly={searchState.favoris}
-                onFavoritesChange={handleFavoritesChange}
-                initialTags={filters.tags}
-                initialUsers={filters.users}
-                initialStartDate={filters.startDate}
-                initialEndDate={filters.endDate}
-              />
+        {/* Desktop menu */}
+        <div className={styles.SearchWrapper} ref={filterPanelRef}>
+          <GlobalSearchBar
+            onSearch={(query) => handleSearchWithUrl(query)}
+            placeholder={t('searchVideosAndEvents')}
+            initialValue={searchQuery}
+            onFilterClick={() => setShowFilters(!showFilters)}
+            onShareClick={() => handleShare()}
+            onClear={() => {
+              setSearchQuery('');
+              navigate('/home', { replace: true });
+            }}
+            activeFiltersCount={activeFiltersCount}
+            selectedTags={filters.tags}
+            onRemoveTag={(tag) =>
+              handleTagsChange(filters.tags.filter((t) => t !== tag))
+            }
+            hideTagsRow
+          />
+          {showFilters && (
+            <div
+              className={styles.FilterPanelWrapper}
+              style={{ top: `calc(${searchWrapperHeight}px + 0.5rem)` }}
+            >
+              <div className={styles.FilterPanelContainer}>
+                <FilterPanel
+                  onTagsChange={handleTagsChange}
+                  onUsersChange={handleUsersChange}
+                  onDateFilter={handleDateFilter}
+                  closePanel={() => setShowFilters(false)}
+                  onResetFilters={handleResetFilters}
+                  initialFavoritesOnly={searchState.favoris}
+                  onFavoritesChange={handleFavoritesChange}
+                  initialTags={filters.tags}
+                  initialUsers={filters.users}
+                  initialStartDate={filters.startDate}
+                  initialEndDate={filters.endDate}
+                />
+              </div>
             </div>
+          )}
+        </div>
+
+        <div className={styles.RightActions}>
+          <div className={styles.NavBadge}>
+            <NavItems />
           </div>
-        )}
+          <div className={styles.ProfilBadge}>
+            {username && <UserBadge username={username} />}
+          </div>
+        </div>
+
+        {/* Hamburger icon for mobile */}
+        <div className={styles.Hamburger} onClick={toggleMenu}>
+          <div />
+          <div />
+          <div />
+        </div>
       </div>
 
-      <div className={styles.RightActions}>
-        <div className={styles.NavBadge}>
-          <NavItems />
+      {/* Tags row — inside the header, below the main bar */}
+      {filters.tags.length > 0 && (
+        <div className={styles.TagsRow}>
+          <div className={styles.TagsRowLeft}>
+            <span className={styles.TagsRowTitle}>{t('Selected tags')}</span>
+            <button
+              type="button"
+              className={styles.TagsDeleteAll}
+              onClick={() => handleTagsChange([])}
+            >
+              {t('Delete all')}
+            </button>
+          </div>
+          <div className={styles.TagsPillsRow}>
+            {filters.tags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={styles.TagsPill}
+                onClick={() =>
+                  handleTagsChange(filters.tags.filter((t) => t !== tag))
+                }
+                aria-label={`Remove tag ${tag}`}
+              >
+                <span className={styles.TagsPillLabel}>{tag}</span>
+                <span className={styles.TagsPillClose}>×</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className={styles.ProfilBadge}>
-          {username && <UserBadge username={username} />}
-        </div>
-      </div>
-
-      {/* Hamburger icon for mobile */}
-      <div className={styles.Hamburger} onClick={toggleMenu}>
-        <div />
-        <div />
-        <div />
-      </div>
+      )}
 
       {/* Mobile menu */}
       {menuOpen && (

@@ -19,6 +19,7 @@ export interface GlobalSearchBarProps {
   activeFiltersCount?: number;
   selectedTags?: string[];
   onRemoveTag?: (tag: string) => void;
+  hideTagsRow?: boolean;
 }
 
 const GlobalSearchBar = ({
@@ -32,6 +33,7 @@ const GlobalSearchBar = ({
   activeFiltersCount = 0,
   selectedTags = [],
   onRemoveTag,
+  hideTagsRow = false,
 }: GlobalSearchBarProps) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialValue || '');
@@ -256,7 +258,7 @@ const GlobalSearchBar = ({
         )}
       </div>
 
-      {selectedTags.length > 0 && (
+      {!hideTagsRow && selectedTags.length > 0 && (
         <div className={styles.selectedTagsContainer}>
           <div className={styles.selectedTagsLeft}>
             <span className={styles.selectedTagsTitle}>
