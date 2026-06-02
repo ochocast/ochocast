@@ -257,6 +257,13 @@ const GlobalSearchPage = () => {
   const [fallbackMiniatureUrl, setFallbackMiniatureUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'events' | 'videos'>(
+    'all',
+  );
+
+  useEffect(() => {
+    setFilterType('all');
+  }, [location.search]);
 
   useEffect(() => {
     let active = true;
@@ -405,15 +412,79 @@ const GlobalSearchPage = () => {
             className={styles.resultMeta}
             aria-label={t('globalSearchTotal')}
           >
-            <span className={styles.resultMetaChip}>
+            <button
+              type="button"
+              className={`${styles.resultMetaChip} ${
+                filterType === 'events'
+                  ? styles.activeChip
+                  : filterType !== 'all'
+                    ? styles.dimmedChip
+                    : ''
+              }`}
+              onClick={() =>
+                setFilterType(filterType === 'events' ? 'all' : 'events')
+              }
+            >
+              {filterType === 'events' && (
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={styles.checkmarkIcon}
+                >
+                  <polyline points="10 3 4.5 8.5 2 6" />
+                </svg>
+              )}
               {t('globalSearchEventsCount', { count: filteredEvents.length })}
-            </span>
-            <span className={styles.resultMetaChip}>
+            </button>
+            <button
+              type="button"
+              className={`${styles.resultMetaChip} ${
+                filterType === 'videos'
+                  ? styles.activeChip
+                  : filterType !== 'all'
+                    ? styles.dimmedChip
+                    : ''
+              }`}
+              onClick={() =>
+                setFilterType(filterType === 'videos' ? 'all' : 'videos')
+              }
+            >
+              {filterType === 'videos' && (
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={styles.checkmarkIcon}
+                >
+                  <polyline points="10 3 4.5 8.5 2 6" />
+                </svg>
+              )}
               {t('globalSearchVideosCount', { count: filteredVideos.length })}
-            </span>
-            <span className={styles.resultMetaChipAccent}>
+            </button>
+            <button
+              type="button"
+              className={`${styles.resultMetaChipAccent} ${
+                filterType !== 'all' ? styles.clickableTotal : ''
+              }`}
+              onClick={() => setFilterType('all')}
+              disabled={filterType === 'all'}
+              title={
+                filterType !== 'all' ? t('filterPanel.resetFilters') : undefined
+              }
+            >
               {t('globalSearchTotal')}: {totalResults}
-            </span>
+            </button>
           </div>
         )}
       </header>
@@ -440,99 +511,103 @@ const GlobalSearchPage = () => {
         </section>
       ) : (
         <div className={styles.sections}>
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionKicker}>{t('events')}</p>
-                <h2>
-                  {t('globalSearchEventsCount', {
-                    count: filteredEvents.length,
-                  })}
-                </h2>
+          {filterType !== 'videos' && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionKicker}>{t('events')}</p>
+                  <h2>
+                    {t('globalSearchEventsCount', {
+                      count: filteredEvents.length,
+                    })}
+                  </h2>
+                </div>
               </div>
-            </div>
 
-            {filteredEvents.length > 0 ? (
-              <div className={styles.eventGrid}>
-                {filteredEvents.map((event) => {
-                  const matchingTracks = getMatchingTracks(event, query);
+              {filteredEvents.length > 0 ? (
+                <div className={styles.eventGrid}>
+                  {filteredEvents.map((event) => {
+                    const matchingTracks = getMatchingTracks(event, query);
 
-                  return (
-                    <div className={styles.eventCard} key={event.id}>
-                      <EventBox
-                        event={event}
-                        eventStatus={EventStatus.Published}
-                        imageURL={eventMiniatures[event.id]}
-                      />
+                    return (
+                      <div className={styles.eventCard} key={event.id}>
+                        <EventBox
+                          event={event}
+                          eventStatus={EventStatus.Published}
+                          imageURL={eventMiniatures[event.id]}
+                        />
 
-                      {matchingTracks.length > 0 && (
-                        <div className={styles.trackMatches}>
-                          <span className={styles.trackMatchesLabel}>
-                            {t('globalSearchTrackMatches')}
-                          </span>
-                          <div className={styles.trackPills}>
-                            {matchingTracks.map((track) => (
-                              <span
-                                key={`${event.id}-${track}`}
-                                className={styles.trackPill}
-                              >
-                                {track}
-                              </span>
-                            ))}
+                        {matchingTracks.length > 0 && (
+                          <div className={styles.trackMatches}>
+                            <span className={styles.trackMatchesLabel}>
+                              {t('globalSearchTrackMatches')}
+                            </span>
+                            <div className={styles.trackPills}>
+                              {matchingTracks.map((track) => (
+                                <span
+                                  key={`${event.id}-${track}`}
+                                  className={styles.trackPill}
+                                >
+                                  {track}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={styles.sectionEmpty}>
-                {t('globalSearchNoEvents')}
-              </div>
-            )}
-          </section>
-
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <div>
-                <p className={styles.sectionKicker}>{t('videos')}</p>
-                <h2>
-                  {t('globalSearchVideosCount', {
-                    count: filteredVideos.length,
+                        )}
+                      </div>
+                    );
                   })}
-                </h2>
-              </div>
-            </div>
+                </div>
+              ) : (
+                <div className={styles.sectionEmpty}>
+                  {t('globalSearchNoEvents')}
+                </div>
+              )}
+            </section>
+          )}
 
-            {filteredVideos.length > 0 ? (
-              <div className={styles.videoGrid}>
-                {filteredVideos.map((video) => (
-                  <div className={styles.videoCard} key={video.id}>
-                    <Thumbnail
-                      Id={video.id}
-                      title={video.title}
-                      creatorId={video.creator?.id || ''}
-                      createBy={
-                        video.creator?.username ||
-                        `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
-                      }
-                      createdAt={video.createdAt.toString()}
-                      tags={video.tags
-                        ?.map((tag) => tag.name)
-                        .sort((a, b) => a.localeCompare(b))}
-                      cropTags={true}
-                      duration={video.duration}
-                    />
-                  </div>
-                ))}
+          {filterType !== 'events' && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <p className={styles.sectionKicker}>{t('videos')}</p>
+                  <h2>
+                    {t('globalSearchVideosCount', {
+                      count: filteredVideos.length,
+                    })}
+                  </h2>
+                </div>
               </div>
-            ) : (
-              <div className={styles.sectionEmpty}>
-                {t('globalSearchNoVideos')}
-              </div>
-            )}
-          </section>
+
+              {filteredVideos.length > 0 ? (
+                <div className={styles.videoGrid}>
+                  {filteredVideos.map((video) => (
+                    <div className={styles.videoCard} key={video.id}>
+                      <Thumbnail
+                        Id={video.id}
+                        title={video.title}
+                        creatorId={video.creator?.id || ''}
+                        createBy={
+                          video.creator?.username ||
+                          `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
+                        }
+                        createdAt={video.createdAt.toString()}
+                        tags={video.tags
+                          ?.map((tag) => tag.name)
+                          .sort((a, b) => a.localeCompare(b))}
+                        cropTags={true}
+                        duration={video.duration}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.sectionEmpty}>
+                  {t('globalSearchNoVideos')}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       )}
     </main>
