@@ -59,10 +59,88 @@
   font-size: 0.82rem;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  font-family: inherit;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  user-select: none;
+}
+
+.resultMetaChip {
+  cursor: pointer;
+}
+
+.resultMetaChip:hover {
+  background: #f5f5f5;
+  border-color: rgba(0, 0, 0, 0.16);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.resultMetaChip:active {
+  transform: translateY(0);
+}
+
+/* Dimmed state when another filter is active */
+.dimmedChip {
+  opacity: 0.45;
+  transform: scale(0.96);
+}
+
+.dimmedChip:hover {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+/* Active / Highlighted state */
+.activeChip {
+  background: var(--theme-color);
+  color: var(--theme-color-white);
+  border-color: var(--theme-color);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+}
+
+.activeChip:hover {
+  background: var(--theme-color);
+  border-color: var(--theme-color);
+  color: var(--theme-color-white);
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .resultMetaChipAccent {
   background: linear-gradient(135deg, rgba(28, 28, 28, 0.04), rgba(28, 28, 28, 0.08));
+}
+
+.clickableTotal {
+  cursor: pointer;
+  border: 1px dashed rgba(0, 0, 0, 0.2);
+}
+
+.clickableTotal:hover {
+  background: #f0f0f0;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.checkmarkIcon {
+  flex-shrink: 0;
+  animation: scaleIn 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .errorBanner {
