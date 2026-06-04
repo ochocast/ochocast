@@ -172,7 +172,7 @@ export const getTrackChatStatistics = (trackId) =>
 // SFU viewer count
 export const getRoomViewerCount = async (roomId) => {
   const sfuUrl =
-    process.env.REACT_APP_SFU_CONTROL_PLANE_URL || 'http://localhost:8090';
+    getEnv('REACT_APP_SFU_CONTROL_PLANE_URL') || 'http://localhost:8090';
   try {
     const response = await fetch(`${sfuUrl}/room/viewers?room_id=${roomId}`);
     if (!response.ok) {

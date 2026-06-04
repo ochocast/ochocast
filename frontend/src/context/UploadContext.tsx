@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
+import getEnv from '../utils/env';
 
 export type UploadStatus =
   | 'pending'
@@ -154,7 +155,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         // Vérifier chaque vidéo en processing de manière asynchrone
         processingUploads.forEach(async (upload) => {
           try {
-            const baseUrl = `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/api`;
+            const baseUrl = `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}/api`;
             const userString = localStorage.getItem('backendUser');
             const user = userString ? JSON.parse(userString) : null;
 

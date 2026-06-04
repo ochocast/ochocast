@@ -3,6 +3,8 @@
  * Utilise XMLHttpRequest pour permettre le tracking de la progression
  */
 
+import getEnv from './env';
+
 export interface UploadProgressCallback {
   onProgress: (progress: number) => void;
   onComplete: (response: { id: string }) => void;
@@ -20,7 +22,7 @@ export function uploadVideoWithProgress(
   callbacks: UploadProgressCallback,
 ): () => void {
   const xhr = new XMLHttpRequest();
-  const baseUrl = `${process.env.REACT_APP_API_URL}:${process.env.REACT_APP_API_PORT}/api`;
+  const baseUrl = `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}/api`;
 
   // Récupérer le token d'authentification
   const userString = localStorage.getItem('backendUser');
