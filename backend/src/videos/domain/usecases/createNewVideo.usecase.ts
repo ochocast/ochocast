@@ -2,7 +2,7 @@ import { CreateVideoDto } from '../../infra/controllers/dto/create-video.dto';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
 import { v4 as uuid } from 'uuid';
-import { Inject } from '@nestjs/common';
+import { BadRequestException, Inject } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { Upload } from '@aws-sdk/lib-storage';
@@ -77,10 +77,15 @@ export class CreateNewVideoUsecase {
     await writeFile(tempInputPath, file.buffer);
 
     try {
-      // Extract video duration before transcoding
-      const videoDuration = await getVideoDuration(tempInputPath);
-      video.duration = videoDuration;
+      video.duration = await getVideoDuration(tempInputPath);
+    } catch {
+      await unlink(tempInputPath).catch(() => {});
+      throw new BadRequestException(
+        'Invalid video file: the uploaded media cannot be decoded',
+      );
+    }
 
+    try {
       await transcodeVideo(tempInputPath, tempOutputPath);
 
       mediaBuffer = await readFile(tempOutputPath);
