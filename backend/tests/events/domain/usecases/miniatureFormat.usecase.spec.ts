@@ -9,6 +9,7 @@ import { VideoObject } from 'src/videos/domain/video';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import * as sharp from 'sharp';
+import * as ffmpeg from 'fluent-ffmpeg';
 
 jest.mock('@aws-sdk/lib-storage', () => ({
   Upload: jest.fn().mockImplementation(() => ({
@@ -80,6 +81,8 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
   let s3Client: S3Client;
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CreateNewVideoUsecase,
@@ -93,6 +96,39 @@ describe('CreateNewVideoUsecase - Miniature Processing', () => {
     );
     videoGateway = module.get<IVideoGateway>('VideoGateway');
     s3Client = module.get<S3Client>('s3Client');
+  });
+
+  it('should reject an invalid video before uploading it', async () => {
+    const dto: CreateVideoDto = {
+      title: 'Invalid Video',
+      description: 'An invalid video file',
+      tags: [new TagEntity({ name: 'test' })],
+      creator: new UserEntity({ id: 'creatorId', firstName: 'Creator Name' }),
+      media_id: 'invalid.mp4',
+      miniature_id: 'test-miniature',
+      internal_speakers: [],
+      external_speakers: '',
+      comments: [],
+      archived: false,
+    };
+
+    (ffmpeg.ffprobe as jest.Mock).mockImplementationOnce(
+      (_inputPath, callback) => callback(new Error('Invalid media')),
+    );
+
+    await expect(
+      createNewVideoUsecase.execute(
+        dto,
+        { buffer: Buffer.alloc(1024) } as Express.Multer.File,
+        undefined,
+      ),
+    ).rejects.toMatchObject({
+      status: 400,
+      message: 'Invalid video file: the uploaded media cannot be decoded',
+    });
+
+    expect(Upload).not.toHaveBeenCalled();
+    expect(videoGateway.createNewVideo).not.toHaveBeenCalled();
   });
 
   it('should resize the video miniature to 1280x720 and upload it to S3', async () => {
