@@ -54,7 +54,13 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
       const fetchBackendUser = async () => {
         try {
           const res = await loginUser();
-          //console.log('Backend user:', res.data);
+          if (!res.ok) {
+            console.error('Failed to authenticate with backend:', res.problem);
+            localStorage.removeItem('backendUser');
+            await auth.removeUser();
+            await auth.signinRedirect();
+            return;
+          }
           // Stocker les données utilisateur ET le token pour les requêtes XHR
           const userWithToken = {
             ...res.data,

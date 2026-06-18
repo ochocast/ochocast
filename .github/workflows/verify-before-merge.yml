@@ -118,3 +118,39 @@ jobs:
       - name: Run unit tests
         run: |
           npm test
+
+  run-e2e-tests:
+    name: run-e2e-tests
+    runs-on: self-hosted
+    needs: [build-front, run-tests-bakcend]
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+      - name: Install dependencies (root)
+        run: npm ci
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Start Docker Services
+        run: |
+          cd dev-tools
+          docker compose up -d
+        env:
+          AUTH_SECRET: "oBLaekVuypy1RKK5uAXULEw5LKUzPBms"
+      - name: Wait for Keycloak
+        run: npx wait-on http://localhost:8080/realms/local-realm -t 60000
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_TEST_USER: "test-user"
+          PLAYWRIGHT_TEST_PASSWORD: "test-password"
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
