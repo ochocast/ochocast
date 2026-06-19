@@ -15,6 +15,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ChatModule } from './chat/chat.module';
 import { PollsModule } from './polls/polls.module';
 import { RecordingModule } from './recording/recording.module';
+import { TranscriptionModule } from './transcription/transcription.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { RecordingModule } from './recording/recording.module';
     ChatModule,
     PollsModule,
     RecordingModule,
+    TranscriptionModule,
   ],
 })
 export class AppModule {}
