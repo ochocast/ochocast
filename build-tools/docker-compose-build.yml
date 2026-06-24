@@ -22,3 +22,9 @@ services:
       context: ../sfuServer
       dockerfile: Dockerfile.sfu
     image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-server:${APP_VERSION:-latest}
+
+  ffmpeg-worker:
+    build:
+      context: ../ffmpegServer
+      dockerfile: Dockerfile
+    image: ${DOCKER_HUB_USERNAME}/ochocast-ffmpeg-worker:${APP_VERSION:-latest}

@@ -8,11 +8,14 @@ import {
   Param,
   Post,
   Query,
+  Req,
+  Res,
   UploadedFiles,
   UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { ModifyVideoDto } from './dto/modify-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
@@ -144,8 +147,38 @@ export class VideosController {
   }
 
   @Get('/media/:id')
-  async getMedia(@Param('id') id: string): Promise<string> {
-    return await this.getMediaUseCase.execute(id);
+  async getMedia(
+    @Param('id') id: string,
+    @Req() request: Request,
+  ): Promise<string> {
+    const configuredBaseUrl = process.env.PUBLIC_API_URL?.replace(/\/$/, '');
+    const videosRouteIndex = request.originalUrl.indexOf('/videos/');
+    const apiPath =
+      videosRouteIndex >= 0
+        ? request.originalUrl.slice(0, videosRouteIndex)
+        : '/api';
+    const apiBaseUrl =
+      configuredBaseUrl ||
+      `${request.protocol}://${request.get('host')}${apiPath}`;
+    return await this.getMediaUseCase.execute(id, apiBaseUrl);
+  }
+
+  @Public()
+  @Get('/media-content/:id/*path')
+  async getMediaContent(
+    @Param('id') id: string,
+    @Param('path') mediaPath: string | string[],
+    @Res() response: Response,
+  ): Promise<void> {
+    const normalizedPath = Array.isArray(mediaPath)
+      ? mediaPath.join('/')
+      : mediaPath;
+    const media = await this.getMediaUseCase.getContent(id, normalizedPath);
+    response.setHeader('Content-Type', media.contentType);
+    if (media.cacheControl) {
+      response.setHeader('Cache-Control', media.cacheControl);
+    }
+    response.send(Buffer.from(media.body));
   }
 
   @Get('/miniature/:id')

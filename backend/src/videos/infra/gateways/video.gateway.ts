@@ -4,7 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Not, Repository } from 'typeorm';
 import { VideoEntity } from './entities/video.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
-import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
+} from '@aws-sdk/client-s3';
 import { Inject, NotFoundException } from '@nestjs/common';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 
@@ -157,17 +162,25 @@ export class VideoGateway implements IVideoGateway {
     console.log('video to delete found !');
     console.log(video);
 
-    const mediaCommand = new DeleteObjectCommand({
-      Bucket: process.env.STOCK_MEDIA_BUCKET,
-      Key: video.media_id,
-    });
-    this.s3Client.send(mediaCommand);
+    if (video.media_id.includes('/')) {
+      await this.deleteMediaPrefix(
+        process.env.STOCK_MEDIA_BUCKET,
+        `${video.id}/`,
+      );
+    } else {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: process.env.STOCK_MEDIA_BUCKET,
+          Key: video.media_id,
+        }),
+      );
+    }
 
     const miniatureCommand = new DeleteObjectCommand({
       Bucket: process.env.STOCK_MINIATURE_BUCKET,
       Key: video.miniature_id,
     });
-    this.s3Client.send(miniatureCommand);
+    await this.s3Client.send(miniatureCommand);
 
     // Delete subtitle file if it exists
     if (video.subtitle_id) {
@@ -175,10 +188,38 @@ export class VideoGateway implements IVideoGateway {
         Bucket: process.env.STOCK_MEDIA_BUCKET,
         Key: video.subtitle_id,
       });
-      this.s3Client.send(subtitleCommand);
+      await this.s3Client.send(subtitleCommand);
     }
 
     return await this.videosRepository.remove(video);
+  }
+
+  private async deleteMediaPrefix(
+    bucket: string,
+    prefix: string,
+  ): Promise<void> {
+    let continuationToken: string | undefined;
+    do {
+      const listed = await this.s3Client.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      const objects = (listed.Contents || [])
+        .filter((object) => object.Key)
+        .map((object) => ({ Key: object.Key }));
+      if (objects.length) {
+        await this.s3Client.send(
+          new DeleteObjectsCommand({
+            Bucket: bucket,
+            Delete: { Objects: objects, Quiet: true },
+          }),
+        );
+      }
+      continuationToken = listed.NextContinuationToken;
+    } while (continuationToken);
   }
 
   async modifyVideo(video: VideoObject): Promise<VideoObject> {

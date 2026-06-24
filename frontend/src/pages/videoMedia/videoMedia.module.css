@@ -31,6 +31,49 @@
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
+  background: #050505;
+}
+
+.qualityControl {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.45rem 0.35rem 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background: rgba(10, 10, 10, 0.78);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+  transition:
+    opacity 160ms ease,
+    background-color 160ms ease;
+}
+
+.qualityControl:hover,
+.qualityControl:focus-within {
+  background: rgba(10, 10, 10, 0.94);
+}
+
+.qualityControl select {
+  min-width: 4.5rem;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.25rem 1.4rem 0.25rem 0.55rem;
+  background: var(--theme-color-500);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.qualityControl select:focus-visible {
+  box-shadow: 0 0 0 2px #fff;
 }
 
 /* === End screen overlay (visible fullscreen) === */
