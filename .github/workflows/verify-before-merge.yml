@@ -138,8 +138,6 @@ jobs:
         run: |
           cd dev-tools
           docker compose up -d
-        env:
-          AUTH_SECRET: "oBLaekVuypy1RKK5uAXULEw5LKUzPBms"
       - name: Wait for Keycloak
         run: npx wait-on http://localhost:8080/realms/local-realm -t 60000
       - name: Run E2E tests

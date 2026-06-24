@@ -743,7 +743,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "${env.AUTH_SECRET}",
+      "secret": "oBLaekVuypy1RKK5uAXULEw5LKUzPBms",
       "redirectUris": [
         "http://localhost:3001/*"
       ],

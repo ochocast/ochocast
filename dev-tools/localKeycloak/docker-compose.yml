@@ -7,7 +7,6 @@ services:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KEYCLOAK_IMPORT: /opt/keycloak/data/import/
-      AUTH_SECRET: ${AUTH_SECRET}
     restart: unless-stopped
     volumes:
       - ./config/:/opt/keycloak/data/import/

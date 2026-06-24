@@ -25,6 +25,12 @@ Génère le code du test automatiquement en enregistrant vos clics et frappes au
 npx playwright codegen http://localhost:3000
 ```
 
+### Lancer un test spécifique (mode headed)
+Pour lancer uniquement un fichier de test en particulier (ex: le setup d'authentification) avec le navigateur visible :
+```bash
+npx playwright test e2e/auth.setup.ts --headed
+```
+
 ---
 
 ## 🔒 Gestion de l'Authentification (Keycloak)
