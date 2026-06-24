@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { RecordingController } from './infra/controllers/recording.controller';
 import { RecordingVMGateway } from './infra/gateways/recording-vm.gateway';
 import { StartRecordingUsecase } from './domain/usecases/startRecording.usecase';
@@ -8,7 +8,7 @@ import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
 
 @Module({
-  imports: [VideosModule, TracksModule],
+  imports: [VideosModule, forwardRef(() => TracksModule)],
   controllers: [RecordingController],
   providers: [
     {
@@ -19,5 +19,6 @@ import { TracksModule } from 'src/tracks/tracks.module';
     StopRecordingUsecase,
     PublishRecordingUsecase,
   ],
+  exports: ['RecordingVMGateway', StopRecordingUsecase],
 })
 export class RecordingModule {}

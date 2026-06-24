@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -62,14 +61,13 @@ type RecordingConfig struct {
 // NewRecordingSession creates a new recording session.
 // Returns: initialized RecordingSession or error
 func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
-	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(config.OutputDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output directory: %w", err)
+	// Write to a temp file — deleted automatically after successful publish
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("recording-%s-*.mp4", config.EventID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
-
-	// Generate timestamped filename for MP4
-	timestamp := time.Now().Format("20060102_150405")
-	mp4FilePath := filepath.Join(config.OutputDir, fmt.Sprintf("%s_%s.mp4", config.EventID, timestamp))
+	mp4FilePath := tmpFile.Name()
+	tmpFile.Close()
 
 	// Create MP4 writer
 	mp4Writer, err := NewMP4Writer(mp4FilePath)
@@ -444,6 +442,39 @@ func (rs *RecordingSession) Stop() error {
 
 	log.Println("Recording stopped successfully")
 	log.Println("MP4 file is ready to use - no muxing needed!")
+
+	// Auto-publish regardless of how Stop was triggered (HTTP or WebRTC callback)
+	if rs.backendURL != "" && rs.trackID != "" && rs.mp4FilePath != "" {
+		filePath := rs.mp4FilePath
+		backendURL := rs.backendURL
+		trackID := rs.trackID
+		keycloakURL := rs.keycloakURL
+		keycloakClientID := rs.keycloakClientID
+		keycloakClientSecret := rs.keycloakClientSecret
+		keycloakUsername := rs.keycloakUsername
+		keycloakPassword := rs.keycloakPassword
+
+		go func() {
+			var token string
+			var err error
+			if keycloakURL != "" && keycloakUsername != "" && keycloakPassword != "" {
+				token, err = getKeycloakToken(keycloakURL, keycloakClientID, keycloakClientSecret, keycloakUsername, keycloakPassword)
+				if err != nil {
+					log.Printf("[ERROR] Failed to get Keycloak token: %v", err)
+					return
+				}
+			}
+
+			if err := publishToBackend(backendURL, trackID, filePath, token); err != nil {
+				log.Printf("[ERROR] Failed to publish recording to backend: %v", err)
+			} else {
+				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
+				if err := os.Remove(filePath); err != nil {
+					log.Printf("[WARN] Could not delete temp file %s: %v", filePath, err)
+				}
+			}
+		}()
+	}
 
 	return nil
 }

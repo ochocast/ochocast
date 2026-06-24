@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
+import { Public } from 'nest-keycloak-connect';
 import { StartRecordingDto } from './dto/start-recording.dto';
 import { StartRecordingUsecase } from '../../domain/usecases/startRecording.usecase';
 import { StopRecordingUsecase } from '../../domain/usecases/stopRecording.usecase';
@@ -27,6 +28,7 @@ export class RecordingController {
     private publishRecordingUsecase: PublishRecordingUsecase,
   ) {}
 
+  @Public()
   @Post('start')
   @UsePipes(new ValidationPipe())
   async startRecording(
@@ -48,6 +50,7 @@ export class RecordingController {
     }
   }
 
+  @Public()
   @Post('stop/:trackId')
   async stopRecording(
     @Param('trackId') trackId: string,
@@ -67,6 +70,7 @@ export class RecordingController {
     }
   }
 
+  @Public()
   @Post('publish')
   @UseInterceptors(FileInterceptor('file'))
   async publishRecording(

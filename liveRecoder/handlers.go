@@ -147,13 +147,6 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 
 	filePath := session.mp4FilePath
 	roomID := session.roomID
-	backendURL := session.backendURL
-	trackID := session.trackID
-	keycloakURL := session.keycloakURL
-	keycloakClientID := session.keycloakClientID
-	keycloakClientSecret := session.keycloakClientSecret
-	keycloakUsername := session.keycloakUsername
-	keycloakPassword := session.keycloakPassword
 
 	if err := session.Stop(); err != nil {
 		s.mu.Unlock()
@@ -165,28 +158,6 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 
 	log.Printf("[HTTP] Recording stopped for room: %s (remaining active: %d)", roomID, len(s.sessions))
-
-	// Auto-publish to backend if configured
-	if backendURL != "" && trackID != "" {
-		go func() {
-			// Get Keycloak token for authentication
-			var token string
-			var err error
-			if keycloakURL != "" && keycloakUsername != "" && keycloakPassword != "" {
-				token, err = getKeycloakToken(keycloakURL, keycloakClientID, keycloakClientSecret, keycloakUsername, keycloakPassword)
-				if err != nil {
-					log.Printf("[ERROR] Failed to get Keycloak token: %v", err)
-					return
-				}
-			}
-
-			if err := publishToBackend(backendURL, trackID, filePath, token); err != nil {
-				log.Printf("[ERROR] Failed to publish recording to backend: %v", err)
-			} else {
-				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
-			}
-		}()
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{

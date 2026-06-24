@@ -77,19 +77,25 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     this.logger.log(`Recording stopped successfully for room: ${roomId}`);
   }
 
-  async getStatus(): Promise<{
+  async getStatus(roomId?: string): Promise<{
     status: string;
     roomId?: string;
     filePath?: string;
   }> {
-    const response = await fetch(`${this.vmUrl}/recording/status`, {
-      method: 'GET',
-    });
+    const url = roomId
+      ? `${this.vmUrl}/recording/status?room_id=${roomId}`
+      : `${this.vmUrl}/recording/status`;
+    const response = await fetch(url, { method: 'GET' });
 
     if (!response.ok) {
       throw new Error('Failed to get recording status');
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      status: data.status,
+      roomId: data.room_id,
+      filePath: data.file_path,
+    };
   }
 }
