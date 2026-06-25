@@ -92,3 +92,71 @@ func TestStoreTerminatedIDReuse(t *testing.T) {
 		t.Fatalf("state after reuse = %s, want ready", rl.State)
 	}
 }
+
+func TestWorkerLifecycleAndReload(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rooms.json")
+	s, err := New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	w := models.WorkerRecord{
+		SFUID:          "sfu-1",
+		InstanceID:     "scw-instance-abc",
+		State:          models.WorkerProvisioning,
+		RoomID:         "room-1",
+		PublicEndpoint: "https://1.2.3.4:8080",
+		ImageTag:       "sfu:1.2.3",
+	}
+	if _, err := s.UpsertWorker(w); err != nil {
+		t.Fatal(err)
+	}
+
+	// Walk a valid path; capture CreatedAt to assert it is preserved.
+	created, _ := s.GetWorker("sfu-1")
+	w.State = models.WorkerRegistered
+	if _, err := s.UpsertWorker(w); err != nil {
+		t.Fatalf("provisioning -> registered rejected: %v", err)
+	}
+	w.State = models.WorkerReady
+	if _, err := s.UpsertWorker(w); err != nil {
+		t.Fatal(err)
+	}
+
+	// Invalid transition must be rejected.
+	bad := w
+	bad.State = models.WorkerProvisioning
+	if _, err := s.UpsertWorker(bad); err == nil {
+		t.Fatal("expected ready -> provisioning to be rejected")
+	}
+
+	// Terminate: TerminatedAt must be stamped.
+	w.State = models.WorkerTerminated
+	term, err := s.UpsertWorker(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if term.TerminatedAt == nil {
+		t.Fatal("TerminatedAt not set on termination")
+	}
+	if !term.CreatedAt.Equal(created.CreatedAt) {
+		t.Fatalf("CreatedAt not preserved: %v vs %v", term.CreatedAt, created.CreatedAt)
+	}
+
+	// Survives a restart, with all fields intact.
+	s2, err := New(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s2.GetWorker("sfu-1")
+	if !ok {
+		t.Fatal("worker not recovered from disk")
+	}
+	if got.InstanceID != "scw-instance-abc" || got.ImageTag != "sfu:1.2.3" || got.State != models.WorkerTerminated {
+		t.Fatalf("recovered worker fields wrong: %+v", got)
+	}
+
+	if _, err := s2.UpsertWorker(models.WorkerRecord{State: models.WorkerProvisioning}); err == nil {
+		t.Fatal("expected empty sfu_id to be rejected")
+	}
+}

@@ -69,6 +69,36 @@ type RoomLifecycle struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// WorkerState is the lifecycle state of an on-demand SFU media worker.
+type WorkerState string
+
+const (
+	WorkerProvisioning WorkerState = "provisioning" // Scaleway Instance create requested
+	WorkerRegistered   WorkerState = "registered"   // booted and registered, not yet healthy
+	WorkerReady        WorkerState = "ready"        // healthy, eligible for room assignment
+	WorkerUnavailable  WorkerState = "unavailable"  // missed heartbeats; no new assignments
+	WorkerDraining     WorkerState = "draining"     // scaling down; no new assignments
+	WorkerFailed       WorkerState = "failed"       // startup/health failure
+	WorkerTerminated   WorkerState = "terminated"   // Instance destroyed
+)
+
+// WorkerRecord is the persisted lifecycle record for an on-demand SFU worker.
+// It carries enough to reconcile against Scaleway and avoid orphaned billable
+// resources after a control-plane restart.
+type WorkerRecord struct {
+	SFUID          string      `json:"sfu_id"`                  // control-plane-assigned worker/SFU id
+	InstanceID     string      `json:"instance_id"`             // Scaleway Instance ID
+	State          WorkerState `json:"state"`                   // worker lifecycle state
+	RoomID         string      `json:"room_id,omitempty"`       // current room assignment, if any
+	PublicEndpoint string      `json:"public_endpoint"`         // advertised media/control URL
+	ImageTag       string      `json:"image_tag"`               // immutable SFU image tag
+	Reason         string      `json:"reason,omitempty"`        // why it entered a failed/terminated state
+	CreatedAt      time.Time   `json:"created_at"`              // creation time
+	UpdatedAt      time.Time   `json:"updated_at"`              // last state change
+	LastHeartbeat  time.Time   `json:"last_heartbeat"`          // last heartbeat time
+	TerminatedAt   *time.Time  `json:"terminated_at,omitempty"` // termination status
+}
+
 // RoomTopology represents the complete topology tree for a room
 type RoomTopology struct {
 	RoomID         string                   `json:"room_id"`
