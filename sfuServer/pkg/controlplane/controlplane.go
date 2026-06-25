@@ -12,9 +12,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
+	"whip-server/internal/lifecycle"
 	"whip-server/internal/models"
 )
 
@@ -85,6 +87,10 @@ type ControlPlane struct {
 
 	// Semaphore for limiting concurrent goroutines
 	syncSemaphore *semaphore
+
+	// Persistent room lifecycle state (provisioning/ready/failed/draining/terminated).
+	// nil if the backing store could not be opened — room state then lives only in memory.
+	roomState *lifecycle.Store
 }
 
 // Grace period before cleaning up room topology when stream ends
@@ -112,6 +118,19 @@ func NewControlPlane(maxFanout int, rebalanceThreshold float64) *ControlPlane {
 		relayCreating:      make(map[string]bool),
 		pendingCleanups:    make(map[string]*time.Timer),
 		syncSemaphore:      newSemaphore(5), // Max 5 concurrent sync operations
+	}
+
+	// Open the persistent room lifecycle store. Failure is non-fatal: the
+	// control-plane still serves traffic, just without restart-durable room state.
+	statePath := os.Getenv("CONTROL_PLANE_STATE_FILE")
+	if statePath == "" {
+		statePath = "controlplane-state/rooms.json"
+	}
+	if store, err := lifecycle.New(statePath); err != nil {
+		log.Printf("[CP] lifecycle store unavailable (%v); room state will not persist", err)
+	} else {
+		cp.roomState = store
+		log.Printf("[CP] lifecycle store %s recovered %d room(s)", statePath, len(store.List()))
 	}
 
 	// Start background tasks
@@ -897,6 +916,17 @@ func (cp *ControlPlane) CreateRoom(roomID string) (string, bool, error) {
 	}
 
 	cp.rooms[roomID] = topology
+
+	// Persist room lifecycle. Today a room only succeeds here with an ingestion
+	// SFU already assigned, so it is effectively ready; the provisioning/failed
+	// path is wired in by the cold-start room-creation work (task 5.1).
+	// ponytail: file write under cp.mu — fine at cold-start traffic; move off the
+	// lock if room-create throughput ever matters.
+	if cp.roomState != nil {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomReady, ""); err != nil {
+			log.Printf("[CP] failed to persist room %s lifecycle: %v", roomID, err)
+		}
+	}
 
 	// Synchronize room creation to all active SFUs
 	go cp.syncRoomToAllSFUs(roomID, key)

@@ -47,6 +47,28 @@ type RoomStats struct {
 	IsActive    bool `json:"is_active"` // Has active broadcaster
 }
 
+// RoomState is the lifecycle state of a room's media capacity. It is tracked
+// persistently so the control-plane can recover after a restart without
+// leaking or duplicating on-demand SFU workers.
+type RoomState string
+
+const (
+	RoomProvisioning RoomState = "provisioning"
+	RoomReady        RoomState = "ready"
+	RoomFailed       RoomState = "failed"
+	RoomDraining     RoomState = "draining"
+	RoomTerminated   RoomState = "terminated"
+)
+
+// RoomLifecycle is the persisted lifecycle record for a room.
+type RoomLifecycle struct {
+	RoomID    string    `json:"room_id"`
+	State     RoomState `json:"state"`
+	Reason    string    `json:"reason,omitempty"` // why the room entered a failed/terminated state
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // RoomTopology represents the complete topology tree for a room
 type RoomTopology struct {
 	RoomID         string                   `json:"room_id"`
