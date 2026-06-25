@@ -126,7 +126,7 @@ jobs:
   run-e2e-tests:
     name: run-e2e-tests
     runs-on: self-hosted
-    if: contains(github.event.pull_request.labels.*.name, 'run-e2e')
+    if: github.event.action == 'labeled' && github.event.label.name == 'run-e2e'
     needs: [build-front, run-tests-bakcend]
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
