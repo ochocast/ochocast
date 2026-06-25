@@ -180,6 +180,48 @@ func (s *Store) Upsert(roomID string, state models.RoomState, reason string) (mo
 	return rl, nil
 }
 
+// EnsureRoomProvisioning idempotently returns the room's lifecycle record,
+// creating it in `provisioning` only if no active record exists. created=false
+// means a retried request found an in-flight or ready room, so the caller MUST
+// NOT start a second provisioning cycle (and thus avoids a duplicate Instance).
+func (s *Store) EnsureRoomProvisioning(roomID string) (rec models.RoomLifecycle, created bool, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	prev, had := s.rooms[roomID]
+	if had && prev.State != models.RoomTerminated && prev.State != models.RoomFailed {
+		return prev, false, nil
+	}
+
+	now := time.Now().UTC()
+	rl := models.RoomLifecycle{RoomID: roomID, State: models.RoomProvisioning, CreatedAt: now, UpdatedAt: now}
+	s.rooms[roomID] = rl
+	if err := s.flush(); err != nil {
+		if had {
+			s.rooms[roomID] = prev
+		} else {
+			delete(s.rooms, roomID)
+		}
+		return models.RoomLifecycle{}, false, fmt.Errorf("persist lifecycle: %w", err)
+	}
+	return rl, true, nil
+}
+
+// WorkerForRoom returns an existing reusable worker assigned to roomID, if any.
+// "Reusable" means not failed and not terminated — i.e. it is being provisioned
+// or is serving the room — so the autoscaler reuses it instead of creating a
+// duplicate Scaleway Instance for a retried room creation.
+func (s *Store) WorkerForRoom(roomID string) (models.WorkerRecord, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, w := range s.workers {
+		if w.RoomID == roomID && w.State != models.WorkerTerminated && w.State != models.WorkerFailed {
+			return w, true
+		}
+	}
+	return models.WorkerRecord{}, false
+}
+
 // GetWorker returns the worker record for sfuID.
 func (s *Store) GetWorker(sfuID string) (models.WorkerRecord, bool) {
 	s.mu.RLock()

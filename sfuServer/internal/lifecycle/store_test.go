@@ -160,3 +160,66 @@ func TestWorkerLifecycleAndReload(t *testing.T) {
 		t.Fatal("expected empty sfu_id to be rejected")
 	}
 }
+
+func TestWorkerForRoom(t *testing.T) {
+	s, err := New(filepath.Join(t.TempDir(), "rooms.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.WorkerForRoom("room-1"); ok {
+		t.Fatal("expected no worker before any is created")
+	}
+	if _, err := s.UpsertWorker(models.WorkerRecord{SFUID: "sfu-1", RoomID: "room-1", State: models.WorkerProvisioning}); err != nil {
+		t.Fatal(err)
+	}
+	if w, ok := s.WorkerForRoom("room-1"); !ok || w.SFUID != "sfu-1" {
+		t.Fatalf("WorkerForRoom = %+v ok=%v, want sfu-1", w, ok)
+	}
+	// A terminated worker is not reusable.
+	if _, err := s.UpsertWorker(models.WorkerRecord{SFUID: "sfu-1", RoomID: "room-1", State: models.WorkerTerminated}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.WorkerForRoom("room-1"); ok {
+		t.Fatal("terminated worker must not be reusable")
+	}
+}
+
+func TestEnsureRoomProvisioningIdempotent(t *testing.T) {
+	s, err := New(filepath.Join(t.TempDir(), "rooms.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rl, created, err := s.EnsureRoomProvisioning("room-1")
+	if err != nil || !created || rl.State != models.RoomProvisioning {
+		t.Fatalf("first ensure: created=%v state=%s err=%v", created, rl.State, err)
+	}
+
+	// Retry while provisioning is in flight: must reuse, not recreate.
+	rl2, created2, err := s.EnsureRoomProvisioning("room-1")
+	if err != nil || created2 {
+		t.Fatalf("retry should reuse: created=%v err=%v", created2, err)
+	}
+	if !rl2.CreatedAt.Equal(rl.CreatedAt) {
+		t.Fatal("retry returned a different record")
+	}
+
+	// Once ready, still no new provisioning cycle.
+	if _, err := s.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, created3, _ := s.EnsureRoomProvisioning("room-1"); created3 {
+		t.Fatal("ready room must not be re-provisioned")
+	}
+
+	// After termination, the same id may provision afresh.
+	if _, err := s.Upsert("room-1", models.RoomDraining, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Upsert("room-1", models.RoomTerminated, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, created4, _ := s.EnsureRoomProvisioning("room-1"); !created4 {
+		t.Fatal("terminated room id should provision afresh")
+	}
+}
