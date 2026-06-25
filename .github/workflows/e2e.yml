@@ -1,0 +1,58 @@
+name: E2E tests
+
+on:
+  pull_request:
+    types: [labeled]
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  run-e2e-tests:
+    name: run-e2e-tests
+    runs-on: self-hosted
+    # Only run when the exact label 'run-e2e' is added
+    if: github.event.label.name == 'run-e2e'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+      - name: Install dependencies (root)
+        run: npm ci
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+      - name: Cache Playwright Browsers
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      - name: Install Playwright Browsers
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
+        # Do NOT use --with-deps: system dependencies must be installed once
+        # on the self-hosted runner via: npx playwright install-deps
+        run: npx playwright install
+      - name: Start Docker Services
+        run: |
+          cd dev-tools
+          docker compose up -d
+      - name: Wait for Keycloak
+        run: npx wait-on http://localhost:8080/realms/local-realm -t 60000
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          PLAYWRIGHT_TEST_USER: "test-user"
+          PLAYWRIGHT_TEST_PASSWORD: "test-password"
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
