@@ -743,7 +743,7 @@
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
-      "secret": "oBLaekVuypy1RKK5uAXULEw5LKUzPBms",
+      "secret": "this-is-a-local-keycloak-secret",
       "redirectUris": [
         "http://localhost:3001/*"
       ],

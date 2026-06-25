@@ -51,7 +51,7 @@ To configure the Nest-Back client, follow these steps:
 6. Under "Flow ", select "Implicit Flow" and set to "off" Standard flow.
 7. Under "Root URL" and "Home URL", add `http://localhost:3001`.
 8. Click on the "Save" button to save your changes.
-9. Click on the "Credentials" tab of the client, copy the secret and paste it in yout .env file under "AUTH_SECRET" of the backend.
+9. The client secret is already pre-configured to `this-is-a-local-keycloak-secret` (matches the value in `backend/.env.example`).
 
 ## Creating a User
 
