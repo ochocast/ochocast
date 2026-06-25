@@ -88,6 +88,15 @@ const TrackSettings: FC = () => {
       const data = await response.json();
       if (data.exists && data.whip_url) {
         setSfuUrl(data.whip_url);
+        if (data.room_id) {
+          setSfuRoomId(data.room_id);
+          try {
+            const key = new URL(data.whip_url).searchParams.get('key');
+            if (key) setSfuRoomKey(key);
+          } catch (_) {
+            // invalid whip_url, key stays null
+          }
+        }
       } else {
         setSfuUrl('');
       }
