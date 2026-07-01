@@ -194,6 +194,25 @@ export class TranscodingService {
   }
 
   /**
+   * Extract audio track to WAV format
+   */
+  async extractAudioWav(inputPath: string, outputPath: string): Promise<void> {
+    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
+      '-y',
+      '-i',
+      inputPath,
+      '-vn',
+      '-acodec',
+      'pcm_s16le',
+      '-ar',
+      '44100',
+      '-ac',
+      '2',
+      outputPath,
+    ]);
+  }
+
+  /**
    * Process miniature/thumbnail
    */
   async processMiniature(
@@ -284,6 +303,7 @@ export class TranscodingService {
     const tempInputPath = path.join(tmpdir(), `${job.jobId}-input.mp4`);
     const hlsOutputDir = path.join(tmpdir(), `${job.jobId}-hls`);
     const tempMiniaturePath = path.join(tmpdir(), `${job.jobId}-miniature.jpg`);
+    const tempAudioPath = path.join(tmpdir(), `${job.jobId}-audio.wav`);
 
     try {
       console.log(`\nStarting transcoding job: ${job.jobId}`);
@@ -306,6 +326,25 @@ export class TranscodingService {
 
       // Upload HLS files
       await this.uploadHLSFiles(hlsOutputDir, job.videoId);
+
+      // Extract and upload WAV audio when the source has an audio track
+      const hasAudioTrack = await this.hasAudio(tempInputPath);
+      const audioKey = `${job.videoId}/audio.wav`;
+      if (hasAudioTrack) {
+        await this.extractAudioWav(tempInputPath, tempAudioPath);
+        const audioContent = await readFile(tempAudioPath);
+        await new Upload({
+          client: this.s3Client,
+          params: {
+            Bucket: S3_CONFIG.mediaBucket,
+            Key: audioKey,
+            Body: audioContent,
+            ContentType: 'audio/wav',
+            CacheControl: 'max-age=31536000',
+          },
+        }).done();
+        console.log(`WAV audio uploaded: ${audioKey}`);
+      }
 
       // Process and upload miniature
       await this.processMiniature(
@@ -364,7 +403,12 @@ export class TranscodingService {
       );
 
       // Cleanup temporary files
-      await this.cleanup([tempInputPath, tempMiniaturePath, hlsOutputDir]);
+      await this.cleanup([
+        tempInputPath,
+        tempMiniaturePath,
+        tempAudioPath,
+        hlsOutputDir,
+      ]);
 
       console.log(`Job completed successfully: ${job.jobId}\n`);
 
@@ -379,7 +423,12 @@ export class TranscodingService {
       console.error(`Job failed: ${job.jobId}`, error);
 
       // Cleanup on error
-      await this.cleanup([tempInputPath, tempMiniaturePath, hlsOutputDir]);
+      await this.cleanup([
+        tempInputPath,
+        tempMiniaturePath,
+        tempAudioPath,
+        hlsOutputDir,
+      ]);
 
       return {
         jobId: job.jobId,
