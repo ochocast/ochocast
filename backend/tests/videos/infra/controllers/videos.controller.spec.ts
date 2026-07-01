@@ -147,12 +147,15 @@ describe('VideosController - getVideosSuggestions', () => {
       {} as any,
     );
 
-    const result = await mediaController.getMedia('video-1', {
-      protocol: 'http',
-      originalUrl: '/api/videos/media/video-1',
-      get: (header: string) =>
-        header.toLowerCase() === 'host' ? 'localhost:3001' : undefined,
-    } as any);
+    const result = await mediaController.getMedia(
+      '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+      {
+        protocol: 'http',
+        originalUrl: '/api/videos/media/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        get: (header: string) =>
+          header.toLowerCase() === 'host' ? 'localhost:3001' : undefined,
+      } as any,
+    );
 
     expect(result).toBe(
       'http://localhost:3001/api/videos/media-content/video-1/master.m3u8',
