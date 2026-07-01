@@ -24,6 +24,13 @@ jobs:
           cache: "npm"
       - name: Install dependencies (root)
         run: npm ci
+      - name: Setup local env files
+        run: |
+          cp frontend/.env.example frontend/.env
+          cp backend/.env.example backend/.env
+      - name: Clean up stale processes on ports 3000 and 3001
+        run: |
+          npx kill-port 3000 3001 || true
       - name: Get Playwright version
         id: playwright-version
         run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
