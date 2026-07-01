@@ -16,7 +16,7 @@ jobs:
         working-directory: .
     steps:
       - name: Force clean postgres-data
-        run: sudo rm -rf $GITHUB_WORKSPACE/dev-tools/database/postgres-data || true
+        run: docker run --rm -v $GITHUB_WORKSPACE:/workspace alpine rm -rf /workspace/dev-tools/database/postgres-data || true
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Show working directory
         run: pwd
@@ -43,7 +43,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: Force clean postgres-data
-        run: sudo rm -rf $GITHUB_WORKSPACE/dev-tools/database/postgres-data || true
+        run: docker run --rm -v $GITHUB_WORKSPACE:/workspace alpine rm -rf /workspace/dev-tools/database/postgres-data || true
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Use Node.js 20.x
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -63,7 +63,7 @@ jobs:
         working-directory: backend
     steps:
       - name: Force clean postgres-data
-        run: sudo rm -rf $GITHUB_WORKSPACE/dev-tools/database/postgres-data || true
+        run: docker run --rm -v $GITHUB_WORKSPACE:/workspace alpine rm -rf /workspace/dev-tools/database/postgres-data || true
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Build backend Docker image
         run: docker build -t temp-backend:latest .
@@ -77,7 +77,7 @@ jobs:
         working-directory: backend
     steps:
       - name: Force clean postgres-data
-        run: sudo rm -rf $GITHUB_WORKSPACE/dev-tools/database/postgres-data || true
+        run: docker run --rm -v $GITHUB_WORKSPACE:/workspace alpine rm -rf /workspace/dev-tools/database/postgres-data || true
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Use Node.js 20
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -99,7 +99,7 @@ jobs:
         working-directory: backend
     steps:
       - name: Force clean postgres-data
-        run: sudo rm -rf $GITHUB_WORKSPACE/dev-tools/database/postgres-data || true
+        run: docker run --rm -v $GITHUB_WORKSPACE:/workspace alpine rm -rf /workspace/dev-tools/database/postgres-data || true
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Use Node.js 20
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
