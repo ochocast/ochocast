@@ -4,7 +4,10 @@
 // stay swappable and the autoscaler is testable against a fake.
 package provider
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // WorkerSpec is the provider-neutral request to create one on-demand SFU worker.
 type WorkerSpec struct {
@@ -20,6 +23,7 @@ type Worker struct {
 	PublicIP           string            // advertised public address; "" until the cloud assigns one
 	State              string            // provider-native instance state (e.g. "running", "starting")
 	Tags               []string          // tags currently on the resource
+	CreatedAt          time.Time         // when the cloud created the resource; zero if unknown
 	Metadata           map[string]string // provider-specific extras (zone, ...)
 }
 

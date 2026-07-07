@@ -177,6 +177,9 @@ func toWorker(s *instance.Server) provider.Worker {
 		Tags:               s.Tags,
 		Metadata:           map[string]string{"zone": s.Zone.String()},
 	}
+	if s.CreationDate != nil {
+		w.CreatedAt = *s.CreationDate
+	}
 	for _, ip := range s.PublicIPs {
 		if ip != nil && ip.Address != nil {
 			w.PublicIP = ip.Address.String()

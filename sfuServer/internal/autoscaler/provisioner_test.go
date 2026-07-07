@@ -194,6 +194,54 @@ func TestReconcileVanishedAndOrphan(t *testing.T) {
 	}
 }
 
+func TestCleanupOrphans(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, _ := newTestProvisioner(t, fake, 2)
+
+	// A tracked worker (record + cloud) must never be cleaned up.
+	tracked, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A tagged orphan with no record.
+	orphan, err := fake.CreateWorker(ctx, provider.WorkerSpec{Tags: []string{"sfu-worker"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Young orphan: below OrphanMaxAge, left alone.
+	if n, err := p.CleanupOrphans(ctx); err != nil || n != 0 {
+		t.Fatalf("young orphan: deleted=%d err=%v, want 0", n, err)
+	}
+	if fake.Count() != 2 {
+		t.Fatalf("nothing should have been deleted yet: count=%d", fake.Count())
+	}
+
+	// Advance past the orphan max age: the orphan is deleted, the tracked worker
+	// survives (it has a live record, so it is not an orphan).
+	p.now = func() time.Time { return time.Now().Add(defaultOrphanMaxAge + time.Hour) }
+	n, err := p.CleanupOrphans(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("aged orphan: deleted=%d err=%v, want 1", n, err)
+	}
+	if _, err := fake.GetWorker(ctx, orphan.ProviderResourceID); err == nil {
+		t.Fatal("orphan not deleted")
+	}
+	if _, err := fake.GetWorker(ctx, tracked.ProviderResourceID); err != nil {
+		t.Fatalf("tracked worker was wrongly deleted: %v", err)
+	}
+
+	// An untagged resource is never deleted, however old.
+	untagged, _ := fake.CreateWorker(ctx, provider.WorkerSpec{Tags: []string{"something-else"}})
+	if n, _ := p.CleanupOrphans(ctx); n != 0 {
+		t.Fatalf("untagged resource must not be deleted: deleted=%d", n)
+	}
+	if _, err := fake.GetWorker(ctx, untagged.ProviderResourceID); err != nil {
+		t.Fatal("untagged resource was deleted")
+	}
+}
+
 func TestEnsureCapacityReprovisionsAfterTerminate(t *testing.T) {
 	ctx := context.Background()
 	fake := provider.NewFake()

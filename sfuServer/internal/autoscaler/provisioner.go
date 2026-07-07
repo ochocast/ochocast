@@ -28,6 +28,10 @@ var ErrBudgetExceeded = errors.New("autoscaler: worker budget exceeded")
 // worker that has not become ready within this window is failed and destroyed.
 const defaultStartupTimeout = 8 * time.Minute
 
+// defaultOrphanMaxAge is how old a tagged-but-untracked resource must be before
+// orphan cleanup deletes it (design.md:109).
+const defaultOrphanMaxAge = 2 * time.Hour
+
 // Config configures a Provisioner.
 type Config struct {
 	// MaxWorkers caps the number of live (non-terminal) workers per environment.
@@ -36,6 +40,11 @@ type Config struct {
 	// StartupTimeout is how long a worker may stay in a starting state before it
 	// is failed and destroyed. Defaults to 8 minutes (design.md:109).
 	StartupTimeout time.Duration
+	// OrphanMaxAge is how old an untracked-but-tagged cloud resource must be
+	// before orphan cleanup deletes it. The grace avoids destroying a newborn
+	// worker whose record has not been persisted yet. Defaults to 2h
+	// (design.md:109).
+	OrphanMaxAge time.Duration
 	// ImageTag is the immutable SFU image tag recorded on each worker.
 	ImageTag string
 	// Tags are billing/cleanup tags applied to every created cloud resource.
@@ -75,6 +84,9 @@ func New(store *lifecycle.Store, prov provider.Provider, cfg Config) *Provisione
 	}
 	if cfg.StartupTimeout <= 0 {
 		cfg.StartupTimeout = defaultStartupTimeout
+	}
+	if cfg.OrphanMaxAge <= 0 {
+		cfg.OrphanMaxAge = defaultOrphanMaxAge
 	}
 	if cfg.ManagedTag == "" {
 		cfg.ManagedTag = "sfu-worker"
@@ -291,6 +303,34 @@ func (p *Provisioner) Reconcile(ctx context.Context) (ReconcileResult, error) {
 		}
 	}
 	return res, nil
+}
+
+// CleanupOrphans reconciles, then destroys tagged cloud resources that have no
+// live record and are older than OrphanMaxAge. Deletion is doubly guarded: the
+// resource must carry the managed tag (untagged resources are never deleted —
+// task 4.5) and a resource of unknown age is left alone. Returns the number
+// deleted.
+func (p *Provisioner) CleanupOrphans(ctx context.Context) (int, error) {
+	res, err := p.Reconcile(ctx)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, o := range res.Orphans {
+		// Safety: only ever delete resources we own and that are old enough.
+		if !contains(o.Tags, p.cfg.ManagedTag) {
+			continue
+		}
+		if o.CreatedAt.IsZero() || p.now().Sub(o.CreatedAt) < p.cfg.OrphanMaxAge {
+			continue
+		}
+		if err := p.prov.DeleteWorker(ctx, o.ProviderResourceID); err != nil {
+			log.Printf("[autoscaler] delete orphan %s: %v", o.ProviderResourceID, err)
+			continue
+		}
+		deleted++
+	}
+	return deleted, nil
 }
 
 // contains reports whether s is in xs.

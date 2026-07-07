@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // Fake is an in-memory Provider for tests. It records created workers, lets a
@@ -36,6 +37,7 @@ func (f *Fake) CreateWorker(_ context.Context, spec WorkerSpec) (Worker, error) 
 		ProviderResourceID: id,
 		State:              "starting",
 		Tags:               spec.Tags,
+		CreatedAt:          time.Now(),
 		Metadata:           map[string]string{"name": spec.Name},
 	}
 	f.workers[id] = w
