@@ -1,274 +1,196 @@
+import { Inject } from '@nestjs/common';
+import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
+import { v4 as uuid } from 'uuid';
+import * as path from 'path';
 import { CreateVideoDto } from '../../infra/controllers/dto/create-video.dto';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
-import { v4 as uuid } from 'uuid';
-import { Inject } from '@nestjs/common';
-import { S3Client } from '@aws-sdk/client-s3';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
-import { Upload } from '@aws-sdk/lib-storage';
-import * as ffmpeg from 'fluent-ffmpeg';
-import * as ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
-import * as ffprobeInstaller from '@ffprobe-installer/ffprobe';
-import { writeFile, readFile, unlink } from 'node:fs/promises';
-import * as path from 'path';
-import { tmpdir } from 'os';
-import * as sharp from 'sharp';
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
+import { QueueService } from 'src/queue/queue.service';
+import { VideoTranscodingJob } from 'src/queue/job.types';
 
 export class CreateNewVideoUsecase {
   constructor(
-    @Inject('VideoGateway')
-    private videoGateway: IVideoGateway,
-    @Inject('s3Client')
-    private s3Client: S3Client,
+    @Inject('VideoGateway') private readonly videoGateway: IVideoGateway,
+    @Inject('s3Client') private readonly s3Client: S3Client,
+    private readonly queueService: QueueService,
   ) {}
 
   async execute(
     videoToCreate: CreateVideoDto,
     file: Express.Multer.File,
-    miniatureFile: Express.Multer.File,
+    miniatureFile?: Express.Multer.File,
     subtitleFile?: Express.Multer.File,
   ): Promise<VideoObject> {
-    if (!file || !file.buffer) {
+    if (!file?.buffer) {
       throw new Error('Missing video file in upload payload');
     }
 
+    const videoId = uuid();
+    const now = Date.now();
+    const originalExtension =
+      path
+        .extname(file.originalname)
+        .toLowerCase()
+        .replace(/[^.a-z0-9]/g, '') || '.video';
+    const originalKey = `${videoId}/source/original${originalExtension}`;
+    const miniatureSourceKey = miniatureFile
+      ? `${videoId}/source/miniature-original`
+      : undefined;
+    const miniatureId = `miniature-${videoId}.jpg`;
+
+    const subtitle = this.prepareSubtitle(subtitleFile, videoId);
     const creator =
       typeof videoToCreate.creator === 'string'
         ? ({ id: videoToCreate.creator } as any)
         : videoToCreate.creator;
 
-    const parsedBaseName = path.parse(videoToCreate.media_id || '').name;
-    const sanitizedBaseName = parsedBaseName
-      .replace(/[^a-zA-Z0-9._-]/g, '_')
-      .replace(/^_+|_+$/g, '');
-    const baseName = sanitizedBaseName || 'video';
-    const media_id = Date.now() + '.' + baseName + '.mp4';
-    const miniature_id = `miniature${Date.now()}.jpg`;
-    let subtitle_id: string | undefined;
-
-    // We'll generate subtitle_id after conversion in the upload section
-
     const video = new VideoObject(
-      uuid(),
-      media_id,
-      miniature_id,
+      videoId,
+      `${videoId}/master.m3u8`,
+      miniatureId,
       videoToCreate.title,
       videoToCreate.description,
       videoToCreate.tags,
       creator,
-      new Date(Date.now()),
-      new Date(Date.now()),
+      new Date(now),
+      new Date(now),
       videoToCreate.internal_speakers,
       videoToCreate.external_speakers,
       0,
       [new CommentEntity(null)],
       false,
-      subtitle_id,
+      subtitle?.id,
+      undefined,
+      'pending',
     );
-    const tempInputPath = path.join(tmpdir(), `${uuid()}-input`);
-    const tempOutputPath = path.join(tmpdir(), `${uuid()}-transcoded.mp4`);
 
-    let mediaBuffer: Buffer = file.buffer;
-    let thumbnailSourcePath = tempInputPath;
-
-    await writeFile(tempInputPath, file.buffer);
-
+    const uploadedObjects: Array<{ bucket: string; key: string }> = [];
     try {
-      // Extract video duration before transcoding
-      const videoDuration = await getVideoDuration(tempInputPath);
-      video.duration = videoDuration;
-
-      await transcodeVideo(tempInputPath, tempOutputPath);
-
-      mediaBuffer = await readFile(tempOutputPath);
-      thumbnailSourcePath = tempOutputPath;
-    } catch (error) {
-      console.error(
-        'Video transcoding failed, uploading original file:',
-        error,
+      await this.upload(
+        process.env.STOCK_MEDIA_BUCKET,
+        originalKey,
+        file.buffer,
+        file.mimetype || 'application/octet-stream',
       );
-    }
+      uploadedObjects.push({
+        bucket: process.env.STOCK_MEDIA_BUCKET,
+        key: originalKey,
+      });
 
-    const upload = new Upload({
-      client: this.s3Client,
-      params: {
-        Bucket: process.env.STOCK_MEDIA_BUCKET,
-        Key: video.media_id,
-        Body: mediaBuffer,
-        ContentType: 'video/mp4',
-        ContentDisposition: 'inline',
-        CacheControl: 'max-age=31536000',
-      },
-    });
+      if (miniatureFile && miniatureSourceKey) {
+        await this.upload(
+          process.env.STOCK_MINIATURE_BUCKET,
+          miniatureSourceKey,
+          miniatureFile.buffer,
+          miniatureFile.mimetype || 'application/octet-stream',
+        );
+        uploadedObjects.push({
+          bucket: process.env.STOCK_MINIATURE_BUCKET,
+          key: miniatureSourceKey,
+        });
+      }
 
-    const video_result = await upload.done();
+      if (subtitle) {
+        await this.upload(
+          process.env.STOCK_MEDIA_BUCKET,
+          subtitle.sourceKey,
+          subtitle.buffer,
+          'text/vtt',
+        );
+        uploadedObjects.push({
+          bucket: process.env.STOCK_MEDIA_BUCKET,
+          key: subtitle.sourceKey,
+        });
+      }
 
-    const tempMiniaturePath = path.join(tmpdir(), `miniature-${uuid()}.jpg`);
+      const savedVideo = await this.videoGateway.createNewVideo(video);
+      const job: VideoTranscodingJob = {
+        jobId: uuid(),
+        videoId,
+        originalFileName: file.originalname,
+        originalKey,
+        miniatureSourceKey,
+        subtitleSourceKey: subtitle?.sourceKey,
+        media_id: video.media_id,
+        miniature_id: video.miniature_id,
+        subtitle_id: video.subtitle_id,
+        title: video.title,
+        timestamp: now,
+      };
 
-    if (miniatureFile) {
-      await sharp(miniatureFile.buffer)
-        .resize(1280, 720, {
-          fit: 'cover',
-          position: 'center',
-        })
-        .jpeg({ quality: 80 })
-        .toFile(tempMiniaturePath);
-    } else {
-      await generateThumbnailFromVideo(thumbnailSourcePath, tempMiniaturePath);
-    }
+      try {
+        await this.queueService.publishJob(job);
+      } catch (error) {
+        const failureMessage =
+          error instanceof Error ? error.message : String(error);
+        video.transcoding_status = 'failed';
+        video.transcoding_error = failureMessage;
+        savedVideo.transcoding_status = 'failed';
+        savedVideo.transcoding_error = failureMessage;
+        await this.videoGateway.modifyVideo(savedVideo);
+        throw error;
+      }
 
-    // Upload subtitle file if provided
-    if (subtitleFile) {
-      // Validate subtitle file format
-      const allowedExtensions = ['.srt', '.vtt'];
-      const subtitleExtension = path
-        .extname(subtitleFile.originalname)
-        .toLowerCase();
-
-      if (!allowedExtensions.includes(subtitleExtension)) {
-        throw new Error(
-          `Invalid subtitle format. Allowed formats: ${allowedExtensions.join(', ')}`,
+      return savedVideo;
+    } catch (error) {
+      if (video.transcoding_status !== 'failed') {
+        await Promise.allSettled(
+          uploadedObjects.map(({ bucket, key }) =>
+            this.s3Client.send(
+              new DeleteObjectCommand({ Bucket: bucket, Key: key }),
+            ),
+          ),
         );
       }
-
-      // Validate UTF-8 encoding and convert SRT to VTT if needed
-      let subtitleContent: Buffer;
-      try {
-        const decoded = subtitleFile.buffer.toString('utf-8');
-        // If the file is .srt, convert to WebVTT since browsers require VTT for <track>
-        if (subtitleExtension === '.srt') {
-          console.log('Converting SRT to VTT format...');
-          const converted = convertSrtToVtt(decoded);
-          subtitleContent = Buffer.from(converted, 'utf-8');
-          subtitle_id = `subtitle${Date.now()}.vtt`;
-        } else {
-          // .vtt already - but ensure it has WEBVTT header
-          const normalized = decoded.trim();
-          if (!normalized.startsWith('WEBVTT')) {
-            console.log('Adding WEBVTT header to VTT file...');
-            subtitleContent = Buffer.from('WEBVTT\n\n' + normalized, 'utf-8');
-          } else {
-            subtitleContent = Buffer.from(normalized, 'utf-8');
-          }
-          subtitle_id = `subtitle${Date.now()}.vtt`;
-        }
-      } catch (error) {
-        throw new Error('Subtitle file must be encoded in UTF-8');
-      }
-
-      const subtitleUpload = new Upload({
-        client: this.s3Client,
-        params: {
-          Bucket: process.env.STOCK_MEDIA_BUCKET,
-          Key: subtitle_id,
-          Body: subtitleContent,
-          ContentType: 'text/vtt',
-          ContentDisposition: 'inline',
-          CacheControl: 'max-age=31536000',
-        },
-      });
-      await subtitleUpload.done();
-
-      // Attach generated subtitle_id to the VideoObject
-      if (subtitle_id) {
-        video.subtitle_id = subtitle_id;
-      }
-      console.log(`✅ Subtitle uploaded: ${subtitle_id}`);
+      throw error;
     }
-    const miniatureUpload = new Upload({
+  }
+
+  private async upload(
+    bucket: string,
+    key: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<void> {
+    await new Upload({
       client: this.s3Client,
       params: {
-        Bucket: process.env.STOCK_MINIATURE_BUCKET,
-        Key: video.miniature_id,
-        Body: await readFile(tempMiniaturePath),
-        ContentType: 'image/jpeg',
+        Bucket: bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
       },
-    });
-    const miniature_result = await miniatureUpload.done();
-    await unlink(tempMiniaturePath).catch(() => {});
-
-    await unlink(tempInputPath).catch(() => {});
-    await unlink(tempOutputPath).catch(() => {});
-
-    await this.videoGateway.createNewVideo(video);
-    return video;
+    }).done();
   }
-}
 
-async function transcodeVideo(
-  inputPath: string,
-  outputPath: string,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const command = ffmpeg(inputPath)
-      .videoCodec('libx264')
-      .outputOptions(['-preset fast', '-crf 23', '-movflags +faststart'])
-      .format('mp4')
-      .output(outputPath)
-      .on('end', () => {
-        resolve();
-      })
-      .on('error', (err) => {
-        reject(err);
-      });
-    command.run();
-  });
-}
+  private prepareSubtitle(
+    file: Express.Multer.File | undefined,
+    videoId: string,
+  ): { id: string; sourceKey: string; buffer: Buffer } | undefined {
+    if (!file) return undefined;
+    const extension = path.extname(file.originalname).toLowerCase();
+    if (!['.srt', '.vtt'].includes(extension)) {
+      throw new Error('Invalid subtitle format. Allowed formats: .srt, .vtt');
+    }
 
-async function getVideoDuration(inputPath: string): Promise<number> {
-  return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(inputPath, (err, metadata) => {
-      if (err) {
-        reject(err);
-      } else {
-        const duration = metadata.format.duration || 0;
-        resolve(duration);
-      }
-    });
-  });
-}
-
-/**
- * Simple SRT -> WebVTT converter.
- * - ensures the file starts with WEBVTT header
- * - replaces comma decimals in timecodes with dots
- * - preserves other lines
- */
-function convertSrtToVtt(srt: string): string {
-  // normalize CRLF
-  const normalized = srt.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  // replace timestamps like 00:00:01,500 --> 00:00:03,000 to use dot decimals
-  const convertedTimestamps = normalized.replace(
-    /(\d{2}:\d{2}:\d{2}),(\d{3})/g,
-    '$1.$2',
-  );
-  // Prepend WEBVTT header if not present
-  if (!/^WEBVTT/m.test(convertedTimestamps)) {
-    return 'WEBVTT\n\n' + convertedTimestamps.trim() + '\n';
+    const decoded = file.buffer.toString('utf8').replace(/^\uFEFF/, '');
+    const normalized = decoded.replace(/\r\n?/g, '\n').trim();
+    const vtt =
+      extension === '.srt'
+        ? `WEBVTT\n\n${normalized.replace(
+            /(\d{2}:\d{2}:\d{2}),(\d{3})/g,
+            '$1.$2',
+          )}\n`
+        : normalized.startsWith('WEBVTT')
+          ? `${normalized}\n`
+          : `WEBVTT\n\n${normalized}\n`;
+    const id = `subtitle-${videoId}.vtt`;
+    return {
+      id,
+      sourceKey: `${videoId}/source/${id}`,
+      buffer: Buffer.from(vtt, 'utf8'),
+    };
   }
-  return convertedTimestamps;
-}
-
-async function generateThumbnailFromVideo(
-  inputPath: string,
-  outputPath: string,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
-      .screenshots({
-        timestamps: ['0'],
-        filename: path.basename(outputPath),
-        folder: path.dirname(outputPath),
-        size: '1280x720',
-      })
-      .on('end', () => {
-        resolve();
-      })
-      .on('error', (err) => {
-        reject(err);
-      });
-  });
 }

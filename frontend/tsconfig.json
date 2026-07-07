@@ -29,5 +29,6 @@
   "include": [
     "src/**/*",
     ".storybook/**/*",
+    "public/env-config.js",
   ]
 }

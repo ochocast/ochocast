@@ -14,6 +14,8 @@ export interface Video {
   tags: Tag_video[];
   archived?: boolean;
   duration?: number;
+  transcoding_status?: 'pending' | 'ready' | 'failed';
+  transcoding_error?: string;
 }
 
 export interface User {

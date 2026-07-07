@@ -95,6 +95,15 @@ export class VideoObject {
   duration?: number;
 
   @ApiProperty({
+    enum: ['pending', 'ready', 'failed'],
+    description: 'Current state of the asynchronous transcoding job.',
+  })
+  transcoding_status?: 'pending' | 'ready' | 'failed';
+
+  @ApiProperty({ required: false })
+  transcoding_error?: string;
+
+  @ApiProperty({
     example:
       '[ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2, d2b3-ad1b1aa3-a511bcbe27a2-4041-bfe9]',
     description: 'The comments on the video.',
@@ -125,6 +134,8 @@ export class VideoObject {
     archived: boolean,
     subtitle_id?: string,
     duration?: number,
+    transcoding_status: 'pending' | 'ready' | 'failed' = 'ready',
+    transcoding_error?: string,
   ) {
     this.id = id;
     this.media_id = media_id;
@@ -142,6 +153,8 @@ export class VideoObject {
     this.comments = comments;
     this.archived = archived;
     this.duration = duration;
+    this.transcoding_status = transcoding_status;
+    this.transcoding_error = transcoding_error;
   }
 }
 

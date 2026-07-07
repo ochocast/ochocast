@@ -497,11 +497,16 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     saveToLocalStorage('tags', newTags);
   };
 
+  const getVideosMatchingTitle = async () => {
+    const response = await getVideoByTitle(title);
+    return Array.isArray(response.data) ? response.data : [];
+  };
+
   const publishVideo = async () => {
     const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi'];
     const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     const accepted_subtitle_formats = ['srt', 'vtt'];
-    const list_by_title = (await getVideoByTitle(title)).data;
+    const list_by_title = await getVideosMatchingTitle();
 
     let err = '';
     if (media === undefined) err += '- ' + t('missingVideoFile') + '\n';
@@ -653,7 +658,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     const accepted_media_formats = ['mp4', 'mkv', 'mov', 'avi'];
     const accepted_minature_formats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     const accepted_subtitle_formats = ['srt', 'vtt'];
-    const list_by_title = (await getVideoByTitle(title)).data;
+    const list_by_title = await getVideosMatchingTitle();
 
     let err = '';
     if (baseVideo?.media_id === undefined && media === undefined)

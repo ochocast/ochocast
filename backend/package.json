@@ -29,8 +29,6 @@
     "migration:show": "npm run typeorm -- migration:show -d ./src/config/typeorm.config.ts"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@ffprobe-installer/ffprobe": "^2.1.2",
     "@nestjs/common": "^11.1.19",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.19",
@@ -40,10 +38,10 @@
     "@nestjs/swagger": "^11.3.0",
     "@nestjs/typeorm": "^11.0.1",
     "@nestjs/websockets": "^11.1.19",
+    "amqplib": "^0.10.9",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "crypto": "^1.0.1",
-    "fluent-ffmpeg": "^2.1.3",
     "keycloak-connect": "24.0.1",
     "nest-keycloak-connect": "2.0.0-alpha.3",
     "pg": "^8.11.3",
@@ -67,6 +65,7 @@
     "@types/express-serve-static-core": "^4.19.5",
     "@types/jest": "^29.5.2",
     "@types/multer": "^1.4.11",
+    "@types/amqplib": "^0.10.8",
     "@types/node": "^20.3.1",
     "@types/supertest": "^2.0.12",
     "@typescript-eslint/eslint-plugin": "^8.58.2",
