@@ -118,4 +118,3 @@ jobs:
       - name: Run unit tests
         run: |
           npm test
-          
