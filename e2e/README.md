@@ -1,59 +1,59 @@
-# Tests End-to-End (E2E) - Playwright
+# End-to-End (E2E) Testing - Playwright
 
-Ce dossier contient la configuration et les tests End-to-End pour l'application **Ochocast**. 
+This folder contains the configuration and End-to-End tests for the **Ochocast** application.
 
-Les tests E2E permettent de simuler des parcours utilisateurs complets en contrôlant de vrais navigateurs (Chromium, Firefox, WebKit).
+E2E tests simulate complete user journeys by controlling real browsers (Chromium, Firefox, WebKit).
 
 ---
 
-## 🚀 Lancement des tests
+## 🚀 Running the tests
 
-### En local (ligne de commande)
+### Locally (command line)
 ```bash
 npm run test:e2e
 ```
 
-### En local (Mode UI interactif)
-Recommandé pour le développement et le débogage. Ouvre une interface graphique montrant les étapes pas à pas :
+### Locally (Interactive UI Mode)
+Recommended for development and debugging. Opens a graphical interface showing step-by-step execution:
 ```bash
 npm run test:e2e:ui
 ```
 
-### Enregistrer un nouveau test (Codegen)
-Génère le code du test automatiquement en enregistrant vos clics et frappes au clavier dans le navigateur :
+### Record a new test (Codegen)
+Automatically generates the test code by recording your clicks and keystrokes in the browser:
 ```bash
 npx playwright codegen http://localhost:3000
 ```
 
-### Lancer un test spécifique (mode headed)
-Pour lancer uniquement un fichier de test en particulier (ex: le setup d'authentification) avec le navigateur visible :
+### Run a specific test (headed mode)
+To run only a specific test file (e.g., the authentication setup) with the browser visible:
 ```bash
 npx playwright test e2e/auth.setup.ts --headed
 ```
 
 ---
 
-## 🔒 Gestion de l'Authentification (Keycloak)
+## 🔒 Authentication Management (Keycloak)
 
-Pour optimiser le temps d'exécution et éviter le coût d'une connexion complète à Keycloak pour chaque fichier de test, nous utilisons la fonctionnalité **Global Setup** de Playwright :
+To optimize execution time and avoid the overhead of a full Keycloak login for each test file, we use Playwright's **Global Setup** feature:
 
-1. Le script [auth.setup.ts](file:///Users/tbriens/Documents/epita/ochocast/e2e/auth.setup.ts) se lance en premier.
-2. Il navigue sur la page d'accueil de Ochocast, clique sur le bouton de connexion, renseigne les identifiants de test, et attend d'être redirigé.
-3. Il sauvegarde l'état de la session (cookies et localStorage) dans le fichier temporaire `playwright/.auth/user.json`.
-4. Tous les tests se situant dans `e2e/tests` chargent automatiquement cet état et démarrent directement connectés.
+1. The [auth.setup.ts](file:///Users/tbriens/Documents/epita/pae/ochocast/e2e/auth.setup.ts) script runs first.
+2. It navigates to the Ochocast home page, clicks the login button, enters the test credentials, and waits to be redirected.
+3. It saves the session state (cookies and localStorage) to the temporary file `playwright/.auth/user.json`.
+4. All tests in `e2e/tests` automatically load this state and start in an authenticated state.
 
-### Prérequis Keycloak en local
-Par défaut, le conteneur Keycloak importé localement ne contient pas d'utilisateur de test pré-configuré. Avant de lancer les tests, assurez-vous d'avoir créé un utilisateur de test dans votre Keycloak local (http://localhost:8080) dans le realm `local-realm` et d'avoir configuré les variables d'environnement suivantes ou de modifier le fichier `auth.setup.ts` :
+### Keycloak Requirements Locally
+By default, the locally imported Keycloak container does not contain a pre-configured test user. Before running the tests, make sure you have created a test user in your local Keycloak instance (http://localhost:8080) under the `local-realm` realm, and configure the following environment variables or modify the `auth.setup.ts` file:
 
-- **Nom d'utilisateur par défaut :** `test-user`
-- **Mot de passe par défaut :** `test-password`
+- **Default username:** `test-user`
+- **Default password:** `test-password`
 
 ---
 
-## 📁 Structure des fichiers
+## 📁 File Structure
 
-- `playwright.config.ts` : Configuration globale de Playwright à la racine.
-- `e2e/` :
-  - `auth.setup.ts` : Script de connexion initial et mise en cache de la session.
-  - `tests/` : Dossier contenant les spécifications de tests (ex : `login.spec.ts`, etc.).
-- `playwright-report/` : Rapport HTML généré après l'exécution.
+- `playwright.config.ts`: Global Playwright configuration at the root.
+- `e2e/`:
+  - `auth.setup.ts`: Initial login and session caching script.
+  - `tests/`: Folder containing test specifications (e.g., `login.spec.ts`, etc.).
+- `playwright-report/`: HTML report generated after execution.
