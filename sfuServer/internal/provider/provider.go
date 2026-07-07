@@ -33,6 +33,10 @@ type Provider interface {
 	CreateWorker(ctx context.Context, spec WorkerSpec) (Worker, error)
 	// GetWorker reads the current state of a previously created instance.
 	GetWorker(ctx context.Context, providerResourceID string) (Worker, error)
+	// ListWorkers returns every instance currently carrying tag. Reconciliation
+	// (task 4.4) and orphan cleanup (task 4.5) use it to compare the cloud
+	// against persistent records.
+	ListWorkers(ctx context.Context, tag string) ([]Worker, error)
 	// TagWorker replaces the tags on an instance (billing/cleanup).
 	TagWorker(ctx context.Context, providerResourceID string, tags []string) error
 	// DeleteWorker destroys the instance and releases its billable IP/volume.

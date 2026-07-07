@@ -40,6 +40,10 @@ type Config struct {
 	ImageTag string
 	// Tags are billing/cleanup tags applied to every created cloud resource.
 	Tags []string
+	// ManagedTag identifies resources this control-plane owns. It is applied to
+	// every created worker and is the filter reconciliation lists by. Defaults to
+	// "sfu-worker". Untagged resources are never touched (task 4.5).
+	ManagedTag string
 	// RenderUserData builds the cloud-init/bootstrap script for a worker from its
 	// generated SFU id and room. Optional; nil means no user-data (the provider
 	// gets an empty script). The rendered script is where SFU_ID, CONTROL_PLANE_URL
@@ -71,6 +75,14 @@ func New(store *lifecycle.Store, prov provider.Provider, cfg Config) *Provisione
 	}
 	if cfg.StartupTimeout <= 0 {
 		cfg.StartupTimeout = defaultStartupTimeout
+	}
+	if cfg.ManagedTag == "" {
+		cfg.ManagedTag = "sfu-worker"
+	}
+	// The managed tag must be on every created resource so reconciliation can
+	// find them; add it to the applied tag set if the caller left it out.
+	if !contains(cfg.Tags, cfg.ManagedTag) {
+		cfg.Tags = append(cfg.Tags, cfg.ManagedTag)
 	}
 	return &Provisioner{store: store, prov: prov, cfg: cfg, now: time.Now}
 }
@@ -217,6 +229,78 @@ func (p *Provisioner) Run(ctx context.Context) {
 			p.ReapStartupTimeouts(ctx)
 		}
 	}
+}
+
+// ReconcileResult reports the drift found between persistent worker records and
+// the tagged resources that actually exist in the cloud.
+type ReconcileResult struct {
+	// Vanished is the number of non-terminal records whose cloud resource no
+	// longer exists; each was marked terminated.
+	Vanished int
+	// Orphans are cloud resources tagged as ours with no matching live record.
+	// Reconcile does not delete them — that is orphan cleanup's job (task 4.5).
+	Orphans []provider.Worker
+}
+
+// Reconcile compares persistent worker records against the cloud resources
+// carrying the managed tag and repairs store-side drift after a restart or
+// missed event (design.md:116):
+//
+//   - a live record whose cloud resource is gone is marked terminated;
+//   - a tagged cloud resource with no live record is reported as an orphan for
+//     cleanup (task 4.5) but never deleted here.
+func (p *Provisioner) Reconcile(ctx context.Context) (ReconcileResult, error) {
+	cloud, err := p.prov.ListWorkers(ctx, p.cfg.ManagedTag)
+	if err != nil {
+		return ReconcileResult{}, fmt.Errorf("autoscaler: reconcile list: %w", err)
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	cloudByID := make(map[string]provider.Worker, len(cloud))
+	for _, w := range cloud {
+		cloudByID[w.ProviderResourceID] = w
+	}
+
+	var res ReconcileResult
+	trackedIDs := make(map[string]bool)
+	for _, rec := range p.store.ListWorkers() {
+		if rec.State == models.WorkerTerminated || rec.State == models.WorkerFailed {
+			continue
+		}
+		if rec.ProviderResourceID == "" {
+			continue // reserved but never created; startup-timeout reaping handles it
+		}
+		trackedIDs[rec.ProviderResourceID] = true
+		if _, ok := cloudByID[rec.ProviderResourceID]; !ok {
+			// Cloud resource vanished under a live record: record the loss.
+			rec.State = models.WorkerTerminated
+			rec.Reason = "reconcile: cloud resource missing"
+			if _, err := p.store.UpsertWorker(rec); err != nil {
+				log.Printf("[autoscaler] reconcile mark %s terminated: %v", rec.SFUID, err)
+				continue
+			}
+			res.Vanished++
+		}
+	}
+
+	for id, w := range cloudByID {
+		if !trackedIDs[id] {
+			res.Orphans = append(res.Orphans, w)
+		}
+	}
+	return res, nil
+}
+
+// contains reports whether s is in xs.
+func contains(xs []string, s string) bool {
+	for _, x := range xs {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 // newSFUID returns a short random worker id. The control-plane generates it and

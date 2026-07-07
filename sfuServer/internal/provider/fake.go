@@ -52,6 +52,21 @@ func (f *Fake) GetWorker(_ context.Context, id string) (Worker, error) {
 	return w, nil
 }
 
+func (f *Fake) ListWorkers(_ context.Context, tag string) ([]Worker, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []Worker
+	for _, w := range f.workers {
+		for _, t := range w.Tags {
+			if t == tag {
+				out = append(out, w)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (f *Fake) TagWorker(_ context.Context, id string, tags []string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
