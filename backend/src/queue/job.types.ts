@@ -17,6 +17,7 @@ export interface VideoTranscodingResult {
   videoId: string;
   success: boolean;
   duration: number;
+  subtitle_id?: string | null;
   error?: string;
   processedAt: number;
 }

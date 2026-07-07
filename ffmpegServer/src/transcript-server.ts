@@ -393,15 +393,87 @@ function toVtt(result: TranscriptionResult): string {
   const segments = result.segments?.length
     ? result.segments
     : [{ id: 0, start: 0, end: result.duration || 0, text: result.text }];
-  return `WEBVTT\n\n${segments
+  const cues = segments.flatMap((segment) => splitSegmentIntoCues(segment));
+  return `WEBVTT\n\n${cues
     .map(
-      (segment) =>
-        `${formatTimestamp(segment.start, '.')} --> ${formatTimestamp(
-          segment.end,
+      (cue) =>
+        `${formatTimestamp(cue.start, '.')} --> ${formatTimestamp(
+          cue.end,
           '.',
-        )}\n${segment.text.trim()}\n`,
+        )}\n${cue.text}\n`,
     )
     .join('\n')}`;
+}
+
+function splitSegmentIntoCues(segment: Segment): Segment[] {
+  const maxCharsPerCue = Number.parseInt(
+    process.env.TRANSCRIPT_MAX_CHARS_PER_CUE || '84',
+    10,
+  );
+  const maxLinesPerCue = Number.parseInt(
+    process.env.TRANSCRIPT_MAX_LINES_PER_CUE || '2',
+    10,
+  );
+  const maxCharsPerLine = Math.ceil(maxCharsPerCue / maxLinesPerCue);
+  const words = segment.text.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [];
+
+  const chunks: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > maxCharsPerCue && current) {
+      chunks.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current);
+
+  const duration = Math.max(0.5, segment.end - segment.start);
+  const totalWords = words.length;
+  let elapsedWords = 0;
+
+  return chunks.map((chunk, index) => {
+    const chunkWords = chunk.split(/\s+/).filter(Boolean).length;
+    const start =
+      index === 0
+        ? segment.start
+        : segment.start + (duration * elapsedWords) / totalWords;
+    elapsedWords += chunkWords;
+    const end =
+      index === chunks.length - 1
+        ? segment.end
+        : segment.start + (duration * elapsedWords) / totalWords;
+
+    return {
+      id: segment.id,
+      start,
+      end: Math.max(end, start + 0.5),
+      text: wrapCueText(chunk, maxCharsPerLine, maxLinesPerCue),
+    };
+  });
+}
+
+function wrapCueText(
+  text: string,
+  maxCharsPerLine: number,
+  maxLines: number,
+): string {
+  const lines: string[] = [];
+  let current = '';
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > maxCharsPerLine && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, maxLines).join('\n');
 }
 
 function sendTranscriptionResponse(

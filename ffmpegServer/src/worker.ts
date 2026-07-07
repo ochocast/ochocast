@@ -134,6 +134,7 @@ Starting worker...
           videoId: job.videoId,
           success: false,
           duration: 0,
+          subtitle_id: null,
           error: error instanceof Error ? error.message : String(error),
           processedAt: Date.now(),
         });
