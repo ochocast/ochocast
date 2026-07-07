@@ -24,7 +24,5 @@ localMinio/run_env/*
 dev-tools/localMinio/run_env/*
 
 coverage
-
-# browser test artifacts
-playwright-report/
-test-results/
+/playwright-report
+/test-results

@@ -11,6 +11,8 @@
     "doc": "typedoc --out ./docs --entryPoints ./frontend/src --entryPoints ./backend/src --entryPointStrategy expand",
     "lint:fix": "cd backend && npm run lint:fix && cd ../frontend && npm run lint:fix",
     "prepare": "husky install",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "docker:build": "export APP_VERSION=$(node -p \"require('./package.json').version\") && cd build-tools && docker compose -f docker-compose-build.yml build",
     "docker:push": "export APP_VERSION=$(node -p \"require('./package.json').version\") && cd build-tools && docker compose -f docker-compose-build.yml push"
   },
@@ -32,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
+    "@playwright/test": "^1.61.0",
     "@types/express": "^5.0.1",
     "@types/express-serve-static-core": "^5.0.6",
     "@types/fluent-ffmpeg": "^2.1.27",
