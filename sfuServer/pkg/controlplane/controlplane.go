@@ -207,6 +207,10 @@ func (cp *ControlPlane) RegisterSFU(reg *models.SFURegistration) error {
 	cp.sfus[reg.SFUID] = sfu
 	log.Printf("[CP] Registered SFU: %s (%s)", reg.SFUID, reg.ServerURL)
 
+	// Advance a provisioned worker from `provisioning` to `registered`; a healthy
+	// heartbeat then promotes it to `ready` (task 5.3).
+	cp.promoteWorker(reg.SFUID, false)
+
 	return nil
 }
 
@@ -232,10 +236,15 @@ func (cp *ControlPlane) UpdateMetrics(metrics *models.SFUMetrics) error {
 	sfu.Active = true
 
 	// Check if any room needs rebalancing based on new metrics
-	if metrics.CPU > cp.rebalanceThreshold || metrics.Memory > cp.rebalanceThreshold {
+	healthy := metrics.CPU <= cp.rebalanceThreshold && metrics.Memory <= cp.rebalanceThreshold
+	if !healthy {
 		log.Printf("[CP] SFU %s is overloaded (CPU: %.2f%%, Mem: %.2f%%), considering rebalance",
 			metrics.SFUID, metrics.CPU*100, metrics.Memory*100)
 	}
+
+	// A healthy heartbeat promotes a registered worker to ready and binds it to
+	// its room (task 5.3).
+	cp.promoteWorker(metrics.SFUID, healthy)
 
 	// Process per-room stats for relay cleanup
 	if metrics.RoomStats != nil {
@@ -998,6 +1007,72 @@ func (cp *ControlPlane) triggerProvisioning(roomID string) {
 			}
 		}
 	}()
+}
+
+// promoteWorker advances an on-demand worker's lifecycle as it registers and
+// reports health, binding it to its room once ready. The readiness policy
+// (task 5.3): a worker becomes `ready` only after it has registered AND
+// delivered a healthy heartbeat. No-op for SFUs with no worker record (e.g.
+// statically-run SFUs) or workers already past `registered`. Caller holds cp.mu.
+func (cp *ControlPlane) promoteWorker(sfuID string, healthy bool) {
+	if cp.roomState == nil {
+		return
+	}
+	rec, ok := cp.roomState.GetWorker(sfuID)
+	if !ok {
+		return
+	}
+	switch rec.State {
+	case models.WorkerProvisioning:
+		rec.State = models.WorkerRegistered
+	case models.WorkerRegistered:
+		if !healthy {
+			return
+		}
+		rec.State = models.WorkerReady
+	default:
+		return // ready/draining/failed/terminated: nothing to advance
+	}
+	if sfu, ok := cp.sfus[sfuID]; ok && sfu.URL != "" {
+		rec.PublicEndpoint = sfu.URL
+	}
+	rec.LastHeartbeat = time.Now().UTC()
+	saved, err := cp.roomState.UpsertWorker(rec)
+	if err != nil {
+		log.Printf("[CP] promote worker %s: %v", sfuID, err)
+		return
+	}
+	if saved.State == models.WorkerReady && saved.RoomID != "" {
+		cp.bindWorkerToRoom(saved.RoomID, sfuID)
+	}
+}
+
+// bindWorkerToRoom makes a ready worker the room's ingestion SFU and marks the
+// room ready so its WHIP/viewer flows unblock. Idempotent: an already-bound room
+// keeps its ingestion SFU. Caller holds cp.mu.
+func (cp *ControlPlane) bindWorkerToRoom(roomID, sfuID string) {
+	topology, ok := cp.rooms[roomID]
+	if !ok {
+		return
+	}
+	if topology.IngestionSFUID == "" {
+		topology.IngestionSFUID = sfuID
+		topology.Nodes[sfuID] = &models.TopologyNode{
+			SFUID:      sfuID,
+			RoomID:     roomID,
+			Role:       "ingestion",
+			MaxLoad:    100,
+			LastUpdate: time.Now(),
+		}
+	}
+	if cp.roomState != nil {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomReady, ""); err != nil {
+			log.Printf("[CP] mark room %s ready: %v", roomID, err)
+			return
+		}
+	}
+	go cp.syncRoomToAllSFUs(roomID, topology.Key)
+	log.Printf("[CP] room %s ready on ingestion SFU %s", roomID, sfuID)
 }
 
 // syncRoomToAllSFUs sends room creation to all registered SFUs
