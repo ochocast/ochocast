@@ -101,12 +101,14 @@ func TestWorkerLifecycleAndReload(t *testing.T) {
 	}
 
 	w := models.WorkerRecord{
-		SFUID:          "sfu-1",
-		InstanceID:     "scw-instance-abc",
-		State:          models.WorkerProvisioning,
-		RoomID:         "room-1",
-		PublicEndpoint: "https://1.2.3.4:8080",
-		ImageTag:       "sfu:1.2.3",
+		SFUID:              "sfu-1",
+		Provider:           "scaleway",
+		ProviderResourceID: "scw-instance-abc",
+		State:              models.WorkerProvisioning,
+		RoomID:             "room-1",
+		PublicEndpoint:     "https://1.2.3.4:8080",
+		ImageTag:           "sfu:1.2.3",
+		Metadata:           map[string]string{"zone": "fr-par-1"},
 	}
 	if _, err := s.UpsertWorker(w); err != nil {
 		t.Fatal(err)
@@ -152,8 +154,11 @@ func TestWorkerLifecycleAndReload(t *testing.T) {
 	if !ok {
 		t.Fatal("worker not recovered from disk")
 	}
-	if got.InstanceID != "scw-instance-abc" || got.ImageTag != "sfu:1.2.3" || got.State != models.WorkerTerminated {
+	if got.Provider != "scaleway" || got.ProviderResourceID != "scw-instance-abc" || got.ImageTag != "sfu:1.2.3" || got.State != models.WorkerTerminated {
 		t.Fatalf("recovered worker fields wrong: %+v", got)
+	}
+	if got.Metadata["zone"] != "fr-par-1" {
+		t.Fatalf("provider metadata not recovered: %+v", got.Metadata)
 	}
 
 	if _, err := s2.UpsertWorker(models.WorkerRecord{State: models.WorkerProvisioning}); err == nil {

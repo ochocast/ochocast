@@ -83,20 +83,24 @@ const (
 )
 
 // WorkerRecord is the persisted lifecycle record for an on-demand SFU worker.
-// It carries enough to reconcile against Scaleway and avoid orphaned billable
-// resources after a control-plane restart.
+// It carries enough to reconcile against the provider and avoid orphaned
+// billable resources after a control-plane restart. Fields are provider-neutral:
+// the cloud's resource id lives in ProviderResourceID (not a domain field named
+// after Scaleway), and any provider-specific extras go in Metadata.
 type WorkerRecord struct {
-	SFUID          string      `json:"sfu_id"`                  // control-plane-assigned worker/SFU id
-	InstanceID     string      `json:"instance_id"`             // Scaleway Instance ID
-	State          WorkerState `json:"state"`                   // worker lifecycle state
-	RoomID         string      `json:"room_id,omitempty"`       // current room assignment, if any
-	PublicEndpoint string      `json:"public_endpoint"`         // advertised media/control URL
-	ImageTag       string      `json:"image_tag"`               // immutable SFU image tag
-	Reason         string      `json:"reason,omitempty"`        // why it entered a failed/terminated state
-	CreatedAt      time.Time   `json:"created_at"`              // creation time
-	UpdatedAt      time.Time   `json:"updated_at"`              // last state change
-	LastHeartbeat  time.Time   `json:"last_heartbeat"`          // last heartbeat time
-	TerminatedAt   *time.Time  `json:"terminated_at,omitempty"` // termination status
+	SFUID              string            `json:"sfu_id"`                  // control-plane-assigned worker/SFU id
+	Provider           string            `json:"provider"`                // provider adapter that owns this worker, e.g. "scaleway"
+	ProviderResourceID string            `json:"provider_resource_id"`    // provider's resource id (Scaleway Instance ID, etc.)
+	State              WorkerState       `json:"state"`                   // worker lifecycle state
+	RoomID             string            `json:"room_id,omitempty"`       // current room assignment, if any
+	PublicEndpoint     string            `json:"public_endpoint"`         // advertised media/control URL
+	ImageTag           string            `json:"image_tag"`               // immutable SFU image tag
+	Reason             string            `json:"reason,omitempty"`        // why it entered a failed/terminated state
+	CreatedAt          time.Time         `json:"created_at"`              // creation time
+	UpdatedAt          time.Time         `json:"updated_at"`              // last state change
+	LastHeartbeat      time.Time         `json:"last_heartbeat"`          // last heartbeat time
+	TerminatedAt       *time.Time        `json:"terminated_at,omitempty"` // termination status
+	Metadata           map[string]string `json:"metadata,omitempty"`      // provider-specific fields (zone, volume ids, ...)
 }
 
 // RoomTopology represents the complete topology tree for a room
