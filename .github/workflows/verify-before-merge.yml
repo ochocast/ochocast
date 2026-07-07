@@ -2,12 +2,8 @@ name: Check compilation before merging to main
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
     branches:
       - main
-
-permissions:
-  contents: read
 
 jobs:
   lint:
@@ -122,4 +118,3 @@ jobs:
       - name: Run unit tests
         run: |
           npm test
-
