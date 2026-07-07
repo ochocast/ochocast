@@ -147,6 +147,53 @@ func TestReapStartupTimeouts(t *testing.T) {
 	}
 }
 
+func TestReconcileVanishedAndOrphan(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 2)
+
+	// One healthy tracked worker: record + cloud resource both present.
+	kept, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A second tracked worker whose cloud resource then vanishes out from under
+	// the record (e.g. deleted directly, or lost across a control-plane restart).
+	vanished, err := p.EnsureCapacity(ctx, "room-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fake.DeleteWorker(ctx, vanished.ProviderResourceID); err != nil {
+		t.Fatal(err)
+	}
+
+	// A tagged cloud resource with no store record at all: an orphan.
+	orphan, err := fake.CreateWorker(ctx, provider.WorkerSpec{Tags: []string{"sfu-worker"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := p.Reconcile(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Vanished != 1 {
+		t.Fatalf("Vanished = %d, want 1", res.Vanished)
+	}
+	if len(res.Orphans) != 1 || res.Orphans[0].ProviderResourceID != orphan.ProviderResourceID {
+		t.Fatalf("Orphans = %+v, want the one orphan %s", res.Orphans, orphan.ProviderResourceID)
+	}
+
+	// The vanished record is now terminated; the healthy one is untouched.
+	if w, _ := store.GetWorker(vanished.SFUID); w.State != models.WorkerTerminated {
+		t.Fatalf("vanished worker state = %s, want terminated", w.State)
+	}
+	if w, _ := store.GetWorker(kept.SFUID); w.State != models.WorkerProvisioning {
+		t.Fatalf("healthy worker was disturbed: %s", w.State)
+	}
+}
+
 func TestEnsureCapacityReprovisionsAfterTerminate(t *testing.T) {
 	ctx := context.Background()
 	fake := provider.NewFake()

@@ -122,6 +122,26 @@ func (a *Adapter) GetWorker(ctx context.Context, id string) (provider.Worker, er
 	return toWorker(res.Server), nil
 }
 
+// ListWorkers returns all Instances in the adapter's zone carrying tag.
+// ponytail: single page of up to 100; the max_workers stage never approaches
+// that, add pagination if the cap is ever raised past ~100 live workers.
+func (a *Adapter) ListWorkers(ctx context.Context, tag string) ([]provider.Worker, error) {
+	perPage := uint32(100)
+	res, err := a.api.ListServers(&instance.ListServersRequest{
+		Zone:    a.zone,
+		Tags:    []string{tag},
+		PerPage: &perPage,
+	}, scw.WithContext(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("scaleway: list servers tag=%s: %w", tag, err)
+	}
+	workers := make([]provider.Worker, 0, len(res.Servers))
+	for _, s := range res.Servers {
+		workers = append(workers, toWorker(s))
+	}
+	return workers, nil
+}
+
 func (a *Adapter) TagWorker(ctx context.Context, id string, tags []string) error {
 	if _, err := a.api.UpdateServer(&instance.UpdateServerRequest{
 		Zone:     a.zone,
