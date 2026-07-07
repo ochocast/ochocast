@@ -106,6 +106,7 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
       });
   }, [
     activeNavigator,
+    auth,
     isLoading,
     oidcUser,
     signinRedirect,
