@@ -50,6 +50,24 @@ const linkExpirationTime = 3600;
 const renewalThreshold = 300;
 const PERSONA_IMAGE = '/branding/persona.png';
 
+interface HlsLevel {
+  height?: number;
+  name?: string;
+}
+
+interface HlsPlayer {
+  levels: HlsLevel[];
+  currentLevel: number;
+  loadLevel: number;
+  nextLevel: number;
+  autoLevelEnabled: boolean;
+}
+
+interface QualityOption {
+  level: number;
+  label: string;
+}
+
 const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
   const parentComments = comments.filter((c) => c.parentid === null);
   const childComments = comments.filter((c) => c.parentid !== null);
@@ -194,6 +212,48 @@ const VideoMedia: FC = () => {
   const suggestionsRef = useRef<HTMLDivElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showEndScreen, setShowEndScreen] = useState(false);
+  const [qualityOptions, setQualityOptions] = useState<QualityOption[]>([]);
+  const [selectedQuality, setSelectedQuality] = useState(-1);
+
+  const handlePlayerReady = (player: _ReactPlayer) => {
+    const hls = player.getInternalPlayer('hls') as HlsPlayer | null;
+    if (hls?.levels?.length) {
+      setQualityOptions(
+        hls.levels.map((level, index) => ({
+          level: index,
+          label:
+            level.name ||
+            (level.height ? `${level.height}p` : `Qualité ${index + 1}`),
+        })),
+      );
+      setSelectedQuality(hls.autoLevelEnabled ? -1 : hls.currentLevel);
+    } else {
+      setQualityOptions([]);
+      setSelectedQuality(-1);
+    }
+
+    if (subtitleUrl) {
+      const videoElement = player.getInternalPlayer();
+      if (videoElement?.textTracks) {
+        setTimeout(() => {
+          for (let i = 0; i < videoElement.textTracks.length; i++) {
+            const track = videoElement.textTracks[i];
+            console.log('Track', i, ':', track.kind, track.label, track.mode);
+          }
+        }, 1000);
+      }
+    }
+  };
+
+  const handleQualityChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const level = Number(event.target.value);
+    const hls = playerRef.current?.getInternalPlayer('hls') as HlsPlayer | null;
+    if (!hls) return;
+
+    hls.loadLevel = level;
+    hls.nextLevel = level;
+    setSelectedQuality(level);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -261,6 +321,28 @@ const VideoMedia: FC = () => {
     fetchData();
     window.scrollTo(0, 0);
   }, [userString, videoId]);
+
+  useEffect(() => {
+    if (video?.transcoding_status !== 'pending' || !videoId) return;
+
+    const poll = window.setInterval(async () => {
+      const videoResponse = await getVideo(videoId);
+      const refreshedVideo = videoResponse?.data?.[0] as Video | undefined;
+      if (!refreshedVideo) return;
+      setVideo(refreshedVideo);
+
+      if (refreshedVideo.transcoding_status === 'ready') {
+        const [mediaResponse, subtitleResponse] = await Promise.all([
+          getMedia(videoId),
+          getSubtitle(videoId),
+        ]);
+        if (mediaResponse?.data) setUrl(mediaResponse.data);
+        setSubtitleUrl(subtitleResponse?.data || null);
+      }
+    }, 3000);
+
+    return () => window.clearInterval(poll);
+  }, [video?.transcoding_status, videoId]);
 
   useEffect(() => {
     const renewSignedUrl = async () => {
@@ -505,59 +587,70 @@ const VideoMedia: FC = () => {
         <main className={styles.mainColumn}>
           {/* Player */}
           <div className={styles.playerWrapper}>
-            <ReactPlayer
-              ref={playerRef}
-              url={url}
-              playing={isPlaying}
-              controls
-              width="100%"
-              height="100%"
-              onPlay={() => {
-                setIsPlaying(true);
-                setShowEndScreen(false);
-              }}
-              onPause={() => setIsPlaying(false)}
-              onEnded={handleVideoEnded}
-              onReady={(player) => {
-                console.log('▶️ ReactPlayer ready');
-                if (subtitleUrl) {
-                  const videoElement = player.getInternalPlayer();
-                  if (videoElement && videoElement.textTracks) {
-                    setTimeout(() => {
-                      for (let i = 0; i < videoElement.textTracks.length; i++) {
-                        const track = videoElement.textTracks[i];
-                        console.log(
-                          'Track',
-                          i,
-                          ':',
-                          track.kind,
-                          track.label,
-                          track.mode,
-                        );
-                      }
-                    }, 1000);
-                  }
-                }
-              }}
-              config={{
-                file: {
-                  attributes: {
-                    crossOrigin: 'anonymous',
-                  },
-                  tracks: subtitleUrl
-                    ? [
-                        {
-                          kind: 'subtitles',
-                          src: subtitleUrl,
-                          srcLang: 'fr',
-                          label: 'Français',
-                          default: false,
-                        },
-                      ]
-                    : [],
-                },
-              }}
-            />
+            {video.transcoding_status === 'pending' ? (
+              <LoadingCircle />
+            ) : video.transcoding_status === 'failed' ? (
+              <p>{video.transcoding_error || 'Video transcoding failed'}</p>
+            ) : (
+              <>
+                <ReactPlayer
+                  ref={playerRef}
+                  url={url}
+                  playing={isPlaying}
+                  controls
+                  width="100%"
+                  height="100%"
+                  onPlay={() => {
+                    setIsPlaying(true);
+                    setShowEndScreen(false);
+                  }}
+                  onPause={() => setIsPlaying(false)}
+                  onEnded={handleVideoEnded}
+                  onReady={handlePlayerReady}
+                  config={{
+                    file: {
+                      hlsOptions: {
+                        startLevel: -1,
+                        testBandwidth: true,
+                        capLevelToPlayerSize: true,
+                        abrEwmaDefaultEstimate: 3000000,
+                      },
+                      attributes: {
+                        crossOrigin: 'anonymous',
+                      },
+                      tracks: subtitleUrl
+                        ? [
+                            {
+                              kind: 'subtitles',
+                              src: subtitleUrl,
+                              srcLang: 'fr',
+                              label: 'Français',
+                              default: false,
+                            },
+                          ]
+                        : [],
+                    },
+                  }}
+                />
+                {qualityOptions.length > 1 && (
+                  <label className={styles.qualityControl}>
+                    <span>Qualité</span>
+                    <select
+                      aria-label="Qualité vidéo"
+                      value={selectedQuality}
+                      onChange={handleQualityChange}
+                    >
+                      <option value={-1}>Auto</option>
+                      {qualityOptions.map((quality) => (
+                        <option key={quality.level} value={quality.level}>
+                          {quality.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
 
             {/* ✅ END SCREEN OVERLAY (visible même en plein écran) */}
             {showEndScreen && (

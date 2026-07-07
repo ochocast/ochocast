@@ -19,6 +19,10 @@ const oidcConfig = {
   redirect_uri: getEnv('REACT_APP_REDIRECT_URI')!,
   userStore: new WebStorageStateStore({ store: window.localStorage }),
   automaticSilentRenew: true,
+  staleStateAgeInSeconds: 300,
+  onSigninCallback: () => {
+    window.history.replaceState({}, document.title, window.location.pathname);
+  },
 };
 
 const root = ReactDOM.createRoot(

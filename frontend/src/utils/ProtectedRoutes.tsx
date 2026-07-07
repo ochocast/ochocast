@@ -11,18 +11,26 @@ interface ProtectedRoutesProps {
 }
 export function ProtectedRoutes(props: ProtectedRoutesProps) {
   const auth = useAuth();
+  const {
+    activeNavigator,
+    isAuthenticated,
+    isLoading,
+    signinRedirect,
+    signinSilent,
+    user: oidcUser,
+  } = auth;
   const navigate = useNavigate();
   const location = useLocation();
 
   // Mettre à jour le token dans localStorage quand le token change (ex: renouvellement)
   useEffect(() => {
-    if (auth.user?.access_token) {
+    if (oidcUser?.access_token) {
       const userString = localStorage.getItem('backendUser');
       if (userString) {
         try {
           const user = JSON.parse(userString);
-          if (user.token !== auth.user.access_token) {
-            user.token = auth.user.access_token;
+          if (user.token !== oidcUser.access_token) {
+            user.token = oidcUser.access_token;
             localStorage.setItem('backendUser', JSON.stringify(user));
             console.log('Token updated in localStorage');
           }
@@ -31,15 +39,16 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
         }
       }
     }
-  }, [auth.user?.access_token]);
+  }, [oidcUser?.access_token]);
 
   useEffect(() => {
-    if (auth.isLoading) {
+    if (isLoading || activeNavigator) {
       return;
     }
-    if (auth.user && !auth.user.expired) {
+
+    if (oidcUser && !oidcUser.expired) {
       // Utilisation du token pour configurer les headers de l'API
-      api.setHeaders({ Authorization: `Bearer ${auth.user.access_token}` });
+      api.setHeaders({ Authorization: `Bearer ${oidcUser.access_token}` });
 
       // Récupération des informations utilisateur via le backend
       const fetchBackendUser = async () => {
@@ -49,7 +58,7 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
           // Stocker les données utilisateur ET le token pour les requêtes XHR
           const userWithToken = {
             ...res.data,
-            token: auth.user?.access_token,
+            token: oidcUser.access_token,
           };
           localStorage.setItem('backendUser', JSON.stringify(userWithToken));
 
@@ -64,30 +73,43 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
         }
       };
 
-      fetchBackendUser();
-    } else {
+      void fetchBackendUser();
+      return;
+    }
+
+    if (!oidcUser) {
       // Sauvegarder le chemin actuel avant la redirection vers OIDC
       const currentPath = location.pathname + location.search;
       if (currentPath && currentPath !== '/') {
         sessionStorage.setItem(REDIRECT_PATH_KEY, currentPath);
       }
 
-      if (auth.user && auth.user.expired) {
-        // Renouveler le token si expiré
-        auth.signinSilent().then((user) => {
-          if (!user) {
-            // Rediriger l'utilisateur vers la connexion si non authentifié
-            auth.signinRedirect();
-          }
-        });
-      } else {
-        // Rediriger l'utilisateur vers la connexion si non authentifié
-        auth.signinRedirect();
-      }
+      void signinRedirect().catch((error) => {
+        console.error('Unable to start OIDC login:', error);
+      });
+      return;
     }
-  }, [auth, location, navigate]);
 
-  if (auth.isAuthenticated) {
+    void signinSilent()
+      .then((user) => {
+        if (!user) return signinRedirect();
+      })
+      .catch((error) => {
+        console.error('Silent token renewal failed:', error);
+        return signinRedirect();
+      });
+  }, [
+    activeNavigator,
+    isLoading,
+    oidcUser,
+    signinRedirect,
+    signinSilent,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
+
+  if (isAuthenticated) {
     return <>{props.children}</>;
   }
 

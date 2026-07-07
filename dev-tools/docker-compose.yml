@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   auth:
     extends:
@@ -15,3 +13,47 @@ services:
     extends:
       file: ./database/docker-compose.yml
       service: postgres
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: ochocast-rabbitmq
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ffmpeg-worker:
+    build:
+      context: ../ffmpegServer
+    environment:
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: 'false'
+      STOCK_MEDIA_BUCKET: media
+      STOCK_MINIATURE_BUCKET: miniature
+      RABBITMQ_URL: amqp://admin:admin@rabbitmq:5672
+      VIDEO_QUEUE_NAME: video-transcoding-queue
+      VIDEO_RESULT_QUEUE_NAME: video-transcoding-results
+      WORKER_CONCURRENCY: 1
+      FFMPEG_THREADS: 2
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  rabbitmq_data:
+  postgres_data:

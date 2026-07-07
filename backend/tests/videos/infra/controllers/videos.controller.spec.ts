@@ -118,4 +118,53 @@ describe('VideosController - getVideosSuggestions', () => {
       'Something went wrong',
     );
   });
+
+  it('should preserve the global API prefix in HLS media URLs', async () => {
+    const previousPublicApiUrl = process.env.PUBLIC_API_URL;
+    delete process.env.PUBLIC_API_URL;
+
+    const getMediaUseCase = {
+      execute: jest
+        .fn()
+        .mockImplementation(
+          async (_id: string, apiBaseUrl: string) =>
+            `${apiBaseUrl}/videos/media-content/video-1/master.m3u8`,
+        ),
+    };
+    const mediaController = new VideosController(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      getMediaUseCase as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await mediaController.getMedia(
+      '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+      {
+        protocol: 'http',
+        originalUrl: '/api/videos/media/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        get: (header: string) =>
+          header.toLowerCase() === 'host' ? 'localhost:3001' : undefined,
+      } as any,
+    );
+
+    expect(result).toBe(
+      'http://localhost:3001/api/videos/media-content/video-1/master.m3u8',
+    );
+
+    if (previousPublicApiUrl === undefined) {
+      delete process.env.PUBLIC_API_URL;
+    } else {
+      process.env.PUBLIC_API_URL = previousPublicApiUrl;
+    }
+  });
 });

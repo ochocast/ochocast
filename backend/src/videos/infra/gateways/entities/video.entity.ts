@@ -59,6 +59,12 @@ export class VideoEntity {
   @Column({ type: 'float', nullable: true })
   duration: number;
 
+  @Column({ default: 'ready' })
+  transcoding_status: 'pending' | 'ready' | 'failed';
+
+  @Column({ nullable: true, type: 'text' })
+  transcoding_error: string | null;
+
   @OneToMany(() => CommentEntity, (comment) => comment.video)
   comments: CommentEntity[];
 

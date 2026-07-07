@@ -106,7 +106,7 @@ export const getMiniature = (video_id) =>
 export const getSubtitle = (video_id) =>
   api.get(`/videos/subtitle/${video_id}`);
 export const getVideoByTitle = (video_title) =>
-  api.get(`/videos?title=${video_title}`);
+  api.get(`/videos?title=${encodeURIComponent(video_title)}`);
 export const getTags = () => api.get('/tags');
 export const createTag = (data) => api.post('/tags', data);
 export const modifyVideo = (formData) => api.post('/videos/modify', formData);
