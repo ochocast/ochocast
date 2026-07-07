@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"whip-server/internal/lifecycle"
 	"whip-server/internal/models"
@@ -95,6 +96,54 @@ func TestEnsureCapacityCreateFailureNoLeak(t *testing.T) {
 	}
 	if fake.Count() != 1 {
 		t.Fatalf("retry should create an Instance: count=%d", fake.Count())
+	}
+}
+
+func TestReapStartupTimeouts(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Before the deadline: nothing reaped.
+	if n := p.ReapStartupTimeouts(ctx); n != 0 {
+		t.Fatalf("reaped %d before timeout, want 0", n)
+	}
+	if fake.Count() != 1 {
+		t.Fatalf("worker destroyed too early: count=%d", fake.Count())
+	}
+
+	// Advance the clock past the startup timeout: worker is failed and destroyed.
+	p.now = func() time.Time { return time.Now().Add(defaultStartupTimeout + time.Minute) }
+	if n := p.ReapStartupTimeouts(ctx); n != 1 {
+		t.Fatalf("reaped %d after timeout, want 1", n)
+	}
+	if fake.Count() != 0 {
+		t.Fatalf("timed-out Instance not destroyed: count=%d", fake.Count())
+	}
+	w, _ := store.GetWorker(rec.SFUID)
+	if w.State != models.WorkerFailed || w.Reason != "startup timeout" {
+		t.Fatalf("worker not marked failed: %+v", w)
+	}
+	if rl, _ := store.Get("room-1"); rl.State != models.RoomFailed {
+		t.Fatalf("room state = %s, want failed", rl.State)
+	}
+
+	// A ready worker is never reaped. Walk the real readiness path
+	// provisioning -> registered -> ready (a direct jump is not a valid move).
+	ready, _ := p.EnsureCapacity(ctx, "room-2") // budget freed by the failure above
+	for _, st := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		ready.State = st
+		if _, err := store.UpsertWorker(ready); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := p.ReapStartupTimeouts(ctx); n != 0 {
+		t.Fatalf("reaped a ready worker: %d", n)
 	}
 }
 

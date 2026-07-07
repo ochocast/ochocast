@@ -10,7 +10,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
+	"time"
 
 	"whip-server/internal/lifecycle"
 	"whip-server/internal/models"
@@ -22,11 +24,18 @@ import (
 // rather than creating an unbounded number of Instances.
 var ErrBudgetExceeded = errors.New("autoscaler: worker budget exceeded")
 
+// defaultStartupTimeout is the first-stage budget guardrail (design.md:109): a
+// worker that has not become ready within this window is failed and destroyed.
+const defaultStartupTimeout = 8 * time.Minute
+
 // Config configures a Provisioner.
 type Config struct {
 	// MaxWorkers caps the number of live (non-terminal) workers per environment.
 	// Defaults to 1 — the first-stage budget guardrail (design.md:109).
 	MaxWorkers int
+	// StartupTimeout is how long a worker may stay in a starting state before it
+	// is failed and destroyed. Defaults to 8 minutes (design.md:109).
+	StartupTimeout time.Duration
 	// ImageTag is the immutable SFU image tag recorded on each worker.
 	ImageTag string
 	// Tags are billing/cleanup tags applied to every created cloud resource.
@@ -45,18 +54,25 @@ type Provisioner struct {
 	prov  provider.Provider
 	cfg   Config
 
-	// mu serializes EnsureCapacity so the check-cap-then-create sequence is
-	// atomic across the store and the provider.
+	// mu serializes EnsureCapacity and timeout reaping so the check-then-mutate
+	// sequences are atomic across the store and the provider.
 	// ponytail: one global lock; go per-room locks only if throughput demands it.
 	mu sync.Mutex
+
+	// now is the clock, overridable in tests.
+	now func() time.Time
 }
 
-// New builds a Provisioner. MaxWorkers < 1 is clamped to 1.
+// New builds a Provisioner. MaxWorkers < 1 is clamped to 1 and an unset
+// StartupTimeout defaults to 8 minutes.
 func New(store *lifecycle.Store, prov provider.Provider, cfg Config) *Provisioner {
 	if cfg.MaxWorkers < 1 {
 		cfg.MaxWorkers = 1
 	}
-	return &Provisioner{store: store, prov: prov, cfg: cfg}
+	if cfg.StartupTimeout <= 0 {
+		cfg.StartupTimeout = defaultStartupTimeout
+	}
+	return &Provisioner{store: store, prov: prov, cfg: cfg, now: time.Now}
 }
 
 // EnsureCapacity guarantees one SFU worker is being provisioned for roomID and
@@ -141,6 +157,66 @@ func (p *Provisioner) liveWorkerCount() int {
 		}
 	}
 	return n
+}
+
+// isStarting reports whether a worker is still in a pre-ready state and thus
+// subject to the startup deadline.
+func isStarting(s models.WorkerState) bool {
+	return s == models.WorkerProvisioning || s == models.WorkerRegistered
+}
+
+// ReapStartupTimeouts fails and destroys every worker that has stayed in a
+// starting state past StartupTimeout. Destroying the Instance releases its
+// billable resources; the record is kept (as failed) so reconciliation can
+// confirm the cloud resource is gone. Returns the number reaped. Best-effort:
+// a provider delete error is logged, not fatal — orphan cleanup (4.5) is the
+// backstop.
+func (p *Provisioner) ReapStartupTimeouts(ctx context.Context) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	reaped := 0
+	for _, w := range p.store.ListWorkers() {
+		if !isStarting(w.State) || p.now().Sub(w.CreatedAt) <= p.cfg.StartupTimeout {
+			continue
+		}
+		if w.ProviderResourceID != "" {
+			if err := p.prov.DeleteWorker(ctx, w.ProviderResourceID); err != nil {
+				log.Printf("[autoscaler] destroy timed-out worker %s: %v", w.SFUID, err)
+			}
+		}
+		w.State = models.WorkerFailed
+		w.Reason = "startup timeout"
+		if _, err := p.store.UpsertWorker(w); err != nil {
+			log.Printf("[autoscaler] mark worker %s failed: %v", w.SFUID, err)
+			continue
+		}
+		if w.RoomID != "" {
+			_, _ = p.store.Upsert(w.RoomID, models.RoomFailed, "sfu startup timeout")
+		}
+		reaped++
+	}
+	return reaped
+}
+
+// Run reaps startup timeouts on a ticker until ctx is cancelled. The interval is
+// a quarter of the startup timeout (floored at 15s) so a stuck worker is caught
+// within roughly a quarter-window of its deadline.
+func (p *Provisioner) Run(ctx context.Context) {
+	interval := p.cfg.StartupTimeout / 4
+	if interval < 15*time.Second {
+		interval = 15 * time.Second
+	}
+	t := time.NewTicker(interval)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			p.ReapStartupTimeouts(ctx)
+		}
+	}
 }
 
 // newSFUID returns a short random worker id. The control-plane generates it and
