@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -91,7 +92,33 @@ type ControlPlane struct {
 	// Persistent room lifecycle state (provisioning/ready/failed/draining/terminated).
 	// nil if the backing store could not be opened — room state then lives only in memory.
 	roomState *lifecycle.Store
+
+	// provisioner creates on-demand SFU capacity. nil when no autoscaler is
+	// configured, in which case room creation hard-fails on "no active SFUs" as
+	// before.
+	provisioner capacityEnsurer
 }
+
+// capacityEnsurer provisions on-demand SFU capacity for a room. Implemented by
+// autoscaler.Provisioner and stubbed in tests. Kept as an interface so the
+// control-plane package does not import the autoscaler (and to make the
+// cold-start path testable).
+type capacityEnsurer interface {
+	EnsureCapacity(ctx context.Context, roomID string) (models.WorkerRecord, error)
+}
+
+// SetProvisioner wires an autoscaler into the control-plane. With one set, a
+// room created when no SFU is ready enters the provisioning path instead of
+// failing.
+func (cp *ControlPlane) SetProvisioner(p capacityEnsurer) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	cp.provisioner = p
+}
+
+// LifecycleStore returns the control-plane's persistent lifecycle store so the
+// autoscaler can share it. nil if the store could not be opened.
+func (cp *ControlPlane) LifecycleStore() *lifecycle.Store { return cp.roomState }
 
 // Grace period before cleaning up room topology when stream ends
 // This allows the host to reconnect (e.g., OBS stop/start) without losing the room
@@ -888,7 +915,29 @@ func (cp *ControlPlane) CreateRoom(roomID string) (string, bool, error) {
 	// Select an ingestion SFU for this room
 	ingestionSFUID := cp.selectIngestionSFU()
 	if ingestionSFUID == "" {
-		return "", false, fmt.Errorf("no active SFUs available")
+		// No ready SFU. Without an autoscaler this is still a hard failure.
+		if cp.provisioner == nil {
+			return "", false, fmt.Errorf("no active SFUs available")
+		}
+		// Cold start: create the room in `provisioning` with no ingestion SFU
+		// yet, trigger capacity creation, and let the streamer poll until it is
+		// ready (task 5.2). A worker fills IngestionSFUID once it registers.
+		key := generateRoomKey()
+		cp.rooms[roomID] = &models.RoomTopology{
+			RoomID:        roomID,
+			Key:           key,
+			Nodes:         make(map[string]*models.TopologyNode),
+			CreatedAt:     time.Now(),
+			LastRebalance: time.Now(),
+		}
+		if cp.roomState != nil {
+			if _, err := cp.roomState.Upsert(roomID, models.RoomProvisioning, ""); err != nil {
+				log.Printf("[CP] failed to persist provisioning room %s: %v", roomID, err)
+			}
+		}
+		cp.triggerProvisioning(roomID)
+		log.Printf("[CP] Room %s has no ready SFU; provisioning on demand (key %s)", roomID, key)
+		return key, false, nil
 	}
 
 	log.Printf("[CP] Creating new room %s with key %s on ingestion SFU %s", roomID, key, ingestionSFUID)
@@ -932,6 +981,23 @@ func (cp *ControlPlane) CreateRoom(roomID string) (string, bool, error) {
 	go cp.syncRoomToAllSFUs(roomID, key)
 
 	return key, false, nil
+}
+
+// triggerProvisioning asks the autoscaler for capacity in the background so the
+// room-create HTTP call returns immediately. On failure (including budget cap)
+// the room is marked failed for the streamer to observe.
+func (cp *ControlPlane) triggerProvisioning(roomID string) {
+	p := cp.provisioner
+	go func() {
+		if _, err := p.EnsureCapacity(context.Background(), roomID); err != nil {
+			log.Printf("[CP] provisioning room %s failed: %v", roomID, err)
+			if cp.roomState != nil {
+				if _, uerr := cp.roomState.Upsert(roomID, models.RoomFailed, err.Error()); uerr != nil {
+					log.Printf("[CP] failed to mark room %s failed: %v", roomID, uerr)
+				}
+			}
+		}
+	}()
 }
 
 // syncRoomToAllSFUs sends room creation to all registered SFUs
@@ -1145,22 +1211,34 @@ func (cp *ControlPlane) HandleCreateRoom(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Reflect the room's lifecycle state so a cold-start streamer knows to wait.
+	state := models.RoomReady
+	if cp.roomState != nil {
+		if rl, ok := cp.roomState.Get(req.RoomID); ok {
+			state = rl.State
+		}
+	}
+
 	response := models.CreateRoomResponse{
 		RoomID:  req.RoomID,
 		Key:     key,
 		Created: !alreadyExists,
+		State:   string(state),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if alreadyExists {
+	switch {
+	case state == models.RoomProvisioning:
+		w.WriteHeader(http.StatusAccepted) // 202: capacity is being provisioned
+	case alreadyExists:
 		w.WriteHeader(http.StatusOK)
-	} else {
+	default:
 		w.WriteHeader(http.StatusCreated)
 	}
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("[CP] Room %s %s (key: %s)", req.RoomID,
-		map[bool]string{true: "already exists", false: "created"}[alreadyExists], key)
+	log.Printf("[CP] Room %s %s (key: %s, state: %s)", req.RoomID,
+		map[bool]string{true: "already exists", false: "created"}[alreadyExists], key, state)
 }
 
 // HandleWHIP proxies WHIP requests to the appropriate ingestion SFU
@@ -1758,11 +1836,11 @@ func (cp *ControlPlane) HandleRoomViewerCount(w http.ResponseWriter, r *http.Req
 	}
 
 	resultChan := make(chan sfuResult, len(sfuNodes))
-	
+
 	for sfuID, sfuURL := range sfuNodes {
 		go func(id, url string) {
 			result := sfuResult{sfuID: id}
-			
+
 			viewersURL := fmt.Sprintf("%s/room/viewers?room_id=%s", url, roomID)
 			client := &http.Client{Timeout: 3 * time.Second}
 
