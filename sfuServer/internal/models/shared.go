@@ -185,7 +185,8 @@ type CreateRoomRequest struct {
 type CreateRoomResponse struct {
 	RoomID  string `json:"room_id"`
 	Key     string `json:"key"`
-	Created bool   `json:"created"` // True if newly created, false if already exists
+	Created bool   `json:"created"`         // True if newly created, false if already exists
+	State   string `json:"state,omitempty"` // room lifecycle state: provisioning/ready/failed
 }
 
 // SyncRoomRequest is sent by control plane to sync room creation across SFUs

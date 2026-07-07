@@ -1,9 +1,16 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
+
+	"whip-server/internal/autoscaler"
+	"whip-server/internal/provider/scaleway"
 	"whip-server/pkg/controlplane"
 )
 
@@ -17,6 +24,13 @@ func main() {
 
 	// Create control plane instance
 	cp := controlplane.NewControlPlane(maxFanout, rebalanceThreshold)
+
+	// Enable on-demand SFU autoscaling when Scaleway credentials are present.
+	// Without them the control-plane behaves as before (hard-fails room creation
+	// when no SFU is registered).
+	if err := wireAutoscaler(cp); err != nil {
+		log.Printf("[CP] on-demand autoscaler disabled: %v", err)
+	}
 
 	// Register HTTP handlers with CORS middleware
 	http.HandleFunc("/health", corsMiddleware(handleHealth))
@@ -70,4 +84,71 @@ func getEnv(key, defaultValue string) string {
 		return defaultValue
 	}
 	return value
+}
+
+// wireAutoscaler builds the Scaleway-backed autoscaler from environment/secret
+// config and attaches it to the control-plane, sharing the control-plane's
+// lifecycle store. It also starts the background startup-timeout reaper and the
+// reconcile/orphan-cleanup janitor. Returns an error (autoscaler stays off) when
+// credentials or the store are unavailable.
+//
+// ponytail: config straight from env for now; task 7.4 moves the secret values
+// to injected Kubernetes Secrets, but the read sites stay the same.
+func wireAutoscaler(cp *controlplane.ControlPlane) error {
+	if os.Getenv("SCW_ACCESS_KEY") == "" {
+		return fmt.Errorf("SCW_ACCESS_KEY not set")
+	}
+	store := cp.LifecycleStore()
+	if store == nil {
+		return fmt.Errorf("lifecycle store unavailable; refusing to run autoscaler without durable worker records")
+	}
+
+	adapter, err := scaleway.New(scaleway.Config{
+		AccessKey:      os.Getenv("SCW_ACCESS_KEY"),
+		SecretKey:      os.Getenv("SCW_SECRET_KEY"),
+		ProjectID:      os.Getenv("SCW_DEFAULT_PROJECT_ID"),
+		Zone:           getEnv("SCW_DEFAULT_ZONE", "fr-par-1"),
+		CommercialType: getEnv("SFU_WORKER_TYPE", "DEV1-S"),
+		ImageID:        os.Getenv("SFU_WORKER_IMAGE_ID"),
+	})
+	if err != nil {
+		return err
+	}
+
+	maxWorkers := 1
+	if v, err := strconv.Atoi(os.Getenv("SFU_MAX_WORKERS")); err == nil && v > 0 {
+		maxWorkers = v
+	}
+	prov := autoscaler.New(store, adapter, autoscaler.Config{
+		MaxWorkers: maxWorkers,
+		ImageTag:   os.Getenv("SFU_IMAGE_TAG"),
+		ManagedTag: getEnv("SFU_MANAGED_TAG", "sfu-worker"),
+	})
+	cp.SetProvisioner(prov)
+
+	ctx := context.Background()
+	go prov.Run(ctx) // startup-timeout reaping (task 4.3)
+	go janitor(ctx, prov)
+
+	log.Printf("[CP] on-demand SFU autoscaler enabled (max_workers=%d)", maxWorkers)
+	return nil
+}
+
+// janitor periodically reconciles worker records against the cloud and cleans up
+// aged orphans (tasks 4.4/4.5).
+func janitor(ctx context.Context, prov *autoscaler.Provisioner) {
+	t := time.NewTicker(5 * time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			if n, err := prov.CleanupOrphans(ctx); err != nil {
+				log.Printf("[CP] reconcile/orphan-cleanup: %v", err)
+			} else if n > 0 {
+				log.Printf("[CP] orphan cleanup removed %d resource(s)", n)
+			}
+		}
+	}
 }
