@@ -1949,3 +1949,62 @@ func (cp *ControlPlane) HandleRoomExists(w http.ResponseWriter, r *http.Request)
 	})
 	log.Printf("[CP-EXISTS] Room %s exists", roomID)
 }
+
+// HandleRoomStatus reports a room's lifecycle state so a streamer can poll a
+// cold-start room from `provisioning` to `ready` or `failed` (task 5.2). The
+// WHIP URL is returned only once the room is ready, so the frontend cannot show
+// publish instructions early (tasks 5.4/6.2).
+func (cp *ControlPlane) HandleRoomStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	key := ""
+	if exists {
+		key = topology.Key
+	}
+	cp.mu.RUnlock()
+
+	// Prefer the persisted lifecycle state; fall back to topology presence for
+	// rooms created before lifecycle tracking (treated as ready).
+	var state models.RoomState
+	reason := ""
+	if cp.roomState != nil {
+		if rl, ok := cp.roomState.Get(roomID); ok {
+			state, reason = rl.State, rl.Reason
+		}
+	}
+	if state == "" && exists {
+		state = models.RoomReady
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if state == "" {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{"room_id": roomID, "exists": false})
+		return
+	}
+
+	ready := state == models.RoomReady
+	resp := map[string]interface{}{
+		"room_id": roomID,
+		"state":   string(state),
+		"ready":   ready,
+	}
+	if reason != "" {
+		resp["reason"] = reason
+	}
+	if ready && key != "" {
+		resp["whip_url"] = fmt.Sprintf("http://localhost:%s/whip?room_id=%s&key=%s", "8090", roomID, key)
+	}
+	json.NewEncoder(w).Encode(resp)
+}
