@@ -2,7 +2,10 @@ package controlplane
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -63,6 +66,58 @@ func TestCreateRoomNoProvisionerHardFails(t *testing.T) {
 	// No provisioner set: preserve the original hard-failure behaviour.
 	if _, _, err := cp.CreateRoom("room-1"); err == nil {
 		t.Fatal("expected 'no active SFUs available' without a provisioner")
+	}
+}
+
+func roomStatus(t *testing.T, cp *ControlPlane, roomID string) (int, map[string]interface{}) {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/room/status?room_id="+roomID, nil)
+	rec := httptest.NewRecorder()
+	cp.HandleRoomStatus(rec, req)
+	var body map[string]interface{}
+	if rec.Body.Len() > 0 {
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode status body: %v", err)
+		}
+	}
+	return rec.Code, body
+}
+
+func TestRoomStatusProvisioningThenReady(t *testing.T) {
+	cp := newTestCP(t)
+	cp.SetProvisioner(&stubEnsurer{called: make(chan string, 1)})
+
+	if _, _, err := cp.CreateRoom("room-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	// While provisioning: not ready, no WHIP URL exposed.
+	code, body := roomStatus(t, cp, "room-1")
+	if code != http.StatusOK {
+		t.Fatalf("status code = %d", code)
+	}
+	if body["state"] != "provisioning" || body["ready"] != false {
+		t.Fatalf("provisioning status wrong: %+v", body)
+	}
+	if _, hasWHIP := body["whip_url"]; hasWHIP {
+		t.Fatal("whip_url must not be exposed before the room is ready")
+	}
+
+	// Promote to ready: WHIP URL appears.
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+	code, body = roomStatus(t, cp, "room-1")
+	if body["state"] != "ready" || body["ready"] != true {
+		t.Fatalf("ready status wrong: %+v", body)
+	}
+	if _, hasWHIP := body["whip_url"]; !hasWHIP {
+		t.Fatal("whip_url should be present once ready")
+	}
+
+	// Unknown room: 404.
+	if code, _ := roomStatus(t, cp, "nope"); code != http.StatusNotFound {
+		t.Fatalf("unknown room status = %d, want 404", code)
 	}
 }
 

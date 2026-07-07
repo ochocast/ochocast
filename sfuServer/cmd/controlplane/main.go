@@ -41,6 +41,7 @@ func main() {
 	http.HandleFunc("/control/topology", corsMiddleware(cp.HandleGetTopology))
 	http.HandleFunc("/room/create", corsMiddleware(cp.HandleCreateRoom))
 	http.HandleFunc("/room/exists", corsMiddleware(cp.HandleRoomExists))
+	http.HandleFunc("/room/status", corsMiddleware(cp.HandleRoomStatus)) // Poll provisioning -> ready/failed
 	http.HandleFunc("/room/viewers", corsMiddleware(cp.HandleRoomViewerCount))
 	http.HandleFunc("/whip", corsMiddleware(cp.HandleWHIP))                  // Proxy WHIP to ingestion SFU
 	http.HandleFunc("/viewer", corsMiddleware(cp.HandleViewer))              // Proxy viewer to optimal SFU
