@@ -216,6 +216,52 @@ func TestMediaFlowsGatedOnReadiness(t *testing.T) {
 	}
 }
 
+func TestSelectIngestionSkipsDraining(t *testing.T) {
+	cp := newTestCP(t)
+	store := cp.LifecycleStore()
+
+	ready := func(id string) {
+		rec := models.WorkerRecord{SFUID: id, State: models.WorkerProvisioning}
+		if _, err := store.UpsertWorker(rec); err != nil {
+			t.Fatal(err)
+		}
+		for _, st := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+			rec.State = st
+			if _, err := store.UpsertWorker(rec); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := cp.RegisterSFU(&models.SFURegistration{SFUID: id, ServerURL: "http://" + id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ready("sfu-a")
+	ready("sfu-b")
+
+	// Both ready: selection returns one of them.
+	cp.mu.Lock()
+	got := cp.selectIngestionSFU()
+	cp.mu.Unlock()
+	if got != "sfu-a" && got != "sfu-b" {
+		t.Fatalf("selected %q, want a ready SFU", got)
+	}
+
+	// Drain sfu-a: selection must now avoid it every time.
+	a, _ := store.GetWorker("sfu-a")
+	a.State = models.WorkerDraining
+	if _, err := store.UpsertWorker(a); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		cp.mu.Lock()
+		got := cp.selectIngestionSFU()
+		cp.mu.Unlock()
+		if got != "sfu-b" {
+			t.Fatalf("selected %q, want sfu-b (sfu-a is draining)", got)
+		}
+	}
+}
+
 func TestColdStartProvisionFailureMarksRoomFailed(t *testing.T) {
 	cp := newTestCP(t)
 	cp.SetProvisioner(&stubEnsurer{err: errors.New("budget exceeded")})

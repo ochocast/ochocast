@@ -571,6 +571,21 @@ func (cp *ControlPlane) JoinHost(req *models.JoinHostRequest, currentSFUID strin
 	}, nil
 }
 
+// acceptsNewRooms reports whether an SFU may receive a new room assignment. A
+// worker that is draining (or otherwise not ready) is excluded so scale-down
+// candidates stop taking new rooms while still serving their current one
+// (task 5.5). SFUs with no worker record (statically-run SFUs) always accept.
+func (cp *ControlPlane) acceptsNewRooms(sfuID string) bool {
+	if cp.roomState == nil {
+		return true
+	}
+	rec, ok := cp.roomState.GetWorker(sfuID)
+	if !ok {
+		return true
+	}
+	return rec.State == models.WorkerReady
+}
+
 // selectIngestionSFU selects the best SFU to be the ingestion node
 func (cp *ControlPlane) selectIngestionSFU() string {
 	var bestSFUID string
@@ -579,6 +594,9 @@ func (cp *ControlPlane) selectIngestionSFU() string {
 	for sfuID, sfu := range cp.sfus {
 		if !sfu.Active {
 			continue
+		}
+		if !cp.acceptsNewRooms(sfuID) {
+			continue // draining/not-ready worker: no new room assignments (task 5.5)
 		}
 
 		// Score based on current load (lower is better)
