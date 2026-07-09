@@ -283,3 +283,76 @@ func TestColdStartProvisionFailureMarksRoomFailed(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+func TestOperatorStatusReportsWorkersFailuresAndCleanup(t *testing.T) {
+	cp := newTestCP(t)
+
+	if err := cp.RegisterSFU(&models.SFURegistration{SFUID: "sfu-active", ServerURL: "http://sfu-active"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cp.UpdateMetrics(&models.SFUMetrics{
+		SFUID:         "sfu-active",
+		ServerURL:     "http://sfu-active",
+		CPU:           0.2,
+		Memory:        0.3,
+		ActiveHosts:   1,
+		ActiveViewers: 3,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := cp.roomState.Upsert("room-failed", models.RoomFailed, "budget exceeded"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cp.roomState.Upsert("room-ready", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cp.roomState.UpsertWorker(models.WorkerRecord{
+		SFUID:  "sfu-failed",
+		State:  models.WorkerFailed,
+		RoomID: "room-failed",
+		Reason: "startup timeout",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cp.roomState.UpsertWorker(models.WorkerRecord{
+		SFUID:  "sfu-ready",
+		State:  models.WorkerReady,
+		RoomID: "room-ready",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	timer := time.NewTimer(time.Hour)
+	defer timer.Stop()
+	cp.cleanupMu.Lock()
+	cp.pendingCleanups["room-cleanup"] = timer
+	cp.cleanupMu.Unlock()
+
+	req := httptest.NewRequest(http.MethodGet, "/control/operator_status", nil)
+	rec := httptest.NewRecorder()
+	cp.HandleOperatorStatus(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status code = %d, want 200", rec.Code)
+	}
+
+	var body operatorStatusResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode operator status: %v", err)
+	}
+	if body.Counts.RegisteredSFUs != 1 || body.Counts.ActiveSFUs != 1 {
+		t.Fatalf("sfu counts = %+v, want one registered and active", body.Counts)
+	}
+	if body.Counts.RoomsByState[models.RoomFailed] != 1 {
+		t.Fatalf("failed room count = %d, want 1", body.Counts.RoomsByState[models.RoomFailed])
+	}
+	if body.Counts.WorkersByState[models.WorkerFailed] != 1 {
+		t.Fatalf("failed worker count = %d, want 1", body.Counts.WorkersByState[models.WorkerFailed])
+	}
+	if len(body.ProvisioningFailures) != 2 {
+		t.Fatalf("failures = %+v, want room and worker failure", body.ProvisioningFailures)
+	}
+	if len(body.PendingCleanupRooms) != 1 || body.PendingCleanupRooms[0] != "room-cleanup" {
+		t.Fatalf("pending cleanup rooms = %+v, want room-cleanup", body.PendingCleanupRooms)
+	}
+}
