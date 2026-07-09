@@ -171,6 +171,25 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 	return saved, nil
 }
 
+// Drain marks a worker as draining so it stops receiving new room assignments
+// while it keeps serving its current room (task 5.5). It is the scale-down entry
+// point; the worker is destroyed later once idle. Errors if the worker is
+// unknown or not in a drainable state.
+func (p *Provisioner) Drain(sfuID string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	rec, ok := p.store.GetWorker(sfuID)
+	if !ok {
+		return fmt.Errorf("autoscaler: no worker %s to drain", sfuID)
+	}
+	rec.State = models.WorkerDraining
+	rec.Reason = "scale-down"
+	if _, err := p.store.UpsertWorker(rec); err != nil {
+		return fmt.Errorf("autoscaler: drain worker %s: %w", sfuID, err)
+	}
+	return nil
+}
+
 // liveWorkerCount counts workers that still hold (or could hold) budget: anything
 // not terminated and not failed.
 func (p *Provisioner) liveWorkerCount() int {

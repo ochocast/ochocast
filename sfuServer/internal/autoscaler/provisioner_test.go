@@ -147,6 +147,40 @@ func TestReapStartupTimeouts(t *testing.T) {
 	}
 }
 
+func TestDrain(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bring the worker to ready, then drain it.
+	r, _ := store.GetWorker(rec.SFUID)
+	for _, st := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		r.State = st
+		if _, err := store.UpsertWorker(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := p.Drain(rec.SFUID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := store.GetWorker(rec.SFUID); got.State != models.WorkerDraining {
+		t.Fatalf("state = %s, want draining", got.State)
+	}
+	// A draining worker still counts as live (it serves its current room), so the
+	// budget is still consumed.
+	if _, err := p.EnsureCapacity(ctx, "room-2"); !errors.Is(err, ErrBudgetExceeded) {
+		t.Fatalf("draining worker should still hold budget: %v", err)
+	}
+	// Unknown worker errors.
+	if err := p.Drain("nope"); err == nil {
+		t.Fatal("expected error draining unknown worker")
+	}
+}
+
 func TestReconcileVanishedAndOrphan(t *testing.T) {
 	ctx := context.Background()
 	fake := provider.NewFake()
