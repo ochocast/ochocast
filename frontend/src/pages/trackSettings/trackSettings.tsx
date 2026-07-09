@@ -32,11 +32,7 @@ const ROOM_STATUS_POLL_INTERVAL_MS = 3000;
 const ROOM_STATUS_TIMEOUT_MS = 8 * 60 * 1000;
 
 type RoomLifecycleState =
-  | 'provisioning'
-  | 'ready'
-  | 'failed'
-  | 'draining'
-  | 'terminated';
+  'provisioning' | 'ready' | 'failed' | 'draining' | 'terminated';
 
 type RoomStatusResponse = {
   exists?: boolean;
@@ -62,6 +58,9 @@ const buildWhipUrl = (roomId: string, roomKey: string) =>
 
 const sleep = (durationMs: number) =>
   new Promise((resolve) => window.setTimeout(resolve, durationMs));
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback;
 
 const TrackSettings: FC = () => {
   const { trackId, eventId } = useParams();
@@ -146,7 +145,9 @@ const TrackSettings: FC = () => {
         }
 
         if (state === 'failed' || state === 'terminated') {
-          throw new Error(status?.reason || 'Room provisioning failed');
+          throw new Error(
+            status?.reason || t('RoomProvisioningFailedDescription'),
+          );
         }
 
         setRoomLifecycleState(state || 'provisioning');
@@ -154,7 +155,7 @@ const TrackSettings: FC = () => {
         await sleep(ROOM_STATUS_POLL_INTERVAL_MS);
       }
 
-      throw new Error('Room provisioning timed out');
+      throw new Error(t('RoomProvisioningFailedDescription'));
     },
     [fetchRoomStatus, t],
   );
@@ -167,7 +168,9 @@ const TrackSettings: FC = () => {
       const status = await fetchRoomStatus(trackId);
       if (status?.state === 'failed' || status?.state === 'terminated') {
         setRoomLifecycleState(status.state);
-        setRoomStatusMessage(status.reason || '');
+        setRoomStatusMessage(
+          status.reason || t('RoomProvisioningFailedDescription'),
+        );
         setSfuUrl('');
         return;
       }
@@ -345,9 +348,12 @@ const TrackSettings: FC = () => {
       });
     } catch (error) {
       console.error('Error creating SFU room:', error);
-      setRoomStatusMessage('');
+      setRoomLifecycleState('failed');
+      setRoomStatusMessage(
+        getErrorMessage(error, t('RoomProvisioningFailedDescription')),
+      );
       setToast({
-        message: t('ErrorCreatingRoom'),
+        message: t('RoomProvisioningFailedTitle'),
         type: 'error',
       });
     } finally {
@@ -788,6 +794,17 @@ const TrackSettings: FC = () => {
               <div className={styles.roomStatus}>
                 <strong>{t('RoomProvisioningTitle')}</strong>
                 <p>{roomStatusMessage || t('RoomProvisioningDescription')}</p>
+              </div>
+            )}
+            {(roomLifecycleState === 'failed' ||
+              roomLifecycleState === 'terminated') && (
+              <div
+                className={`${styles.roomStatus} ${styles.roomStatusFailed}`}
+              >
+                <strong>{t('RoomProvisioningFailedTitle')}</strong>
+                <p>
+                  {roomStatusMessage || t('RoomProvisioningFailedDescription')}
+                </p>
               </div>
             )}
             {sfuUrl && (

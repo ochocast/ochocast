@@ -265,6 +265,8 @@
   "RoomCreatedSuccessfully": "Salle créée avec succès ! L'URL est maintenant disponible ci-dessous.",
   "RoomProvisioningTitle": "Préparation du serveur live",
   "RoomProvisioningDescription": "La salle live est en cours de préparation. L'URL OBS apparaîtra quand le serveur sera prêt.",
+  "RoomProvisioningFailedTitle": "Serveur live indisponible",
+  "RoomProvisioningFailedDescription": "Le serveur live n'a pas pu être préparé. Réessayez plus tard ou contactez un opérateur.",
   "ErrorCreatingRoom": "Erreur lors de la création de la salle. Veuillez réessayer.",
   "QRCodeDownloaded": "Code QR téléchargé avec succès",
   "QRCodeDownloadError": "Erreur lors du téléchargement du code QR",

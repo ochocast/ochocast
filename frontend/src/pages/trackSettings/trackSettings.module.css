@@ -130,7 +130,7 @@
   border-radius: 8px;
 }
 
-.trackDateSpeakerWrapper>h3 {
+.trackDateSpeakerWrapper > h3 {
   color: var(--theme-color-900, #1a1a1a);
   font-size: 1.1rem;
   margin: 0 0 0.5rem 0;
@@ -255,6 +255,12 @@
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.roomStatusFailed {
+  border-color: #fecaca;
+  background-color: #fef2f2;
+  color: #991b1b;
 }
 
 /* ===== QR CODE SECTION ===== */
