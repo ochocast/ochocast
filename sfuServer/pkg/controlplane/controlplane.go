@@ -1317,6 +1317,42 @@ func (cp *ControlPlane) HandleCreateRoom(w http.ResponseWriter, r *http.Request)
 }
 
 // HandleWHIP proxies WHIP requests to the appropriate ingestion SFU
+// roomReadyForMedia reports whether roomID may serve media (WHIP/viewer/
+// recorder). When the room is not ready it writes a JSON error and returns
+// false, so those flows hand out usable endpoints only after the room is ready
+// (task 5.4). Rooms with no lifecycle record (legacy / pre-autoscaler) pass
+// through so existing behaviour is preserved.
+func (cp *ControlPlane) roomReadyForMedia(w http.ResponseWriter, roomID string) bool {
+	if cp.roomState == nil {
+		return true
+	}
+	rl, ok := cp.roomState.Get(roomID)
+	if !ok {
+		return true
+	}
+	switch rl.State {
+	case models.RoomReady:
+		return true
+	case models.RoomProvisioning, models.RoomDraining:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "5")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"room_id": roomID, "state": string(rl.State),
+			"error": "room is not ready yet; retry once it is ready",
+		})
+		return false
+	default: // failed / terminated
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"room_id": roomID, "state": string(rl.State),
+			"error": "room is not available", "reason": rl.Reason,
+		})
+		return false
+	}
+}
+
 func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	// Extract room_id from query parameters
 	roomID := r.URL.Query().Get("room_id")
@@ -1342,6 +1378,11 @@ func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		log.Printf("[CP-WHIP] Room %s not found - must be created via /room/create first", roomID)
 		http.Error(w, "Room not found. Create it first via /room/create", http.StatusNotFound)
+		return
+	}
+
+	// Gate: only proxy WHIP once the room is ready (task 5.4).
+	if !cp.roomReadyForMedia(w, roomID) {
 		return
 	}
 
@@ -1477,6 +1518,12 @@ func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[CP-VIEWER] Received viewer request for room %s", roomID)
+
+	// Gate: only route viewers once the room is ready (task 5.4). Unknown rooms
+	// pass through to the legacy SFU-scan fallback below.
+	if !cp.roomReadyForMedia(w, roomID) {
+		return
+	}
 
 	// Check if room exists in topology
 	cp.mu.RLock()
@@ -1712,6 +1759,11 @@ func (cp *ControlPlane) HandleRecorder(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		log.Printf("[CP-RECORDER] Room %s not found in topology", roomID)
 		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	// Gate: only hand the recorder an SFU once the room is ready (task 5.4).
+	if !cp.roomReadyForMedia(w, roomID) {
 		return
 	}
 
