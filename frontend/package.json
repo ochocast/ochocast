@@ -112,6 +112,7 @@
     "serialize-javascript": "7.0.5",
     "svgo": "4.0.1",
     "underscore": "1.13.8",
-    "webpack-dev-server": "4.15.2"
+    "webpack-dev-server": "4.15.2",
+    "yaml": "2.8.3"
   }
 }
