@@ -188,6 +188,34 @@ func TestColdStartReadinessLoop(t *testing.T) {
 	}
 }
 
+func TestMediaFlowsGatedOnReadiness(t *testing.T) {
+	cp := newTestCP(t)
+	cp.SetProvisioner(&stubEnsurer{called: make(chan string, 1)})
+
+	key, _, err := cp.CreateRoom("room-1") // cold start -> provisioning
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// While provisioning, WHIP is refused with 503.
+	req := httptest.NewRequest(http.MethodPost, "/whip?room_id=room-1&key="+key, nil)
+	rec := httptest.NewRecorder()
+	cp.HandleWHIP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("WHIP while provisioning = %d, want 503", rec.Code)
+	}
+
+	// Once failed, WHIP is refused with 409.
+	if _, err := cp.roomState.Upsert("room-1", models.RoomFailed, "budget"); err != nil {
+		t.Fatal(err)
+	}
+	rec = httptest.NewRecorder()
+	cp.HandleWHIP(rec, httptest.NewRequest(http.MethodPost, "/whip?room_id=room-1&key="+key, nil))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("WHIP while failed = %d, want 409", rec.Code)
+	}
+}
+
 func TestColdStartProvisionFailureMarksRoomFailed(t *testing.T) {
 	cp := newTestCP(t)
 	cp.SetProvisioner(&stubEnsurer{err: errors.New("budget exceeded")})
