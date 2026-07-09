@@ -39,6 +39,7 @@ func main() {
 	http.HandleFunc("/control/join_host", corsMiddleware(cp.HandleJoinHost))
 	http.HandleFunc("/control/join_viewer", corsMiddleware(cp.HandleJoinViewer))
 	http.HandleFunc("/control/topology", corsMiddleware(cp.HandleGetTopology))
+	http.HandleFunc("/control/operator_status", corsMiddleware(cp.HandleOperatorStatus))
 	http.HandleFunc("/room/create", corsMiddleware(cp.HandleCreateRoom))
 	http.HandleFunc("/room/exists", corsMiddleware(cp.HandleRoomExists))
 	http.HandleFunc("/room/status", corsMiddleware(cp.HandleRoomStatus)) // Poll provisioning -> ready/failed

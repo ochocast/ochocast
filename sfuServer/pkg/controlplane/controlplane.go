@@ -14,6 +14,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -133,6 +134,44 @@ type SFUInfo struct {
 	Metrics       *models.SFUMetrics
 	LastHeartbeat time.Time
 	Active        bool
+}
+
+type operatorSFUStatus struct {
+	ID            string    `json:"id"`
+	URL           string    `json:"url"`
+	Region        string    `json:"region,omitempty"`
+	Zone          string    `json:"zone,omitempty"`
+	Active        bool      `json:"active"`
+	LastHeartbeat time.Time `json:"last_heartbeat"`
+	CPU           float64   `json:"cpu,omitempty"`
+	Memory        float64   `json:"memory,omitempty"`
+	ActiveHosts   int       `json:"active_hosts,omitempty"`
+	ActiveViewers int       `json:"active_viewers,omitempty"`
+}
+
+type operatorFailureStatus struct {
+	Kind   string `json:"kind"`
+	ID     string `json:"id"`
+	State  string `json:"state"`
+	Reason string `json:"reason,omitempty"`
+}
+
+type operatorStatusCounts struct {
+	RegisteredSFUs int                        `json:"registered_sfus"`
+	ActiveSFUs     int                        `json:"active_sfus"`
+	RoomsByState   map[models.RoomState]int   `json:"rooms_by_state"`
+	WorkersByState map[models.WorkerState]int `json:"workers_by_state"`
+}
+
+type operatorStatusResponse struct {
+	GeneratedAt             time.Time               `json:"generated_at"`
+	LifecycleStoreAvailable bool                    `json:"lifecycle_store_available"`
+	Counts                  operatorStatusCounts    `json:"counts"`
+	RegisteredSFUs          []operatorSFUStatus     `json:"registered_sfus"`
+	Rooms                   []models.RoomLifecycle  `json:"rooms"`
+	Workers                 []models.WorkerRecord   `json:"workers"`
+	ProvisioningFailures    []operatorFailureStatus `json:"provisioning_failures"`
+	PendingCleanupRooms     []string                `json:"pending_cleanup_rooms"`
 }
 
 // NewControlPlane creates a new control plane instance
@@ -2093,6 +2132,124 @@ func (cp *ControlPlane) HandleRoomExists(w http.ResponseWriter, r *http.Request)
 		"whip_url": whipURL,
 	})
 	log.Printf("[CP-EXISTS] Room %s exists", roomID)
+}
+
+func (cp *ControlPlane) operatorStatus() operatorStatusResponse {
+	now := time.Now().UTC()
+
+	cp.mu.RLock()
+	registeredSFUs := make([]operatorSFUStatus, 0, len(cp.sfus))
+	activeSFUs := 0
+	for _, sfu := range cp.sfus {
+		status := operatorSFUStatus{
+			ID:            sfu.ID,
+			URL:           sfu.URL,
+			Region:        sfu.Region,
+			Zone:          sfu.Zone,
+			Active:        sfu.Active,
+			LastHeartbeat: sfu.LastHeartbeat,
+		}
+		if sfu.Active {
+			activeSFUs++
+		}
+		if sfu.Metrics != nil {
+			status.CPU = sfu.Metrics.CPU
+			status.Memory = sfu.Metrics.Memory
+			status.ActiveHosts = sfu.Metrics.ActiveHosts
+			status.ActiveViewers = sfu.Metrics.ActiveViewers
+		}
+		registeredSFUs = append(registeredSFUs, status)
+	}
+	cp.mu.RUnlock()
+
+	sort.Slice(registeredSFUs, func(i, j int) bool {
+		return registeredSFUs[i].ID < registeredSFUs[j].ID
+	})
+
+	cp.cleanupMu.Lock()
+	pendingCleanupRooms := make([]string, 0, len(cp.pendingCleanups))
+	for roomID := range cp.pendingCleanups {
+		pendingCleanupRooms = append(pendingCleanupRooms, roomID)
+	}
+	cp.cleanupMu.Unlock()
+	sort.Strings(pendingCleanupRooms)
+
+	var rooms []models.RoomLifecycle
+	var workers []models.WorkerRecord
+	lifecycleStoreAvailable := cp.roomState != nil
+	if cp.roomState != nil {
+		rooms = cp.roomState.List()
+		workers = cp.roomState.ListWorkers()
+	}
+
+	sort.Slice(rooms, func(i, j int) bool {
+		return rooms[i].RoomID < rooms[j].RoomID
+	})
+	sort.Slice(workers, func(i, j int) bool {
+		return workers[i].SFUID < workers[j].SFUID
+	})
+
+	roomsByState := make(map[models.RoomState]int)
+	workersByState := make(map[models.WorkerState]int)
+	failures := make([]operatorFailureStatus, 0)
+
+	for _, room := range rooms {
+		roomsByState[room.State]++
+		if room.State == models.RoomFailed {
+			failures = append(failures, operatorFailureStatus{
+				Kind:   "room",
+				ID:     room.RoomID,
+				State:  string(room.State),
+				Reason: room.Reason,
+			})
+		}
+	}
+	for _, worker := range workers {
+		workersByState[worker.State]++
+		if worker.State == models.WorkerFailed {
+			failures = append(failures, operatorFailureStatus{
+				Kind:   "worker",
+				ID:     worker.SFUID,
+				State:  string(worker.State),
+				Reason: worker.Reason,
+			})
+		}
+	}
+
+	sort.Slice(failures, func(i, j int) bool {
+		if failures[i].Kind == failures[j].Kind {
+			return failures[i].ID < failures[j].ID
+		}
+		return failures[i].Kind < failures[j].Kind
+	})
+
+	return operatorStatusResponse{
+		GeneratedAt:             now,
+		LifecycleStoreAvailable: lifecycleStoreAvailable,
+		Counts: operatorStatusCounts{
+			RegisteredSFUs: len(registeredSFUs),
+			ActiveSFUs:     activeSFUs,
+			RoomsByState:   roomsByState,
+			WorkersByState: workersByState,
+		},
+		RegisteredSFUs:       registeredSFUs,
+		Rooms:                rooms,
+		Workers:              workers,
+		ProvisioningFailures: failures,
+		PendingCleanupRooms:  pendingCleanupRooms,
+	}
+}
+
+// HandleOperatorStatus exposes a compact operational snapshot for active SFUs,
+// worker lifecycle, provisioning failures, and scheduled cleanup actions.
+func (cp *ControlPlane) HandleOperatorStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cp.operatorStatus())
 }
 
 // HandleRoomStatus reports a room's lifecycle state so a streamer can poll a
