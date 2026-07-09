@@ -263,6 +263,8 @@
   "CopyURL": "Copier l'URL",
   "URLCopied": "URL copiée dans le presse-papier !",
   "RoomCreatedSuccessfully": "Salle créée avec succès ! L'URL est maintenant disponible ci-dessous.",
+  "RoomProvisioningTitle": "Préparation du serveur live",
+  "RoomProvisioningDescription": "La salle live est en cours de préparation. L'URL OBS apparaîtra quand le serveur sera prêt.",
   "ErrorCreatingRoom": "Erreur lors de la création de la salle. Veuillez réessayer.",
   "QRCodeDownloaded": "Code QR téléchargé avec succès",
   "QRCodeDownloadError": "Erreur lors du téléchargement du code QR",

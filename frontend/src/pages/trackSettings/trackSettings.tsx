@@ -28,6 +28,40 @@ import { closeTrack, startRecording, stopRecording } from '../../utils/api';
 import styles from './trackSettings.module.css';
 import getEnv from '../../utils/env';
 const CONTROL_PLANE_URL = getEnv('REACT_APP_SFU_CONTROL_PLANE_URL');
+const ROOM_STATUS_POLL_INTERVAL_MS = 3000;
+const ROOM_STATUS_TIMEOUT_MS = 8 * 60 * 1000;
+
+type RoomLifecycleState =
+  | 'provisioning'
+  | 'ready'
+  | 'failed'
+  | 'draining'
+  | 'terminated';
+
+type RoomStatusResponse = {
+  exists?: boolean;
+  room_id?: string;
+  state?: RoomLifecycleState;
+  ready?: boolean;
+  reason?: string;
+  whip_url?: string;
+};
+
+type CreateRoomResponse = {
+  room_id: string;
+  key: string;
+  state?: RoomLifecycleState;
+  ready?: boolean;
+  message?: string;
+};
+
+const buildWhipUrl = (roomId: string, roomKey: string) =>
+  `${CONTROL_PLANE_URL}/whip?room_id=${encodeURIComponent(
+    roomId,
+  )}&key=${encodeURIComponent(roomKey)}`;
+
+const sleep = (durationMs: number) =>
+  new Promise((resolve) => window.setTimeout(resolve, durationMs));
 
 const TrackSettings: FC = () => {
   const { trackId, eventId } = useParams();
@@ -53,6 +87,9 @@ const TrackSettings: FC = () => {
   const [sfuUrl, setSfuUrl] = useState<string>('');
   const [isLoadingSfu, setIsLoadingSfu] = useState(false);
   const [isCheckingRoom, setIsCheckingRoom] = useState(false);
+  const [roomLifecycleState, setRoomLifecycleState] =
+    useState<RoomLifecycleState | null>(null);
+  const [roomStatusMessage, setRoomStatusMessage] = useState('');
   const [touched, setTouched] = useState({ name: false, description: false });
   const [toast, setToast] = useState<{
     message: string;
@@ -66,11 +103,95 @@ const TrackSettings: FC = () => {
 
   const qrCodeRef = useRef<HTMLDivElement>(null);
 
+  const fetchRoomStatus = useCallback(async (roomId: string) => {
+    try {
+      const response = await fetch(
+        `${CONTROL_PLANE_URL}/room/status?room_id=${encodeURIComponent(
+          roomId,
+        )}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return (await response.json()) as RoomStatusResponse;
+    } catch (error) {
+      console.error('Error fetching room status:', error);
+      return null;
+    }
+  }, []);
+
+  const waitForRoomReady = useCallback(
+    async (roomId: string, roomKey: string) => {
+      const deadline = Date.now() + ROOM_STATUS_TIMEOUT_MS;
+
+      while (Date.now() < deadline) {
+        const status = await fetchRoomStatus(roomId);
+        const state = status?.state;
+
+        if (state) {
+          setRoomLifecycleState(state);
+        }
+
+        if (status?.ready || state === 'ready') {
+          setRoomStatusMessage('');
+          return buildWhipUrl(roomId, roomKey);
+        }
+
+        if (state === 'failed' || state === 'terminated') {
+          throw new Error(status?.reason || 'Room provisioning failed');
+        }
+
+        setRoomLifecycleState(state || 'provisioning');
+        setRoomStatusMessage(t('RoomProvisioningDescription'));
+        await sleep(ROOM_STATUS_POLL_INTERVAL_MS);
+      }
+
+      throw new Error('Room provisioning timed out');
+    },
+    [fetchRoomStatus, t],
+  );
+
   const checkRoomExists = useCallback(async () => {
     if (!trackId) return;
 
     setIsCheckingRoom(true);
     try {
+      const status = await fetchRoomStatus(trackId);
+      if (status?.state === 'failed' || status?.state === 'terminated') {
+        setRoomLifecycleState(status.state);
+        setRoomStatusMessage(status.reason || '');
+        setSfuUrl('');
+        return;
+      }
+
+      if (
+        status?.state === 'provisioning' ||
+        status?.state === 'draining' ||
+        status?.ready === false
+      ) {
+        setRoomLifecycleState(status.state || 'provisioning');
+        setRoomStatusMessage(t('RoomProvisioningDescription'));
+        setSfuUrl('');
+        return;
+      }
+
+      if (status?.ready || status?.state === 'ready') {
+        setRoomLifecycleState('ready');
+        setRoomStatusMessage('');
+        if (status.whip_url) {
+          setSfuUrl(status.whip_url);
+          return;
+        }
+      }
+
       const response = await fetch(
         `${CONTROL_PLANE_URL}/room/exists?room_id=${trackId}`,
         {
@@ -87,17 +208,23 @@ const TrackSettings: FC = () => {
 
       const data = await response.json();
       if (data.exists && data.whip_url) {
+        setRoomLifecycleState('ready');
+        setRoomStatusMessage('');
         setSfuUrl(data.whip_url);
       } else {
+        setRoomLifecycleState(null);
+        setRoomStatusMessage('');
         setSfuUrl('');
       }
     } catch (error) {
       console.error('Error checking room:', error);
+      setRoomLifecycleState(null);
+      setRoomStatusMessage('');
       setSfuUrl('');
     } finally {
       setIsCheckingRoom(false);
     }
-  }, [trackId]);
+  }, [fetchRoomStatus, t, trackId]);
 
   useEffect(() => {
     if (trackId) {
@@ -177,6 +304,9 @@ const TrackSettings: FC = () => {
     if (!trackId) return;
 
     setIsLoadingSfu(true);
+    setSfuUrl('');
+    setRoomLifecycleState('provisioning');
+    setRoomStatusMessage(t('RoomProvisioningDescription'));
     try {
       const response = await fetch(`${CONTROL_PLANE_URL}/room/create`, {
         method: 'POST',
@@ -192,12 +322,22 @@ const TrackSettings: FC = () => {
         throw new Error('Failed to create room');
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as CreateRoomResponse;
       // Store room info for recording
       setSfuRoomId(data.room_id);
       setSfuRoomKey(data.key);
-      const whipUrl = `${CONTROL_PLANE_URL}/whip?room_id=${data.room_id}&key=${data.key}`;
+
+      const state = data.state || (data.ready ? 'ready' : 'provisioning');
+      setRoomLifecycleState(state);
+
+      const whipUrl =
+        state === 'ready' || data.ready
+          ? buildWhipUrl(data.room_id, data.key)
+          : await waitForRoomReady(data.room_id, data.key);
+
       setSfuUrl(whipUrl);
+      setRoomLifecycleState('ready');
+      setRoomStatusMessage('');
       setIsOpen(false);
       setToast({
         message: t('RoomCreatedSuccessfully'),
@@ -205,6 +345,7 @@ const TrackSettings: FC = () => {
       });
     } catch (error) {
       console.error('Error creating SFU room:', error);
+      setRoomStatusMessage('');
       setToast({
         message: t('ErrorCreatingRoom'),
         type: 'error',
@@ -641,6 +782,12 @@ const TrackSettings: FC = () => {
             {isCheckingRoom && (
               <div className={styles.roomStatus}>
                 <p>{t('CheckingRoom') || 'Checking room status...'}</p>
+              </div>
+            )}
+            {roomLifecycleState === 'provisioning' && (
+              <div className={styles.roomStatus}>
+                <strong>{t('RoomProvisioningTitle')}</strong>
+                <p>{roomStatusMessage || t('RoomProvisioningDescription')}</p>
               </div>
             )}
             {sfuUrl && (
