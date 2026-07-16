@@ -28,6 +28,13 @@ const matches = (haystack: string, query: string): boolean => {
   return normalize(haystack).includes(normalize(query));
 };
 
+/** Converts a field that might be a string, array, null or undefined to a plain string */
+const toStringField = (value: unknown): string => {
+  if (value == null) return '';
+  if (Array.isArray(value)) return value.join(' ');
+  return String(value);
+};
+
 interface GlobalSearchFilters {
   q: string;
   tags: string[];
@@ -209,7 +216,7 @@ const searchEvent = (
   const trackFields = event.tracks.flatMap((track) => [
     track.name,
     track.description,
-    track.keywords,
+    toStringField(track.keywords),
   ]);
 
   return matchesTextQuery(
@@ -228,8 +235,8 @@ const getMatchingTracks = (event: PublicEvent, query: string): string[] => {
 
   return event.tracks
     .filter((track) =>
-      [track.name, track.description, track.keywords].some((field) =>
-        matches(field ?? '', query),
+      [track.name, track.description, toStringField(track.keywords)].some(
+        (field) => matches(field, query),
       ),
     )
     .map((track) => track.name)

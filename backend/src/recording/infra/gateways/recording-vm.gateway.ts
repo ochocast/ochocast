@@ -9,13 +9,19 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   private readonly logger = new Logger(RecordingVMGateway.name);
   private readonly vmUrl: string;
   private readonly controlPlaneUrl: string;
+  private readonly sharedSecret: string;
 
   constructor() {
     this.vmUrl = process.env.RECORDING_VM_URL || 'http://localhost:8080';
     this.controlPlaneUrl =
       process.env.CONTROL_PLANE_URL || 'http://localhost:8090';
+    this.sharedSecret = process.env.RECORDING_SHARED_SECRET || '';
     this.logger.log(`Recording VM URL: ${this.vmUrl}`);
     this.logger.log(`Control Plane URL: ${this.controlPlaneUrl}`);
+  }
+
+  private get secretHeaders(): Record<string, string> {
+    return { 'X-Recording-Secret': this.sharedSecret };
   }
 
   async startRecording(config: StartRecordingConfig): Promise<void> {
@@ -39,7 +45,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     // Step 2: Start recording with the discovered SFU URL and key
     const response = await fetch(`${this.vmUrl}/recording/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.secretHeaders },
       body: JSON.stringify({
         room_id: config.roomId,
         room_key: cpData.room_key,
@@ -64,7 +70,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
     const response = await fetch(`${this.vmUrl}/recording/stop`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.secretHeaders },
       body: JSON.stringify({ room_id: roomId }),
     });
 
@@ -85,7 +91,10 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     const url = roomId
       ? `${this.vmUrl}/recording/status?room_id=${roomId}`
       : `${this.vmUrl}/recording/status`;
-    const response = await fetch(url, { method: 'GET' });
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.secretHeaders,
+    });
 
     if (!response.ok) {
       throw new Error('Failed to get recording status');

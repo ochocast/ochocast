@@ -6,6 +6,7 @@ import {
   Param,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
   UsePipes,
   ValidationPipe,
@@ -17,6 +18,7 @@ import { StartRecordingDto } from './dto/start-recording.dto';
 import { StartRecordingUsecase } from '../../domain/usecases/startRecording.usecase';
 import { StopRecordingUsecase } from '../../domain/usecases/stopRecording.usecase';
 import { PublishRecordingUsecase } from '../../domain/usecases/publishRecording.usecase';
+import { RecordingSecretGuard } from '../guards/recording-secret.guard';
 import { isUUID } from 'class-validator';
 
 @ApiTags('Recording')
@@ -28,7 +30,6 @@ export class RecordingController {
     private publishRecordingUsecase: PublishRecordingUsecase,
   ) {}
 
-  @Public()
   @Post('start')
   @UsePipes(new ValidationPipe())
   async startRecording(
@@ -50,7 +51,6 @@ export class RecordingController {
     }
   }
 
-  @Public()
   @Post('stop/:trackId')
   async stopRecording(
     @Param('trackId') trackId: string,
@@ -71,6 +71,7 @@ export class RecordingController {
   }
 
   @Public()
+  @UseGuards(RecordingSecretGuard)
   @Post('publish')
   @UseInterceptors(FileInterceptor('file'))
   async publishRecording(
@@ -91,8 +92,14 @@ export class RecordingController {
     try {
       return await this.publishRecordingUsecase.execute(trackId, file);
     } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object'
+            ? JSON.stringify(error)
+            : String(error);
       throw new HttpException(
-        `Failed to publish recording: ${error.message}`,
+        `Failed to publish recording: ${msg}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
