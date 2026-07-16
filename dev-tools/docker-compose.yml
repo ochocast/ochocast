@@ -47,9 +47,33 @@ services:
       VIDEO_RESULT_QUEUE_NAME: video-transcoding-results
       WORKER_CONCURRENCY: 1
       FFMPEG_THREADS: 2
+      TRANSCRIPT_API_URL: http://transcript:8080/v1/audio/transcriptions
     depends_on:
       rabbitmq:
         condition: service_healthy
+      minio:
+        condition: service_started
+      transcript:
+        condition: service_started
+    restart: unless-stopped
+
+  transcript:
+    build:
+      context: ../ffmpegServer
+      dockerfile: Dockerfile.transcript
+    environment:
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_USE_SSL: 'false'
+      STOCK_MEDIA_BUCKET: media
+      TRANSCRIPT_PORT: 8080
+      TRANSCRIPT_API_KEY: ${TRANSCRIPT_API_KEY:-}
+      LOCAL_WHISPER_MODEL: ${LOCAL_WHISPER_MODEL:-tiny}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+    depends_on:
       minio:
         condition: service_started
     restart: unless-stopped

@@ -27,6 +27,9 @@ export class TranscodingResultConsumer implements OnModuleInit {
           duration: result.duration,
           transcoding_status: 'ready' as const,
           transcoding_error: null,
+          ...(result.subtitle_id !== undefined
+            ? { subtitle_id: result.subtitle_id }
+            : {}),
         }
       : {
           transcoding_status: 'failed' as const,
