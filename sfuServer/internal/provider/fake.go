@@ -12,10 +12,11 @@ import (
 // enough to exercise the autoscaler's create/read/tag/delete paths without any
 // cloud calls. Used by tasks 4.2–4.5 and the 8.2 integration tests.
 type Fake struct {
-	mu       sync.Mutex
-	seq      int
-	workers  map[string]Worker
-	FailNext error // if set, the next CreateWorker returns it (and clears it)
+	mu         sync.Mutex
+	seq        int
+	workers    map[string]Worker
+	FailNext   error // if set, the next CreateWorker returns it (and clears it)
+	FailDelete error // if set, the next DeleteWorker returns it (and clears it)
 }
 
 // NewFake returns an empty fake provider.
@@ -84,6 +85,11 @@ func (f *Fake) TagWorker(_ context.Context, id string, tags []string) error {
 func (f *Fake) DeleteWorker(_ context.Context, id string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.FailDelete != nil {
+		err := f.FailDelete
+		f.FailDelete = nil
+		return err
+	}
 	if _, ok := f.workers[id]; !ok {
 		return fmt.Errorf("fake: no worker %s", id)
 	}

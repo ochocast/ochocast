@@ -154,6 +154,7 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		},
 	})
 	cp.SetProvisioner(prov)
+	http.Handle("/metrics", prov.MetricsHandler())
 
 	ctx := context.Background()
 	go prov.Run(ctx) // startup-timeout reaping (task 4.3)

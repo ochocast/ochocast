@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"whip-server/internal/lifecycle"
@@ -74,6 +75,11 @@ type Provisioner struct {
 
 	// now is the clock, overridable in tests.
 	now func() time.Time
+
+	// Counters are process-local Prometheus counters. Lifecycle-derived gauges
+	// and duration summaries are rebuilt from the durable store on every scrape.
+	readinessFailures atomic.Uint64
+	orphanCleanups    atomic.Uint64
 }
 
 // New builds a Provisioner. MaxWorkers < 1 is clamped to 1 and an unset
@@ -115,11 +121,13 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 
 	// 2. Budget cap on live workers across the environment.
 	if p.liveWorkerCount() >= p.cfg.MaxWorkers {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, ErrBudgetExceeded
 	}
 
 	// 3. Move the room into provisioning (idempotent; safe if already provisioning).
 	if _, _, err := p.store.EnsureRoomProvisioning(roomID); err != nil {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, err
 	}
 
@@ -134,6 +142,7 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 		ImageTag: p.cfg.ImageTag,
 	}
 	if _, err := p.store.UpsertWorker(rec); err != nil {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, err
 	}
 
@@ -148,6 +157,7 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 	}
 	w, err := p.prov.CreateWorker(ctx, spec)
 	if err != nil {
+		p.readinessFailures.Add(1)
 		// Mark worker and room failed; the record is kept (not deleted) so
 		// reconciliation can confirm no cloud resource leaked.
 		rec.State = models.WorkerFailed
@@ -166,6 +176,7 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 	}
 	saved, err := p.store.UpsertWorker(rec)
 	if err != nil {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, err
 	}
 	return saved, nil
@@ -188,6 +199,75 @@ func (p *Provisioner) Drain(sfuID string) error {
 		return fmt.Errorf("autoscaler: drain worker %s: %w", sfuID, err)
 	}
 	return nil
+}
+
+// ReleaseCapacity drains and destroys the worker assigned to roomID after the
+// control-plane has confirmed that the room's media topology is empty. A cloud
+// deletion failure leaves the worker and room in draining state so the
+// background reaper can retry without assigning new work to the Instance.
+func (p *Provisioner) ReleaseCapacity(ctx context.Context, roomID string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	rec, ok := p.store.WorkerForRoom(roomID)
+	if !ok {
+		return nil // static SFU room or already released; nothing cloud-owned
+	}
+	if rec.State != models.WorkerDraining {
+		rec.State = models.WorkerDraining
+		rec.Reason = "idle timeout"
+		if _, err := p.store.UpsertWorker(rec); err != nil {
+			return fmt.Errorf("autoscaler: drain worker %s: %w", rec.SFUID, err)
+		}
+	}
+	if room, exists := p.store.Get(roomID); exists && room.State != models.RoomDraining {
+		if _, err := p.store.Upsert(roomID, models.RoomDraining, "idle timeout"); err != nil {
+			return fmt.Errorf("autoscaler: drain room %s: %w", roomID, err)
+		}
+	}
+	return p.destroyDrainingLocked(ctx, rec)
+}
+
+func (p *Provisioner) destroyDrainingLocked(ctx context.Context, rec models.WorkerRecord) error {
+	if rec.State != models.WorkerDraining {
+		return fmt.Errorf("autoscaler: worker %s is %s, not draining", rec.SFUID, rec.State)
+	}
+	if rec.ProviderResourceID != "" {
+		if err := p.prov.DeleteWorker(ctx, rec.ProviderResourceID); err != nil {
+			return fmt.Errorf("autoscaler: destroy worker %s: %w", rec.SFUID, err)
+		}
+	}
+	rec.State = models.WorkerTerminated
+	rec.Reason = "idle timeout"
+	if _, err := p.store.UpsertWorker(rec); err != nil {
+		return fmt.Errorf("autoscaler: mark worker %s terminated: %w", rec.SFUID, err)
+	}
+	if rec.RoomID != "" {
+		if _, err := p.store.Upsert(rec.RoomID, models.RoomTerminated, "idle timeout"); err != nil {
+			return fmt.Errorf("autoscaler: mark room %s terminated: %w", rec.RoomID, err)
+		}
+	}
+	return nil
+}
+
+// ReapDrainingWorkers retries deletion for workers left draining by a transient
+// provider failure. It never targets ready or untagged/untracked resources.
+func (p *Provisioner) ReapDrainingWorkers(ctx context.Context) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	destroyed := 0
+	for _, rec := range p.store.ListWorkers() {
+		if rec.State != models.WorkerDraining {
+			continue
+		}
+		if err := p.destroyDrainingLocked(ctx, rec); err != nil {
+			log.Printf("[autoscaler] retry draining worker %s: %v", rec.SFUID, err)
+			continue
+		}
+		destroyed++
+	}
+	return destroyed
 }
 
 // liveWorkerCount counts workers that still hold (or could hold) budget: anything
@@ -237,6 +317,7 @@ func (p *Provisioner) ReapStartupTimeouts(ctx context.Context) int {
 		if w.RoomID != "" {
 			_, _ = p.store.Upsert(w.RoomID, models.RoomFailed, "sfu startup timeout")
 		}
+		p.readinessFailures.Add(1)
 		reaped++
 	}
 	return reaped
@@ -258,6 +339,7 @@ func (p *Provisioner) Run(ctx context.Context) {
 			return
 		case <-t.C:
 			p.ReapStartupTimeouts(ctx)
+			p.ReapDrainingWorkers(ctx)
 		}
 	}
 }
@@ -349,6 +431,7 @@ func (p *Provisioner) CleanupOrphans(ctx context.Context) (int, error) {
 		}
 		deleted++
 	}
+	p.orphanCleanups.Add(uint64(deleted))
 	return deleted, nil
 }
 
