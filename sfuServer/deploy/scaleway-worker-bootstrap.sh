@@ -103,5 +103,7 @@ docker run \
   -e TURN_PASSWORD="${TURN_PASSWORD:-}" \
   -e ICE_RELAY_ONLY="$ICE_RELAY_ONLY" \
   -e ENABLE_ICE_TCP="${ENABLE_ICE_TCP:-false}" \
+  -e ICE_UDP_PORT_MIN="${ICE_UDP_PORT_MIN:-}" \
+  -e ICE_UDP_PORT_MAX="${ICE_UDP_PORT_MAX:-}" \
   -e SERVER_PORT="$SFU_PORT" \
   "$IMAGE"

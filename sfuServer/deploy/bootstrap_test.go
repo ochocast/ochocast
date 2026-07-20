@@ -13,6 +13,8 @@ func TestWorkerConfigValidate(t *testing.T) {
 		TURNServer:      "turn:turn.example.com:3478",
 		TURNUsername:    "user",
 		TURNPassword:    "secret",
+		ICEUDPPortMin:   "50000",
+		ICEUDPPortMax:   "50100",
 	}
 	if err := valid.Validate(); err != nil {
 		t.Fatalf("valid config rejected: %v", err)
@@ -27,6 +29,8 @@ func TestWorkerConfigValidate(t *testing.T) {
 		{"missing control-plane URL", func(c *WorkerConfig) { c.ControlPlaneURL = "" }},
 		{"partial registry credentials", func(c *WorkerConfig) { c.RegistryUser = "user" }},
 		{"missing TURN password", func(c *WorkerConfig) { c.TURNPassword = "" }},
+		{"partial ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMax = "" }},
+		{"reversed ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMin = "50101" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -50,6 +54,8 @@ func TestWorkerConfigRender(t *testing.T) {
 		TURNServer:      "turn:turn.example.com:3478",
 		TURNUsername:    "turn-user",
 		TURNPassword:    "turn-secret",
+		ICEUDPPortMin:   "50000",
+		ICEUDPPortMax:   "50100",
 	}
 
 	rendered := cfg.Render("sfu-123", "room-456")
@@ -61,6 +67,9 @@ func TestWorkerConfigRender(t *testing.T) {
 		"export SFU_REGISTRY_PASSWORD='pa'\"'\"'ss; echo unsafe'",
 		"docker run",
 		"-e TURN_PASSWORD=\"${TURN_PASSWORD:-}\"",
+		"export ICE_UDP_PORT_MIN='50000'",
+		"export ICE_UDP_PORT_MAX='50100'",
+		"-e ICE_UDP_PORT_MIN=\"${ICE_UDP_PORT_MIN:-}\"",
 		"conf?format=json",
 		".public_ips_v4[0].address // .public_ip.address // empty",
 	}

@@ -51,6 +51,8 @@ func TestWHIPResourceLocationRoundTrip(t *testing.T) {
 }
 
 func TestRelayOnlyAllowsPublicIPWithoutHostCandidateRewrite(t *testing.T) {
+	t.Setenv("ICE_UDP_PORT_MIN", "")
+	t.Setenv("ICE_UDP_PORT_MAX", "")
 	api, err := newWebRTCAPI("203.0.113.10", true)
 	if err != nil {
 		t.Fatalf("create WebRTC API: %v", err)
@@ -82,5 +84,14 @@ func TestRelayOnlyAllowsPublicIPWithoutHostCandidateRewrite(t *testing.T) {
 
 	if err := answerer.SetRemoteDescription(offer); err != nil {
 		t.Fatalf("relay-only answerer rejected a valid offer with PUBLIC_IP set: %v", err)
+	}
+}
+
+func TestWebRTCAPIRejectsInvalidUDPPortRange(t *testing.T) {
+	t.Setenv("ICE_UDP_PORT_MIN", "50100")
+	t.Setenv("ICE_UDP_PORT_MAX", "50000")
+
+	if _, err := newWebRTCAPI("203.0.113.10", false); err == nil {
+		t.Fatal("expected an invalid ICE UDP port range to be rejected")
 	}
 }

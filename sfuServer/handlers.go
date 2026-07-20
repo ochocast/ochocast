@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -35,6 +36,22 @@ func newWebRTCAPI(publicIP string, relayOnly bool) (*webrtc.API, error) {
 
 	// Create a SettingEngine for advanced WebRTC configuration
 	settingEngine := webrtc.SettingEngine{}
+	udpPortMin := strings.TrimSpace(os.Getenv("ICE_UDP_PORT_MIN"))
+	udpPortMax := strings.TrimSpace(os.Getenv("ICE_UDP_PORT_MAX"))
+	if udpPortMin != "" || udpPortMax != "" {
+		if udpPortMin == "" || udpPortMax == "" {
+			return nil, fmt.Errorf("ICE_UDP_PORT_MIN and ICE_UDP_PORT_MAX must be set together")
+		}
+		minPort, minErr := strconv.ParseUint(udpPortMin, 10, 16)
+		maxPort, maxErr := strconv.ParseUint(udpPortMax, 10, 16)
+		if minErr != nil || maxErr != nil || minPort == 0 || maxPort == 0 {
+			return nil, fmt.Errorf("invalid ICE UDP port range %q-%q", udpPortMin, udpPortMax)
+		}
+		if err := settingEngine.SetEphemeralUDPPortRange(uint16(minPort), uint16(maxPort)); err != nil {
+			return nil, fmt.Errorf("set ICE UDP port range %d-%d: %w", minPort, maxPort, err)
+		}
+		log.Printf("[ICE] Using bounded UDP port range: %d-%d", minPort, maxPort)
+	}
 
 	// If a public IP is specified, use NAT1To1 mapping
 	// This is useful when running behind a NAT (like in containers)

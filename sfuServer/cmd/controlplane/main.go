@@ -134,6 +134,8 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		SFUPort:         getEnv("SFU_WORKER_PORT", "8090"),
 		ICERelayOnly:    envBool("ICE_RELAY_ONLY", true),
 		EnableICETCP:    envBool("ENABLE_ICE_TCP", false),
+		ICEUDPPortMin:   os.Getenv("ICE_UDP_PORT_MIN"),
+		ICEUDPPortMax:   os.Getenv("ICE_UDP_PORT_MAX"),
 		STUNServers:     os.Getenv("STUN_SERVERS"),
 		TURNServer:      os.Getenv("TURN_SERVER"),
 		TURNUsername:    os.Getenv("TURN_USERNAME"),
