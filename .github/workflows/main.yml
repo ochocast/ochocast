@@ -40,11 +40,11 @@ permissions:
 env:
   FRONTEND_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/frontend-images
   BACKEND_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/backend-images
-  LIVE_RECORDER_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/live-recorder-images
+  LIVE_RECORDER_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/sfu-server
   SFU_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/sfu-server
   FRONTEND_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/frontend-images/ochocast-frontend
   BACKEND_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/backend-images/octocast-backend
-  LIVE_RECORDER_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/live-recorder-images/live-recorder
+  LIVE_RECORDER_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/sfu-server/live-recorder
   SFU_CONTROLPLANE_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/sfu-server/controlplane
   SFU_WORKER_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/sfu-server/sfu
   OPS_REPOSITORY: ochocast/ops-architecture-lab
