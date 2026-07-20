@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"whip-server/internal/lifecycle"
@@ -74,6 +75,11 @@ type Provisioner struct {
 
 	// now is the clock, overridable in tests.
 	now func() time.Time
+
+	// Counters are process-local Prometheus counters. Lifecycle-derived gauges
+	// and duration summaries are rebuilt from the durable store on every scrape.
+	readinessFailures atomic.Uint64
+	orphanCleanups    atomic.Uint64
 }
 
 // New builds a Provisioner. MaxWorkers < 1 is clamped to 1 and an unset
@@ -115,11 +121,13 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 
 	// 2. Budget cap on live workers across the environment.
 	if p.liveWorkerCount() >= p.cfg.MaxWorkers {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, ErrBudgetExceeded
 	}
 
 	// 3. Move the room into provisioning (idempotent; safe if already provisioning).
 	if _, _, err := p.store.EnsureRoomProvisioning(roomID); err != nil {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, err
 	}
 
@@ -134,6 +142,7 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 		ImageTag: p.cfg.ImageTag,
 	}
 	if _, err := p.store.UpsertWorker(rec); err != nil {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, err
 	}
 
@@ -148,6 +157,7 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 	}
 	w, err := p.prov.CreateWorker(ctx, spec)
 	if err != nil {
+		p.readinessFailures.Add(1)
 		// Mark worker and room failed; the record is kept (not deleted) so
 		// reconciliation can confirm no cloud resource leaked.
 		rec.State = models.WorkerFailed
@@ -166,6 +176,7 @@ func (p *Provisioner) EnsureCapacity(ctx context.Context, roomID string) (models
 	}
 	saved, err := p.store.UpsertWorker(rec)
 	if err != nil {
+		p.readinessFailures.Add(1)
 		return models.WorkerRecord{}, err
 	}
 	return saved, nil
@@ -306,6 +317,7 @@ func (p *Provisioner) ReapStartupTimeouts(ctx context.Context) int {
 		if w.RoomID != "" {
 			_, _ = p.store.Upsert(w.RoomID, models.RoomFailed, "sfu startup timeout")
 		}
+		p.readinessFailures.Add(1)
 		reaped++
 	}
 	return reaped
@@ -419,6 +431,7 @@ func (p *Provisioner) CleanupOrphans(ctx context.Context) (int, error) {
 		}
 		deleted++
 	}
+	p.orphanCleanups.Add(uint64(deleted))
 	return deleted, nil
 }
 
