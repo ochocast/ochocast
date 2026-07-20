@@ -61,6 +61,8 @@ func TestWorkerConfigRender(t *testing.T) {
 		"export SFU_REGISTRY_PASSWORD='pa'\"'\"'ss; echo unsafe'",
 		"docker run",
 		"-e TURN_PASSWORD=\"${TURN_PASSWORD:-}\"",
+		"conf?format=json",
+		".public_ips_v4[0].address // .public_ip.address // empty",
 	}
 	for _, want := range wants {
 		if !strings.Contains(rendered, want) {
@@ -69,5 +71,8 @@ func TestWorkerConfigRender(t *testing.T) {
 	}
 	if strings.Count(rendered, "#!/usr/bin/env bash") != 1 {
 		t.Fatalf("rendered user-data must contain exactly one shebang")
+	}
+	if strings.Contains(rendered, `$1 == "PUBLIC_IP"`) {
+		t.Fatal("rendered user-data must not parse the legacy PUBLIC_IP table")
 	}
 }
