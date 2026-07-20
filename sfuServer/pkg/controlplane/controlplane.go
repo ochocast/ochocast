@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -98,6 +99,10 @@ type ControlPlane struct {
 	// configured, in which case room creation hard-fails on "no active SFUs" as
 	// before.
 	provisioner capacityEnsurer
+
+	// Externally reachable TLS endpoint used in streamer-facing WHIP URLs.
+	// Empty falls back to the host and forwarding headers of the HTTP request.
+	publicURL string
 }
 
 // capacityEnsurer provisions on-demand SFU capacity for a room. Implemented by
@@ -115,6 +120,22 @@ func (cp *ControlPlane) SetProvisioner(p capacityEnsurer) {
 	cp.mu.Lock()
 	defer cp.mu.Unlock()
 	cp.provisioner = p
+}
+
+// SetPublicURL configures the externally reachable control-plane base URL.
+func (cp *ControlPlane) SetPublicURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("invalid control-plane public URL %q", raw)
+	}
+	cp.mu.Lock()
+	cp.publicURL = strings.TrimRight(raw, "/")
+	cp.mu.Unlock()
+	return nil
 }
 
 // LifecycleStore returns the control-plane's persistent lifecycle store so the
@@ -2119,18 +2140,27 @@ func (cp *ControlPlane) HandleRoomExists(w http.ResponseWriter, r *http.Request)
 
 	// Room exists - get info from topology
 	roomKey := topology.Key
-	controlPlaneURL := fmt.Sprintf("http://localhost:%s", "8090") // Use control plane URL
 	cp.mu.RUnlock()
 
-	// Room exists - return WHIP URL
-	whipURL := fmt.Sprintf("%s/whip?room_id=%s&key=%s", controlPlaneURL, roomID, roomKey)
+	state := models.RoomReady // legacy rooms without lifecycle records
+	if cp.roomState != nil {
+		if room, ok := cp.roomState.Get(roomID); ok {
+			state = room.State
+		}
+	}
+	ready := state == models.RoomReady
+	response := map[string]interface{}{
+		"exists":  true,
+		"room_id": roomID,
+		"state":   string(state),
+		"ready":   ready,
+	}
+	if ready {
+		response["whip_url"] = cp.publicWHIPURL(r, roomID, roomKey)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"exists":   true,
-		"room_id":  roomID,
-		"whip_url": whipURL,
-	})
+	json.NewEncoder(w).Encode(response)
 	log.Printf("[CP-EXISTS] Room %s exists", roomID)
 }
 
@@ -2306,7 +2336,37 @@ func (cp *ControlPlane) HandleRoomStatus(w http.ResponseWriter, r *http.Request)
 		resp["reason"] = reason
 	}
 	if ready && key != "" {
-		resp["whip_url"] = fmt.Sprintf("http://localhost:%s/whip?room_id=%s&key=%s", "8090", roomID, key)
+		resp["whip_url"] = cp.publicWHIPURL(r, roomID, key)
 	}
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (cp *ControlPlane) publicWHIPURL(r *http.Request, roomID, key string) string {
+	cp.mu.RLock()
+	base := cp.publicURL
+	cp.mu.RUnlock()
+	if base == "" {
+		scheme := firstForwardedValue(r.Header.Get("X-Forwarded-Proto"))
+		if scheme == "" {
+			if r.TLS != nil {
+				scheme = "https"
+			} else {
+				scheme = "http"
+			}
+		}
+		host := firstForwardedValue(r.Header.Get("X-Forwarded-Host"))
+		if host == "" {
+			host = r.Host
+		}
+		base = scheme + "://" + host
+	}
+	query := url.Values{"room_id": {roomID}, "key": {key}}
+	return strings.TrimRight(base, "/") + "/whip?" + query.Encode()
+}
+
+func firstForwardedValue(value string) string {
+	if first, _, ok := strings.Cut(value, ","); ok {
+		return strings.TrimSpace(first)
+	}
+	return strings.TrimSpace(value)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"testing"
 	"time"
@@ -120,6 +121,79 @@ func TestRoomStatusProvisioningThenReady(t *testing.T) {
 	// Unknown room: 404.
 	if code, _ := roomStatus(t, cp, "nope"); code != http.StatusNotFound {
 		t.Fatalf("unknown room status = %d, want 404", code)
+	}
+}
+
+func TestRoomEndpointsExposeConfiguredPublicWHIPURL(t *testing.T) {
+	cp := newTestCP(t)
+	cp.SetProvisioner(&stubEnsurer{called: make(chan string, 1)})
+	if err := cp.SetPublicURL("https://sfu-staging.example.test/"); err != nil {
+		t.Fatal(err)
+	}
+	key, _, err := cp.CreateRoom("room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+	want := "https://sfu-staging.example.test/whip?key=" + url.QueryEscape(key) + "&room_id=room-1"
+
+	statusCode, status := roomStatus(t, cp, "room-1")
+	if statusCode != http.StatusOK || status["whip_url"] != want {
+		t.Fatalf("room status=%d body=%+v, want whip_url=%s", statusCode, status, want)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/room/exists?room_id=room-1", nil)
+	res := httptest.NewRecorder()
+	cp.HandleRoomExists(res, req)
+	var exists map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&exists); err != nil {
+		t.Fatal(err)
+	}
+	if exists["whip_url"] != want {
+		t.Fatalf("room exists body=%+v, want whip_url=%s", exists, want)
+	}
+}
+
+func TestRoomExistsDoesNotExposeWHIPURLWhileProvisioning(t *testing.T) {
+	cp := newTestCP(t)
+	cp.SetProvisioner(&stubEnsurer{called: make(chan string, 1)})
+	if _, _, err := cp.CreateRoom("room-1"); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/room/exists?room_id=room-1", nil)
+	res := httptest.NewRecorder()
+	cp.HandleRoomExists(res, req)
+	var body map[string]interface{}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if body["state"] != "provisioning" || body["ready"] != false {
+		t.Fatalf("unexpected lifecycle response: %+v", body)
+	}
+	if _, ok := body["whip_url"]; ok {
+		t.Fatalf("WHIP URL exposed before readiness: %+v", body)
+	}
+}
+
+func TestPublicWHIPURLUsesForwardedIngressHeaders(t *testing.T) {
+	cp := newTestCP(t)
+	req := httptest.NewRequest(http.MethodGet, "/room/status", nil)
+	req.Header.Set("X-Forwarded-Proto", "https, http")
+	req.Header.Set("X-Forwarded-Host", "sfu.example.test, ingress.internal")
+	want := "https://sfu.example.test/whip?key=secret&room_id=room+with+spaces"
+	if got := cp.publicWHIPURL(req, "room with spaces", "secret"); got != want {
+		t.Fatalf("publicWHIPURL=%s, want %s", got, want)
+	}
+}
+
+func TestSetPublicURLRejectsInvalidURL(t *testing.T) {
+	cp := newTestCP(t)
+	for _, value := range []string{"localhost:8090", "ftp://sfu.example.test"} {
+		if err := cp.SetPublicURL(value); err == nil {
+			t.Fatalf("SetPublicURL(%q) should fail", value)
+		}
 	}
 }
 
