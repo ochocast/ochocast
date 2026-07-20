@@ -28,8 +28,15 @@ detect_public_ip() {
     return
   fi
 
-  if command -v curl >/dev/null 2>&1; then
-    PUBLIC_IP="$(curl -fsS --max-time 2 http://169.254.42.42/conf 2>/dev/null | awk -F= '$1 == "PUBLIC_IP" { print $2; exit }' || true)"
+  # PUBLIC_IP in the legacy key/value response is now a shell-quoted table
+  # when an Instance uses the multi-IP network stack. Consume the structured
+  # metadata response instead and select the first public IPv4 address.
+  if command -v curl >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+    PUBLIC_IP="$(
+      curl -fsS --max-time 5 'http://169.254.42.42/conf?format=json' 2>/dev/null \
+        | jq -r '.public_ips_v4[0].address // .public_ip.address // empty' \
+        || true
+    )"
   fi
 }
 
@@ -41,13 +48,13 @@ install_docker() {
   if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y ca-certificates curl docker.io
+    apt-get install -y ca-certificates curl docker.io jq
     systemctl enable --now docker
     return
   fi
 
   if command -v apk >/dev/null 2>&1; then
-    apk add --no-cache docker
+    apk add --no-cache ca-certificates curl docker jq
     rc-update add docker default || true
     service docker start || true
     return
