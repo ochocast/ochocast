@@ -24,6 +24,9 @@ func main() {
 
 	// Create control plane instance
 	cp := controlplane.NewControlPlane(maxFanout, rebalanceThreshold)
+	if err := cp.SetPublicURL(os.Getenv("SFU_CONTROL_PLANE_URL")); err != nil {
+		log.Fatalf("[CP] invalid public URL: %v", err)
+	}
 
 	// Enable on-demand SFU autoscaling when Scaleway credentials are present.
 	// Without them the control-plane behaves as before (hard-fails room creation
