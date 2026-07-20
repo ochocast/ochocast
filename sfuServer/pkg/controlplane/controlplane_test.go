@@ -17,8 +17,16 @@ import (
 
 // stubEnsurer stands in for the autoscaler in control-plane tests.
 type stubEnsurer struct {
-	called chan string
-	err    error
+	called   chan string
+	released chan string
+	err      error
+}
+
+func (s *stubEnsurer) ReleaseCapacity(_ context.Context, roomID string) error {
+	if s.released != nil {
+		s.released <- roomID
+	}
+	return s.err
 }
 
 func (s *stubEnsurer) EnsureCapacity(_ context.Context, roomID string) (models.WorkerRecord, error) {
@@ -60,6 +68,30 @@ func TestCreateRoomColdStartProvisions(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("EnsureCapacity was never called")
+	}
+}
+
+func TestTopologyCleanupReleasesOnDemandCapacity(t *testing.T) {
+	cp := newTestCP(t)
+	released := make(chan string, 1)
+	cp.SetProvisioner(&stubEnsurer{released: released})
+	cp.rooms["room-idle"] = &models.RoomTopology{
+		RoomID: "room-idle",
+		Nodes:  make(map[string]*models.TopologyNode),
+	}
+
+	cp.scheduleTopologyCleanup("room-idle")
+
+	select {
+	case roomID := <-released:
+		if roomID != "room-idle" {
+			t.Fatalf("released room = %s, want room-idle", roomID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("topology cleanup did not release on-demand capacity")
+	}
+	if _, exists := cp.rooms["room-idle"]; exists {
+		t.Fatal("room topology still exists after cleanup")
 	}
 }
 
@@ -185,6 +217,21 @@ func TestColdStartReadinessLoop(t *testing.T) {
 	}
 	if _, ok := body["whip_url"]; !ok {
 		t.Fatal("whip_url should be exposed once ready")
+	}
+
+	// Complete the integration lifecycle against the fake provider:
+	// ready -> draining -> cloud delete -> terminated.
+	if err := prov.ReleaseCapacity(context.Background(), "room-1"); err != nil {
+		t.Fatal(err)
+	}
+	if fake.Count() != 0 {
+		t.Fatalf("fake provider still has %d worker(s) after release", fake.Count())
+	}
+	if worker, _ := cp.LifecycleStore().GetWorker(sfuID); worker.State != models.WorkerTerminated {
+		t.Fatalf("worker state after release = %s, want terminated", worker.State)
+	}
+	if room, _ := cp.LifecycleStore().Get("room-1"); room.State != models.RoomTerminated {
+		t.Fatalf("room state after release = %s, want terminated", room.State)
 	}
 }
 

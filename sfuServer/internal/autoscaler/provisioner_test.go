@@ -181,6 +181,77 @@ func TestDrain(t *testing.T) {
 	}
 }
 
+func TestReleaseCapacityDrainsAndDestroysWorker(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		rec.State = state
+		if _, err := store.UpsertWorker(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := p.ReleaseCapacity(ctx, "room-1"); err != nil {
+		t.Fatal(err)
+	}
+	if fake.Count() != 0 {
+		t.Fatalf("worker Instance still exists: count=%d", fake.Count())
+	}
+	worker, _ := store.GetWorker(rec.SFUID)
+	if worker.State != models.WorkerTerminated || worker.TerminatedAt == nil {
+		t.Fatalf("worker not terminated: %+v", worker)
+	}
+	room, _ := store.Get("room-1")
+	if room.State != models.RoomTerminated {
+		t.Fatalf("room state = %s, want terminated", room.State)
+	}
+}
+
+func TestReleaseCapacityRetriesTransientDeleteFailure(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		rec.State = state
+		if _, err := store.UpsertWorker(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	fake.FailDelete = errors.New("temporary provider failure")
+	if err := p.ReleaseCapacity(ctx, "room-1"); err == nil {
+		t.Fatal("expected provider deletion failure")
+	}
+	worker, _ := store.GetWorker(rec.SFUID)
+	if worker.State != models.WorkerDraining || fake.Count() != 1 {
+		t.Fatalf("failed deletion must remain draining: worker=%+v count=%d", worker, fake.Count())
+	}
+
+	if destroyed := p.ReapDrainingWorkers(ctx); destroyed != 1 {
+		t.Fatalf("destroyed=%d, want 1", destroyed)
+	}
+	if fake.Count() != 0 {
+		t.Fatal("retry did not delete worker")
+	}
+}
+
 func TestReconcileVanishedAndOrphan(t *testing.T) {
 	ctx := context.Background()
 	fake := provider.NewFake()

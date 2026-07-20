@@ -106,6 +106,7 @@ type ControlPlane struct {
 // cold-start path testable).
 type capacityEnsurer interface {
 	EnsureCapacity(ctx context.Context, roomID string) (models.WorkerRecord, error)
+	ReleaseCapacity(ctx context.Context, roomID string) error
 }
 
 // SetProvisioner wires an autoscaler into the control-plane. With one set, a
@@ -436,6 +437,17 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 
 	// Notify ALL SFUs to delete the room so it can be re-created with a new key later
 	go cp.syncRoomDeletionToAllSFUs(roomID)
+
+	// The topology grace period doubles as the first-stage idle timeout. Once it
+	// expires, release only capacity tracked by the on-demand provisioner; rooms
+	// hosted on static SFUs are a no-op.
+	if cp.provisioner != nil {
+		go func() {
+			if err := cp.provisioner.ReleaseCapacity(context.Background(), roomID); err != nil {
+				log.Printf("[CP-CLEANUP] release capacity for room %s: %v", roomID, err)
+			}
+		}()
+	}
 }
 
 // syncRoomDeletionToAllSFUs sends room deletion to all registered SFUs

@@ -190,6 +190,75 @@ func (p *Provisioner) Drain(sfuID string) error {
 	return nil
 }
 
+// ReleaseCapacity drains and destroys the worker assigned to roomID after the
+// control-plane has confirmed that the room's media topology is empty. A cloud
+// deletion failure leaves the worker and room in draining state so the
+// background reaper can retry without assigning new work to the Instance.
+func (p *Provisioner) ReleaseCapacity(ctx context.Context, roomID string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	rec, ok := p.store.WorkerForRoom(roomID)
+	if !ok {
+		return nil // static SFU room or already released; nothing cloud-owned
+	}
+	if rec.State != models.WorkerDraining {
+		rec.State = models.WorkerDraining
+		rec.Reason = "idle timeout"
+		if _, err := p.store.UpsertWorker(rec); err != nil {
+			return fmt.Errorf("autoscaler: drain worker %s: %w", rec.SFUID, err)
+		}
+	}
+	if room, exists := p.store.Get(roomID); exists && room.State != models.RoomDraining {
+		if _, err := p.store.Upsert(roomID, models.RoomDraining, "idle timeout"); err != nil {
+			return fmt.Errorf("autoscaler: drain room %s: %w", roomID, err)
+		}
+	}
+	return p.destroyDrainingLocked(ctx, rec)
+}
+
+func (p *Provisioner) destroyDrainingLocked(ctx context.Context, rec models.WorkerRecord) error {
+	if rec.State != models.WorkerDraining {
+		return fmt.Errorf("autoscaler: worker %s is %s, not draining", rec.SFUID, rec.State)
+	}
+	if rec.ProviderResourceID != "" {
+		if err := p.prov.DeleteWorker(ctx, rec.ProviderResourceID); err != nil {
+			return fmt.Errorf("autoscaler: destroy worker %s: %w", rec.SFUID, err)
+		}
+	}
+	rec.State = models.WorkerTerminated
+	rec.Reason = "idle timeout"
+	if _, err := p.store.UpsertWorker(rec); err != nil {
+		return fmt.Errorf("autoscaler: mark worker %s terminated: %w", rec.SFUID, err)
+	}
+	if rec.RoomID != "" {
+		if _, err := p.store.Upsert(rec.RoomID, models.RoomTerminated, "idle timeout"); err != nil {
+			return fmt.Errorf("autoscaler: mark room %s terminated: %w", rec.RoomID, err)
+		}
+	}
+	return nil
+}
+
+// ReapDrainingWorkers retries deletion for workers left draining by a transient
+// provider failure. It never targets ready or untagged/untracked resources.
+func (p *Provisioner) ReapDrainingWorkers(ctx context.Context) int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	destroyed := 0
+	for _, rec := range p.store.ListWorkers() {
+		if rec.State != models.WorkerDraining {
+			continue
+		}
+		if err := p.destroyDrainingLocked(ctx, rec); err != nil {
+			log.Printf("[autoscaler] retry draining worker %s: %v", rec.SFUID, err)
+			continue
+		}
+		destroyed++
+	}
+	return destroyed
+}
+
 // liveWorkerCount counts workers that still hold (or could hold) budget: anything
 // not terminated and not failed.
 func (p *Provisioner) liveWorkerCount() int {
@@ -258,6 +327,7 @@ func (p *Provisioner) Run(ctx context.Context) {
 			return
 		case <-t.C:
 			p.ReapStartupTimeouts(ctx)
+			p.ReapDrainingWorkers(ctx)
 		}
 	}
 }
