@@ -259,6 +259,9 @@ func (s *Store) UpsertWorker(w models.WorkerRecord) (models.WorkerRecord, error)
 			return prev, fmt.Errorf("invalid worker transition %s -> %s for sfu %s", prev.State, w.State, w.SFUID)
 		}
 		w.CreatedAt = prev.CreatedAt
+		if w.ReadyAt == nil {
+			w.ReadyAt = prev.ReadyAt
+		}
 	} else {
 		w.CreatedAt = now
 	}

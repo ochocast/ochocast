@@ -195,8 +195,8 @@ func TestColdStartReadinessLoop(t *testing.T) {
 	if err := cp.UpdateMetrics(&models.SFUMetrics{SFUID: sfuID, ServerURL: "http://1.2.3.4:8080", CPU: 0.1, Memory: 0.1}); err != nil {
 		t.Fatal(err)
 	}
-	if w, _ := cp.LifecycleStore().GetWorker(sfuID); w.State != models.WorkerReady {
-		t.Fatalf("after healthy heartbeat, worker state = %s, want ready", w.State)
+	if w, _ := cp.LifecycleStore().GetWorker(sfuID); w.State != models.WorkerReady || w.ReadyAt == nil {
+		t.Fatalf("after healthy heartbeat, worker must be ready with ready_at: %+v", w)
 	}
 	if rl, _ := cp.LifecycleStore().Get("room-1"); rl.State != models.RoomReady {
 		t.Fatalf("room state = %s, want ready", rl.State)

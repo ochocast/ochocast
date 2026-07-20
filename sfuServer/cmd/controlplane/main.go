@@ -127,6 +127,7 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		ManagedTag: getEnv("SFU_MANAGED_TAG", "sfu-worker"),
 	})
 	cp.SetProvisioner(prov)
+	http.Handle("/metrics", prov.MetricsHandler())
 
 	ctx := context.Background()
 	go prov.Run(ctx) // startup-timeout reaping (task 4.3)

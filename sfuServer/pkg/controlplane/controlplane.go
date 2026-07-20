@@ -1099,6 +1099,10 @@ func (cp *ControlPlane) promoteWorker(sfuID string, healthy bool) {
 			return
 		}
 		rec.State = models.WorkerReady
+		if rec.ReadyAt == nil {
+			now := time.Now().UTC()
+			rec.ReadyAt = &now
+		}
 	default:
 		return // ready/draining/failed/terminated: nothing to advance
 	}

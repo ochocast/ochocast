@@ -98,6 +98,7 @@ type WorkerRecord struct {
 	Reason             string            `json:"reason,omitempty"`        // why it entered a failed/terminated state
 	CreatedAt          time.Time         `json:"created_at"`              // creation time
 	UpdatedAt          time.Time         `json:"updated_at"`              // last state change
+	ReadyAt            *time.Time        `json:"ready_at,omitempty"`      // first healthy heartbeat; used for provisioning SLI
 	LastHeartbeat      time.Time         `json:"last_heartbeat_at"`       // last heartbeat time
 	TerminatedAt       *time.Time        `json:"terminated_at,omitempty"` // termination status
 	Metadata           map[string]string `json:"metadata,omitempty"`      // provider-specific fields (zone, volume ids, ...)
