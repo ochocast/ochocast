@@ -22,28 +22,7 @@ func main() {
 	// NOW create the SFU server instance with the loaded environment variables
 	sfuServer = NewSFUServer()
 
-	// Register HTTP handlers
-	http.HandleFunc("/health", handleHealthCheck)
-	http.HandleFunc("/room/create", handleCreateRoom)
-	// http.HandleFunc("/room/sync-create", handleSyncCreateRoom)
-	http.HandleFunc("/room/get", handleGetRoom)
-	http.HandleFunc("/room/exists", handleRoomExists)
-	http.HandleFunc("/room/delete", handleDeleteRoom)
-	http.HandleFunc("/room/viewers", handleRoomViewerCount)
-	http.HandleFunc("/stream-status", handleStreamStatus)
-	http.HandleFunc("/whip", handleWHIP)
-	http.HandleFunc("/viewer", handleViewer)
-	http.HandleFunc("/recorder", handleRecorder)
-	http.HandleFunc("/promote", handlePromoteViewer)
-	http.HandleFunc("/demote", handleDemotePublisher)
-	http.HandleFunc("/cascade/subscribe", handleCascadeSubscribe)
-	// http.HandleFunc("/cascade/request-subscribe", handleCascadeRequestSubscribe)
-	http.HandleFunc("/cascade/publish", handleCascadePublish)
-	http.HandleFunc("/cascade/disconnect", handleCascadeDisconnect)
-	http.HandleFunc("/cascade/remove-downstream", handleCascadeRemoveDownstream)
-	// http.HandleFunc("/cluster/register", handleClusterRegister)
-	// http.HandleFunc("/cluster/peers", handleClusterPeers)
-	http.Handle("/", http.FileServer(http.Dir(".")))
+	mux := newServerMux()
 
 	// Get configuration from environment variables
 	enableHTTPS := getEnvAsBool("ENABLE_HTTPS", false)
@@ -62,14 +41,37 @@ func main() {
 		httpsPort := getEnv("HTTPS_PORT", "443")
 
 		fmt.Printf("Server listening on :%s (HTTPS)\n", httpsPort)
-		log.Fatal(http.ListenAndServeTLS(":"+httpsPort, certFile, keyFile, nil))
+		log.Fatal(http.ListenAndServeTLS(":"+httpsPort, certFile, keyFile, mux))
 	} else {
 		// HTTP Configuration
 		httpPort := getEnv("SERVER_PORT", "8090")
 
 		fmt.Printf("Server listening on :%s (HTTP)\n", httpPort)
-		log.Fatal(http.ListenAndServe(":"+httpPort, nil))
+		log.Fatal(http.ListenAndServe(":"+httpPort, mux))
 	}
+}
+
+func newServerMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", handleHealthCheck)
+	mux.HandleFunc("/room/create", handleCreateRoom)
+	mux.HandleFunc("/room/sync-create", handleSyncCreateRoom)
+	mux.HandleFunc("/room/get", handleGetRoom)
+	mux.HandleFunc("/room/exists", handleRoomExists)
+	mux.HandleFunc("/room/delete", handleDeleteRoom)
+	mux.HandleFunc("/room/viewers", handleRoomViewerCount)
+	mux.HandleFunc("/stream-status", handleStreamStatus)
+	mux.HandleFunc("/whip", handleWHIP)
+	mux.HandleFunc("/viewer", handleViewer)
+	mux.HandleFunc("/recorder", handleRecorder)
+	mux.HandleFunc("/promote", handlePromoteViewer)
+	mux.HandleFunc("/demote", handleDemotePublisher)
+	mux.HandleFunc("/cascade/subscribe", handleCascadeSubscribe)
+	mux.HandleFunc("/cascade/publish", handleCascadePublish)
+	mux.HandleFunc("/cascade/disconnect", handleCascadeDisconnect)
+	mux.HandleFunc("/cascade/remove-downstream", handleCascadeRemoveDownstream)
+	mux.Handle("/", http.FileServer(http.Dir(".")))
+	return mux
 }
 
 // getEnv gets an environment variable or returns a default value
