@@ -32,7 +32,11 @@ const ROOM_STATUS_POLL_INTERVAL_MS = 3000;
 const ROOM_STATUS_TIMEOUT_MS = 8 * 60 * 1000;
 
 type RoomLifecycleState =
-  'provisioning' | 'ready' | 'failed' | 'draining' | 'terminated';
+  | 'provisioning'
+  | 'ready'
+  | 'failed'
+  | 'draining'
+  | 'terminated';
 
 type RoomStatusResponse = {
   exists?: boolean;
