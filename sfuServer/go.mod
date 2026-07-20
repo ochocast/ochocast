@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/joho/godotenv v1.5.1
 	github.com/pion/webrtc/v4 v4.2.11
+	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.36
 )
 
 require (
@@ -29,4 +30,5 @@ require (
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/time v0.10.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

@@ -1,0 +1,308 @@
+package autoscaler
+
+import (
+	"context"
+	"errors"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"whip-server/internal/lifecycle"
+	"whip-server/internal/models"
+	"whip-server/internal/provider"
+)
+
+func newTestProvisioner(t *testing.T, prov provider.Provider, max int) (*Provisioner, *lifecycle.Store) {
+	t.Helper()
+	store, err := lifecycle.New(filepath.Join(t.TempDir(), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return New(store, prov, Config{MaxWorkers: max, ImageTag: "sfu:1.2.3", Tags: []string{"sfu-worker"}}), store
+}
+
+func TestEnsureCapacityCreatesOnce(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.ProviderResourceID == "" || rec.State != models.WorkerProvisioning || rec.Provider != "fake" {
+		t.Fatalf("unexpected record: %+v", rec)
+	}
+	if fake.Count() != 1 {
+		t.Fatalf("want 1 instance, got %d", fake.Count())
+	}
+
+	// Idempotent retry: same room reuses the worker, no second Instance.
+	rec2, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec2.SFUID != rec.SFUID || fake.Count() != 1 {
+		t.Fatalf("retry created a duplicate: rec2=%s count=%d", rec2.SFUID, fake.Count())
+	}
+	// Room is in provisioning.
+	if rl, _ := store.Get("room-1"); rl.State != models.RoomProvisioning {
+		t.Fatalf("room state = %s, want provisioning", rl.State)
+	}
+}
+
+func TestEnsureCapacityBudgetCap(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, _ := newTestProvisioner(t, fake, 1)
+
+	if _, err := p.EnsureCapacity(ctx, "room-1"); err != nil {
+		t.Fatal(err)
+	}
+	// Second room would need a second worker but MaxWorkers=1.
+	_, err := p.EnsureCapacity(ctx, "room-2")
+	if !errors.Is(err, ErrBudgetExceeded) {
+		t.Fatalf("want ErrBudgetExceeded, got %v", err)
+	}
+	if fake.Count() != 1 {
+		t.Fatalf("budget cap must not create an Instance: count=%d", fake.Count())
+	}
+}
+
+func TestEnsureCapacityCreateFailureNoLeak(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	fake.FailNext = errors.New("scaleway quota exceeded")
+	p, store := newTestProvisioner(t, fake, 1)
+
+	if _, err := p.EnsureCapacity(ctx, "room-1"); err == nil {
+		t.Fatal("expected create failure")
+	}
+	if fake.Count() != 0 {
+		t.Fatalf("failed create must not leave an Instance: count=%d", fake.Count())
+	}
+	// Room and worker are marked failed (record kept for reconciliation).
+	if rl, _ := store.Get("room-1"); rl.State != models.RoomFailed {
+		t.Fatalf("room state = %s, want failed", rl.State)
+	}
+	workers := store.ListWorkers()
+	if len(workers) != 1 || workers[0].State != models.WorkerFailed {
+		t.Fatalf("want one failed worker record, got %+v", workers)
+	}
+
+	// A failed worker does not count against budget: a retry can provision afresh.
+	if _, err := p.EnsureCapacity(ctx, "room-1"); err != nil {
+		t.Fatalf("retry after failure rejected: %v", err)
+	}
+	if fake.Count() != 1 {
+		t.Fatalf("retry should create an Instance: count=%d", fake.Count())
+	}
+}
+
+func TestReapStartupTimeouts(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Before the deadline: nothing reaped.
+	if n := p.ReapStartupTimeouts(ctx); n != 0 {
+		t.Fatalf("reaped %d before timeout, want 0", n)
+	}
+	if fake.Count() != 1 {
+		t.Fatalf("worker destroyed too early: count=%d", fake.Count())
+	}
+
+	// Advance the clock past the startup timeout: worker is failed and destroyed.
+	p.now = func() time.Time { return time.Now().Add(defaultStartupTimeout + time.Minute) }
+	if n := p.ReapStartupTimeouts(ctx); n != 1 {
+		t.Fatalf("reaped %d after timeout, want 1", n)
+	}
+	if fake.Count() != 0 {
+		t.Fatalf("timed-out Instance not destroyed: count=%d", fake.Count())
+	}
+	w, _ := store.GetWorker(rec.SFUID)
+	if w.State != models.WorkerFailed || w.Reason != "startup timeout" {
+		t.Fatalf("worker not marked failed: %+v", w)
+	}
+	if rl, _ := store.Get("room-1"); rl.State != models.RoomFailed {
+		t.Fatalf("room state = %s, want failed", rl.State)
+	}
+
+	// A ready worker is never reaped. Walk the real readiness path
+	// provisioning -> registered -> ready (a direct jump is not a valid move).
+	ready, _ := p.EnsureCapacity(ctx, "room-2") // budget freed by the failure above
+	for _, st := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		ready.State = st
+		if _, err := store.UpsertWorker(ready); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := p.ReapStartupTimeouts(ctx); n != 0 {
+		t.Fatalf("reaped a ready worker: %d", n)
+	}
+}
+
+func TestDrain(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bring the worker to ready, then drain it.
+	r, _ := store.GetWorker(rec.SFUID)
+	for _, st := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		r.State = st
+		if _, err := store.UpsertWorker(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := p.Drain(rec.SFUID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := store.GetWorker(rec.SFUID); got.State != models.WorkerDraining {
+		t.Fatalf("state = %s, want draining", got.State)
+	}
+	// A draining worker still counts as live (it serves its current room), so the
+	// budget is still consumed.
+	if _, err := p.EnsureCapacity(ctx, "room-2"); !errors.Is(err, ErrBudgetExceeded) {
+		t.Fatalf("draining worker should still hold budget: %v", err)
+	}
+	// Unknown worker errors.
+	if err := p.Drain("nope"); err == nil {
+		t.Fatal("expected error draining unknown worker")
+	}
+}
+
+func TestReconcileVanishedAndOrphan(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 2)
+
+	// One healthy tracked worker: record + cloud resource both present.
+	kept, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A second tracked worker whose cloud resource then vanishes out from under
+	// the record (e.g. deleted directly, or lost across a control-plane restart).
+	vanished, err := p.EnsureCapacity(ctx, "room-2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fake.DeleteWorker(ctx, vanished.ProviderResourceID); err != nil {
+		t.Fatal(err)
+	}
+
+	// A tagged cloud resource with no store record at all: an orphan.
+	orphan, err := fake.CreateWorker(ctx, provider.WorkerSpec{Tags: []string{"sfu-worker"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := p.Reconcile(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Vanished != 1 {
+		t.Fatalf("Vanished = %d, want 1", res.Vanished)
+	}
+	if len(res.Orphans) != 1 || res.Orphans[0].ProviderResourceID != orphan.ProviderResourceID {
+		t.Fatalf("Orphans = %+v, want the one orphan %s", res.Orphans, orphan.ProviderResourceID)
+	}
+
+	// The vanished record is now terminated; the healthy one is untouched.
+	if w, _ := store.GetWorker(vanished.SFUID); w.State != models.WorkerTerminated {
+		t.Fatalf("vanished worker state = %s, want terminated", w.State)
+	}
+	if w, _ := store.GetWorker(kept.SFUID); w.State != models.WorkerProvisioning {
+		t.Fatalf("healthy worker was disturbed: %s", w.State)
+	}
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, _ := newTestProvisioner(t, fake, 2)
+
+	// A tracked worker (record + cloud) must never be cleaned up.
+	tracked, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A tagged orphan with no record.
+	orphan, err := fake.CreateWorker(ctx, provider.WorkerSpec{Tags: []string{"sfu-worker"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Young orphan: below OrphanMaxAge, left alone.
+	if n, err := p.CleanupOrphans(ctx); err != nil || n != 0 {
+		t.Fatalf("young orphan: deleted=%d err=%v, want 0", n, err)
+	}
+	if fake.Count() != 2 {
+		t.Fatalf("nothing should have been deleted yet: count=%d", fake.Count())
+	}
+
+	// Advance past the orphan max age: the orphan is deleted, the tracked worker
+	// survives (it has a live record, so it is not an orphan).
+	p.now = func() time.Time { return time.Now().Add(defaultOrphanMaxAge + time.Hour) }
+	n, err := p.CleanupOrphans(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("aged orphan: deleted=%d err=%v, want 1", n, err)
+	}
+	if _, err := fake.GetWorker(ctx, orphan.ProviderResourceID); err == nil {
+		t.Fatal("orphan not deleted")
+	}
+	if _, err := fake.GetWorker(ctx, tracked.ProviderResourceID); err != nil {
+		t.Fatalf("tracked worker was wrongly deleted: %v", err)
+	}
+
+	// An untagged resource is never deleted, however old.
+	untagged, _ := fake.CreateWorker(ctx, provider.WorkerSpec{Tags: []string{"something-else"}})
+	if n, _ := p.CleanupOrphans(ctx); n != 0 {
+		t.Fatalf("untagged resource must not be deleted: deleted=%d", n)
+	}
+	if _, err := fake.GetWorker(ctx, untagged.ProviderResourceID); err != nil {
+		t.Fatal("untagged resource was deleted")
+	}
+}
+
+func TestEnsureCapacityReprovisionsAfterTerminate(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Terminate the worker: destroy the Instance and mark the record terminated
+	// (as the destroy path will). This frees budget and the room's assignment.
+	if err := fake.DeleteWorker(ctx, rec.ProviderResourceID); err != nil {
+		t.Fatal(err)
+	}
+	rec.State = models.WorkerTerminated
+	if _, err := store.UpsertWorker(rec); err != nil {
+		t.Fatal(err)
+	}
+
+	rec2, err := p.EnsureCapacity(ctx, "room-1")
+	if err != nil {
+		t.Fatalf("re-provision after terminate rejected: %v", err)
+	}
+	if rec2.SFUID == rec.SFUID {
+		t.Fatal("expected a fresh worker after termination")
+	}
+	if fake.Count() != 1 {
+		t.Fatalf("want 1 live instance, got %d", fake.Count())
+	}
+}
