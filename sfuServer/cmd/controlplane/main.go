@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	bootstrap "whip-server/deploy"
 	"whip-server/internal/autoscaler"
 	"whip-server/internal/provider/scaleway"
 	"whip-server/pkg/controlplane"
@@ -121,14 +123,35 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		return err
 	}
 
+	workerBootstrap := bootstrap.WorkerConfig{
+		ImageTag:        os.Getenv("SFU_IMAGE_TAG"),
+		ControlPlaneURL: firstNonEmpty(os.Getenv("SFU_CONTROL_PLANE_URL"), os.Getenv("CONTROL_PLANE_URL")),
+		Registry:        os.Getenv("SFU_REGISTRY"),
+		RegistryUser:    os.Getenv("SFU_REGISTRY_USERNAME"),
+		RegistryPass:    os.Getenv("SFU_REGISTRY_PASSWORD"),
+		SFUPort:         getEnv("SFU_WORKER_PORT", "8090"),
+		ICERelayOnly:    envBool("ICE_RELAY_ONLY", true),
+		EnableICETCP:    envBool("ENABLE_ICE_TCP", false),
+		STUNServers:     os.Getenv("STUN_SERVERS"),
+		TURNServer:      os.Getenv("TURN_SERVER"),
+		TURNUsername:    os.Getenv("TURN_USERNAME"),
+		TURNPassword:    os.Getenv("TURN_PASSWORD"),
+	}
+	if err := workerBootstrap.Validate(); err != nil {
+		return fmt.Errorf("worker bootstrap config: %w", err)
+	}
+
 	maxWorkers := 1
 	if v, err := strconv.Atoi(os.Getenv("SFU_MAX_WORKERS")); err == nil && v > 0 {
 		maxWorkers = v
 	}
 	prov := autoscaler.New(store, adapter, autoscaler.Config{
 		MaxWorkers: maxWorkers,
-		ImageTag:   os.Getenv("SFU_IMAGE_TAG"),
+		ImageTag:   workerBootstrap.ImageTag,
 		ManagedTag: getEnv("SFU_MANAGED_TAG", "sfu-worker"),
+		RenderUserData: func(sfuID, roomID string) string {
+			return workerBootstrap.Render(sfuID, roomID)
+		},
 	})
 	cp.SetProvisioner(prov)
 
@@ -138,6 +161,27 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 
 	log.Printf("[CP] on-demand SFU autoscaler enabled (max_workers=%d)", maxWorkers)
 	return nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func envBool(key string, defaultValue bool) bool {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }
 
 // janitor periodically reconciles worker records against the cloud and cleans up
