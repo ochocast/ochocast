@@ -31,6 +31,19 @@ func TestCreateServerRequestAttachesConfiguredSecurityGroup(t *testing.T) {
 	if req.DynamicIPRequired == nil || !*req.DynamicIPRequired {
 		t.Fatal("dynamic IP must be requested")
 	}
+	root := req.Volumes["0"]
+	if root == nil {
+		t.Fatal("root volume must be configured")
+	}
+	if root.Size == nil || *root.Size != scw.GB*10 {
+		t.Fatalf("root volume size = %v, want 10 GB", root.Size)
+	}
+	if root.VolumeType != "l_ssd" {
+		t.Fatalf("root volume type = %q, want l_ssd", root.VolumeType)
+	}
+	if root.Boot == nil || !*root.Boot {
+		t.Fatal("root volume must be bootable")
+	}
 }
 
 func TestNewRequiresSecurityGroup(t *testing.T) {

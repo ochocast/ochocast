@@ -113,6 +113,7 @@ func (a *Adapter) CreateWorker(ctx context.Context, spec provider.WorkerSpec) (p
 }
 
 func (a *Adapter) createServerRequest(spec provider.WorkerSpec) *instance.CreateServerRequest {
+	rootVolumeSize := scw.GB * 10
 	return &instance.CreateServerRequest{
 		Zone:              a.zone,
 		Name:              spec.Name,
@@ -120,8 +121,15 @@ func (a *Adapter) createServerRequest(spec provider.WorkerSpec) *instance.Create
 		Image:             scw.StringPtr(a.imageID),
 		SecurityGroup:     scw.StringPtr(a.securityGroupID),
 		DynamicIPRequired: scw.BoolPtr(true), // dynamic IP is released on terminate
-		Tags:              spec.Tags,
-		Project:           scw.StringPtr(a.projectID),
+		Volumes: map[string]*instance.VolumeServerTemplate{
+			"0": {
+				Boot:       scw.BoolPtr(true),
+				Size:       &rootVolumeSize,
+				VolumeType: instance.VolumeVolumeTypeLSSD,
+			},
+		},
+		Tags:    spec.Tags,
+		Project: scw.StringPtr(a.projectID),
 	}
 }
 
