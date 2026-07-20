@@ -17,21 +17,23 @@ import (
 // Config carries the static Scaleway settings promoted via GitOps (task 7.3)
 // plus the credential injected from a Kubernetes Secret at runtime (task 7.4).
 type Config struct {
-	AccessKey      string // SCW_ACCESS_KEY
-	SecretKey      string // SCW_SECRET_KEY
-	ProjectID      string // SCW_DEFAULT_PROJECT_ID
-	Zone           string // e.g. "fr-par-1"
-	CommercialType string // worker Instance type, defaults to DEV1-S
-	ImageID        string // Docker-capable base image id or label
+	AccessKey       string // SCW_ACCESS_KEY
+	SecretKey       string // SCW_SECRET_KEY
+	ProjectID       string // SCW_DEFAULT_PROJECT_ID
+	Zone            string // e.g. "fr-par-1"
+	CommercialType  string // worker Instance type, defaults to DEV1-S
+	ImageID         string // Docker-capable base image id or label
+	SecurityGroupID string // Terraform-managed SFU worker security group
 }
 
 // Adapter is the Scaleway implementation of provider.Provider.
 type Adapter struct {
-	api            *instance.API
-	zone           scw.Zone
-	projectID      string
-	commercialType string
-	imageID        string
+	api             *instance.API
+	zone            scw.Zone
+	projectID       string
+	commercialType  string
+	imageID         string
+	securityGroupID string
 }
 
 var _ provider.Provider = (*Adapter)(nil)
@@ -44,6 +46,9 @@ func New(cfg Config) (*Adapter, error) {
 	}
 	if cfg.ImageID == "" {
 		return nil, fmt.Errorf("scaleway: image id is required")
+	}
+	if cfg.SecurityGroupID == "" {
+		return nil, fmt.Errorf("scaleway: security group id is required")
 	}
 	zone, err := scw.ParseZone(cfg.Zone)
 	if err != nil {
@@ -62,11 +67,12 @@ func New(cfg Config) (*Adapter, error) {
 		ct = "DEV1-S"
 	}
 	return &Adapter{
-		api:            instance.NewAPI(client),
-		zone:           zone,
-		projectID:      cfg.ProjectID,
-		commercialType: ct,
-		imageID:        cfg.ImageID,
+		api:             instance.NewAPI(client),
+		zone:            zone,
+		projectID:       cfg.ProjectID,
+		commercialType:  ct,
+		imageID:         cfg.ImageID,
+		securityGroupID: cfg.SecurityGroupID,
 	}, nil
 }
 
@@ -76,15 +82,7 @@ func (a *Adapter) Name() string { return "scaleway" }
 // on. If bootstrap or boot fails the half-created Instance is terminated so it
 // never becomes an orphaned billable resource.
 func (a *Adapter) CreateWorker(ctx context.Context, spec provider.WorkerSpec) (provider.Worker, error) {
-	res, err := a.api.CreateServer(&instance.CreateServerRequest{
-		Zone:              a.zone,
-		Name:              spec.Name,
-		CommercialType:    a.commercialType,
-		Image:             scw.StringPtr(a.imageID),
-		DynamicIPRequired: scw.BoolPtr(true), // dynamic IP is released on terminate
-		Tags:              spec.Tags,
-		Project:           scw.StringPtr(a.projectID),
-	}, scw.WithContext(ctx))
+	res, err := a.api.CreateServer(a.createServerRequest(spec), scw.WithContext(ctx))
 	if err != nil {
 		return provider.Worker{}, fmt.Errorf("scaleway: create server: %w", err)
 	}
@@ -112,6 +110,27 @@ func (a *Adapter) CreateWorker(ctx context.Context, spec provider.WorkerSpec) (p
 	}
 
 	return toWorker(srv), nil
+}
+
+func (a *Adapter) createServerRequest(spec provider.WorkerSpec) *instance.CreateServerRequest {
+	rootVolumeSize := scw.GB * 10
+	return &instance.CreateServerRequest{
+		Zone:              a.zone,
+		Name:              spec.Name,
+		CommercialType:    a.commercialType,
+		Image:             scw.StringPtr(a.imageID),
+		SecurityGroup:     scw.StringPtr(a.securityGroupID),
+		DynamicIPRequired: scw.BoolPtr(true), // dynamic IP is released on terminate
+		Volumes: map[string]*instance.VolumeServerTemplate{
+			"0": {
+				Boot:       scw.BoolPtr(true),
+				Size:       &rootVolumeSize,
+				VolumeType: instance.VolumeVolumeTypeLSSD,
+			},
+		},
+		Tags:    spec.Tags,
+		Project: scw.StringPtr(a.projectID),
+	}
 }
 
 func (a *Adapter) GetWorker(ctx context.Context, id string) (provider.Worker, error) {
