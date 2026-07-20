@@ -17,10 +17,18 @@ import (
 var webrtcAPI *webrtc.API
 
 func init() {
+	api, err := newWebRTCAPI(os.Getenv("PUBLIC_IP"), os.Getenv("ICE_RELAY_ONLY") == "true")
+	if err != nil {
+		log.Fatalf("[ICE] Failed to initialize WebRTC API: %v", err)
+	}
+	webrtcAPI = api
+}
+
+func newWebRTCAPI(publicIP string, relayOnly bool) (*webrtc.API, error) {
 	// Create a MediaEngine with default codecs
 	mediaEngine := &webrtc.MediaEngine{}
 	if err := mediaEngine.RegisterDefaultCodecs(); err != nil {
-		log.Fatalf("[ICE] Failed to register default codecs: %v", err)
+		return nil, fmt.Errorf("register default codecs: %w", err)
 	}
 
 	// Create a SettingEngine for advanced WebRTC configuration
@@ -28,10 +36,11 @@ func init() {
 
 	// If a public IP is specified, use NAT1To1 mapping
 	// This is useful when running behind a NAT (like in containers)
-	publicIP := os.Getenv("PUBLIC_IP")
-	if publicIP != "" {
+	if publicIP != "" && !relayOnly {
 		log.Printf("[ICE] Using NAT1To1 IP mapping: %s", publicIP)
 		settingEngine.SetNAT1To1IPs([]string{publicIP}, webrtc.ICECandidateTypeHost)
+	} else if publicIP != "" {
+		log.Printf("[ICE] Skipping NAT1To1 IP mapping in relay-only mode")
 	}
 
 	// Enable ICE-TCP candidates for environments that don't support UDP
@@ -51,10 +60,10 @@ func init() {
 	}
 
 	// Create the WebRTC API with MediaEngine and SettingEngine
-	webrtcAPI = webrtc.NewAPI(
+	return webrtc.NewAPI(
 		webrtc.WithMediaEngine(mediaEngine),
 		webrtc.WithSettingEngine(settingEngine),
-	)
+	), nil
 }
 
 // getWebRTCConfiguration returns the WebRTC configuration with ICE servers
