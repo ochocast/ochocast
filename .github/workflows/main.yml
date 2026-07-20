@@ -270,6 +270,8 @@ jobs:
         with:
           context: ./liveRecoder
           push: ${{ needs.detect-changes.outputs.dry_run != 'true' }}
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.LIVE_RECORDER_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
@@ -296,6 +298,8 @@ jobs:
           context: ./sfuServer
           file: ./sfuServer/Dockerfile.controlplane
           push: ${{ needs.detect-changes.outputs.dry_run != 'true' }}
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.SFU_CONTROLPLANE_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
@@ -322,6 +326,8 @@ jobs:
           context: ./sfuServer
           file: ./sfuServer/Dockerfile.sfu
           push: ${{ needs.detect-changes.outputs.dry_run != 'true' }}
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.SFU_WORKER_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
