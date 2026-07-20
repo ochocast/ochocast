@@ -106,12 +106,13 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 	}
 
 	adapter, err := scaleway.New(scaleway.Config{
-		AccessKey:      os.Getenv("SCW_ACCESS_KEY"),
-		SecretKey:      os.Getenv("SCW_SECRET_KEY"),
-		ProjectID:      os.Getenv("SCW_DEFAULT_PROJECT_ID"),
-		Zone:           getEnv("SCW_DEFAULT_ZONE", "fr-par-1"),
-		CommercialType: getEnv("SFU_WORKER_TYPE", "DEV1-S"),
-		ImageID:        os.Getenv("SFU_WORKER_IMAGE_ID"),
+		AccessKey:       os.Getenv("SCW_ACCESS_KEY"),
+		SecretKey:       os.Getenv("SCW_SECRET_KEY"),
+		ProjectID:       os.Getenv("SCW_DEFAULT_PROJECT_ID"),
+		Zone:            getEnv("SCW_DEFAULT_ZONE", "fr-par-1"),
+		CommercialType:  getEnv("SFU_WORKER_TYPE", "DEV1-S"),
+		ImageID:         os.Getenv("SFU_WORKER_IMAGE_ID"),
+		SecurityGroupID: os.Getenv("SFU_WORKER_SECURITY_GROUP_ID"),
 	})
 	if err != nil {
 		return err
