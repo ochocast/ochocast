@@ -1,10 +1,54 @@
 package main
 
 import (
+	"net/http/httptest"
 	"testing"
 
 	"github.com/pion/webrtc/v4"
 )
+
+func TestAddWHIPICEServerLinkHeaders(t *testing.T) {
+	t.Setenv("TURN_SERVER", "turn:turn.example.test:3478?transport=udp,turn:turn.example.test:3478?transport=tcp")
+	t.Setenv("TURN_USERNAME", "obs-user")
+	t.Setenv("TURN_PASSWORD", "obs-password")
+
+	recorder := httptest.NewRecorder()
+	addWHIPICEServerLinkHeaders(recorder)
+
+	got := recorder.Header().Values("Link")
+	want := []string{
+		`<turn:turn.example.test:3478?transport=udp>; rel="ice-server"; username="obs-user"; credential="obs-password"; credential-type="password"`,
+		`<turn:turn.example.test:3478?transport=tcp>; rel="ice-server"; username="obs-user"; credential="obs-password"; credential-type="password"`,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Link headers = %q, want %q", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("Link header %d = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestAddWHIPICEServerLinkHeadersRequiresCompleteCredentials(t *testing.T) {
+	t.Setenv("TURN_SERVER", "turn:turn.example.test:3478")
+	t.Setenv("TURN_USERNAME", "obs-user")
+	t.Setenv("TURN_PASSWORD", "")
+
+	recorder := httptest.NewRecorder()
+	addWHIPICEServerLinkHeaders(recorder)
+	if got := recorder.Header().Values("Link"); len(got) != 0 {
+		t.Fatalf("Link headers = %q, want none", got)
+	}
+}
+
+func TestWHIPResourceLocationRoundTrip(t *testing.T) {
+	location := whipResourceLocation("room/with spaces", "secret-key")
+	roomID, key, ok := parseWHIPResourcePath(location)
+	if !ok || roomID != "room/with spaces" || key != "secret-key" {
+		t.Fatalf("parseWHIPResourcePath(%q) = room=%q key=%q ok=%v", location, roomID, key, ok)
+	}
+}
 
 func TestRelayOnlyAllowsPublicIPWithoutHostCandidateRewrite(t *testing.T) {
 	api, err := newWebRTCAPI("203.0.113.10", true)

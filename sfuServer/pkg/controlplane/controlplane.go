@@ -1602,6 +1602,95 @@ func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CP-WHIP] WHIP request for room %s successfully proxied to SFU %s", roomID, ingestionSFUID)
 }
 
+func parseWHIPResourcePath(requestPath string) (roomID, key string, ok bool) {
+	const prefix = "/whip/resource/"
+	if !strings.HasPrefix(requestPath, prefix) {
+		return "", "", false
+	}
+	parts := strings.SplitN(strings.TrimPrefix(requestPath, prefix), "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	roomID, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	key, err = url.PathUnescape(parts[1])
+	if err != nil {
+		return "", "", false
+	}
+	return roomID, key, true
+}
+
+// HandleWHIPResource proxies termination of the resource returned in the
+// WHIP Location header to the worker that owns the room.
+func (cp *ControlPlane) HandleWHIPResource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Only DELETE is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID, key, ok := parseWHIPResourcePath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Invalid WHIP resource", http.StatusBadRequest)
+		return
+	}
+
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	invalidKey := exists && topology.Key != key
+	if !exists || invalidKey || topology.IngestionSFUID == "" {
+		cp.mu.RUnlock()
+		if invalidKey {
+			http.Error(w, "Invalid key", http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "WHIP resource not found", http.StatusNotFound)
+		return
+	}
+	ingestionSFUID := topology.IngestionSFUID
+	sfu, exists := cp.sfus[ingestionSFUID]
+	if !exists || !sfu.Active {
+		cp.mu.RUnlock()
+		http.Error(w, "Ingestion SFU is not available", http.StatusServiceUnavailable)
+		return
+	}
+	ingestionURL := sfu.URL
+	cp.mu.RUnlock()
+
+	targetURL, err := url.Parse(ingestionURL)
+	if err != nil {
+		log.Printf("[CP-WHIP] Failed to parse resource target URL for room %s: %v", roomID, err)
+		http.Error(w, "Invalid SFU URL", http.StatusInternalServerError)
+		return
+	}
+	targetURL.Path = r.URL.Path
+	targetURL.RawQuery = ""
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = targetURL.Host
+		req.URL.Path = targetURL.Path
+		req.URL.RawQuery = ""
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Del("Access-Control-Allow-Origin")
+		resp.Header.Del("Access-Control-Allow-Methods")
+		resp.Header.Del("Access-Control-Allow-Headers")
+		resp.Header.Del("Access-Control-Expose-Headers")
+		return nil
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
+		log.Printf("[CP-WHIP] Resource delete proxy error to SFU %s: %v", ingestionSFUID, err)
+		http.Error(w, "Failed to delete WHIP resource", http.StatusBadGateway)
+	}
+
+	proxy.ServeHTTP(w, r)
+	log.Printf("[CP-WHIP] Resource for room %s deleted on SFU %s", roomID, ingestionSFUID)
+}
+
 // HandleViewer proxies viewer requests to the optimal SFU
 func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 	// Extract room_id from query parameters

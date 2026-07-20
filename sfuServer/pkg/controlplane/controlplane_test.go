@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -334,6 +335,102 @@ func TestMediaFlowsGatedOnReadiness(t *testing.T) {
 	cp.HandleWHIP(rec, httptest.NewRequest(http.MethodPost, "/whip?room_id=room-1&key="+key, nil))
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("WHIP while failed = %d, want 409", rec.Code)
+	}
+}
+
+func TestWHIPResourceDeleteIsAuthenticatedAndProxied(t *testing.T) {
+	workerCalled := make(chan struct{}, 1)
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("worker method = %s, want DELETE", r.Method)
+		}
+		if r.URL.Path != "/whip/resource/room-1/room-key" {
+			t.Errorf("worker path = %s", r.URL.Path)
+		}
+		workerCalled <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer worker.Close()
+
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		Key:            "room-key",
+		IngestionSFUID: "sfu-1",
+		Nodes:          make(map[string]*models.TopologyNode),
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{ID: "sfu-1", URL: worker.URL, Active: true}
+
+	invalid := httptest.NewRecorder()
+	cp.HandleWHIPResource(invalid, httptest.NewRequest(
+		http.MethodDelete,
+		"/whip/resource/room-1/wrong-key",
+		nil,
+	))
+	if invalid.Code != http.StatusUnauthorized {
+		t.Fatalf("DELETE with invalid key = %d, want %d", invalid.Code, http.StatusUnauthorized)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleWHIPResource(recorder, httptest.NewRequest(
+		http.MethodDelete,
+		"/whip/resource/room-1/room-key",
+		nil,
+	))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("DELETE WHIP resource = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusOK)
+	}
+	select {
+	case <-workerCalled:
+	case <-time.After(time.Second):
+		t.Fatal("DELETE was not proxied to the ingestion SFU")
+	}
+}
+
+func TestWHIPResponsePreservesICEAndResourceHeaders(t *testing.T) {
+	const link = `<turn:turn.example.test:3478?transport=tcp>; rel="ice-server"; username="user"; credential="password"`
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/room/sync-create":
+			w.WriteHeader(http.StatusCreated)
+		case "/whip":
+			w.Header().Set("Content-Type", "application/sdp")
+			w.Header().Set("Location", "/whip/resource/room-1/room-key")
+			w.Header().Add("Link", link)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte("v=0\r\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer worker.Close()
+
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		Key:            "room-key",
+		IngestionSFUID: "sfu-1",
+		Nodes:          make(map[string]*models.TopologyNode),
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{ID: "sfu-1", URL: worker.URL, Active: true}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleWHIP(recorder, httptest.NewRequest(
+		http.MethodPost,
+		"/whip?room_id=room-1&key=room-key",
+		strings.NewReader("v=0\r\n"),
+	))
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("POST WHIP = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusCreated)
+	}
+	if got := recorder.Header().Get("Location"); got != "/whip/resource/room-1/room-key" {
+		t.Fatalf("Location = %q", got)
+	}
+	if got := recorder.Header().Get("Link"); got != link {
+		t.Fatalf("Link = %q, want %q", got, link)
 	}
 }
 

@@ -49,10 +49,11 @@ func main() {
 	http.HandleFunc("/room/exists", corsMiddleware(cp.HandleRoomExists))
 	http.HandleFunc("/room/status", corsMiddleware(cp.HandleRoomStatus)) // Poll provisioning -> ready/failed
 	http.HandleFunc("/room/viewers", corsMiddleware(cp.HandleRoomViewerCount))
-	http.HandleFunc("/whip", corsMiddleware(cp.HandleWHIP))                  // Proxy WHIP to ingestion SFU
-	http.HandleFunc("/viewer", corsMiddleware(cp.HandleViewer))              // Proxy viewer to optimal SFU
-	http.HandleFunc("/recorder", corsMiddleware(cp.HandleRecorder))          // Return ingestion SFU for recorder
-	http.HandleFunc("/stream-status", corsMiddleware(cp.HandleStreamStatus)) // Check stream status
+	http.HandleFunc("/whip", corsMiddleware(cp.HandleWHIP))                   // Proxy WHIP to ingestion SFU
+	http.HandleFunc("/viewer", corsMiddleware(cp.HandleViewer))               // Proxy viewer to optimal SFU
+	http.HandleFunc("/recorder", corsMiddleware(cp.HandleRecorder))           // Return ingestion SFU for recorder
+	http.HandleFunc("/stream-status", corsMiddleware(cp.HandleStreamStatus))  // Check stream status
+	http.HandleFunc("/whip/resource/", corsMiddleware(cp.HandleWHIPResource)) // Terminate a WHIP publishing session
 
 	log.Printf("Control Plane listening on :%s", port)
 	log.Printf("Configuration: maxFanout=%d, rebalanceThreshold=%.2f", maxFanout, rebalanceThreshold)
@@ -68,6 +69,7 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		w.Header().Set("Access-Control-Expose-Headers", "Location, Link")
 
 		// Handle preflight requests
 		if r.Method == http.MethodOptions {

@@ -7,8 +7,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/pion/webrtc/v4"
 )
@@ -124,7 +126,67 @@ func getWebRTCConfiguration() webrtc.Configuration {
 func setCORSHeaders(w http.ResponseWriter, methods string) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", methods)
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	w.Header().Set("Access-Control-Expose-Headers", "Location, Link")
+}
+
+// addWHIPICEServerLinkHeaders advertises the TURN servers to WHIP clients.
+// OBS deliberately gathers its local candidates only after the WHIP response
+// and obtains its ICE server configuration from these Link headers.
+func addWHIPICEServerLinkHeaders(w http.ResponseWriter) {
+	turnServer := os.Getenv("TURN_SERVER")
+	turnUsername := os.Getenv("TURN_USERNAME")
+	turnPassword := os.Getenv("TURN_PASSWORD")
+	if turnServer == "" || turnUsername == "" || turnPassword == "" {
+		return
+	}
+
+	// Header values must never contain raw newlines. Quotes and backslashes in
+	// credentials are escaped as HTTP quoted-string characters.
+	if strings.ContainsAny(turnUsername, "\r\n") || strings.ContainsAny(turnPassword, "\r\n") {
+		log.Printf("[WHIP] TURN credentials contain invalid header characters; ICE servers not advertised")
+		return
+	}
+	escapeQuotedString := func(value string) string {
+		return strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(value)
+	}
+
+	for _, turnURL := range splitAndTrim(turnServer, ",") {
+		if !strings.HasPrefix(turnURL, "turn:") || strings.ContainsAny(turnURL, "\r\n<>") {
+			log.Printf("[WHIP] Skipping invalid TURN URL in Link header")
+			continue
+		}
+		w.Header().Add("Link", fmt.Sprintf(
+			`<%s>; rel="ice-server"; username="%s"; credential="%s"; credential-type="password"`,
+			turnURL,
+			escapeQuotedString(turnUsername),
+			escapeQuotedString(turnPassword),
+		))
+	}
+}
+
+func whipResourceLocation(roomID, key string) string {
+	return fmt.Sprintf("/whip/resource/%s/%s", url.PathEscape(roomID), url.PathEscape(key))
+}
+
+func parseWHIPResourcePath(requestPath string) (roomID, key string, ok bool) {
+	const prefix = "/whip/resource/"
+	if !strings.HasPrefix(requestPath, prefix) {
+		return "", "", false
+	}
+	parts := strings.SplitN(strings.TrimPrefix(requestPath, prefix), "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	roomID, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	key, err = url.PathUnescape(parts[1])
+	if err != nil {
+		return "", "", false
+	}
+	return roomID, key, true
 }
 
 // handleHealthCheck handles the health check endpoint
@@ -508,15 +570,14 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
-	// Track cleanup state to prevent multiple cleanup calls
-	removed := false
+	// Track cleanup state to prevent concurrent ICE/PeerConnection callbacks
+	// from initiating the same room cleanup more than once.
+	var cleanupOnce sync.Once
 	cleanupHost := func(reason string) {
-		if removed {
-			return
-		}
-		removed = true
-		log.Printf("[WHIP][ROOM-%s] Host cleanup due to %s", roomID, reason)
-		room.CleanupHost()
+		cleanupOnce.Do(func() {
+			log.Printf("[WHIP][ROOM-%s] Host cleanup due to %s", roomID, reason)
+			room.CleanupHost()
+		})
 	}
 
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
@@ -575,8 +636,10 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[WHIP][ROOM-%s] ICE gathering complete", roomID)
 
-	// Required by WHIP spec
-	w.Header().Set("Location", fmt.Sprintf("/whip/%s", roomID))
+	// Required by WHIP: Location identifies the session resource that OBS will
+	// DELETE when publishing stops. Link supplies the ICE servers OBS must use.
+	w.Header().Set("Location", whipResourceLocation(roomID, key))
+	addWHIPICEServerLinkHeaders(w)
 	w.Header().Set("Content-Type", "application/sdp")
 	w.WriteHeader(http.StatusCreated)
 
@@ -585,6 +648,40 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 
 	_, _ = w.Write([]byte(answerSDP))
 	log.Printf("[WHIP][ROOM-%s] Response sent successfully", roomID)
+}
+
+// handleWHIPResource terminates the publishing session represented by the
+// Location returned from handleWHIP. The room key is kept in the opaque path
+// so native WHIP clients such as OBS can authenticate their DELETE request.
+func handleWHIPResource(w http.ResponseWriter, r *http.Request) {
+	setCORSHeaders(w, "DELETE, OPTIONS")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Only DELETE is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID, key, ok := parseWHIPResourcePath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Invalid WHIP resource", http.StatusBadRequest)
+		return
+	}
+	room, err := sfuServer.GetRoom(roomID)
+	if err != nil {
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+	if room.Key != key {
+		http.Error(w, "Invalid key", http.StatusUnauthorized)
+		return
+	}
+
+	room.CleanupHost()
+	w.WriteHeader(http.StatusOK)
+	log.Printf("[WHIP][ROOM-%s] Publishing session deleted", roomID)
 }
 
 // handleCascadeSubscribe handles edge SFU subscribing to origin SFU
