@@ -118,3 +118,22 @@ jobs:
       - name: Run unit tests
         run: |
           npm test
+
+  test-sfu-go:
+    name: test-sfu-go
+    runs-on: self-hosted
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: sfuServer
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Set up Go from sfuServer/go.mod
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: sfuServer/go.mod
+          cache-dependency-path: sfuServer/go.sum
+      - name: Run SFU tests
+        run: go test ./...
+      - name: Run SFU vet
+        run: go vet ./...
