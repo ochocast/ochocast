@@ -6,16 +6,19 @@ import {
   Param,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
+import { Public } from 'nest-keycloak-connect';
 import { StartRecordingDto } from './dto/start-recording.dto';
 import { StartRecordingUsecase } from '../../domain/usecases/startRecording.usecase';
 import { StopRecordingUsecase } from '../../domain/usecases/stopRecording.usecase';
 import { PublishRecordingUsecase } from '../../domain/usecases/publishRecording.usecase';
+import { RecordingSecretGuard } from '../guards/recording-secret.guard';
 import { isUUID } from 'class-validator';
 
 @ApiTags('Recording')
@@ -67,6 +70,8 @@ export class RecordingController {
     }
   }
 
+  @Public()
+  @UseGuards(RecordingSecretGuard)
   @Post('publish')
   @UseInterceptors(FileInterceptor('file'))
   async publishRecording(
@@ -87,8 +92,14 @@ export class RecordingController {
     try {
       return await this.publishRecordingUsecase.execute(trackId, file);
     } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object'
+            ? JSON.stringify(error)
+            : String(error);
       throw new HttpException(
-        `Failed to publish recording: ${error.message}`,
+        `Failed to publish recording: ${msg}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

@@ -8,7 +8,7 @@ export interface StartRecordingConfig {
 export interface IRecordingVMGateway {
   startRecording: (config: StartRecordingConfig) => Promise<void>;
   stopRecording: (roomId: string) => Promise<void>;
-  getStatus: () => Promise<{
+  getStatus: (roomId?: string) => Promise<{
     status: string;
     roomId?: string;
     filePath?: string;

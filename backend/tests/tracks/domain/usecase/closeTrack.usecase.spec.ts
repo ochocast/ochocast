@@ -1,6 +1,8 @@
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { EventObject } from 'src/events/domain/event';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
+import { IRecordingVMGateway } from 'src/recording/domain/gateways/recording-vm.gateway';
+import { StopRecordingUsecase } from 'src/recording/domain/usecases/stopRecording.usecase';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { TrackObject } from 'src/tracks/domain/track';
@@ -17,6 +19,8 @@ describe('CloseTracktUsecase', () => {
   let trackGatewayMock: jest.Mocked<ITrackGateway>;
   let userGatewayMock: jest.Mocked<IUserGateway>;
   let eventGatewayMock: jest.Mocked<IEventGateway>;
+  let recordingVMGatewayMock: jest.Mocked<IRecordingVMGateway>;
+  let stopRecordingUsecaseMock: jest.Mocked<StopRecordingUsecase>;
 
   /*
     Data Test 
@@ -150,14 +154,26 @@ describe('CloseTracktUsecase', () => {
       getEventById: jest.fn(),
     };
 
+    recordingVMGatewayMock = {
+      startRecording: jest.fn(),
+      stopRecording: jest.fn(),
+      getStatus: jest.fn().mockResolvedValue({ status: 'idle' }),
+    };
+
+    stopRecordingUsecaseMock = {
+      execute: jest.fn(),
+    } as unknown as jest.Mocked<StopRecordingUsecase>;
+
     closeTrackUseCase = new CloseTrackUsecase(
       trackGatewayMock,
       userGatewayMock,
       eventGatewayMock,
+      recordingVMGatewayMock,
+      stopRecordingUsecaseMock,
     );
 
     /*
-    Expected Moke 
+    Expected Moke
    */
 
     userGatewayMock.getUserByEmail.mockImplementation(async (email: string) => {
@@ -199,6 +215,39 @@ describe('CloseTracktUsecase', () => {
 
     expect(res.closed).toEqual(true);
     expect(trackGatewayMock.updateTrack).toHaveBeenCalledTimes(1);
+  });
+
+  /*
+    Auto-stop active recording on close
+   */
+
+  it('should stop the active recording when one is in progress for the track', async () => {
+    recordingVMGatewayMock.getStatus.mockResolvedValue({ status: 'recording' });
+
+    const res = await closeTrackUseCase.execute(trackId, mockUser.email);
+
+    expect(recordingVMGatewayMock.getStatus).toHaveBeenCalledWith(trackId);
+    expect(stopRecordingUsecaseMock.execute).toHaveBeenCalledWith(trackId);
+    expect(res.closed).toEqual(true);
+  });
+
+  it('should not stop recording when none is in progress for the track', async () => {
+    recordingVMGatewayMock.getStatus.mockResolvedValue({ status: 'idle' });
+
+    await closeTrackUseCase.execute(trackId, mockUser.email);
+
+    expect(stopRecordingUsecaseMock.execute).not.toHaveBeenCalled();
+  });
+
+  it('should still close the track when the recording VM is unreachable', async () => {
+    recordingVMGatewayMock.getStatus.mockRejectedValue(
+      new Error('VM unreachable'),
+    );
+
+    const res = await closeTrackUseCase.execute(trackId, mockUser.email);
+
+    expect(res.closed).toEqual(true);
+    expect(stopRecordingUsecaseMock.execute).not.toHaveBeenCalled();
   });
 
   /*

@@ -18,7 +18,22 @@ import (
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Recording-Secret")
+}
+
+// requireSecret checks the X-Recording-Secret header against the configured shared secret.
+// Returns true and continues if valid; writes 401 and returns false if invalid.
+func requireSecret(s *RecordingServer, w http.ResponseWriter, r *http.Request) bool {
+	if s.sharedSecret == "" {
+		log.Printf("[SECURITY] RECORDING_SHARED_SECRET is not set — rejecting all requests")
+		http.Error(w, "Recording endpoint not configured", http.StatusUnauthorized)
+		return false
+	}
+	if r.Header.Get("X-Recording-Secret") != s.sharedSecret {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return false
+	}
+	return true
 }
 
 // handleStart handles POST /recording/start
@@ -27,6 +42,10 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if !requireSecret(s, w, r) {
 		return
 	}
 
@@ -51,11 +70,7 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use default output dir if not specified
-	outputDir := req.OutputDir
-	if outputDir == "" {
-		outputDir = s.defaultOutput
-	}
+	outputDir := s.defaultOutput
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -66,21 +81,16 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create new recording session
-	// Use server env vars for auth config, allow request to override backend_url and track_id
-	backendURL := s.backendURL
-	if req.BackendURL != "" {
-		backendURL = req.BackendURL
-	}
-
+	// Create new recording session — all sensitive config comes from server env vars only
 	session, err := NewRecordingSession(RecordingConfig{
 		EventID:              req.RoomID,
 		RoomID:               req.RoomID,
 		RoomKey:              req.RoomKey,
 		SfuBaseURL:           req.SfuURL,
 		OutputDir:            outputDir,
-		BackendURL:           backendURL,
+		BackendURL:           s.backendURL,
 		TrackID:              req.TrackID,
+		SharedSecret:         s.sharedSecret,
 		KeycloakURL:          s.keycloakURL,
 		KeycloakClientID:     s.keycloakClientID,
 		KeycloakClientSecret: s.keycloakClientSecret,
@@ -119,6 +129,10 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !requireSecret(s, w, r) {
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -147,13 +161,6 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 
 	filePath := session.mp4FilePath
 	roomID := session.roomID
-	backendURL := session.backendURL
-	trackID := session.trackID
-	keycloakURL := session.keycloakURL
-	keycloakClientID := session.keycloakClientID
-	keycloakClientSecret := session.keycloakClientSecret
-	keycloakUsername := session.keycloakUsername
-	keycloakPassword := session.keycloakPassword
 
 	if err := session.Stop(); err != nil {
 		s.mu.Unlock()
@@ -165,28 +172,6 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 
 	log.Printf("[HTTP] Recording stopped for room: %s (remaining active: %d)", roomID, len(s.sessions))
-
-	// Auto-publish to backend if configured
-	if backendURL != "" && trackID != "" {
-		go func() {
-			// Get Keycloak token for authentication
-			var token string
-			var err error
-			if keycloakURL != "" && keycloakUsername != "" && keycloakPassword != "" {
-				token, err = getKeycloakToken(keycloakURL, keycloakClientID, keycloakClientSecret, keycloakUsername, keycloakPassword)
-				if err != nil {
-					log.Printf("[ERROR] Failed to get Keycloak token: %v", err)
-					return
-				}
-			}
-
-			if err := publishToBackend(backendURL, trackID, filePath, token); err != nil {
-				log.Printf("[ERROR] Failed to publish recording to backend: %v", err)
-			} else {
-				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
-			}
-		}()
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
@@ -203,6 +188,10 @@ func (s *RecordingServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	if !requireSecret(s, w, r) {
 		return
 	}
 
@@ -309,7 +298,7 @@ func getKeycloakToken(keycloakURL, clientID, clientSecret, username, password st
 }
 
 // publishToBackend sends the recorded MP4 file to the backend for auto-publication
-func publishToBackend(backendURL, trackID, filePath, token string) error {
+func publishToBackend(backendURL, trackID, filePath, token, sharedSecret string) error {
 	log.Printf("[PUBLISH] Sending recording to backend: %s (track: %s)", backendURL, trackID)
 
 	// Open the MP4 file
@@ -356,6 +345,11 @@ func publishToBackend(backendURL, trackID, filePath, token string) error {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Add shared secret header (always required by the backend publish endpoint)
+	if sharedSecret != "" {
+		req.Header.Set("X-Recording-Secret", sharedSecret)
+	}
 
 	// Add Authorization header if token is provided
 	if token != "" {

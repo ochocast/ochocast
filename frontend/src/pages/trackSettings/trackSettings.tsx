@@ -218,6 +218,15 @@ const TrackSettings: FC = () => {
         setRoomLifecycleState('ready');
         setRoomStatusMessage('');
         setSfuUrl(data.whip_url);
+        if (data.room_id) {
+          setSfuRoomId(data.room_id);
+          try {
+            const key = new URL(data.whip_url).searchParams.get('key');
+            if (key) setSfuRoomKey(key);
+          } catch (_) {
+            // invalid whip_url, key stays null
+          }
+        }
       } else {
         setRoomLifecycleState(null);
         setRoomStatusMessage('');
@@ -599,8 +608,8 @@ const TrackSettings: FC = () => {
             onChange={(e) => {
               const [hours, minutes] = e.target.value.split(':').map(Number);
               const current = new Date(track.startDate || new Date());
-              current.setUTCHours(hours);
-              current.setUTCMinutes(minutes);
+              current.setHours(hours);
+              current.setMinutes(minutes);
               current.setSeconds(0);
               current.setMilliseconds(0);
               setTrack({ ...track, startDate: current });
@@ -620,8 +629,8 @@ const TrackSettings: FC = () => {
             onChange={(e) => {
               const [hours, minutes] = e.target.value.split(':').map(Number);
               const current = new Date(track.endDate || new Date());
-              current.setUTCHours(hours);
-              current.setUTCMinutes(minutes);
+              current.setHours(hours);
+              current.setMinutes(minutes);
               current.setSeconds(0);
               current.setMilliseconds(0);
               setTrack({ ...track, endDate: current });

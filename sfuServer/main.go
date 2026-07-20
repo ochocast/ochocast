@@ -25,7 +25,7 @@ func main() {
 	// Register HTTP handlers
 	http.HandleFunc("/health", handleHealthCheck)
 	http.HandleFunc("/room/create", handleCreateRoom)
-	// http.HandleFunc("/room/sync-create", handleSyncCreateRoom)
+	http.HandleFunc("/room/sync-create", handleSyncCreateRoom)
 	http.HandleFunc("/room/get", handleGetRoom)
 	http.HandleFunc("/room/exists", handleRoomExists)
 	http.HandleFunc("/room/delete", handleDeleteRoom)
