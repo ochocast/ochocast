@@ -13,6 +13,9 @@ export class OrchestrateTranscriptionUsecase {
   private readonly transcriptionApiUrl: string;
   private readonly workerStartUrl: string | null;
   private readonly workerStopUrl: string | null;
+  private readonly workerControlToken: string | null;
+  private readonly workerHealthRetries: number;
+  private readonly workerHealthDelayMs: number;
 
   constructor(
     @Inject('VideoGateway')
@@ -23,6 +26,15 @@ export class OrchestrateTranscriptionUsecase {
     this.transcriptionApiUrl = process.env.TRANSCRIPTION_API_URL || '';
     this.workerStartUrl = process.env.WORKER_START_URL || null;
     this.workerStopUrl = process.env.WORKER_STOP_URL || null;
+    this.workerControlToken = process.env.WORKER_CONTROL_TOKEN || null;
+    this.workerHealthRetries = Number.parseInt(
+      process.env.WORKER_HEALTH_RETRIES || '60',
+      10,
+    );
+    this.workerHealthDelayMs = Number.parseInt(
+      process.env.WORKER_HEALTH_DELAY_MS || '5000',
+      10,
+    );
   }
 
   async execute(): Promise<void> {
@@ -35,12 +47,12 @@ export class OrchestrateTranscriptionUsecase {
 
     this.logger.log(`Found ${videos.length} videos to transcribe`);
 
-    const isSelfHosted = this.workerStartUrl && this.workerStopUrl;
+    const hasWorkerLifecycle = this.hasWorkerLifecycle();
 
     try {
-      if (isSelfHosted) {
+      if (hasWorkerLifecycle) {
         this.logger.log('Starting worker VM...');
-        await fetch(this.workerStartUrl!, { method: 'POST' });
+        await this.startWorker();
         await this.waitForWorker();
         this.logger.log('Worker VM started');
       }
@@ -49,7 +61,7 @@ export class OrchestrateTranscriptionUsecase {
         try {
           this.logger.log(`Transcribing video: ${video.id}`);
 
-          const audioKey = `audio_${video.media_id}.wav`;
+          const audioKey = `${video.id}/audio.wav`;
           const audioBuffer = await this.downloadFromS3(audioKey);
 
           const formData = new FormData();
@@ -74,7 +86,7 @@ export class OrchestrateTranscriptionUsecase {
           const data = await response.json();
 
           const vttContent = this.toVTT(data.segments || []);
-          const subtitleKey = `subtitle_${video.id}.vtt`;
+          const subtitleKey = `subtitle-${video.id}.vtt`;
 
           await this.uploadToS3(subtitleKey, vttContent);
 
@@ -86,15 +98,47 @@ export class OrchestrateTranscriptionUsecase {
         }
       }
     } finally {
-      if (isSelfHosted) {
+      if (hasWorkerLifecycle) {
         this.logger.log('Stopping worker VM...');
-        await fetch(this.workerStopUrl!, { method: 'POST' });
+        await this.stopWorker();
         this.logger.log('Worker VM stopped');
       }
     }
   }
 
-  private async waitForWorker(retries = 10, delayMs = 5000): Promise<void> {
+  private hasWorkerLifecycle(): boolean {
+    return Boolean(this.workerStartUrl && this.workerStopUrl);
+  }
+
+  private async startWorker(): Promise<void> {
+    await this.callWorkerLifecycleUrl(this.workerStartUrl!, 'start');
+  }
+
+  private async stopWorker(): Promise<void> {
+    await this.callWorkerLifecycleUrl(this.workerStopUrl!, 'stop');
+  }
+
+  private async callWorkerLifecycleUrl(
+    url: string,
+    action: 'start' | 'stop',
+  ): Promise<void> {
+    const headers: Record<string, string> = {};
+    if (this.workerControlToken) {
+      headers.Authorization = `Bearer ${this.workerControlToken}`;
+    }
+
+    const response = await fetch(url, { method: 'POST', headers });
+    if (!response.ok) {
+      throw new Error(
+        `Worker ${action} failed with HTTP ${response.status}: ${await response.text()}`,
+      );
+    }
+  }
+
+  private async waitForWorker(
+    retries = this.workerHealthRetries,
+    delayMs = this.workerHealthDelayMs,
+  ): Promise<void> {
     for (let i = 0; i < retries; i++) {
       try {
         const res = await fetch(`${this.transcriptionApiUrl}/health`);

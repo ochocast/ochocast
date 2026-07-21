@@ -91,7 +91,7 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
         miniatureSourceKey: expect.stringMatching(
           /\/source\/miniature-original$/,
         ),
-        subtitle_id: expect.stringMatching(/^subtitle-.*\.vtt$/),
+        subtitle_id: undefined,
       }),
     );
   });
