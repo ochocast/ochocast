@@ -1,0 +1,26 @@
+services:
+  transcript:
+    build:
+      context: .
+      dockerfile: Dockerfile.transcript
+    container_name: ochocast-transcript
+    ports:
+      - '${TRANSCRIPT_PORT:-8080}:8080'
+    environment:
+      TRANSCRIPT_PORT: 8080
+      TRANSCRIPT_API_KEY: ${TRANSCRIPT_API_KEY:-}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-host.docker.internal}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      STOCK_SERVER_URL: ${STOCK_SERVER_URL:-}
+      STOCK_CLIENT_ID: ${STOCK_CLIENT_ID:-}
+      STOCK_SECRET: ${STOCK_SECRET:-}
+      STOCK_REGION: ${STOCK_REGION:-us-east-1}
+      STOCK_MEDIA_BUCKET: ${STOCK_MEDIA_BUCKET:-media}
+      LOCAL_WHISPER_MODEL: ${LOCAL_WHISPER_MODEL:-tiny}
+      WHISPER_DEVICE: ${WHISPER_DEVICE:-cpu}
+      WHISPER_COMPUTE_TYPE: ${WHISPER_COMPUTE_TYPE:-int8}
+      WHISPER_VAD_FILTER: ${WHISPER_VAD_FILTER:-true}
+    restart: unless-stopped

@@ -115,7 +115,7 @@ export class CreateNewVideoUsecase {
         subtitleSourceKey: subtitle?.sourceKey,
         media_id: video.media_id,
         miniature_id: video.miniature_id,
-        subtitle_id: video.subtitle_id,
+        subtitle_id: subtitle?.id,
         title: video.title,
         timestamp: now,
       };
