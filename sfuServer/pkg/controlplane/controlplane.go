@@ -111,6 +111,7 @@ type ControlPlane struct {
 // cold-start path testable).
 type capacityEnsurer interface {
 	EnsureCapacity(ctx context.Context, roomID string) (models.WorkerRecord, error)
+	Drain(sfuID string) error
 	ReleaseCapacity(ctx context.Context, roomID string) error
 }
 
@@ -438,6 +439,7 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 	if !exists {
 		return
 	}
+	ingestionSFUID := topology.IngestionSFUID
 
 	// Collect relay SFUs to notify
 	relaysToNotify := make([]string, 0)
@@ -458,16 +460,74 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 
 	// Notify ALL SFUs to delete the room so it can be re-created with a new key later
 	go cp.syncRoomDeletionToAllSFUs(roomID)
+	cp.markRoomTerminated(roomID)
 
 	// The topology grace period doubles as the first-stage idle timeout. Once it
-	// expires, release only capacity tracked by the on-demand provisioner; rooms
-	// hosted on static SFUs are a no-op.
+	// expires, release only capacity tracked by the on-demand provisioner. A
+	// ready worker may host multiple rooms, so removing one room must not destroy
+	// capacity that another topology still references.
 	if cp.provisioner != nil {
+		if ingestionSFUID != "" {
+			for otherRoomID, otherTopology := range cp.rooms {
+				if _, stillReferenced := otherTopology.Nodes[ingestionSFUID]; stillReferenced {
+					log.Printf("[CP-CLEANUP] Retaining SFU %s after room %s cleanup; still serving room %s", ingestionSFUID, roomID, otherRoomID)
+					return
+				}
+			}
+
+			// Resolve the provisioner's owning room before draining. Reused rooms
+			// are not the worker record's original RoomID.
+			releaseRoomID := roomID
+			if cp.roomState != nil {
+				if worker, tracked := cp.roomState.GetWorker(ingestionSFUID); tracked {
+					releaseRoomID = worker.RoomID
+					// Drain synchronously while cp.mu is held so selectIngestionSFU
+					// cannot assign a new room between the final reference check and
+					// asynchronous destruction.
+					if err := cp.provisioner.Drain(ingestionSFUID); err != nil {
+						log.Printf("[CP-CLEANUP] drain SFU %s after room %s: %v", ingestionSFUID, roomID, err)
+						return
+					}
+				}
+			}
+
+			go func() {
+				if err := cp.provisioner.ReleaseCapacity(context.Background(), releaseRoomID); err != nil {
+					log.Printf("[CP-CLEANUP] release capacity for worker %s (owner room %s): %v", ingestionSFUID, releaseRoomID, err)
+				}
+			}()
+			return
+		}
+
+		// Legacy/static test topologies may not carry an ingestion SFU. Preserve
+		// the room-keyed release path; untracked static capacity remains a no-op.
 		go func() {
 			if err := cp.provisioner.ReleaseCapacity(context.Background(), roomID); err != nil {
 				log.Printf("[CP-CLEANUP] release capacity for room %s: %v", roomID, err)
 			}
 		}()
+	}
+}
+
+// markRoomTerminated records topology removal independently from worker
+// destruction. This matters when a worker is shared: the cleaned room is
+// terminal even though the worker remains ready for another active room.
+func (cp *ControlPlane) markRoomTerminated(roomID string) {
+	if cp.roomState == nil {
+		return
+	}
+	room, exists := cp.roomState.Get(roomID)
+	if !exists || room.State == models.RoomTerminated {
+		return
+	}
+	if room.State == models.RoomReady {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomDraining, "idle timeout"); err != nil {
+			log.Printf("[CP-CLEANUP] mark room %s draining: %v", roomID, err)
+			return
+		}
+	}
+	if _, err := cp.roomState.Upsert(roomID, models.RoomTerminated, "idle timeout"); err != nil {
+		log.Printf("[CP-CLEANUP] mark room %s terminated: %v", roomID, err)
 	}
 }
 

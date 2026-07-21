@@ -20,8 +20,16 @@ import (
 // stubEnsurer stands in for the autoscaler in control-plane tests.
 type stubEnsurer struct {
 	called   chan string
+	drained  chan string
 	released chan string
 	err      error
+}
+
+func (s *stubEnsurer) Drain(sfuID string) error {
+	if s.drained != nil {
+		s.drained <- sfuID
+	}
+	return s.err
 }
 
 func (s *stubEnsurer) ReleaseCapacity(_ context.Context, roomID string) error {
@@ -94,6 +102,71 @@ func TestTopologyCleanupReleasesOnDemandCapacity(t *testing.T) {
 	}
 	if _, exists := cp.rooms["room-idle"]; exists {
 		t.Fatal("room topology still exists after cleanup")
+	}
+}
+
+func TestTopologyCleanupRetainsSharedWorkerUntilLastRoomEnds(t *testing.T) {
+	cp := newTestCP(t)
+	drained := make(chan string, 1)
+	released := make(chan string, 1)
+	cp.SetProvisioner(&stubEnsurer{drained: drained, released: released})
+
+	worker := models.WorkerRecord{SFUID: "sfu-shared", RoomID: "room-a", State: models.WorkerProvisioning}
+	for _, state := range []models.WorkerState{models.WorkerProvisioning, models.WorkerRegistered, models.WorkerReady} {
+		worker.State = state
+		if _, err := cp.roomState.UpsertWorker(worker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, roomID := range []string{"room-a", "room-b"} {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomProvisioning, ""); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cp.roomState.Upsert(roomID, models.RoomReady, ""); err != nil {
+			t.Fatal(err)
+		}
+		cp.rooms[roomID] = &models.RoomTopology{
+			RoomID:         roomID,
+			IngestionSFUID: "sfu-shared",
+			Nodes: map[string]*models.TopologyNode{
+				"sfu-shared": {SFUID: "sfu-shared", RoomID: roomID, Role: "ingestion"},
+			},
+		}
+	}
+
+	cp.scheduleTopologyCleanup("room-a")
+
+	select {
+	case got := <-drained:
+		t.Fatalf("shared worker drained while room-b was active: %s", got)
+	case got := <-released:
+		t.Fatalf("shared worker released while room-b was active: %s", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+	if room, _ := cp.roomState.Get("room-a"); room.State != models.RoomTerminated {
+		t.Fatalf("room-a state = %s, want terminated", room.State)
+	}
+
+	cp.scheduleTopologyCleanup("room-b")
+
+	select {
+	case got := <-drained:
+		if got != "sfu-shared" {
+			t.Fatalf("drained worker = %s, want sfu-shared", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("last room cleanup did not drain shared worker")
+	}
+	select {
+	case got := <-released:
+		if got != "room-a" {
+			t.Fatalf("released owner room = %s, want room-a", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("last room cleanup did not release shared worker")
+	}
+	if room, _ := cp.roomState.Get("room-b"); room.State != models.RoomTerminated {
+		t.Fatalf("room-b state = %s, want terminated", room.State)
 	}
 }
 
