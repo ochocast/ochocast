@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -504,6 +505,105 @@ func TestWHIPResponsePreservesICEAndResourceHeaders(t *testing.T) {
 	}
 	if got := recorder.Header().Get("Link"); got != link {
 		t.Fatalf("Link = %q, want %q", got, link)
+	}
+}
+
+func TestViewerPOSTIsProxiedThroughControlPlane(t *testing.T) {
+	const offer = "v=0\r\na=recvonly\r\n"
+	const answer = "v=0\r\na=sendonly\r\n"
+	workerCalled := make(chan struct{}, 1)
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("worker method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/viewer" || r.URL.Query().Get("room_id") != "room-1" {
+			t.Errorf("worker URL = %s, want /viewer?room_id=room-1", r.URL.String())
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != offer {
+			t.Errorf("worker body = %q, want %q", body, offer)
+		}
+		workerCalled <- struct{}{}
+		w.Header().Set("Content-Type", "application/sdp")
+		w.Header().Set("Access-Control-Allow-Origin", "http://private-worker")
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer worker.Close()
+
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		IngestionSFUID: "sfu-1",
+		Nodes: map[string]*models.TopologyNode{
+			"sfu-1": {SFUID: "sfu-1", RoomID: "room-1", Role: "ingestion"},
+		},
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{
+		ID:      "sfu-1",
+		URL:     worker.URL,
+		Active:  true,
+		Metrics: &models.SFUMetrics{SFUID: "sfu-1", CPU: 0.1, Memory: 0.1},
+	}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleViewer(recorder, httptest.NewRequest(
+		http.MethodPost,
+		"/viewer?room_id=room-1",
+		strings.NewReader(offer),
+	))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("POST viewer = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusOK)
+	}
+	if recorder.Body.String() != answer {
+		t.Fatalf("viewer answer = %q, want %q", recorder.Body.String(), answer)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "application/sdp" {
+		t.Fatalf("Content-Type = %q, want application/sdp", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("worker CORS header leaked through proxy: %q", got)
+	}
+	select {
+	case <-workerCalled:
+	case <-time.After(time.Second):
+		t.Fatal("viewer POST was not proxied to the worker")
+	}
+}
+
+func TestViewerGETDiscoveryRemainsAvailable(t *testing.T) {
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		IngestionSFUID: "sfu-1",
+		Nodes:          make(map[string]*models.TopologyNode),
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{
+		ID:      "sfu-1",
+		URL:     "http://worker.internal:8090",
+		Active:  true,
+		Metrics: &models.SFUMetrics{SFUID: "sfu-1", CPU: 0.1, Memory: 0.1},
+	}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleViewer(recorder, httptest.NewRequest(http.MethodGet, "/viewer?room_id=room-1", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET viewer = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusOK)
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["sfu_url"] != "http://worker.internal:8090" {
+		t.Fatalf("unexpected discovery response: %+v", body)
 	}
 }
 

@@ -1753,6 +1753,11 @@ func (cp *ControlPlane) HandleWHIPResource(w http.ResponseWriter, r *http.Reques
 
 // HandleViewer proxies viewer requests to the optimal SFU
 func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "Only GET and POST are supported", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Extract room_id from query parameters
 	roomID := r.URL.Query().Get("room_id")
 	if roomID == "" {
@@ -1970,8 +1975,46 @@ func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the SFU info to the viewer (NO PROXYING - direct connection)
-	log.Printf("[CP-VIEWER] Returning SFU %s for direct viewer connection in room %s", targetSFUID, roomID)
+	if r.Method == http.MethodPost {
+		target, err := url.Parse(targetURL)
+		if err != nil {
+			log.Printf("[CP-VIEWER] Failed to parse target URL %s: %v", targetURL, err)
+			http.Error(w, "Invalid SFU URL", http.StatusInternalServerError)
+			return
+		}
+		target.Path = "/viewer"
+		target.RawQuery = r.URL.RawQuery
+
+		log.Printf("[CP-VIEWER] Proxying viewer SDP for room %s to SFU %s", roomID, targetSFUID)
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		originalDirector := proxy.Director
+		proxy.Director = func(req *http.Request) {
+			originalDirector(req)
+			req.Host = target.Host
+			req.URL.Path = "/viewer"
+			req.URL.RawQuery = r.URL.RawQuery
+		}
+		proxy.ModifyResponse = func(resp *http.Response) error {
+			// The public control-plane CORS middleware owns these headers. Keeping
+			// worker headers here can produce duplicate Access-Control values.
+			resp.Header.Del("Access-Control-Allow-Origin")
+			resp.Header.Del("Access-Control-Allow-Methods")
+			resp.Header.Del("Access-Control-Allow-Headers")
+			resp.Header.Del("Access-Control-Expose-Headers")
+			return nil
+		}
+		proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
+			log.Printf("[CP-VIEWER] Proxy error to SFU %s: %v", targetSFUID, err)
+			http.Error(w, "Failed to proxy viewer negotiation to SFU", http.StatusBadGateway)
+		}
+		proxy.ServeHTTP(w, r)
+		return
+	}
+
+	// Keep GET discovery for backwards compatibility and non-browser clients.
+	// Browser viewers POST their SDP to this TLS endpoint so private worker URLs
+	// are never exposed as mixed-content fetch targets.
+	log.Printf("[CP-VIEWER] Returning SFU %s discovery information for room %s", targetSFUID, roomID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
