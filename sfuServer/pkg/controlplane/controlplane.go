@@ -111,6 +111,7 @@ type ControlPlane struct {
 // cold-start path testable).
 type capacityEnsurer interface {
 	EnsureCapacity(ctx context.Context, roomID string) (models.WorkerRecord, error)
+	Drain(sfuID string) error
 	ReleaseCapacity(ctx context.Context, roomID string) error
 }
 
@@ -438,6 +439,7 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 	if !exists {
 		return
 	}
+	ingestionSFUID := topology.IngestionSFUID
 
 	// Collect relay SFUs to notify
 	relaysToNotify := make([]string, 0)
@@ -458,16 +460,74 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 
 	// Notify ALL SFUs to delete the room so it can be re-created with a new key later
 	go cp.syncRoomDeletionToAllSFUs(roomID)
+	cp.markRoomTerminated(roomID)
 
 	// The topology grace period doubles as the first-stage idle timeout. Once it
-	// expires, release only capacity tracked by the on-demand provisioner; rooms
-	// hosted on static SFUs are a no-op.
+	// expires, release only capacity tracked by the on-demand provisioner. A
+	// ready worker may host multiple rooms, so removing one room must not destroy
+	// capacity that another topology still references.
 	if cp.provisioner != nil {
+		if ingestionSFUID != "" {
+			for otherRoomID, otherTopology := range cp.rooms {
+				if _, stillReferenced := otherTopology.Nodes[ingestionSFUID]; stillReferenced {
+					log.Printf("[CP-CLEANUP] Retaining SFU %s after room %s cleanup; still serving room %s", ingestionSFUID, roomID, otherRoomID)
+					return
+				}
+			}
+
+			// Resolve the provisioner's owning room before draining. Reused rooms
+			// are not the worker record's original RoomID.
+			releaseRoomID := roomID
+			if cp.roomState != nil {
+				if worker, tracked := cp.roomState.GetWorker(ingestionSFUID); tracked {
+					releaseRoomID = worker.RoomID
+					// Drain synchronously while cp.mu is held so selectIngestionSFU
+					// cannot assign a new room between the final reference check and
+					// asynchronous destruction.
+					if err := cp.provisioner.Drain(ingestionSFUID); err != nil {
+						log.Printf("[CP-CLEANUP] drain SFU %s after room %s: %v", ingestionSFUID, roomID, err)
+						return
+					}
+				}
+			}
+
+			go func() {
+				if err := cp.provisioner.ReleaseCapacity(context.Background(), releaseRoomID); err != nil {
+					log.Printf("[CP-CLEANUP] release capacity for worker %s (owner room %s): %v", ingestionSFUID, releaseRoomID, err)
+				}
+			}()
+			return
+		}
+
+		// Legacy/static test topologies may not carry an ingestion SFU. Preserve
+		// the room-keyed release path; untracked static capacity remains a no-op.
 		go func() {
 			if err := cp.provisioner.ReleaseCapacity(context.Background(), roomID); err != nil {
 				log.Printf("[CP-CLEANUP] release capacity for room %s: %v", roomID, err)
 			}
 		}()
+	}
+}
+
+// markRoomTerminated records topology removal independently from worker
+// destruction. This matters when a worker is shared: the cleaned room is
+// terminal even though the worker remains ready for another active room.
+func (cp *ControlPlane) markRoomTerminated(roomID string) {
+	if cp.roomState == nil {
+		return
+	}
+	room, exists := cp.roomState.Get(roomID)
+	if !exists || room.State == models.RoomTerminated {
+		return
+	}
+	if room.State == models.RoomReady {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomDraining, "idle timeout"); err != nil {
+			log.Printf("[CP-CLEANUP] mark room %s draining: %v", roomID, err)
+			return
+		}
+	}
+	if _, err := cp.roomState.Upsert(roomID, models.RoomTerminated, "idle timeout"); err != nil {
+		log.Printf("[CP-CLEANUP] mark room %s terminated: %v", roomID, err)
 	}
 }
 
@@ -1602,8 +1662,102 @@ func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CP-WHIP] WHIP request for room %s successfully proxied to SFU %s", roomID, ingestionSFUID)
 }
 
+func parseWHIPResourcePath(requestPath string) (roomID, key string, ok bool) {
+	const prefix = "/whip/resource/"
+	if !strings.HasPrefix(requestPath, prefix) {
+		return "", "", false
+	}
+	parts := strings.SplitN(strings.TrimPrefix(requestPath, prefix), "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	roomID, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	key, err = url.PathUnescape(parts[1])
+	if err != nil {
+		return "", "", false
+	}
+	return roomID, key, true
+}
+
+// HandleWHIPResource proxies termination of the resource returned in the
+// WHIP Location header to the worker that owns the room.
+func (cp *ControlPlane) HandleWHIPResource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Only DELETE is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID, key, ok := parseWHIPResourcePath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Invalid WHIP resource", http.StatusBadRequest)
+		return
+	}
+
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	invalidKey := exists && topology.Key != key
+	if !exists || invalidKey || topology.IngestionSFUID == "" {
+		cp.mu.RUnlock()
+		if invalidKey {
+			http.Error(w, "Invalid key", http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "WHIP resource not found", http.StatusNotFound)
+		return
+	}
+	ingestionSFUID := topology.IngestionSFUID
+	sfu, exists := cp.sfus[ingestionSFUID]
+	if !exists || !sfu.Active {
+		cp.mu.RUnlock()
+		http.Error(w, "Ingestion SFU is not available", http.StatusServiceUnavailable)
+		return
+	}
+	ingestionURL := sfu.URL
+	cp.mu.RUnlock()
+
+	targetURL, err := url.Parse(ingestionURL)
+	if err != nil {
+		log.Printf("[CP-WHIP] Failed to parse resource target URL for room %s: %v", roomID, err)
+		http.Error(w, "Invalid SFU URL", http.StatusInternalServerError)
+		return
+	}
+	targetURL.Path = r.URL.Path
+	targetURL.RawQuery = ""
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = targetURL.Host
+		req.URL.Path = targetURL.Path
+		req.URL.RawQuery = ""
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Del("Access-Control-Allow-Origin")
+		resp.Header.Del("Access-Control-Allow-Methods")
+		resp.Header.Del("Access-Control-Allow-Headers")
+		resp.Header.Del("Access-Control-Expose-Headers")
+		return nil
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
+		log.Printf("[CP-WHIP] Resource delete proxy error to SFU %s: %v", ingestionSFUID, err)
+		http.Error(w, "Failed to delete WHIP resource", http.StatusBadGateway)
+	}
+
+	proxy.ServeHTTP(w, r)
+	log.Printf("[CP-WHIP] Resource for room %s deleted on SFU %s", roomID, ingestionSFUID)
+}
+
 // HandleViewer proxies viewer requests to the optimal SFU
 func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "Only GET and POST are supported", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Extract room_id from query parameters
 	roomID := r.URL.Query().Get("room_id")
 	if roomID == "" {
@@ -1821,8 +1975,46 @@ func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the SFU info to the viewer (NO PROXYING - direct connection)
-	log.Printf("[CP-VIEWER] Returning SFU %s for direct viewer connection in room %s", targetSFUID, roomID)
+	if r.Method == http.MethodPost {
+		target, err := url.Parse(targetURL)
+		if err != nil {
+			log.Printf("[CP-VIEWER] Failed to parse target URL %s: %v", targetURL, err)
+			http.Error(w, "Invalid SFU URL", http.StatusInternalServerError)
+			return
+		}
+		target.Path = "/viewer"
+		target.RawQuery = r.URL.RawQuery
+
+		log.Printf("[CP-VIEWER] Proxying viewer SDP for room %s to SFU %s", roomID, targetSFUID)
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		originalDirector := proxy.Director
+		proxy.Director = func(req *http.Request) {
+			originalDirector(req)
+			req.Host = target.Host
+			req.URL.Path = "/viewer"
+			req.URL.RawQuery = r.URL.RawQuery
+		}
+		proxy.ModifyResponse = func(resp *http.Response) error {
+			// The public control-plane CORS middleware owns these headers. Keeping
+			// worker headers here can produce duplicate Access-Control values.
+			resp.Header.Del("Access-Control-Allow-Origin")
+			resp.Header.Del("Access-Control-Allow-Methods")
+			resp.Header.Del("Access-Control-Allow-Headers")
+			resp.Header.Del("Access-Control-Expose-Headers")
+			return nil
+		}
+		proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
+			log.Printf("[CP-VIEWER] Proxy error to SFU %s: %v", targetSFUID, err)
+			http.Error(w, "Failed to proxy viewer negotiation to SFU", http.StatusBadGateway)
+		}
+		proxy.ServeHTTP(w, r)
+		return
+	}
+
+	// Keep GET discovery for backwards compatibility and non-browser clients.
+	// Browser viewers POST their SDP to this TLS endpoint so private worker URLs
+	// are never exposed as mixed-content fetch targets.
+	log.Printf("[CP-VIEWER] Returning SFU %s discovery information for room %s", targetSFUID, roomID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,8 +21,16 @@ import (
 // stubEnsurer stands in for the autoscaler in control-plane tests.
 type stubEnsurer struct {
 	called   chan string
+	drained  chan string
 	released chan string
 	err      error
+}
+
+func (s *stubEnsurer) Drain(sfuID string) error {
+	if s.drained != nil {
+		s.drained <- sfuID
+	}
+	return s.err
 }
 
 func (s *stubEnsurer) ReleaseCapacity(_ context.Context, roomID string) error {
@@ -93,6 +103,71 @@ func TestTopologyCleanupReleasesOnDemandCapacity(t *testing.T) {
 	}
 	if _, exists := cp.rooms["room-idle"]; exists {
 		t.Fatal("room topology still exists after cleanup")
+	}
+}
+
+func TestTopologyCleanupRetainsSharedWorkerUntilLastRoomEnds(t *testing.T) {
+	cp := newTestCP(t)
+	drained := make(chan string, 1)
+	released := make(chan string, 1)
+	cp.SetProvisioner(&stubEnsurer{drained: drained, released: released})
+
+	worker := models.WorkerRecord{SFUID: "sfu-shared", RoomID: "room-a", State: models.WorkerProvisioning}
+	for _, state := range []models.WorkerState{models.WorkerProvisioning, models.WorkerRegistered, models.WorkerReady} {
+		worker.State = state
+		if _, err := cp.roomState.UpsertWorker(worker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, roomID := range []string{"room-a", "room-b"} {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomProvisioning, ""); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := cp.roomState.Upsert(roomID, models.RoomReady, ""); err != nil {
+			t.Fatal(err)
+		}
+		cp.rooms[roomID] = &models.RoomTopology{
+			RoomID:         roomID,
+			IngestionSFUID: "sfu-shared",
+			Nodes: map[string]*models.TopologyNode{
+				"sfu-shared": {SFUID: "sfu-shared", RoomID: roomID, Role: "ingestion"},
+			},
+		}
+	}
+
+	cp.scheduleTopologyCleanup("room-a")
+
+	select {
+	case got := <-drained:
+		t.Fatalf("shared worker drained while room-b was active: %s", got)
+	case got := <-released:
+		t.Fatalf("shared worker released while room-b was active: %s", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+	if room, _ := cp.roomState.Get("room-a"); room.State != models.RoomTerminated {
+		t.Fatalf("room-a state = %s, want terminated", room.State)
+	}
+
+	cp.scheduleTopologyCleanup("room-b")
+
+	select {
+	case got := <-drained:
+		if got != "sfu-shared" {
+			t.Fatalf("drained worker = %s, want sfu-shared", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("last room cleanup did not drain shared worker")
+	}
+	select {
+	case got := <-released:
+		if got != "room-a" {
+			t.Fatalf("released owner room = %s, want room-a", got)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("last room cleanup did not release shared worker")
+	}
+	if room, _ := cp.roomState.Get("room-b"); room.State != models.RoomTerminated {
+		t.Fatalf("room-b state = %s, want terminated", room.State)
 	}
 }
 
@@ -334,6 +409,201 @@ func TestMediaFlowsGatedOnReadiness(t *testing.T) {
 	cp.HandleWHIP(rec, httptest.NewRequest(http.MethodPost, "/whip?room_id=room-1&key="+key, nil))
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("WHIP while failed = %d, want 409", rec.Code)
+	}
+}
+
+func TestWHIPResourceDeleteIsAuthenticatedAndProxied(t *testing.T) {
+	workerCalled := make(chan struct{}, 1)
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("worker method = %s, want DELETE", r.Method)
+		}
+		if r.URL.Path != "/whip/resource/room-1/room-key" {
+			t.Errorf("worker path = %s", r.URL.Path)
+		}
+		workerCalled <- struct{}{}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer worker.Close()
+
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		Key:            "room-key",
+		IngestionSFUID: "sfu-1",
+		Nodes:          make(map[string]*models.TopologyNode),
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{ID: "sfu-1", URL: worker.URL, Active: true}
+
+	invalid := httptest.NewRecorder()
+	cp.HandleWHIPResource(invalid, httptest.NewRequest(
+		http.MethodDelete,
+		"/whip/resource/room-1/wrong-key",
+		nil,
+	))
+	if invalid.Code != http.StatusUnauthorized {
+		t.Fatalf("DELETE with invalid key = %d, want %d", invalid.Code, http.StatusUnauthorized)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleWHIPResource(recorder, httptest.NewRequest(
+		http.MethodDelete,
+		"/whip/resource/room-1/room-key",
+		nil,
+	))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("DELETE WHIP resource = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusOK)
+	}
+	select {
+	case <-workerCalled:
+	case <-time.After(time.Second):
+		t.Fatal("DELETE was not proxied to the ingestion SFU")
+	}
+}
+
+func TestWHIPResponsePreservesICEAndResourceHeaders(t *testing.T) {
+	const link = `<turn:turn.example.test:3478?transport=tcp>; rel="ice-server"; username="user"; credential="password"`
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/room/sync-create":
+			w.WriteHeader(http.StatusCreated)
+		case "/whip":
+			w.Header().Set("Content-Type", "application/sdp")
+			w.Header().Set("Location", "/whip/resource/room-1/room-key")
+			w.Header().Add("Link", link)
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte("v=0\r\n"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer worker.Close()
+
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		Key:            "room-key",
+		IngestionSFUID: "sfu-1",
+		Nodes:          make(map[string]*models.TopologyNode),
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{ID: "sfu-1", URL: worker.URL, Active: true}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleWHIP(recorder, httptest.NewRequest(
+		http.MethodPost,
+		"/whip?room_id=room-1&key=room-key",
+		strings.NewReader("v=0\r\n"),
+	))
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("POST WHIP = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusCreated)
+	}
+	if got := recorder.Header().Get("Location"); got != "/whip/resource/room-1/room-key" {
+		t.Fatalf("Location = %q", got)
+	}
+	if got := recorder.Header().Get("Link"); got != link {
+		t.Fatalf("Link = %q, want %q", got, link)
+	}
+}
+
+func TestViewerPOSTIsProxiedThroughControlPlane(t *testing.T) {
+	const offer = "v=0\r\na=recvonly\r\n"
+	const answer = "v=0\r\na=sendonly\r\n"
+	workerCalled := make(chan struct{}, 1)
+	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("worker method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/viewer" || r.URL.Query().Get("room_id") != "room-1" {
+			t.Errorf("worker URL = %s, want /viewer?room_id=room-1", r.URL.String())
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != offer {
+			t.Errorf("worker body = %q, want %q", body, offer)
+		}
+		workerCalled <- struct{}{}
+		w.Header().Set("Content-Type", "application/sdp")
+		w.Header().Set("Access-Control-Allow-Origin", "http://private-worker")
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer worker.Close()
+
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		IngestionSFUID: "sfu-1",
+		Nodes: map[string]*models.TopologyNode{
+			"sfu-1": {SFUID: "sfu-1", RoomID: "room-1", Role: "ingestion"},
+		},
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{
+		ID:      "sfu-1",
+		URL:     worker.URL,
+		Active:  true,
+		Metrics: &models.SFUMetrics{SFUID: "sfu-1", CPU: 0.1, Memory: 0.1},
+	}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleViewer(recorder, httptest.NewRequest(
+		http.MethodPost,
+		"/viewer?room_id=room-1",
+		strings.NewReader(offer),
+	))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("POST viewer = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusOK)
+	}
+	if recorder.Body.String() != answer {
+		t.Fatalf("viewer answer = %q, want %q", recorder.Body.String(), answer)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "application/sdp" {
+		t.Fatalf("Content-Type = %q, want application/sdp", got)
+	}
+	if got := recorder.Header().Get("Access-Control-Allow-Origin"); got != "" {
+		t.Fatalf("worker CORS header leaked through proxy: %q", got)
+	}
+	select {
+	case <-workerCalled:
+	case <-time.After(time.Second):
+		t.Fatal("viewer POST was not proxied to the worker")
+	}
+}
+
+func TestViewerGETDiscoveryRemainsAvailable(t *testing.T) {
+	cp := newTestCP(t)
+	cp.rooms["room-1"] = &models.RoomTopology{
+		RoomID:         "room-1",
+		IngestionSFUID: "sfu-1",
+		Nodes:          make(map[string]*models.TopologyNode),
+	}
+	cp.sfus["sfu-1"] = &SFUInfo{
+		ID:      "sfu-1",
+		URL:     "http://worker.internal:8090",
+		Active:  true,
+		Metrics: &models.SFUMetrics{SFUID: "sfu-1", CPU: 0.1, Memory: 0.1},
+	}
+	if _, err := cp.roomState.Upsert("room-1", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	cp.HandleViewer(recorder, httptest.NewRequest(http.MethodGet, "/viewer?room_id=room-1", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET viewer = %d (%s), want %d", recorder.Code, recorder.Body.String(), http.StatusOK)
+	}
+	var body map[string]interface{}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body["sfu_url"] != "http://worker.internal:8090" {
+		t.Fatalf("unexpected discovery response: %+v", body)
 	}
 }
 

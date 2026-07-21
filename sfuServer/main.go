@@ -62,6 +62,7 @@ func newServerMux() *http.ServeMux {
 	mux.HandleFunc("/room/viewers", handleRoomViewerCount)
 	mux.HandleFunc("/stream-status", handleStreamStatus)
 	mux.HandleFunc("/whip", handleWHIP)
+	mux.HandleFunc("/whip/resource/", handleWHIPResource)
 	mux.HandleFunc("/viewer", handleViewer)
 	mux.HandleFunc("/recorder", handleRecorder)
 	mux.HandleFunc("/promote", handlePromoteViewer)

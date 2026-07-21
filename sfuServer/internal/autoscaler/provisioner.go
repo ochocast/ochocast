@@ -220,7 +220,7 @@ func (p *Provisioner) ReleaseCapacity(ctx context.Context, roomID string) error 
 			return fmt.Errorf("autoscaler: drain worker %s: %w", rec.SFUID, err)
 		}
 	}
-	if room, exists := p.store.Get(roomID); exists && room.State != models.RoomDraining {
+	if room, exists := p.store.Get(roomID); exists && room.State != models.RoomDraining && room.State != models.RoomTerminated {
 		if _, err := p.store.Upsert(roomID, models.RoomDraining, "idle timeout"); err != nil {
 			return fmt.Errorf("autoscaler: drain room %s: %w", roomID, err)
 		}
@@ -243,8 +243,10 @@ func (p *Provisioner) destroyDrainingLocked(ctx context.Context, rec models.Work
 		return fmt.Errorf("autoscaler: mark worker %s terminated: %w", rec.SFUID, err)
 	}
 	if rec.RoomID != "" {
-		if _, err := p.store.Upsert(rec.RoomID, models.RoomTerminated, "idle timeout"); err != nil {
-			return fmt.Errorf("autoscaler: mark room %s terminated: %w", rec.RoomID, err)
+		if room, exists := p.store.Get(rec.RoomID); !exists || room.State != models.RoomTerminated {
+			if _, err := p.store.Upsert(rec.RoomID, models.RoomTerminated, "idle timeout"); err != nil {
+				return fmt.Errorf("autoscaler: mark room %s terminated: %w", rec.RoomID, err)
+			}
 		}
 	}
 	return nil

@@ -3,6 +3,7 @@ package bootstrap
 import (
 	_ "embed"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -23,6 +24,8 @@ type WorkerConfig struct {
 	SFUPort         string
 	ICERelayOnly    bool
 	EnableICETCP    bool
+	ICEUDPPortMin   string
+	ICEUDPPortMax   string
 	STUNServers     string
 	TURNServer      string
 	TURNUsername    string
@@ -48,6 +51,16 @@ func (c WorkerConfig) Validate() error {
 	if c.ICERelayOnly {
 		if c.TURNServer == "" || c.TURNUsername == "" || c.TURNPassword == "" {
 			return fmt.Errorf("TURN_SERVER, TURN_USERNAME and TURN_PASSWORD are required when ICE_RELAY_ONLY=true")
+		}
+	}
+	if c.ICEUDPPortMin != "" || c.ICEUDPPortMax != "" {
+		if c.ICEUDPPortMin == "" || c.ICEUDPPortMax == "" {
+			return fmt.Errorf("ICE_UDP_PORT_MIN and ICE_UDP_PORT_MAX must be set together")
+		}
+		minPort, minErr := strconv.ParseUint(c.ICEUDPPortMin, 10, 16)
+		maxPort, maxErr := strconv.ParseUint(c.ICEUDPPortMax, 10, 16)
+		if minErr != nil || maxErr != nil || minPort == 0 || maxPort == 0 || maxPort < minPort {
+			return fmt.Errorf("invalid ICE UDP port range %q-%q", c.ICEUDPPortMin, c.ICEUDPPortMax)
 		}
 	}
 	return nil
@@ -80,6 +93,8 @@ func (c WorkerConfig) Render(sfuID, roomID string) string {
 		{"CONTROL_PLANE_URL", c.ControlPlaneURL},
 		{"ICE_RELAY_ONLY", fmt.Sprintf("%t", c.ICERelayOnly)},
 		{"ENABLE_ICE_TCP", fmt.Sprintf("%t", c.EnableICETCP)},
+		{"ICE_UDP_PORT_MIN", c.ICEUDPPortMin},
+		{"ICE_UDP_PORT_MAX", c.ICEUDPPortMax},
 		{"STUN_SERVERS", c.STUNServers},
 		{"TURN_SERVER", c.TURNServer},
 		{"TURN_USERNAME", c.TURNUsername},

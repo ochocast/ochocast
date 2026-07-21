@@ -216,6 +216,46 @@ func TestReleaseCapacityDrainsAndDestroysWorker(t *testing.T) {
 	}
 }
 
+func TestReleaseCapacityDestroysWorkerWhenOwnerRoomAlreadyTerminated(t *testing.T) {
+	ctx := context.Background()
+	fake := provider.NewFake()
+	p, store := newTestProvisioner(t, fake, 1)
+
+	rec, err := p.EnsureCapacity(ctx, "room-owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, state := range []models.WorkerState{models.WorkerRegistered, models.WorkerReady} {
+		rec.State = state
+		if _, err := store.UpsertWorker(rec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := store.Upsert("room-owner", models.RoomReady, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Upsert("room-owner", models.RoomDraining, "idle timeout"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Upsert("room-owner", models.RoomTerminated, "idle timeout"); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := p.Drain(rec.SFUID); err != nil {
+		t.Fatal(err)
+	}
+	if err := p.ReleaseCapacity(ctx, "room-owner"); err != nil {
+		t.Fatal(err)
+	}
+	if fake.Count() != 0 {
+		t.Fatalf("worker Instance still exists: count=%d", fake.Count())
+	}
+	worker, _ := store.GetWorker(rec.SFUID)
+	if worker.State != models.WorkerTerminated {
+		t.Fatalf("worker state = %s, want terminated", worker.State)
+	}
+}
+
 func TestReleaseCapacityRetriesTransientDeleteFailure(t *testing.T) {
 	ctx := context.Background()
 	fake := provider.NewFake()
