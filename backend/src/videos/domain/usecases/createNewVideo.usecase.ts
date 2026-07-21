@@ -40,7 +40,6 @@ export class CreateNewVideoUsecase {
       : undefined;
     const miniatureId = `miniature-${videoId}.jpg`;
 
-    const generatedSubtitleId = `subtitle-${videoId}.vtt`;
     const subtitle = this.prepareSubtitle(subtitleFile, videoId);
     const creator =
       typeof videoToCreate.creator === 'string'
@@ -116,7 +115,7 @@ export class CreateNewVideoUsecase {
         subtitleSourceKey: subtitle?.sourceKey,
         media_id: video.media_id,
         miniature_id: video.miniature_id,
-        subtitle_id: subtitle?.id || generatedSubtitleId,
+        subtitle_id: subtitle?.id,
         title: video.title,
         timestamp: now,
       };

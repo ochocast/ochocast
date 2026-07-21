@@ -8,7 +8,7 @@ export class TranscriptionScheduler {
 
   constructor(private readonly orchestrate: OrchestrateTranscriptionUsecase) {}
 
-  @Cron('0 2 * * *')
+  @Cron(process.env.TRANSCRIPTION_CRON || '0 2 * * *')
   async runNightlyBatch(): Promise<void> {
     this.logger.log('Nightly transcription batch triggered');
     await this.orchestrate.execute();

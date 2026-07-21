@@ -47,17 +47,16 @@ services:
       VIDEO_RESULT_QUEUE_NAME: video-transcoding-results
       WORKER_CONCURRENCY: 1
       FFMPEG_THREADS: 2
-      TRANSCRIPT_API_URL: http://transcript:8080/v1/audio/transcriptions
     depends_on:
       rabbitmq:
         condition: service_healthy
       minio:
         condition: service_started
-      transcript:
-        condition: service_started
     restart: unless-stopped
 
   transcript:
+    profiles:
+      - transcript-local
     build:
       context: ../ffmpegServer
       dockerfile: Dockerfile.transcript
