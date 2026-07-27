@@ -18,14 +18,26 @@ import { EventStatus } from '../../utils/EventStatus';
 import { useBrandingContext } from '../../context/BrandingContext';
 import logger from '../../utils/logger';
 
-const removeAccents = (value: string): string =>
-  value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const toSearchableText = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(toSearchableText).filter(Boolean).join(' ');
+  }
+  return '';
+};
 
-const normalize = (value: string): string => removeAccents(value).toLowerCase();
+export const normalizeSearchValue = (value: unknown): string =>
+  toSearchableText(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 
-const matches = (haystack: string, query: string): boolean => {
+const matches = (haystack: unknown, query: string): boolean => {
   if (!query.trim()) return false;
-  return normalize(haystack).includes(normalize(query));
+  return normalizeSearchValue(haystack).includes(normalizeSearchValue(query));
 };
 
 interface GlobalSearchFilters {
@@ -73,10 +85,10 @@ const matchesAnySelected = (
 
   const normalizedCandidates = candidateValues
     .filter(Boolean)
-    .map((value) => normalize(value as string));
+    .map(normalizeSearchValue);
 
   return selectedValues.some((selectedValue) =>
-    normalizedCandidates.includes(normalize(selectedValue)),
+    normalizedCandidates.includes(normalizeSearchValue(selectedValue)),
   );
 };
 
@@ -102,15 +114,13 @@ const matchesSelectedTags = (
 
   return itemTags.some((tag) =>
     selectedTags.some(
-      (selectedTag) => normalize(tag ?? '') === normalize(selectedTag),
+      (selectedTag) =>
+        normalizeSearchValue(tag) === normalizeSearchValue(selectedTag),
     ),
   );
 };
 
-const matchesTextQuery = (
-  fields: Array<string | null | undefined>,
-  query: string,
-): boolean => {
+const matchesTextQuery = (fields: unknown[], query: string): boolean => {
   if (!query.trim()) return true;
   return fields.some((field) => matches(field ?? '', query));
 };
@@ -282,8 +292,17 @@ const GlobalSearchPage = () => {
 
         if (!active) return;
 
-        setVideos(videosResponse.data || []);
-        setEvents(eventsResponse.data || []);
+        if (
+          !videosResponse.ok ||
+          !Array.isArray(videosResponse.data) ||
+          !eventsResponse.ok ||
+          !Array.isArray(eventsResponse.data)
+        ) {
+          throw new Error('Unexpected global search response');
+        }
+
+        setVideos(videosResponse.data);
+        setEvents(eventsResponse.data);
         setFallbackMiniatureUrl(
           fallbackResponse || '/branding/exemple/image_tuile_event.png',
         );

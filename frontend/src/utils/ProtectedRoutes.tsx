@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate, useLocation } from 'react-router-dom';
 import LoadingPage from '../pages/Loading/Loading';
@@ -21,6 +21,26 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
   } = auth;
   const navigate = useNavigate();
   const location = useLocation();
+  const [configuredAccessToken, setConfiguredAccessToken] = useState<
+    string | null
+  >(null);
+
+  // Do not mount protected pages until their API requests are guaranteed to
+  // carry the current OIDC token. Child effects can otherwise race the
+  // passive authentication effect after a direct navigation or token renewal.
+  useLayoutEffect(() => {
+    const accessToken =
+      oidcUser && !oidcUser.expired ? oidcUser.access_token : null;
+
+    if (accessToken) {
+      api.setHeaders({ Authorization: `Bearer ${accessToken}` });
+      setConfiguredAccessToken(accessToken);
+      return;
+    }
+
+    api.deleteHeader('Authorization');
+    setConfiguredAccessToken(null);
+  }, [oidcUser]);
 
   // Mettre à jour le token dans localStorage quand le token change (ex: renouvellement)
   useEffect(() => {
@@ -116,7 +136,11 @@ export function ProtectedRoutes(props: ProtectedRoutesProps) {
     navigate,
   ]);
 
-  if (isAuthenticated) {
+  if (
+    isAuthenticated &&
+    oidcUser?.access_token &&
+    configuredAccessToken === oidcUser.access_token
+  ) {
     return <>{props.children}</>;
   }
 

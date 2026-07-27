@@ -38,14 +38,14 @@ export const updateProfileWithoutImage = (newProfile) =>
 export const createEvent = (event) => api.post('/events', event);
 export const getPublishedEvents = async () => {
   const res = await api.get('/events?closed=false');
-  if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
+  if (res.status !== 200 || !Array.isArray(res.data)) {
     throw new Error('Erreur lors de la récupération des événements publiés');
   }
   return res;
 };
 export const getUnpublishedEvents = async () => {
   const res = await api.get(`/events/unpublished?closed=false&published=false`);
-  if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
+  if (res.status !== 200 || !Array.isArray(res.data)) {
     throw new Error(
       'Erreur lors de la récupération des événements non publiés',
     );
@@ -54,7 +54,7 @@ export const getUnpublishedEvents = async () => {
 };
 export const getClosedEvents = async () => {
   const res = await api.get('/events?closed=true');
-  if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
+  if (res.status !== 200 || !Array.isArray(res.data)) {
     throw new Error('Erreur lors de la récupération des événements clos');
   }
   return res;
