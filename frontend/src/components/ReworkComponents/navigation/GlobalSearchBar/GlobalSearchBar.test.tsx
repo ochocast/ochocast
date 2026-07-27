@@ -81,8 +81,8 @@ describe('GlobalSearchBar', () => {
 
     await waitFor(() => {
       expect(mockedFindTags).toHaveBeenCalledWith('test');
-      expect(mockedFindUsers).toHaveBeenCalledWith('test');
     });
+    expect(mockedFindUsers).toHaveBeenCalledWith('test');
     expect(input).toHaveValue('test');
   });
 });
