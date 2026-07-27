@@ -12,15 +12,6 @@ export const api = create({
   },
 });
 
-api.addAsyncRequestTransform(async (request) => {
-  const userString = localStorage.getItem('backendUser');
-  const user = userString ? JSON.parse(userString) : null;
-
-  if (user?.token) {
-    request.headers['Authorization'] = `Bearer ${user.token}`;
-  }
-});
-
 // Public API instance without authentication
 export const publicApi = create({
   baseURL: `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}/api`,
@@ -112,9 +103,10 @@ export const createTag = (data) => api.post('/tags', data);
 export const modifyVideo = (formData) => api.post('/videos/modify', formData);
 export const getVideosByUser = (userId) => api.get(`/videos/` + userId);
 export const findTag = (name) => api.get(`/tags?name=${name}`);
-export const findTags = (tag) => api.get(`/tags/find?value=${tag}`);
-export const findUsers = (user) => api.get(`/users/find?value=${user}`);
-export const searchVideos = (data) => api.get(`/videos/searchvideo/${data}`);
+export const findTags = (tag) => api.get('/tags/find', { value: tag });
+export const findUsers = (user) => api.get('/users/find', { value: user });
+export const searchVideos = (data) =>
+  api.get(`/videos/searchvideo/${encodeURIComponent(data)}`);
 export const getVideoSuggestions = (id) =>
   api.get(`/videos/videoSuggestions/${id}`);
 export const incrementVideoViews = (videoId) =>

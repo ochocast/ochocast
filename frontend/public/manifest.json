@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "OchoCast",
+  "name": "OchoCast — la plateforme vidéo",
+  "description": "Suivez les lives, retrouvez les replays et partagez les connaissances.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +11,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#0d6f50",
   "background_color": "#ffffff"
 }
