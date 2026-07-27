@@ -12,15 +12,6 @@ export const api = create({
   },
 });
 
-api.addAsyncRequestTransform(async (request) => {
-  const userString = localStorage.getItem('backendUser');
-  const user = userString ? JSON.parse(userString) : null;
-
-  if (user?.token) {
-    request.headers['Authorization'] = `Bearer ${user.token}`;
-  }
-});
-
 // Public API instance without authentication
 export const publicApi = create({
   baseURL: `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}/api`,
@@ -47,14 +38,14 @@ export const updateProfileWithoutImage = (newProfile) =>
 export const createEvent = (event) => api.post('/events', event);
 export const getPublishedEvents = async () => {
   const res = await api.get('/events?closed=false');
-  if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
+  if (res.status !== 200 || !Array.isArray(res.data)) {
     throw new Error('Erreur lors de la récupération des événements publiés');
   }
   return res;
 };
 export const getUnpublishedEvents = async () => {
   const res = await api.get(`/events/unpublished?closed=false&published=false`);
-  if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
+  if (res.status !== 200 || !Array.isArray(res.data)) {
     throw new Error(
       'Erreur lors de la récupération des événements non publiés',
     );
@@ -63,7 +54,7 @@ export const getUnpublishedEvents = async () => {
 };
 export const getClosedEvents = async () => {
   const res = await api.get('/events?closed=true');
-  if (res.status !== 200 || !res.data || typeof res.data !== 'object') {
+  if (res.status !== 200 || !Array.isArray(res.data)) {
     throw new Error('Erreur lors de la récupération des événements clos');
   }
   return res;
@@ -112,9 +103,10 @@ export const createTag = (data) => api.post('/tags', data);
 export const modifyVideo = (formData) => api.post('/videos/modify', formData);
 export const getVideosByUser = (userId) => api.get(`/videos/` + userId);
 export const findTag = (name) => api.get(`/tags?name=${name}`);
-export const findTags = (tag) => api.get(`/tags/find?value=${tag}`);
-export const findUsers = (user) => api.get(`/users/find?value=${user}`);
-export const searchVideos = (data) => api.get(`/videos/searchvideo/${data}`);
+export const findTags = (tag) => api.get('/tags/find', { value: tag });
+export const findUsers = (user) => api.get('/users/find', { value: user });
+export const searchVideos = (data) =>
+  api.get(`/videos/searchvideo/${encodeURIComponent(data)}`);
 export const getVideoSuggestions = (id) =>
   api.get(`/videos/videoSuggestions/${id}`);
 export const incrementVideoViews = (videoId) =>

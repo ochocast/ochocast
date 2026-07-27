@@ -49,7 +49,9 @@ const Profile: FC<ProfileProps> = () => {
     async (userId: string, isCurrentUserProfile: boolean = false) => {
       try {
         const videosResponse = await getVideosByUser(userId);
-        setVideos(videosResponse.data || []);
+        setVideos(
+          Array.isArray(videosResponse.data) ? videosResponse.data : [],
+        );
 
         const userResponse = await getUsers();
         const user = userResponse.data.find((u: User) => u.id === userId);
@@ -117,11 +119,13 @@ const Profile: FC<ProfileProps> = () => {
     try {
       if (keywords[0] !== '') {
         const response = await searchVideos(keywords[0]);
-        setVideos(response.data || []);
+        setVideos(Array.isArray(response.data) ? response.data : []);
       } else {
         const backendUser = JSON.parse(userString!);
         const videosResponse = await getVideosByUser(backendUser.id);
-        setVideos(videosResponse.data || []);
+        setVideos(
+          Array.isArray(videosResponse.data) ? videosResponse.data : [],
+        );
       }
     } catch (error) {
       console.error('Error fetching suggestions:', error);

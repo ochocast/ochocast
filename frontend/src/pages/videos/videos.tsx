@@ -38,8 +38,8 @@ const parseQueryParams = (search: string): SearchState => {
       params.get('archived') === 'true'
         ? true
         : params.get('archived') === 'false'
-          ? false
-          : null,
+        ? false
+        : null,
   };
 };
 
@@ -149,12 +149,17 @@ const Videos: FC<VideosProps> = () => {
     try {
       if (keywords[0] !== '') {
         const response = await searchVideos(keywords[0]);
-
-        const result = response.data || [];
+        const result = Array.isArray(response.data) ? response.data : [];
+        if (!response.ok || !Array.isArray(response.data)) {
+          logger.warn(
+            { status: response.status },
+            'Video search returned an invalid response',
+          );
+        }
         setVideos(result);
       } else {
         const response = await getVideos();
-        const result = response.data || [];
+        const result = Array.isArray(response.data) ? response.data : [];
         setVideos(result);
       }
     } catch (error) {
@@ -173,16 +178,18 @@ const Videos: FC<VideosProps> = () => {
       let result = [...videos];
 
       if (newFilters.tags.length > 0) {
-        result = result.filter((video) =>
-          video.tags?.some((tag) => newFilters.tags.includes(tag.name)),
+        result = result.filter(
+          (video) =>
+            video.tags?.some((tag) => newFilters.tags.includes(tag.name)),
         );
       }
 
       if (newFilters.users.length > 0) {
         result = result.filter((video) => {
           const uname = video.creator?.username;
-          const fullname =
-            `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim();
+          const fullname = `${video.creator?.firstName ?? ''} ${
+            video.creator?.lastName ?? ''
+          }`.trim();
           return newFilters.users.includes(uname || fullname);
         });
       }
@@ -252,22 +259,30 @@ const Videos: FC<VideosProps> = () => {
         const res = initialParams.favoris
           ? await getFavoriteVideos()
           : await getVideos();
-        const allVideos = res.data || [];
+        const allVideos = Array.isArray(res.data) ? res.data : [];
+        if (!res.ok || !Array.isArray(res.data)) {
+          logger.warn(
+            { status: res.status },
+            'Video list returned an invalid response',
+          );
+        }
         setVideos(allVideos);
 
         let result = [...allVideos];
         if (initialParams.tags.length > 0) {
-          result = result.filter((v) =>
-            v.tags?.some((tag: { name: string }) =>
-              initialParams.tags.includes(tag.name),
-            ),
+          result = result.filter(
+            (v) =>
+              v.tags?.some((tag: { name: string }) =>
+                initialParams.tags.includes(tag.name),
+              ),
           );
         }
         if (initialParams.users.length > 0) {
           result = result.filter((v) => {
             const uname = v.creator?.username;
-            const fullname =
-              `${v.creator?.firstName ?? ''} ${v.creator?.lastName ?? ''}`.trim();
+            const fullname = `${v.creator?.firstName ?? ''} ${
+              v.creator?.lastName ?? ''
+            }`.trim();
             return initialParams.users.includes(uname || fullname);
           });
         }
@@ -414,7 +429,9 @@ const Videos: FC<VideosProps> = () => {
                 creatorId={video.creator?.id || ''}
                 createBy={
                   video.creator?.username ||
-                  `${video.creator?.firstName ?? ''} ${video.creator?.lastName ?? ''}`.trim()
+                  `${video.creator?.firstName ?? ''} ${
+                    video.creator?.lastName ?? ''
+                  }`.trim()
                 }
                 views={video.views}
                 createdAt={video.createdAt.toString()}

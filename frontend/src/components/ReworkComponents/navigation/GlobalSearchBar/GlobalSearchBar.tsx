@@ -43,6 +43,8 @@ const GlobalSearchBar = ({
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestionRequestRef = useRef(0);
 
   useEffect(() => {
     if (initialValue !== undefined) {
@@ -66,7 +68,17 @@ const GlobalSearchBar = ({
     };
   }, []);
 
-  const findSuggestions = async (queryEntered: string) => {
+  useEffect(
+    () => () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+      suggestionRequestRef.current += 1;
+    },
+    [],
+  );
+
+  const findSuggestions = async (queryEntered: string, requestId: number) => {
     if (!hasSuggestion) return;
 
     try {
@@ -82,10 +94,26 @@ const GlobalSearchBar = ({
         findUsers(queryEntered),
       ]);
 
-      setTagSuggestions(tagResponse.data || []);
-      setUserSuggestions(userResponse.data || []);
+      if (requestId !== suggestionRequestRef.current) return;
+
+      if (
+        !tagResponse.ok ||
+        !userResponse.ok ||
+        !Array.isArray(tagResponse.data) ||
+        !Array.isArray(userResponse.data)
+      ) {
+        throw new Error(
+          `Suggestion request failed (${tagResponse.status ?? 'network'}/${
+            userResponse.status ?? 'network'
+          })`,
+        );
+      }
+
+      setTagSuggestions(tagResponse.data);
+      setUserSuggestions(userResponse.data);
       setShowSuggestions(true);
     } catch (error) {
+      if (requestId !== suggestionRequestRef.current) return;
       logger.error(`Error fetching users and tags: ${error}`);
       setTagSuggestions([]);
       setUserSuggestions([]);
@@ -96,11 +124,34 @@ const GlobalSearchBar = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setQuery(value);
-    findSuggestions(value);
-    onSearch(value);
+
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    const requestId = ++suggestionRequestRef.current;
+
+    if (value.trim() === '') {
+      setTagSuggestions([]);
+      setUserSuggestions([]);
+      setShowSuggestions(false);
+      onSearch('');
+      return;
+    }
+
+    searchTimerRef.current = setTimeout(() => {
+      findSuggestions(value, requestId);
+      onSearch(value);
+    }, 300);
   };
 
   const handleSubmit = () => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    const requestId = ++suggestionRequestRef.current;
+    findSuggestions(query, requestId);
     onSearch(query);
   };
 
@@ -122,6 +173,11 @@ const GlobalSearchBar = ({
     setTagSuggestions([]);
     setUserSuggestions([]);
     setShowSuggestions(false);
+    suggestionRequestRef.current += 1;
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onClear?.();
   };
 
@@ -160,6 +216,11 @@ const GlobalSearchBar = ({
     setShowSuggestions(false);
     setTagSuggestions([]);
     setUserSuggestions([]);
+    suggestionRequestRef.current += 1;
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
     onSearch(value);
   };
 
