@@ -48,7 +48,7 @@
     "pino": "^9.5.0",
     "reflect-metadata": "^0.1.14",
     "rxjs": "^7.8.1",
-    "sharp": "^0.34.1",
+    "sharp": "^0.35.0",
     "socket.io": "^4.8.1",
     "tsconfig-paths-jest": "^0.0.1",
     "typeorm": "^0.3.17",
