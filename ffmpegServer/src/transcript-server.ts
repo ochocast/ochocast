@@ -558,9 +558,10 @@ async function handleAudioRequest(
   try {
     audioInput = await resolveAudioInput(contentType, body);
   } catch (error) {
+    console.error('Failed to resolve audio input', error);
     sendJson(response, 400, {
       error: {
-        message: error instanceof Error ? error.message : String(error),
+        message: 'Invalid request payload.',
         type: 'invalid_request_error',
       },
     });
