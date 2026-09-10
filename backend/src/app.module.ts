@@ -16,6 +16,7 @@ import { ChatModule } from './chat/chat.module';
 import { PollsModule } from './polls/polls.module';
 import { RecordingModule } from './recording/recording.module';
 import { QueueModule } from './queue/queue.module';
+import { TranscriptionModule } from './transcription/transcription.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { QueueModule } from './queue/queue.module';
     PollsModule,
     RecordingModule,
     QueueModule,
+    TranscriptionModule,
   ],
 })
 export class AppModule {}

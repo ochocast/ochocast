@@ -151,16 +151,15 @@ export class VideosController {
     @Param('id') id: string,
     @Req() request: Request,
   ): Promise<string> {
-    if (!isUUID(id)) {
-      throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
-    }
-
     const configuredBaseUrl = process.env.PUBLIC_API_URL?.replace(/\/$/, '');
-    const requestOrigin = new URL(
-      `${request.protocol}://${request.get('host')}`,
-    ).origin;
-    const apiBaseUrl = configuredBaseUrl || `${requestOrigin}/api`;
-
+    const videosRouteIndex = request.originalUrl.indexOf('/videos/');
+    const apiPath =
+      videosRouteIndex >= 0
+        ? request.originalUrl.slice(0, videosRouteIndex)
+        : '/api';
+    const apiBaseUrl =
+      configuredBaseUrl ||
+      `${request.protocol}://${request.get('host')}${apiPath}`;
     return await this.getMediaUseCase.execute(id, apiBaseUrl);
   }
 

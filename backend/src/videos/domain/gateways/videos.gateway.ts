@@ -12,4 +12,6 @@ export interface IVideoGateway {
   searchVideoAdmin(data: string): Promise<VideoObject[]>;
   restoreVideo: (id: string) => Promise<VideoObject>;
   incrementVideoViews: (id: string) => Promise<VideoObject>;
+  getVideosWithoutSubtitle: () => Promise<VideoObject[]>;
+  updateSubtitleId: (videoId: string, subtitleId: string) => Promise<void>;
 }
