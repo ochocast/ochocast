@@ -39,6 +39,6 @@ import { RecordingModule } from 'src/recording/recording.module';
     DeleteTrackUsecase,
     CloseTrackUsecase,
   ],
-  exports: ['TrackGateway', 'EventGateway'],
+  exports: ['TrackGateway', 'EventGateway', 'UserGateway'],
 })
 export class TracksModule {}

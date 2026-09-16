@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Param,
@@ -18,7 +19,12 @@ import { StartRecordingDto } from './dto/start-recording.dto';
 import { StartRecordingUsecase } from '../../domain/usecases/startRecording.usecase';
 import { StopRecordingUsecase } from '../../domain/usecases/stopRecording.usecase';
 import { PublishRecordingUsecase } from '../../domain/usecases/publishRecording.usecase';
+import { CreateRecordingSegmentFromFileUsecase } from '../../domain/usecases/createRecordingSegmentFromFile.usecase';
+import { GetTrackRecordingsUsecase } from '../../domain/usecases/getTrackRecordings.usecase';
+import { GetRecordingMediaUrlUsecase } from '../../domain/usecases/getRecordingMediaUrl.usecase';
+import { RecordingObject } from '../../domain/recording';
 import { RecordingSecretGuard } from '../guards/recording-secret.guard';
+import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 import { isUUID } from 'class-validator';
 
 @ApiTags('Recording')
@@ -28,6 +34,9 @@ export class RecordingController {
     private startRecordingUsecase: StartRecordingUsecase,
     private stopRecordingUsecase: StopRecordingUsecase,
     private publishRecordingUsecase: PublishRecordingUsecase,
+    private createRecordingSegmentFromFileUsecase: CreateRecordingSegmentFromFileUsecase,
+    private getTrackRecordingsUsecase: GetTrackRecordingsUsecase,
+    private getRecordingMediaUrlUsecase: GetRecordingMediaUrlUsecase,
   ) {}
 
   @Post('start')
@@ -103,5 +112,85 @@ export class RecordingController {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  /**
+   * US-1 / Raccordement — Register a captured recording segment (unlisted).
+   * Called by the recorder (secret-guarded, multipart file), once per segment,
+   * including additional segments produced by a live crash.
+   */
+  @Public()
+  @UseGuards(RecordingSecretGuard)
+  @Post('segments')
+  @UseInterceptors(FileInterceptor('file'))
+  async createSegment(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('trackId') trackId: string,
+    @Body('problematic') problematic?: string,
+    @Body('duration') duration?: string,
+  ): Promise<RecordingObject> {
+    if (!file) {
+      throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
+    }
+    if (!trackId || !isUUID(trackId)) {
+      throw new HttpException(
+        'trackId must be a valid UUID',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const parsedDuration =
+      duration !== undefined && duration !== '' ? Number(duration) : null;
+
+    try {
+      return await this.createRecordingSegmentFromFileUsecase.execute(
+        trackId,
+        file,
+        {
+          problematic: problematic === 'true' || problematic === '1',
+          duration:
+            parsedDuration !== null && !Number.isNaN(parsedDuration)
+              ? parsedDuration
+              : null,
+        },
+      );
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      throw new HttpException(
+        `Failed to register recording segment: ${msg}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * US-1 / US-2 — List the unlisted recording segments of a track.
+   * Intended for the organizer, in the track settings.
+   */
+  @Get('track/:trackId')
+  async getTrackRecordings(
+    @Param('trackId') trackId: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<RecordingObject[]> {
+    if (!isUUID(trackId)) {
+      throw new HttpException('trackId must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    return this.getTrackRecordingsUsecase.execute(trackId, email);
+  }
+
+  /**
+   * Returns a short-lived presigned URL to preview/play a segment's raw file.
+   * Restricted to the organizer of the segment's track.
+   */
+  @Get(':id/media')
+  async getRecordingMedia(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<{ url: string }> {
+    if (!isUUID(id)) {
+      throw new HttpException('id must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    const url = await this.getRecordingMediaUrlUsecase.execute(id, email);
+    return { url };
   }
 }

@@ -339,7 +339,9 @@ func publishToBackend(backendURL, trackID, filePath, token, sharedSecret string)
 	}
 
 	// Send the request
-	publishURL := fmt.Sprintf("%s/api/recordings/publish", backendURL)
+	// Raccordement US-1: recordings are now registered as unlisted segments
+	// instead of being auto-published as a public video.
+	publishURL := fmt.Sprintf("%s/api/recordings/segments", backendURL)
 	req, err := http.NewRequest("POST", publishURL, body)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)

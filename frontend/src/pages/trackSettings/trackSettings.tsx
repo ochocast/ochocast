@@ -19,6 +19,7 @@ import Modal from '../../components/ReworkComponents/generic/modal/modal';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 import Toggle from '../../components/newComponents/Toggle/Toggle';
+import TrackRecordings from '../../components/ReworkComponents/Event/Track/TrackRecordings/TrackRecordings';
 
 import { useTrackSettings } from './useTrackSettings';
 import { User } from '../../utils/EventsProperties';
@@ -491,6 +492,8 @@ const TrackSettings: FC = () => {
           />
         </div>
       </div>
+
+      {trackId && <TrackRecordings trackId={trackId} />}
 
       <div className={styles.controlsContainer}>
         <Button

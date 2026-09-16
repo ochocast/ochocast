@@ -329,6 +329,12 @@ func (room *Room) ScheduleCleanup() {
 	}
 	room.Broadcasters = make(map[string]*TrackBroadcaster)
 
+	// Drop the shared tracks too: they are now dead (no broadcaster feeding
+	// them). Keeping them would make a reused room serve stale, media-less
+	// tracks to viewers on the next stream (black/empty video). Cleared here so
+	// a host reconnecting within the grace period rebuilds fresh tracks.
+	room.SharedTracks = make(map[string]*webrtc.TrackLocalStaticRTP)
+
 	// Close all publishers (speakers)
 	for publisherID, pc := range room.Publishers {
 		if pc != nil {

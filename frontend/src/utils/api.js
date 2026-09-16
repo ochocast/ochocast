@@ -192,6 +192,12 @@ export const searchVideosAdmin = (data) =>
 export const startRecording = (data) => api.post('/recordings/start', data);
 export const stopRecording = (trackId) =>
   api.post(`/recordings/stop/${trackId}`);
+// US-1 / US-2: list the unlisted recording segments of a track (organizer only)
+export const getTrackRecordings = (trackId) =>
+  api.get(`/recordings/track/${trackId}`);
+// Presigned URL to preview/play a recording segment's raw file
+export const getRecordingMediaUrl = (recordingId) =>
+  api.get(`/recordings/${recordingId}/media`);
 
 // Polls
 export const createPoll = (pollData) => api.post('/polls', pollData);
