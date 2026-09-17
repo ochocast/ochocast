@@ -1,0 +1,127 @@
+name: Validate and build serverless FFmpeg
+
+on:
+  pull_request:
+    paths:
+      - 'ffmpegServer/**'
+      - 'backend/src/transcoding-jobs/**'
+      - 'backend/src/queue/**'
+      - 'backend/src/migrations/*Transcoding*'
+      - 'backend/package*.json'
+      - '.github/workflows/ffmpeg-serverless.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'ffmpegServer/**'
+      - 'backend/src/transcoding-jobs/**'
+      - 'backend/src/queue/**'
+      - 'backend/src/migrations/*Transcoding*'
+      - 'backend/package*.json'
+      - '.github/workflows/ffmpeg-serverless.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated image to the configured registry
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend-contract:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: transcoding_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TRANSCODING_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/transcoding_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run test:unit -- --runInBand
+
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ffmpegServer
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ffmpegServer/package-lock.json
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  image:
+    needs: [validate, backend-contract]
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_REPOSITORY: ${{ vars.FFMPEG_IMAGE_REPOSITORY }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Resolve image metadata
+        id: image
+        shell: bash
+        env:
+          SHOULD_PUBLISH: ${{ github.event_name == 'push' || inputs.publish == true }}
+        run: |
+          if [ "$SHOULD_PUBLISH" = true ] && [ -z "$IMAGE_REPOSITORY" ]; then
+            echo 'Configure the FFMPEG_IMAGE_REPOSITORY repository variable before publishing.' >&2
+            exit 1
+          fi
+          image="${IMAGE_REPOSITORY:-ochocast-ffmpeg-worker}:sha-${GITHUB_SHA}"
+          echo "ref=$image" >> "$GITHUB_OUTPUT"
+          echo "publish=$SHOULD_PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "registry=${IMAGE_REPOSITORY%%/*}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3
+      - uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3
+        if: steps.image.outputs.publish == 'true'
+        with:
+          registry: ${{ steps.image.outputs.registry }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
+      - name: Build and optionally publish
+        id: build
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5
+        with:
+          context: ffmpegServer
+          platforms: linux/amd64
+          push: ${{ steps.image.outputs.publish == 'true' }}
+          tags: ${{ steps.image.outputs.ref }}
+      - name: Report immutable image for ops-architecture-lab
+        env:
+          IMAGE_REF: ${{ steps.image.outputs.ref }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+          PUBLISHED: ${{ steps.image.outputs.publish }}
+        run: |
+          {
+            echo "FFmpeg image: $IMAGE_REF"
+            echo "Digest: $DIGEST"
+            echo "Published: $PUBLISHED"
+            echo 'Deploy this image in staging through ops-architecture-lab, then promote the same digest to production.'
+          } >> "$GITHUB_STEP_SUMMARY"
