@@ -11,6 +11,9 @@ export function toRecordingObject(entity: RecordingEntity): RecordingObject {
     entity.segment_index,
     entity.duration ?? null,
     entity.createdAt,
+    entity.kind ?? 'segment',
+    entity.status ?? 'ready',
+    entity.source_segment_ids ?? null,
   );
 }
 
@@ -23,6 +26,9 @@ export function toRecordingEntity(recording: RecordingObject): RecordingEntity {
     problematic: recording.problematic,
     segment_index: recording.segmentIndex,
     duration: recording.duration,
+    kind: recording.kind,
+    status: recording.status,
+    source_segment_ids: recording.sourceSegmentIds,
     createdAt: recording.createdAt,
   });
 }

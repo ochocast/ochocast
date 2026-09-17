@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   HttpException,
   HttpStatus,
   Param,
@@ -22,6 +24,10 @@ import { PublishRecordingUsecase } from '../../domain/usecases/publishRecording.
 import { CreateRecordingSegmentFromFileUsecase } from '../../domain/usecases/createRecordingSegmentFromFile.usecase';
 import { GetTrackRecordingsUsecase } from '../../domain/usecases/getTrackRecordings.usecase';
 import { GetRecordingMediaUrlUsecase } from '../../domain/usecases/getRecordingMediaUrl.usecase';
+import { MergeRecordingsUsecase } from '../../domain/usecases/mergeRecordings.usecase';
+import { DeleteRecordingUsecase } from '../../domain/usecases/deleteRecording.usecase';
+import { MarkRecordingPublishedUsecase } from '../../domain/usecases/markRecordingPublished.usecase';
+import { MergeRecordingsDto } from './dto/merge-recordings.dto';
 import { RecordingObject } from '../../domain/recording';
 import { RecordingSecretGuard } from '../guards/recording-secret.guard';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
@@ -37,6 +43,9 @@ export class RecordingController {
     private createRecordingSegmentFromFileUsecase: CreateRecordingSegmentFromFileUsecase,
     private getTrackRecordingsUsecase: GetTrackRecordingsUsecase,
     private getRecordingMediaUrlUsecase: GetRecordingMediaUrlUsecase,
+    private mergeRecordingsUsecase: MergeRecordingsUsecase,
+    private deleteRecordingUsecase: DeleteRecordingUsecase,
+    private markRecordingPublishedUsecase: MarkRecordingPublishedUsecase,
   ) {}
 
   @Post('start')
@@ -192,5 +201,53 @@ export class RecordingController {
     }
     const url = await this.getRecordingMediaUrlUsecase.execute(id, email);
     return { url };
+  }
+
+  /**
+   * US-3 — Merge several unlisted segments into a new merged recording.
+   * Organizer-only.
+   */
+  @Post('track/:trackId/merge')
+  @UsePipes(new ValidationPipe())
+  async mergeRecordings(
+    @Param('trackId') trackId: string,
+    @Body() dto: MergeRecordingsDto,
+    @CurrentUserEmail() email: string,
+  ): Promise<RecordingObject> {
+    if (!isUUID(trackId)) {
+      throw new HttpException('trackId must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    return this.mergeRecordingsUsecase.execute(trackId, dto.segmentIds, email);
+  }
+
+  /**
+   * US-4 — Mark a recording as published (after the organizer created a video
+   * from it via the editor). Organizer-only.
+   */
+  @Post(':id/mark-published')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async markPublished(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<void> {
+    if (!isUUID(id)) {
+      throw new HttpException('id must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    await this.markRecordingPublishedUsecase.execute(id, email);
+  }
+
+  /**
+   * US-3 "Go back" — Delete a merged recording. Organizer-only.
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteRecording(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<void> {
+    if (!isUUID(id)) {
+      throw new HttpException('id must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    await this.deleteRecordingUsecase.execute(id, email);
   }
 }

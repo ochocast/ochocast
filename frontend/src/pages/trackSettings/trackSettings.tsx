@@ -493,7 +493,7 @@ const TrackSettings: FC = () => {
         </div>
       </div>
 
-      {trackId && <TrackRecordings trackId={trackId} />}
+      {trackId && <TrackRecordings trackId={trackId} trackName={track.name} />}
 
       <div className={styles.controlsContainer}>
         <Button

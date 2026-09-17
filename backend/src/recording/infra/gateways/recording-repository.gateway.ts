@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import {
   GetRecordingsFilter,
   IRecordingRepositoryGateway,
+  RecordingUpdate,
 } from '../../domain/gateways/recording-repository.gateway';
 import { RecordingObject } from '../../domain/recording';
 import { RecordingEntity } from './entities/recording.entity';
@@ -45,5 +46,26 @@ export class RecordingRepositoryGateway implements IRecordingRepositoryGateway {
 
   async countRecordingsByTrack(trackId: string): Promise<number> {
     return this.recordingRepository.count({ where: { trackId } });
+  }
+
+  async updateRecording(
+    id: string,
+    changes: RecordingUpdate,
+  ): Promise<RecordingObject | null> {
+    const patch: Record<string, unknown> = {};
+    if (changes.status !== undefined) patch.status = changes.status;
+    if (changes.mediaId !== undefined) patch.media_id = changes.mediaId;
+    if (changes.duration !== undefined) patch.duration = changes.duration;
+    if (changes.visibility !== undefined) patch.visibility = changes.visibility;
+
+    if (Object.keys(patch).length > 0) {
+      await this.recordingRepository.update(id, patch);
+    }
+    const entity = await this.recordingRepository.findOne({ where: { id } });
+    return entity ? toRecordingObject(entity) : null;
+  }
+
+  async deleteRecording(id: string): Promise<void> {
+    await this.recordingRepository.delete(id);
   }
 }

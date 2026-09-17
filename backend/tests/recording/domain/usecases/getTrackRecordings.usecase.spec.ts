@@ -27,6 +27,8 @@ describe('GetTrackRecordingsUsecase', () => {
       getRecordingsByTrack: jest.fn(),
       getRecordingById: jest.fn(),
       countRecordingsByTrack: jest.fn(),
+      updateRecording: jest.fn(),
+      deleteRecording: jest.fn(),
     };
     trackGateway = {
       createNewTrack: jest.fn(),

@@ -2,13 +2,15 @@ import 'dotenv/config';
 import { createS3Client } from './config/s3.config';
 import { QueueService } from './services/queue.service';
 import { TranscodingService } from './services/transcoding.service';
-import { VideoTranscodingJob } from './types/job.types';
+import { MergeService } from './services/merge.service';
+import { MergeRecordingJob, VideoTranscodingJob } from './types/job.types';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { ConsumeMessage } from 'amqplib';
 
 class FFmpegWorker {
   private queueService: QueueService;
   private transcodingService: TranscodingService;
+  private mergeService: MergeService;
   private s3Client;
   private workerId: string;
   private concurrency: number;
@@ -21,6 +23,7 @@ class FFmpegWorker {
     this.s3Client = createS3Client();
     this.queueService = new QueueService();
     this.transcodingService = new TranscodingService(this.s3Client);
+    this.mergeService = new MergeService(this.s3Client);
   }
 
   async start(): Promise<void> {
@@ -44,6 +47,12 @@ Starting worker...
       // Start consuming jobs
       await this.queueService.consumeJobs(
         this.handleJob.bind(this),
+        this.concurrency,
+      );
+
+      // Start consuming merge jobs (US-3)
+      await this.queueService.consumeMergeJobs(
+        this.handleMergeJob.bind(this),
         this.concurrency,
       );
 
@@ -145,6 +154,54 @@ Starting worker...
     } finally {
       this.activeJobs--;
       console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+    }
+  }
+
+  private async handleMergeJob(
+    job: MergeRecordingJob,
+    msg: ConsumeMessage,
+  ): Promise<void> {
+    if (this.isShuttingDown) {
+      this.queueService.nackJob(msg, true);
+      return;
+    }
+
+    this.activeJobs++;
+    console.log(
+      `Merging ${job.sourceKeys.length} segments -> ${job.targetKey} (recording ${job.recordingId})`,
+    );
+
+    try {
+      const { duration } = await this.mergeService.merge(
+        job.sourceKeys,
+        job.targetKey,
+      );
+      await this.queueService.publishMergeResult({
+        jobId: job.jobId,
+        recordingId: job.recordingId,
+        success: true,
+        duration,
+        processedAt: Date.now(),
+      });
+      this.queueService.ackJob(msg);
+      console.log(`Merge ${job.recordingId} completed (${duration}s)`);
+    } catch (error: unknown) {
+      console.error('Error processing merge job:', error);
+      try {
+        await this.queueService.publishMergeResult({
+          jobId: job.jobId,
+          recordingId: job.recordingId,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          processedAt: Date.now(),
+        });
+        this.queueService.ackJob(msg);
+      } catch (publishError) {
+        console.error('Unable to publish merge failure result:', publishError);
+        this.queueService.nackJob(msg, true);
+      }
+    } finally {
+      this.activeJobs--;
     }
   }
 

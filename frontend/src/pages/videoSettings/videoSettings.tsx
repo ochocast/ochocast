@@ -2,7 +2,7 @@ import styles from './videoSettings.module.css';
 
 import { useState, ChangeEvent, FC, useEffect } from 'react';
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import NavigateBackButton from '../../components/ReworkComponents/Button/NavigateBackButton/NavigateBackButton';
 
 import InputFile from '../../components/ReworkComponents/inputFile/InputFile';
@@ -20,6 +20,8 @@ import {
   findTag,
   deleteVideo,
   getMiniature,
+  getRecordingMediaUrl,
+  markRecordingPublished,
 } from '../../utils/api';
 import { uploadVideoWithProgress } from '../../utils/uploadService';
 import { useUploadContext } from '../../context/UploadContext';
@@ -121,80 +123,117 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
   };
 
+  const processMediaFile = (media_tmp: File) => {
+    const allowed_formats = ['mp4', 'mkv', 'mov', 'avi'];
+    const file_extension = media_tmp.name.split('.').pop()?.toLowerCase();
+
+    if (file_extension && !allowed_formats.includes(file_extension)) {
+      setToast({
+        message: t('videoFormatErrorDetailed'),
+        type: 'error',
+      });
+      setMediaInputKey((prev) => prev + 1);
+      return;
+    }
+
+    setMedia(media_tmp);
+    saveToLocalStorage('media', media_tmp.name);
+
+    const sizeFormatted = formatFileSize(media_tmp.size);
+
+    if (manualMiniatureSelected) {
+      setVideoMetadata({ size: sizeFormatted, duration: '' });
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(media_tmp);
+    const videoElement = document.createElement('video');
+    videoElement.src = objectUrl;
+    videoElement.muted = true;
+    videoElement.playsInline = true;
+
+    const captureThumbnail = () => {
+      const width = videoElement.videoWidth;
+      const height = videoElement.videoHeight;
+      if (!width || !height) {
+        URL.revokeObjectURL(objectUrl);
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(videoElement, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setMiniatureUrl(dataUrl);
+      }
+      URL.revokeObjectURL(objectUrl);
+    };
+
+    videoElement.addEventListener('loadedmetadata', () => {
+      const targetTime = Math.min(2.0, videoElement.duration || 0.1);
+      videoElement.currentTime = targetTime;
+
+      const duration = Math.floor(videoElement.duration);
+      setRawDuration(duration);
+      const minutes = Math.floor(duration / 60);
+      const seconds = duration % 60;
+      setVideoMetadata({
+        size: sizeFormatted,
+        duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
+      });
+    });
+
+    videoElement.addEventListener('seeked', () => {
+      captureThumbnail();
+    });
+
+    videoElement.load();
+  };
+
   const handleMediaChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files != null && e.target.files !== undefined) {
       const media_tmp = e.target.files[0];
       if (media_tmp !== undefined) {
-        const allowed_formats = ['mp4', 'mkv', 'mov', 'avi'];
-        const file_extension = media_tmp.name.split('.').pop()?.toLowerCase();
-
-        if (file_extension && !allowed_formats.includes(file_extension)) {
-          setToast({
-            message: t('videoFormatErrorDetailed'),
-            type: 'error',
-          });
-          setMediaInputKey((prev) => prev + 1);
-          return;
-        }
-
-        setMedia(media_tmp);
-        saveToLocalStorage('media', media_tmp.name);
-
-        const sizeFormatted = formatFileSize(media_tmp.size);
-
-        if (manualMiniatureSelected) {
-          setVideoMetadata({ size: sizeFormatted, duration: '' });
-          return;
-        }
-
-        const objectUrl = URL.createObjectURL(media_tmp);
-        const videoElement = document.createElement('video');
-        videoElement.src = objectUrl;
-        videoElement.muted = true;
-        videoElement.playsInline = true;
-
-        const captureThumbnail = () => {
-          const width = videoElement.videoWidth;
-          const height = videoElement.videoHeight;
-          if (!width || !height) {
-            URL.revokeObjectURL(objectUrl);
-            return;
-          }
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          const context = canvas.getContext('2d');
-          if (context) {
-            context.drawImage(videoElement, 0, 0, width, height);
-            const dataUrl = canvas.toDataURL('image/jpeg');
-            setMiniatureUrl(dataUrl);
-          }
-          URL.revokeObjectURL(objectUrl);
-        };
-
-        videoElement.addEventListener('loadedmetadata', () => {
-          const targetTime = Math.min(2.0, videoElement.duration || 0.1);
-          videoElement.currentTime = targetTime;
-
-          const duration = Math.floor(videoElement.duration);
-          setRawDuration(duration);
-          const minutes = Math.floor(duration / 60);
-          const seconds = duration % 60;
-          setVideoMetadata({
-            size: sizeFormatted,
-            duration: `${minutes}:${seconds.toString().padStart(2, '0')}`,
-          });
-        });
-
-        videoElement.addEventListener('seeked', () => {
-          captureThumbnail();
-        });
-
-        videoElement.load();
+        processMediaFile(media_tmp);
       }
     }
   };
+
+  // US-4: when arriving from a recording ("Publish"), preload its media file
+  // and a suggested title into the editor, and remember the recording so it can
+  // be marked published after the video is created.
+  const [recordingSourceId, setRecordingSourceId] = useState<string | null>(
+    null,
+  );
+  const location = useLocation();
+  useEffect(() => {
+    const state = location.state as {
+      recordingId?: string;
+      title?: string;
+    } | null;
+    if (!state?.recordingId) return;
+    setRecordingSourceId(state.recordingId);
+    if (state.title) setTitle(state.title);
+    (async () => {
+      try {
+        const res = await getRecordingMediaUrl(state.recordingId as string);
+        const url =
+          res.ok && (res.data as { url?: string } | undefined)?.url
+            ? (res.data as { url: string }).url
+            : null;
+        if (!url) return;
+        const blob = await fetch(url).then((r) => r.blob());
+        const file = new File([blob], 'montage.mp4', { type: 'video/mp4' });
+        processMediaFile(file);
+      } catch {
+        // preload is best-effort; the organizer can still pick a file manually
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRemoveMedia = () => {
     setMedia(undefined);
@@ -600,6 +639,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           status: 'completed',
           videoId: response.id,
         });
+        // US-4: the source recording is now published; take it out of the
+        // unlisted working set (best-effort).
+        if (recordingSourceId) {
+          markRecordingPublished(recordingSourceId).catch(() => undefined);
+        }
       },
       onError: (error: string) => {
         updateUpload(uploadId, {

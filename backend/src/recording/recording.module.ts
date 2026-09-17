@@ -10,6 +10,10 @@ import { PublishRecordingUsecase } from './domain/usecases/publishRecording.usec
 import { CreateRecordingSegmentFromFileUsecase } from './domain/usecases/createRecordingSegmentFromFile.usecase';
 import { GetTrackRecordingsUsecase } from './domain/usecases/getTrackRecordings.usecase';
 import { GetRecordingMediaUrlUsecase } from './domain/usecases/getRecordingMediaUrl.usecase';
+import { MergeRecordingsUsecase } from './domain/usecases/mergeRecordings.usecase';
+import { DeleteRecordingUsecase } from './domain/usecases/deleteRecording.usecase';
+import { MarkRecordingPublishedUsecase } from './domain/usecases/markRecordingPublished.usecase';
+import { MergeResultConsumer } from './infra/merge-result.consumer';
 import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
 import { S3Module } from 'src/s3.module';
@@ -37,6 +41,10 @@ import { S3Module } from 'src/s3.module';
     CreateRecordingSegmentFromFileUsecase,
     GetTrackRecordingsUsecase,
     GetRecordingMediaUrlUsecase,
+    MergeRecordingsUsecase,
+    DeleteRecordingUsecase,
+    MarkRecordingPublishedUsecase,
+    MergeResultConsumer,
   ],
   exports: [
     'RecordingVMGateway',

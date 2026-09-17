@@ -198,6 +198,15 @@ export const getTrackRecordings = (trackId) =>
 // Presigned URL to preview/play a recording segment's raw file
 export const getRecordingMediaUrl = (recordingId) =>
   api.get(`/recordings/${recordingId}/media`);
+// US-3: merge unlisted segments of a track into a merged recording
+export const mergeRecordings = (trackId, segmentIds) =>
+  api.post(`/recordings/track/${trackId}/merge`, { segmentIds });
+// US-3 "Go back": delete a merged recording
+export const deleteRecording = (recordingId) =>
+  api.delete(`/recordings/${recordingId}`);
+// US-4: mark a recording as published (after creating a video via the editor)
+export const markRecordingPublished = (recordingId) =>
+  api.post(`/recordings/${recordingId}/mark-published`);
 
 // Polls
 export const createPoll = (pollData) => api.post('/polls', pollData);

@@ -8,7 +8,20 @@ import { ApiProperty } from '@nestjs/swagger';
 export type RecordingVisibility = 'unlisted' | 'published';
 
 /**
- * Domain object for a recording segment of a track.
+ * Kind of recording:
+ * - `segment`: a raw captured segment of the live.
+ * - `merged`: the result of merging several segments (US-3).
+ */
+export type RecordingKind = 'segment' | 'merged';
+
+/**
+ * Processing status. Segments are `ready` immediately; a merged recording is
+ * `processing` until the worker has produced the concatenated file.
+ */
+export type RecordingStatus = 'ready' | 'processing' | 'failed';
+
+/**
+ * Domain object for a recording of a track (a raw segment or a merge).
  *
  * A track produces one or more recording segments (a crash of the live simply
  * yields several segments). Each segment is captured as `unlisted` and stays
@@ -17,7 +30,7 @@ export type RecordingVisibility = 'unlisted' | 'published';
 export class RecordingObject {
   @ApiProperty({
     example: 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2',
-    description: 'The unique identifier of the recording segment.',
+    description: 'The unique identifier of the recording.',
   })
   id: string;
 
@@ -35,7 +48,7 @@ export class RecordingObject {
 
   @ApiProperty({
     example: 'unlisted',
-    description: "Visibility of the segment: 'unlisted' or 'published'.",
+    description: "Visibility of the recording: 'unlisted' or 'published'.",
   })
   visibility: RecordingVisibility;
 
@@ -55,16 +68,35 @@ export class RecordingObject {
 
   @ApiProperty({
     example: 128.4,
-    description: 'Duration of the segment in seconds, if known.',
+    description: 'Duration of the recording in seconds, if known.',
     required: false,
   })
   duration: number | null;
 
   @ApiProperty({
     example: '2026-02-20T00:00:00.000Z',
-    description: 'The date the segment was captured.',
+    description: 'The date the recording was captured or created.',
   })
   createdAt: Date;
+
+  @ApiProperty({
+    example: 'segment',
+    description: "Kind of recording: 'segment' or 'merged'.",
+  })
+  kind: RecordingKind;
+
+  @ApiProperty({
+    example: 'ready',
+    description: "Processing status: 'ready', 'processing' or 'failed'.",
+  })
+  status: RecordingStatus;
+
+  @ApiProperty({
+    description:
+      'For a merged recording, the source segment ids in merge order.',
+    required: false,
+  })
+  sourceSegmentIds: string[] | null;
 
   constructor(
     id: string,
@@ -75,6 +107,9 @@ export class RecordingObject {
     segmentIndex: number,
     duration: number | null,
     createdAt: Date,
+    kind: RecordingKind = 'segment',
+    status: RecordingStatus = 'ready',
+    sourceSegmentIds: string[] | null = null,
   ) {
     this.id = id;
     this.trackId = trackId;
@@ -84,5 +119,8 @@ export class RecordingObject {
     this.segmentIndex = segmentIndex;
     this.duration = duration;
     this.createdAt = createdAt;
+    this.kind = kind;
+    this.status = status;
+    this.sourceSegmentIds = sourceSegmentIds;
   }
 }

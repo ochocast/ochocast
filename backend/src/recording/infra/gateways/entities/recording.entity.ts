@@ -7,7 +7,11 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { TrackEntity } from '../../../../tracks/infra/gateways/entities/track.entity';
-import { RecordingVisibility } from '../../../domain/recording';
+import {
+  RecordingKind,
+  RecordingStatus,
+  RecordingVisibility,
+} from '../../../domain/recording';
 
 /**
  * A recording segment of a track, persisted as `unlisted` on capture.
@@ -39,6 +43,15 @@ export class RecordingEntity {
 
   @Column({ type: 'float', nullable: true })
   duration: number | null;
+
+  @Column({ default: 'segment' })
+  kind: RecordingKind;
+
+  @Column({ default: 'ready' })
+  status: RecordingStatus;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  source_segment_ids: string[] | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -1,8 +1,11 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import {
   getTrackRecordings,
   getRecordingMediaUrl,
+  mergeRecordings,
+  deleteRecording,
 } from '../../../../../utils/api';
 import logger from '../../../../../utils/logger';
 import styles from './TrackRecordings.module.css';
@@ -16,10 +19,14 @@ export interface Recording {
   segmentIndex: number;
   duration: number | null;
   createdAt: string;
+  kind: 'segment' | 'merged';
+  status: 'ready' | 'processing' | 'failed';
+  sourceSegmentIds: string[] | null;
 }
 
 interface TrackRecordingsProps {
   trackId: string;
+  trackName?: string;
 }
 
 const formatDuration = (seconds: number | null): string => {
@@ -33,93 +40,288 @@ const formatDuration = (seconds: number | null): string => {
 const formatDate = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString();
+  return d.toLocaleDateString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 /**
- * US-2 — Lists the unlisted recording segments of a track in the track
- * settings. A segment flagged `problematic` (truncated / unreadable) shows a
- * red "!" warning icon; it is never hidden, the organizer decides what to do.
- * Each segment can be previewed inline via a short-lived presigned URL.
+ * US-2 / US-3 / US-3.5 — Card grid of the unlisted recordings of a track.
+ * Raw segments can be selected (checkbox on the card) and merged; the merged
+ * result appears as a card with its processing status and a "Go back" action.
+ * Ready recordings show their first frame as a thumbnail and play inline.
  */
-const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId }) => {
+const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const [previewId, setPreviewId] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [merging, setMerging] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchRecordings = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const res = await getTrackRecordings(trackId);
-      if (res.ok && Array.isArray(res.data)) {
-        setRecordings(res.data as Recording[]);
-      } else {
-        setError(true);
+  const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
+  // Track which ids we've already requested a URL for, to avoid refetching.
+  const requestedUrls = useRef<Set<string>>(new Set());
+
+  const loadThumbnails = useCallback((recs: Recording[]) => {
+    recs
+      .filter((r) => r.status === 'ready' && !requestedUrls.current.has(r.id))
+      .forEach(async (r) => {
+        requestedUrls.current.add(r.id);
+        try {
+          const res = await getRecordingMediaUrl(r.id);
+          const url = res.ok && (res.data as { url?: string })?.url;
+          if (url) setMediaUrls((prev) => ({ ...prev, [r.id]: url }));
+        } catch (err) {
+          logger.error({ err, id: r.id }, 'Failed to load recording media');
+        }
+      });
+  }, []);
+
+  const fetchRecordings = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(false);
+      try {
+        const res = await getTrackRecordings(trackId);
+        if (res.ok && Array.isArray(res.data)) {
+          const recs = res.data as Recording[];
+          setRecordings(recs);
+          loadThumbnails(recs);
+        } else if (!silent) {
+          setError(true);
+        }
+      } catch (err) {
+        logger.error({ err, trackId }, 'Failed to fetch track recordings');
+        if (!silent) setError(true);
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } catch (err) {
-      logger.error({ err, trackId }, 'Failed to fetch track recordings');
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [trackId]);
+    },
+    [trackId, loadThumbnails],
+  );
 
   useEffect(() => {
     fetchRecordings();
   }, [fetchRecordings]);
 
-  const togglePreview = useCallback(
-    async (recordingId: string) => {
-      // Clicking the open preview closes it.
-      if (previewId === recordingId) {
-        setPreviewId(null);
-        setPreviewUrl(null);
-        return;
+  // Auto-refresh (silently) while a merge is still processing.
+  useEffect(() => {
+    const hasProcessing = recordings.some((r) => r.status === 'processing');
+    if (!hasProcessing) return;
+    const interval = setInterval(() => {
+      void fetchRecordings(true);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [recordings, fetchRecordings]);
+
+  const manualRefresh = () => {
+    requestedUrls.current = new Set();
+    setMediaUrls({});
+    void fetchRecordings();
+  };
+
+  const toggleSelect = (id: string) => {
+    setActionError(null);
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const confirmMerge = async () => {
+    if (selected.length < 2) return;
+    setMerging(true);
+    setActionError(null);
+    try {
+      const res = await mergeRecordings(trackId, selected);
+      if (res.ok) {
+        setSelected([]);
+        await fetchRecordings();
+      } else {
+        setActionError(t('MergeError') || 'Merge failed.');
       }
-      setPreviewError(false);
-      setPreviewLoadingId(recordingId);
-      try {
-        const res = await getRecordingMediaUrl(recordingId);
-        if (res.ok && res.data && (res.data as { url?: string }).url) {
-          setPreviewUrl((res.data as { url: string }).url);
-          setPreviewId(recordingId);
-        } else {
-          setPreviewError(true);
-          setPreviewId(recordingId);
-          setPreviewUrl(null);
-        }
-      } catch (err) {
-        logger.error({ err, recordingId }, 'Failed to load recording media');
-        setPreviewError(true);
-        setPreviewId(recordingId);
-        setPreviewUrl(null);
-      } finally {
-        setPreviewLoadingId(null);
+    } catch (err) {
+      logger.error({ err, trackId }, 'Failed to merge recordings');
+      setActionError(t('MergeError') || 'Merge failed.');
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const goToPublish = (rec: Recording) => {
+    const base = (trackName ?? '').trim();
+    const suffix =
+      rec.kind === 'merged'
+        ? t('MergeTitleSuffix') || 'Merge'
+        : t('RecordingTitleSuffix') || 'Recording';
+    const title = base ? `${base} — ${suffix}` : suffix;
+    navigate('/video/video-settings', {
+      state: { recordingId: rec.id, title },
+    });
+  };
+
+  const goBack = async (id: string) => {
+    setDeletingId(id);
+    setActionError(null);
+    try {
+      const res = await deleteRecording(id);
+      if (res.ok) {
+        await fetchRecordings();
+      } else {
+        setActionError(t('DeleteError') || 'Could not remove the recording.');
       }
-    },
-    [previewId],
-  );
+    } catch (err) {
+      logger.error({ err, id }, 'Failed to delete recording');
+      setActionError(t('DeleteError') || 'Could not remove the recording.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const renderCard = (rec: Recording, variant: 'strip' | 'full') => {
+    const isMerged = rec.kind === 'merged';
+    const isReady = rec.status === 'ready';
+    const isSelected = selected.includes(rec.id);
+    const url = mediaUrls[rec.id];
+    const variantClass =
+      variant === 'full' ? styles.cardFull : styles.cardStrip;
+
+    return (
+      <div
+        key={rec.id}
+        className={`${styles.card} ${variantClass} ${
+          isSelected ? styles.cardSelected : ''
+        }`}
+      >
+        <div className={styles.thumb}>
+          {isReady && url ? (
+            <video
+              className={styles.thumbVideo}
+              src={url}
+              controls
+              preload="metadata"
+            />
+          ) : (
+            <div className={styles.thumbPlaceholder}>
+              {rec.status === 'processing'
+                ? t('StatusProcessing') || 'Processing…'
+                : rec.status === 'failed'
+                  ? t('StatusFailed') || 'Failed'
+                  : '…'}
+            </div>
+          )}
+
+          {!isMerged && (
+            <label className={styles.checkboxOverlay}>
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelect(rec.id)}
+                aria-label={t('Select') || 'Select'}
+              />
+            </label>
+          )}
+
+          {rec.problematic && (
+            <span
+              className={styles.warnOverlay}
+              title={
+                t('RecordingProblematic') ||
+                'This segment may be truncated or unreadable.'
+              }
+            >
+              !
+            </span>
+          )}
+
+          {isMerged && (
+            <span className={styles.mergedTag}>{t('Merged') || 'Merged'}</span>
+          )}
+
+          {rec.duration != null && (
+            <span className={styles.durationOverlay}>
+              {formatDuration(rec.duration)}
+            </span>
+          )}
+        </div>
+
+        <div className={styles.cardBody}>
+          <div className={styles.cardInfo}>
+            <span className={styles.cardTitle}>
+              {isMerged ? t('Merged') || 'Merged' : `#${rec.segmentIndex + 1}`}
+            </span>
+            <span className={styles.cardDate}>{formatDate(rec.createdAt)}</span>
+          </div>
+
+          <div className={styles.cardActions}>
+            {isReady && (
+              <button
+                type="button"
+                className={styles.publishButton}
+                onClick={() => goToPublish(rec)}
+              >
+                {t('Publish') || 'Publish'}
+              </button>
+            )}
+            {isMerged && (
+              <button
+                type="button"
+                className={styles.dangerButton}
+                onClick={() => goBack(rec.id)}
+                disabled={deletingId === rec.id}
+              >
+                {deletingId === rec.id
+                  ? t('Loading') || 'Loading...'
+                  : t('GoBack') || 'Go back'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={styles.trackDateSpeakerWrapper}>
       <div className={styles.header}>
         <h3>{t('Recordings') || 'Recordings'}</h3>
-        <button
-          type="button"
-          className={styles.refreshButton}
-          onClick={fetchRecordings}
-          disabled={loading}
-        >
-          {t('Refresh') || 'Refresh'}
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.mergeButton}
+            onClick={confirmMerge}
+            disabled={merging || selected.length < 2}
+            title={
+              selected.length < 2
+                ? t('SelectAtLeastTwo') || 'Select at least two segments'
+                : ''
+            }
+          >
+            {merging
+              ? t('Loading') || 'Loading...'
+              : `${t('ConfirmMerge') || 'Confirm merge'}${
+                  selected.length > 0 ? ` (${selected.length})` : ''
+                }`}
+          </button>
+          <button
+            type="button"
+            className={styles.refreshButton}
+            onClick={manualRefresh}
+            disabled={loading}
+          >
+            {t('Refresh') || 'Refresh'}
+          </button>
+        </div>
       </div>
+
+      {actionError && <p className={styles.error}>{actionError}</p>}
 
       {loading && (
         <p className={styles.muted}>{t('Loading') || 'Loading...'}</p>
@@ -139,81 +341,28 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId }) => {
       )}
 
       {!loading && !error && recordings.length > 0 && (
-        <ul className={styles.list}>
-          {recordings.map((rec) => {
-            const isOpen = previewId === rec.id;
-            const isPreviewLoading = previewLoadingId === rec.id;
-            return (
-              <li key={rec.id} className={styles.row}>
-                <div className={styles.rowMain}>
-                  <span className={styles.index}>#{rec.segmentIndex + 1}</span>
+        <>
+          {recordings.some((r) => r.kind === 'segment') && (
+            <div className={styles.strip}>
+              {recordings
+                .filter((r) => r.kind === 'segment')
+                .map((r) => renderCard(r, 'strip'))}
+            </div>
+          )}
 
-                  <div className={styles.meta}>
-                    <span className={styles.duration}>
-                      {formatDuration(rec.duration)}
-                    </span>
-                    <span className={styles.date}>
-                      {formatDate(rec.createdAt)}
-                    </span>
-                  </div>
-
-                  <div className={styles.badges}>
-                    {rec.problematic && (
-                      <span
-                        className={styles.warning}
-                        title={
-                          t('RecordingProblematic') ||
-                          'This segment may be truncated or unreadable.'
-                        }
-                        aria-label={
-                          t('RecordingProblematic') ||
-                          'This segment may be truncated or unreadable.'
-                        }
-                      >
-                        !
-                      </span>
-                    )}
-                    <span className={styles.badgeUnlisted}>
-                      {t('Unlisted') || 'Unlisted'}
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.previewButton}
-                      onClick={() => togglePreview(rec.id)}
-                      disabled={isPreviewLoading}
-                    >
-                      {isPreviewLoading
-                        ? t('Loading') || 'Loading...'
-                        : isOpen
-                          ? t('Close') || 'Close'
-                          : t('Preview') || 'Preview'}
-                    </button>
-                  </div>
-                </div>
-
-                {isOpen && (
-                  <div className={styles.previewArea}>
-                    {previewError ? (
-                      <p className={styles.error}>
-                        {t('PreviewUnavailable') ||
-                          'Preview is not available for this segment.'}
-                      </p>
-                    ) : (
-                      previewUrl && (
-                        <video
-                          className={styles.video}
-                          src={previewUrl}
-                          controls
-                          preload="metadata"
-                        />
-                      )
-                    )}
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+          {recordings.some((r) => r.kind === 'merged') && (
+            <>
+              <div className={styles.sectionLabel}>
+                {t('Merges') || 'Merges'}
+              </div>
+              <div className={styles.mergedList}>
+                {recordings
+                  .filter((r) => r.kind === 'merged')
+                  .map((r) => renderCard(r, 'full'))}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
