@@ -1,85 +1,85 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const isCI = !!process.env.CI;
+// Chromium always runs. Set E2E_ALL_BROWSERS=1 to also run Firefox and WebKit.
+const allBrowsers = !!process.env.E2E_ALL_BROWSERS;
+const authFile = 'playwright/.auth/user.json';
+
 /**
  * See https://playwright.dev/docs/test-configuration.
+ * Full guide: e2e/README.md
  */
 export default defineConfig({
   testDir: './e2e',
-  /* Maximum time one test can run for. */
   timeout: 30000,
   expect: {
     timeout: 5000,
   },
-  /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry 2 times on each test as requested. */
-  retries: 2,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    ['list']
-  ],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  forbidOnly: isCI,
+  /* Retries only on CI, so local failures stay visible immediately. */
+  retries: isCI ? 2 : 0,
+  workers: isCI ? 1 : undefined,
+  reporter: isCI
+    ? [
+      ['html', { outputFolder: 'playwright-report', open: 'never' }],
+      ['github'],
+    ]
+    : [
+      ['html', { outputFolder: 'playwright-report', open: 'never' }],
+      ['list'],
+    ],
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
-
-    /* Collect trace when retrying a failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
     video: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
 
-  /* Configure projects for Playwright */
   projects: [
-    // Project to run Keycloak Authentication Setup once
+    // Logs in through Keycloak once and stores the session in `authFile`.
     {
       name: 'setup',
       testMatch: /auth\.setup\.ts/,
-      teardown: undefined,
     },
-    // Project for main tests using the stored auth state
     {
       name: 'chromium',
       testMatch: /tests\/.*\.spec\.ts/,
-      use: {
-        ...devices['Desktop Chrome'],
-        // Use prepared auth state.
-        storageState: 'playwright/.auth/user.json',
-      },
+      use: { ...devices['Desktop Chrome'], storageState: authFile },
       dependencies: ['setup'],
     },
-    {
-      name: 'firefox',
-      testMatch: /tests\/.*\.spec\.ts/,
-      use: {
-        ...devices['Desktop Firefox'],
-        // Use prepared auth state.
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
-    {
-      name: 'webkit',
-      testMatch: /tests\/.*\.spec\.ts/,
-      use: {
-        ...devices['Desktop Safari'],
-        // Use prepared auth state.
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
+    ...(allBrowsers
+      ? [
+        {
+          name: 'firefox',
+          testMatch: /tests\/.*\.spec\.ts/,
+          use: { ...devices['Desktop Firefox'], storageState: authFile },
+          dependencies: ['setup'],
+        },
+        {
+          name: 'webkit',
+          testMatch: /tests\/.*\.spec\.ts/,
+          use: { ...devices['Desktop Safari'], storageState: authFile },
+          dependencies: ['setup'],
+        },
+      ]
+      : []),
   ],
 
-  /* Run local dev server before starting the tests if not already running. */
-  webServer: {
-    command: 'npm run start',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000, // 2 minutes max to start the server
-  },
+  /* Start backend and frontend, and wait until both accept connections. */
+  webServer: [
+    {
+      command: 'npm run start:backend',
+      port: 3001,
+      reuseExistingServer: !isCI,
+      timeout: 180 * 1000,
+    },
+    {
+      command: 'npm run start:frontend',
+      url: 'http://localhost:3000',
+      reuseExistingServer: !isCI,
+      timeout: 180 * 1000,
+    },
+  ],
 });

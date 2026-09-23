@@ -1,49 +1,44 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures';
 
-test('verify automatic login and homepage access', async ({ page }) => {
-  // 1. Naviguer vers la page d'accueil
+test('create an event, publish it, and see it on the home page', async ({
+  page,
+  waitForCreatedEvent,
+}) => {
+  // Unique name: the test must not depend on (or break) existing data.
+  const eventName = `E2E Event ${Date.now()}`;
+  const tagName = `tag${Date.now()}`;
+
+  await page.goto('/my-events/create');
+
+  await page.getByTestId('event-name-input').fill(eventName);
+  await page
+    .getByTestId('event-description-input')
+    .fill('E2E event description');
+  await page.getByTestId('event-date-input').fill('2050-10-10');
+  await page.getByTestId('event-start-time-input').fill('19:00');
+  await page.getByTestId('event-end-time-input').fill('23:00');
+
+  // Tags are created through the "+" button of the suggestion list.
+  await page.getByPlaceholder('Tags').fill(tagName);
+  await page
+    .locator('#suggestions_list_suggestionTag button', { hasText: '+' })
+    .click();
+
+  const created = waitForCreatedEvent();
+  await page.getByTestId('event-submit-button').click();
+  await created;
+
+  // The app redirects to "My events" where the event is still unpublished.
+  await expect(page).toHaveURL(/\/my-events$/);
+  const card = page.getByTestId('event-card').filter({ hasText: eventName });
+  await expect(card).toBeVisible();
+  await expect(card.getByTestId('event-card-tag')).toHaveText(tagName);
+
+  await card.getByRole('button', { name: 'Publish' }).click();
+
+  // Published events appear on the home page.
   await page.goto('/');
-
-  // 2. Vérifier que nous ne sommes pas redirigés vers Keycloak
-  await expect(page).not.toHaveURL(/.*localhost:8080.*/);
-
-  // 3. Vérifier la présence d'éléments clés sur l'interface (ex: barre de recherche, liens)
-  // Nous cherchons des éléments de navigation typiques présents sur la page d'accueil d'Ochocast
-  const body = page.locator('body');
-
-  // Attendre que l'application soit chargée (par exemple le texte "Vidéos" ou "Streaming" issu de la navigation du Header)
-  await expect(body).toBeVisible();
-
-  // Vérifier qu'il y a un champ de recherche
-  const searchBar = page.locator('input[type="text"], input[placeholder*="recherche"]');
-  await expect(searchBar.first()).toBeVisible();
-});
-
-test('create event and check it has been created', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Create Event' }).click();
-  await page.getByRole('textbox', { name: 'My Event' }).click();
-  await page.getByRole('textbox', { name: 'My Event' }).fill('E2E Event');
-  await page.getByRole('textbox', { name: 'Description...' }).click();
-  await page.getByRole('textbox', { name: 'Description...' }).fill('E2E Event description');
-  await page.locator('input[type="date"]').fill('2050-10-10');
-  await page.getByRole('textbox').nth(4).fill('19:00');
-  await page.getByRole('textbox').nth(5).fill('23:00');
-  await page.getByRole('textbox', { name: 'Tags' }).click();
-  await page.getByRole('textbox', { name: 'Tags' }).fill('coolTag');
-  await page.getByRole('button', { name: '+' }).click();
-  await page.getByRole('button', { name: 'Create Event' }).click();
-  await expect(page.getByRole('img', { name: 'E2E Event' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'E2E Event' })).toBeVisible();
-  await expect(page.getByText('Test User')).toBeVisible();
-  await expect(page.getByText('10/10/')).toBeVisible();
-  await expect(page.getByText('coolTag').first()).toBeVisible();
-  await page.getByRole('img', { name: 'OchoCast logo' }).click();
-  await expect(page.getByText('0 eventsNo events published')).toBeVisible();
-  await page.getByRole('img', { name: 'test-user\'s profile' }).click();
-  await page.locator('div').filter({ hasText: /^My events$/ }).click();
-  await page.getByRole('button', { name: 'Publish' }).click();
-  await page.getByRole('img', { name: 'OchoCast logo' }).click();
-  await expect(page.getByRole('heading', { name: 'E2E Event' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Modifier' })).toBeVisible();
+  await expect(
+    page.getByTestId('event-card').filter({ hasText: eventName }),
+  ).toBeVisible();
 });

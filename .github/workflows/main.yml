@@ -196,12 +196,19 @@ jobs:
       - name: Run unit tests
         run: npm test
 
+  e2e:
+    name: E2E tests
+    needs: detect-changes
+    if: needs.detect-changes.outputs.frontend_changed == 'true' || needs.detect-changes.outputs.backend_changed == 'true'
+    uses: ./.github/workflows/e2e.yml
+
   build-and-push-frontend:
     name: Build and push frontend image
     runs-on: ubuntu-latest
     needs:
       - detect-changes
       - validate-frontend
+      - e2e
     if: needs.detect-changes.outputs.frontend_changed == 'true'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -228,6 +235,7 @@ jobs:
     needs:
       - detect-changes
       - validate-backend
+      - e2e
     if: needs.detect-changes.outputs.backend_changed == 'true'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -341,6 +349,7 @@ jobs:
       - build-and-push-live-recorder
       - build-and-push-sfu-controlplane
       - build-and-push-sfu-worker
+      - e2e
     if: |
       always() &&
       needs.detect-changes.result == 'success' &&

@@ -13,6 +13,8 @@
     "prepare": "husky install",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:e2e:reset": "bash dev-tools/reset-env.sh",
     "docker:build": "export APP_VERSION=$(node -p \"require('./package.json').version\") && cd build-tools && docker compose -f docker-compose-build.yml build",
     "docker:push": "export APP_VERSION=$(node -p \"require('./package.json').version\") && cd build-tools && docker compose -f docker-compose-build.yml push"
   },
