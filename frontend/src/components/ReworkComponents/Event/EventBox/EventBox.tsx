@@ -308,6 +308,7 @@ const EventBox = (props: EventBoxProps) => {
   return (
     <div
       className={styles.previewMiniture}
+      data-testid="event-card"
       onClick={() => {
         if (props.eventStatus !== EventStatus.Preview) {
           navigate(`/events/${event.id}/tracks`);
@@ -388,7 +389,11 @@ const EventBox = (props: EventBoxProps) => {
             {displayedTags.length > 0 && (
               <>
                 {displayedTags.map((tag, index) => (
-                  <span key={index} className={styles.tag}>
+                  <span
+                    key={index}
+                    className={styles.tag}
+                    data-testid="event-card-tag"
+                  >
                     {tag.name}
                   </span>
                 ))}

@@ -15,6 +15,14 @@ $ npm run lint
 $ npm run format
 ```
 
+## End-to-end tests
+
+Playwright E2E tests run on every PR to `main` and before deploy. See [e2e/README.md](e2e/README.md) for how to run and write them.
+
+```bash
+npm run test:e2e
+```
+
 ## Open documentation
 
 ### Generate documentation:

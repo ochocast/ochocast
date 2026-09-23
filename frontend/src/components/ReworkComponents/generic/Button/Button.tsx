@@ -3,6 +3,7 @@ import styles from './Button.module.css';
 
 export interface HomeCardButtonProps {
   label: string;
+  testId?: string;
   type?: ButtonType;
   onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
 }
@@ -28,6 +29,7 @@ const Button = (props: HomeCardButtonProps) => {
           className={`${styles.homeCardButton} ${styles.disabled}`}
           style={{ cursor: 'not-allowed' }}
           disabled
+          data-testid={props.testId}
         >
           {props.label}
         </button>
@@ -40,6 +42,7 @@ const Button = (props: HomeCardButtonProps) => {
             }
           }}
           className={`${styles.homeCardButton} ${getButtonClass()}`}
+          data-testid={props.testId}
         >
           {props.label}
         </button>
