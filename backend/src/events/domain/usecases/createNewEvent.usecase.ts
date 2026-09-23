@@ -9,7 +9,7 @@ import * as path from 'path';
 import { tmpdir } from 'os';
 import { Upload } from '@aws-sdk/lib-storage';
 import { readFile, unlink } from 'node:fs/promises';
-import * as sharp from 'sharp';
+import sharp = require('sharp');
 
 export class CreateNewEventUsecase {
   constructor(

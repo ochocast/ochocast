@@ -18,7 +18,8 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "src/*": ["src/*"]
+      "src/*": ["src/*"],
+      "sharp": ["node_modules/sharp/dist/index.d.cts"]
     }
   },
   "include": [

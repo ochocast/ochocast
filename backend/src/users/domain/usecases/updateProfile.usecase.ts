@@ -5,7 +5,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { UpdateUserDto } from 'src/users/infra/controllers/dto/update-user.dto';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import * as sharp from 'sharp';
+import sharp = require('sharp');
 import { readFile } from 'node:fs/promises';
 
 export class UpdateProfileUseCase {
