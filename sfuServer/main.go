@@ -37,7 +37,6 @@ func main() {
 	http.HandleFunc("/promote", handlePromoteViewer)
 	http.HandleFunc("/demote", handleDemotePublisher)
 	http.HandleFunc("/cascade/subscribe", handleCascadeSubscribe)
-	// http.HandleFunc("/cascade/request-subscribe", handleCascadeRequestSubscribe)
 	http.HandleFunc("/cascade/publish", handleCascadePublish)
 	http.HandleFunc("/cascade/disconnect", handleCascadeDisconnect)
 	http.HandleFunc("/cascade/remove-downstream", handleCascadeRemoveDownstream)
