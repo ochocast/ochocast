@@ -1,5 +1,7 @@
 import * as amqp from 'amqplib';
 import {
+  MergeRecordingJob,
+  MergeRecordingResult,
   VideoTranscodingJob,
   VideoTranscodingResult,
 } from '../types/job.types';
@@ -11,6 +13,10 @@ export class QueueService {
     process.env.VIDEO_QUEUE_NAME || 'video-transcoding-queue';
   private readonly resultQueueName =
     process.env.VIDEO_RESULT_QUEUE_NAME || 'video-transcoding-results';
+  private readonly mergeQueueName =
+    process.env.RECORDING_MERGE_QUEUE_NAME || 'recording-merge-queue';
+  private readonly mergeResultQueueName =
+    process.env.RECORDING_MERGE_RESULT_QUEUE_NAME || 'recording-merge-results';
   private readonly rabbitUrl =
     process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672';
 
@@ -23,8 +29,41 @@ export class QueueService {
         arguments: { 'x-max-priority': 10 },
       }),
       this.channel.assertQueue(this.resultQueueName, { durable: true }),
+      this.channel.assertQueue(this.mergeQueueName, { durable: true }),
+      this.channel.assertQueue(this.mergeResultQueueName, { durable: true }),
     ]);
     console.log(`Connected to RabbitMQ queue ${this.queueName}`);
+  }
+
+  async consumeMergeJobs(
+    handler: (
+      job: MergeRecordingJob,
+      message: amqp.ConsumeMessage,
+    ) => Promise<void>,
+    concurrency = 1,
+  ): Promise<void> {
+    if (!this.channel) throw new Error('RabbitMQ is not connected');
+    await this.channel.prefetch(concurrency);
+    await this.channel.consume(this.mergeQueueName, async (message) => {
+      if (!message) return;
+      try {
+        const job = JSON.parse(message.content.toString()) as MergeRecordingJob;
+        await handler(job, message);
+      } catch (error) {
+        console.error('Invalid merge message:', error);
+        this.channel?.nack(message, false, false);
+      }
+    });
+  }
+
+  async publishMergeResult(result: MergeRecordingResult): Promise<void> {
+    if (!this.channel) throw new Error('RabbitMQ is not connected');
+    this.channel.sendToQueue(
+      this.mergeResultQueueName,
+      Buffer.from(JSON.stringify(result)),
+      { persistent: true, contentType: 'application/json' },
+    );
+    await this.channel.waitForConfirms();
   }
 
   async consumeJobs(

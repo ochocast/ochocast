@@ -64,6 +64,7 @@ export class VideosController {
   async postVideo(
     @UploadedFiles() files: Array<Express.Multer.File>,
     @Body() video: CreateVideoDto & { media_id: string; miniature_id: string },
+    @CurrentUserEmail() email: string,
   ): Promise<VideoObject> {
     const videoFile = files.find((file) => file.fieldname === 'file');
     const miniatureFile = files.find((file) => file.fieldname === 'miniature');
@@ -76,6 +77,7 @@ export class VideosController {
       videoFile,
       miniatureFile,
       subtitleFile,
+      email,
     );
   }
 

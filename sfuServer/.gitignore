@@ -15,3 +15,6 @@ bin/
 whip-server
 controlplane-server
 .pids
+
+# Control plane runtime state (rooms/workers), rewritten at every run
+controlplane-state/

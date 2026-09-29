@@ -1,6 +1,11 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import * as amqp from 'amqplib';
-import { VideoTranscodingJob, VideoTranscodingResult } from './job.types';
+import {
+  MergeRecordingJob,
+  MergeRecordingResult,
+  VideoTranscodingJob,
+  VideoTranscodingResult,
+} from './job.types';
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {
@@ -10,12 +15,18 @@ export class QueueService implements OnModuleDestroy {
   private connecting?: Promise<void>;
   private resultHandler?: (result: VideoTranscodingResult) => Promise<void>;
   private resultConsumerActive = false;
+  private mergeResultHandler?: (result: MergeRecordingResult) => Promise<void>;
+  private mergeResultConsumerActive = false;
   private reconnectTimer?: NodeJS.Timeout;
   private shuttingDown = false;
   private readonly queueName =
     process.env.VIDEO_QUEUE_NAME || 'video-transcoding-queue';
   private readonly resultQueueName =
     process.env.VIDEO_RESULT_QUEUE_NAME || 'video-transcoding-results';
+  private readonly mergeQueueName =
+    process.env.RECORDING_MERGE_QUEUE_NAME || 'recording-merge-queue';
+  private readonly mergeResultQueueName =
+    process.env.RECORDING_MERGE_RESULT_QUEUE_NAME || 'recording-merge-results';
   private readonly rabbitUrl =
     process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672';
 
@@ -32,6 +43,8 @@ export class QueueService implements OnModuleDestroy {
           arguments: { 'x-max-priority': 10 },
         }),
         channel.assertQueue(this.resultQueueName, { durable: true }),
+        channel.assertQueue(this.mergeQueueName, { durable: true }),
+        channel.assertQueue(this.mergeResultQueueName, { durable: true }),
       ]);
       connection.on('close', () => {
         this.resetConnection();
@@ -68,6 +81,57 @@ export class QueueService implements OnModuleDestroy {
     await this.startResultConsumer();
   }
 
+  async publishMergeJob(job: MergeRecordingJob): Promise<void> {
+    await this.connect();
+    this.channel.sendToQueue(
+      this.mergeQueueName,
+      Buffer.from(JSON.stringify(job)),
+      { persistent: true, contentType: 'application/json' },
+    );
+    await this.channel.waitForConfirms();
+    this.logger.log(`Published merge job ${job.jobId}`);
+  }
+
+  async consumeMergeResults(
+    handler: (result: MergeRecordingResult) => Promise<void>,
+  ): Promise<void> {
+    this.mergeResultHandler = handler;
+    await this.startMergeResultConsumer();
+  }
+
+  private async startMergeResultConsumer(): Promise<void> {
+    if (
+      this.mergeResultConsumerActive ||
+      !this.mergeResultHandler ||
+      this.shuttingDown
+    ) {
+      return;
+    }
+    try {
+      await this.connect();
+      await this.channel.consume(this.mergeResultQueueName, async (message) => {
+        if (!message) return;
+        try {
+          const result = JSON.parse(
+            message.content.toString(),
+          ) as MergeRecordingResult;
+          await this.mergeResultHandler?.(result);
+          this.channel?.ack(message);
+        } catch (error) {
+          this.logger.error('Unable to process merge result', error);
+          this.channel?.nack(message, false, true);
+        }
+      });
+      this.mergeResultConsumerActive = true;
+    } catch (error) {
+      this.logger.warn(
+        `RabbitMQ merge result consumer unavailable: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      this.resetConnection();
+      this.scheduleResultConsumer();
+    }
+  }
+
   private async startResultConsumer(): Promise<void> {
     if (this.resultConsumerActive || !this.resultHandler || this.shuttingDown) {
       return;
@@ -98,10 +162,12 @@ export class QueueService implements OnModuleDestroy {
   }
 
   private scheduleResultConsumer(): void {
-    if (this.shuttingDown || !this.resultHandler || this.reconnectTimer) return;
+    if (this.shuttingDown || this.reconnectTimer) return;
+    if (!this.resultHandler && !this.mergeResultHandler) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = undefined;
       void this.startResultConsumer();
+      void this.startMergeResultConsumer();
     }, 5000);
   }
 
@@ -109,6 +175,7 @@ export class QueueService implements OnModuleDestroy {
     this.channel = undefined;
     this.connection = undefined;
     this.resultConsumerActive = false;
+    this.mergeResultConsumerActive = false;
   }
 
   async onModuleDestroy(): Promise<void> {

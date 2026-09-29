@@ -28,6 +28,7 @@ const matches = (haystack: string, query: string): boolean => {
   return normalize(haystack).includes(normalize(query));
 };
 
+/** Converts a field that might be a string, array, null or undefined to a plain string */
 const toStringField = (value: unknown): string => {
   if (value == null) return '';
   if (Array.isArray(value)) return value.join(' ');

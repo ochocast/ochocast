@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { Inject, NotFoundException } from '@nestjs/common';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuid } from 'uuid';
@@ -9,12 +9,14 @@ import { VideoObject } from '../video';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { QueueService } from 'src/queue/queue.service';
 import { VideoTranscodingJob } from 'src/queue/job.types';
+import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 
 export class CreateNewVideoUsecase {
   constructor(
     @Inject('VideoGateway') private readonly videoGateway: IVideoGateway,
     @Inject('s3Client') private readonly s3Client: S3Client,
     private readonly queueService: QueueService,
+    @Inject('UserGateway') private readonly userGateway: IUserGateway,
   ) {}
 
   async execute(
@@ -22,6 +24,10 @@ export class CreateNewVideoUsecase {
     file: Express.Multer.File,
     miniatureFile?: Express.Multer.File,
     subtitleFile?: Express.Multer.File,
+    // Authenticated uploader: the video always lands on their own channel,
+    // whatever `creator` the client sent (US-6: no publishing on someone
+    // else's channel without their approval).
+    creatorEmail?: string,
   ): Promise<VideoObject> {
     if (!file?.buffer) {
       throw new Error('Missing video file in upload payload');
@@ -41,8 +47,9 @@ export class CreateNewVideoUsecase {
     const miniatureId = `miniature-${videoId}.jpg`;
 
     const subtitle = this.prepareSubtitle(subtitleFile, videoId);
-    const creator =
-      typeof videoToCreate.creator === 'string'
+    const creator = creatorEmail
+      ? await this.getUploader(creatorEmail)
+      : typeof videoToCreate.creator === 'string'
         ? ({ id: videoToCreate.creator } as any)
         : videoToCreate.creator;
 
@@ -146,6 +153,13 @@ export class CreateNewVideoUsecase {
       }
       throw error;
     }
+  }
+
+  private async getUploader(email: string) {
+    const user = await this.userGateway.getUserByEmail(email);
+    if (!user)
+      throw new NotFoundException(`User with email ${email} not found`);
+    return { id: user.id } as any;
   }
 
   private async upload(

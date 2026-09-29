@@ -21,6 +21,24 @@ export interface VideoTranscodingResult {
   processedAt: number;
 }
 
+export interface MergeRecordingJob {
+  jobId: string;
+  recordingId: string;
+  trackId: string;
+  sourceKeys: string[];
+  targetKey: string;
+  timestamp: number;
+}
+
+export interface MergeRecordingResult {
+  jobId: string;
+  recordingId: string;
+  success: boolean;
+  duration?: number;
+  error?: string;
+  processedAt: number;
+}
+
 export interface HLSVariant {
   resolution: string;
   scale: string;
