@@ -9,6 +9,17 @@ le staging.
 
 ## 1. Préparer la queue avec Terraform (recommandé)
 
+Si les fichiers privés et les services de développement sont déjà préparés,
+le [lanceur local](../dev-tools/localFfmpeg/README.md) permet d'appliquer la queue,
+d'importer les clés et de démarrer les trois services avec une seule commande :
+
+```bash
+node dev-tools/localFfmpeg/apply-local-ffmpeg.mjs
+```
+
+Cette commande se lance depuis la racine OchoCast. Ajouter le chemin du module
+Terraform si les dépôts ne sont pas voisins. La procédure manuelle suit.
+
 Utilise le module **dédié au local** du dépôt voisin :
 `ops-architecture-lab/terraform/ffmpeg-local-queue`. Ne lance pas le module
 `ffmpeg-serverless`, qui prépare l'infrastructure staging complète.
