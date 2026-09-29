@@ -29,6 +29,9 @@
     "migration:show": "npm run typeorm -- migration:show -d ./src/config/typeorm.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1031.0",
+    "@aws-sdk/lib-storage": "^3.1031.0",
+    "@aws-sdk/s3-request-presigner": "^3.1031.0",
     "@nestjs/common": "^11.1.19",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.19",
@@ -52,20 +55,17 @@
     "socket.io": "^4.8.1",
     "tsconfig-paths-jest": "^0.0.1",
     "typeorm": "^0.3.17",
-    "@aws-sdk/client-s3": "^3.1031.0",
-    "@aws-sdk/lib-storage": "^3.1031.0",
-    "@aws-sdk/s3-request-presigner": "^3.1031.0",
-    "uuid": "^9.0.1"
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",
     "@nestjs/schematics": "^11.1.0",
     "@nestjs/testing": "^11.1.19",
+    "@types/amqplib": "^0.10.8",
     "@types/express": "^4.17.17",
     "@types/express-serve-static-core": "^4.19.5",
     "@types/jest": "^29.5.2",
     "@types/multer": "^1.4.11",
-    "@types/amqplib": "^0.10.8",
     "@types/node": "^20.3.1",
     "@types/supertest": "^2.0.12",
     "@typescript-eslint/eslint-plugin": "^8.58.2",
@@ -116,6 +116,8 @@
     "sha.js": "2.4.12",
     "socket.io-parser": "4.2.7",
     "validator": "13.15.35",
-    "yaml": "2.8.3"
+    "yaml": "2.8.3",
+    "uuid": "$uuid",
+    "qs": "6.16.0"
   }
 }
