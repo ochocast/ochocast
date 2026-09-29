@@ -51,10 +51,21 @@ export class S3MultipartStorage extends MultipartStorage {
     };
   }
   async create(s: VideoUpload) {
+    const extension = s.filename.split('.').pop()?.toLowerCase();
+    const contentTypeByExtension: Record<string, string> = {
+      avi: 'video/x-msvideo',
+      m4v: 'video/x-m4v',
+      mkv: 'video/x-matroska',
+      mov: 'video/quicktime',
+      mp4: 'video/mp4',
+      ogg: 'video/ogg',
+      webm: 'video/webm',
+    };
     const r = await this.client.send(
       new CreateMultipartUploadCommand({
         ...this.ref(s),
-        ContentType: 'application/octet-stream',
+        ContentType:
+          contentTypeByExtension[extension || ''] || 'application/octet-stream',
         Metadata: { session: s.id },
         ...(s.checksumMode === 'sha256'
           ? { ChecksumAlgorithm: 'SHA256' as const }
@@ -119,8 +130,8 @@ export class S3MultipartStorage extends MultipartStorage {
   async remove(s: VideoUpload) {
     for (const [Bucket, Key] of [
       [process.env.STOCK_MEDIA_BUCKET, s.key],
-      [process.env.STOCK_MEDIA_BUCKET, `${s.id}/source/subtitle-${s.id}.vtt`],
-      [process.env.STOCK_MINIATURE_BUCKET, `${s.id}/source/miniature-original`],
+      [process.env.STOCK_MEDIA_BUCKET, `subtitle-${s.id}.vtt`],
+      [process.env.STOCK_MINIATURE_BUCKET, `miniature-${s.id}.jpg`],
     ])
       await this.client.send(new DeleteObjectCommand({ Bucket, Key }));
   }

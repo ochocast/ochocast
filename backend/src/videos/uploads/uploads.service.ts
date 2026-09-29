@@ -10,6 +10,7 @@ import {
 import { Interval } from '@nestjs/schedule';
 import { DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'crypto';
+import { extname } from 'path';
 import { isUUID } from 'class-validator';
 import { VideoUpload } from './upload.entity';
 import { MultipartStorage, StoredPart } from './multipart-storage';
@@ -100,13 +101,17 @@ export class UploadsService {
           'Too many active uploads; cancel or wait for expiry',
         );
       const id = randomUUID();
+      const extension = extname(input.filename)
+        .toLowerCase()
+        .replace(/[^.a-z0-9]/g, '');
       const mode = process.env.UPLOAD_CHECKSUM_MODE || 'sha256';
       if (!['sha256', 'etag'].includes(mode))
         throw new Error('Invalid UPLOAD_CHECKSUM_MODE');
       const s = m.create(VideoUpload, {
         id,
         ownerId: owner.id,
-        key: `${id}/source/original`,
+        // Preserve the extension so the browser can select its native player.
+        key: `${id}/source/original${extension || '.video'}`,
         filename: input.filename,
         size: String(input.size),
         partSize: Math.max(16 * 1024 ** 2, Math.ceil(input.size / 10000)),
@@ -236,17 +241,12 @@ export class UploadsService {
       await this.verify(s);
       const miniature = files.find((f) => f.fieldname === 'miniature');
       const subtitle = files.find((f) => f.fieldname === 'subtitle');
-      const miniatureSourceKey = miniature
-        ? `${s.id}/source/miniature-original`
-        : undefined;
+      const miniatureKey = miniature ? `miniature-${s.id}.jpg` : undefined;
       const subtitleId = subtitle ? `subtitle-${s.id}.vtt` : undefined;
-      const subtitleSourceKey = subtitle
-        ? `${s.id}/source/${subtitleId}`
-        : undefined;
       if (miniature)
         await this.storage.put(
           process.env.STOCK_MINIATURE_BUCKET,
-          miniatureSourceKey,
+          miniatureKey,
           miniature.buffer,
           miniature.mimetype,
         );
@@ -263,14 +263,14 @@ export class UploadsService {
         if (!content.startsWith('WEBVTT')) content = `WEBVTT\n\n${content}`;
         await this.storage.put(
           process.env.STOCK_MEDIA_BUCKET,
-          subtitleSourceKey,
+          subtitleId,
           Buffer.from(`${content}\n`),
           'text/vtt',
         );
       }
       const video = new VideoEntity({
         id: s.id,
-        media_id: `${s.id}/master.m3u8`,
+        media_id: s.key,
         miniature_id: `miniature-${s.id}.jpg`,
         subtitle_id: subtitleId,
         title: fields.title.trim(),
@@ -284,14 +284,14 @@ export class UploadsService {
         views: 0,
         comments: [],
         archived: false,
-        transcoding_status: 'pending',
+        // Multipart persists the source file directly; transcoding is a later feature.
+        transcoding_status: 'ready',
       });
       // Reuse relation normalization, on this transaction's repository.
       await new VideoGateway(m.getRepository(VideoEntity), null).createNewVideo(
         video as any,
       );
       // Upload completion means the original object and metadata are durable.
-      // A separate processing feature may later claim this uploaded session.
       s.state = 'uploaded';
       s.completedAt = new Date();
       await m.save(s);

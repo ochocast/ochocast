@@ -134,7 +134,8 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
       relations: ['creator'],
     });
     expect(video.creator.email).toBe(owner);
-    expect(video.transcoding_status).toBe('pending');
+    expect(video.transcoding_status).toBe('ready');
+    expect(video.media_id).toMatch(/\/source\/original\.mp4$/);
   });
   it('rejects actual part size mismatch and missing parts', async () => {
     const session = await service.create(owner, {
@@ -195,7 +196,8 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     const video = await db.manager.findOneByOrFail(VideoEntity, {
       id: session.id,
     });
-    expect(video.transcoding_status).toBe('pending');
+    expect(video.transcoding_status).toBe('ready');
+    expect(video.media_id).toMatch(/\/source\/original\.mp4$/);
   });
   it('cleans expired multipart uploads and makes cancellation idempotent', async () => {
     const s = await service.create(owner, {
