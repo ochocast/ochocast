@@ -105,7 +105,8 @@ const loadInitialState = (): {
           return {
             ...upload,
             status: 'error' as UploadStatus,
-            errorMessage: 'Envoi interrompu. Resélectionnez le même fichier pour reprendre les parties restantes.',
+            errorMessage:
+              'Envoi interrompu. Resélectionnez le même fichier pour reprendre les parties restantes.',
           };
         }
         // Les uploads en 'processing' restent en processing car le backend continue le traitement
@@ -129,9 +130,13 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<UploadNotification[]>([]);
   const previousUploadsRef = useRef<UploadItem[]>([]);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const processingPollRef = useRef(new Map<string, { nextAt: number; attempt: number }>());
+  const processingPollRef = useRef(
+    new Map<string, { nextAt: number; attempt: number }>(),
+  );
   const uploadsRef = useRef(uploads);
-  useEffect(() => { uploadsRef.current = uploads; }, [uploads]);
+  useEffect(() => {
+    uploadsRef.current = uploads;
+  }, [uploads]);
 
   // Sauvegarder les uploads dans localStorage quand ils changent
   useEffect(() => {
@@ -151,46 +156,85 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       if (checking) return;
       checking = true;
       try {
-        const processingUploads = uploadsRef.current.filter(upload => upload.status === 'processing' && upload.videoId);
+        const processingUploads = uploadsRef.current.filter(
+          (upload) => upload.status === 'processing' && upload.videoId,
+        );
         for (const upload of processingUploads) {
           const now = Date.now();
-          const poll = processingPollRef.current.get(upload.id) || { nextAt: 0, attempt: 0 };
+          const poll = processingPollRef.current.get(upload.id) || {
+            nextAt: 0,
+            attempt: 0,
+          };
           if (poll.nextAt > now) continue;
           try {
             const baseUrl = uploadApiBase();
             const userString = localStorage.getItem('backendUser');
             const user = userString ? JSON.parse(userString) : null;
             if (!user?.token) return;
-            const response = await fetch(`${baseUrl}/videos?id=${upload.videoId}`, {
-              headers: { Authorization: `Bearer ${user.token}` }, signal: controller.signal,
-            });
+            const response = await fetch(
+              `${baseUrl}/videos?id=${upload.videoId}`,
+              {
+                headers: { Authorization: `Bearer ${user.token}` },
+                signal: controller.signal,
+              },
+            );
             if (!response.ok) {
-              const delay = Math.min(5000 * (2 ** poll.attempt), 60000);
-              processingPollRef.current.set(upload.id, { nextAt: now + delay, attempt: poll.attempt + 1 });
+              const delay = Math.min(5000 * 2 ** poll.attempt, 60000);
+              processingPollRef.current.set(upload.id, {
+                nextAt: now + delay,
+                attempt: poll.attempt + 1,
+              });
               continue;
             }
             const video = (await response.json())?.[0];
-            if (video?.transcoding_status === 'ready' || video?.transcoding_status === 'failed') {
+            if (
+              video?.transcoding_status === 'ready' ||
+              video?.transcoding_status === 'failed'
+            ) {
               processingPollRef.current.delete(upload.id);
-              setUploads(prev => prev.map(u => u.id === upload.id && u.status === 'processing' ? {
-                ...u, status: video.transcoding_status === 'ready' ? 'completed' : 'error', progress: 100,
-                errorMessage: video.transcoding_status === 'failed' ? 'Le traitement a échoué. Vous pouvez le relancer.' : undefined,
-              } : u));
+              setUploads((prev) =>
+                prev.map((u) =>
+                  u.id === upload.id && u.status === 'processing'
+                    ? {
+                        ...u,
+                        status:
+                          video.transcoding_status === 'ready'
+                            ? 'completed'
+                            : 'error',
+                        progress: 100,
+                        errorMessage:
+                          video.transcoding_status === 'failed'
+                            ? 'Le traitement a échoué. Vous pouvez le relancer.'
+                            : undefined,
+                      }
+                    : u,
+                ),
+              );
             } else {
-              const delay = Math.min(5000 * (2 ** poll.attempt), 60000);
-              processingPollRef.current.set(upload.id, { nextAt: now + delay, attempt: poll.attempt + 1 });
+              const delay = Math.min(5000 * 2 ** poll.attempt, 60000);
+              processingPollRef.current.set(upload.id, {
+                nextAt: now + delay,
+                attempt: poll.attempt + 1,
+              });
             }
           } catch (error) {
-            if (!controller.signal.aborted) console.error('Error checking video status:', error);
-            const delay = Math.min(5000 * (2 ** poll.attempt), 60000);
-            processingPollRef.current.set(upload.id, { nextAt: now + delay, attempt: poll.attempt + 1 });
+            if (!controller.signal.aborted)
+              console.error('Error checking video status:', error);
+            const delay = Math.min(5000 * 2 ** poll.attempt, 60000);
+            processingPollRef.current.set(upload.id, {
+              nextAt: now + delay,
+              attempt: poll.attempt + 1,
+            });
           }
         }
-        const activeIds = new Set(processingUploads.map(upload => upload.id));
+        const activeIds = new Set(processingUploads.map((upload) => upload.id));
         for (const uploadId of processingPollRef.current.keys()) {
-          if (!activeIds.has(uploadId)) processingPollRef.current.delete(uploadId);
+          if (!activeIds.has(uploadId))
+            processingPollRef.current.delete(uploadId);
         }
-      } finally { checking = false; }
+      } finally {
+        checking = false;
+      }
     };
 
     // Vérifier immédiatement au montage

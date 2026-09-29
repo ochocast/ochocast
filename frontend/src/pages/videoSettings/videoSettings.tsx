@@ -587,29 +587,37 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     navigate('/videos');
 
-    uploadVideoWithProgress(form, {
-      onSession: (sessionId) => updateUpload(uploadId, { sessionId }),
-      onPause: () => updateUpload(uploadId, { status: 'error', errorMessage: 'Envoi en pause. Vous pouvez le reprendre.' }),
-      onProgress: (progress: number) => {
-        updateUpload(uploadId, {
-          progress,
-          status: 'uploading',
-        });
+    uploadVideoWithProgress(
+      form,
+      {
+        onSession: (sessionId) => updateUpload(uploadId, { sessionId }),
+        onPause: () =>
+          updateUpload(uploadId, {
+            status: 'error',
+            errorMessage: 'Envoi en pause. Vous pouvez le reprendre.',
+          }),
+        onProgress: (progress: number) => {
+          updateUpload(uploadId, {
+            progress,
+            status: 'uploading',
+          });
+        },
+        onComplete: () => {
+          updateUpload(uploadId, {
+            progress: 100,
+            status: 'completed',
+            videoId: undefined,
+          });
+        },
+        onError: (error: string) => {
+          updateUpload(uploadId, {
+            status: 'error',
+            errorMessage: error,
+          });
+        },
       },
-      onComplete: () => {
-        updateUpload(uploadId, {
-          progress: 100,
-          status: 'completed',
-          videoId: undefined,
-        });
-      },
-      onError: (error: string) => {
-        updateUpload(uploadId, {
-          status: 'error',
-          errorMessage: error,
-        });
-      },
-    }, uploadId);
+      uploadId,
+    );
   };
 
   const handleArchiveClick = () => {

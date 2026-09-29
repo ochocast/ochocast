@@ -1,4 +1,7 @@
-import { cancelStoredUpload, uploadControls } from '../../../utils/uploadService';
+import {
+  cancelStoredUpload,
+  uploadControls,
+} from '../../../utils/uploadService';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -137,30 +140,67 @@ const UploadItemCard: React.FC<UploadItemCardProps> = ({
             {t('viewVideo')}
           </button>
         )}
-        {controls && item.status !== 'processing' && item.status !== 'completed' && (
-          <div className={styles.errorActions}>
-            <button className={styles.retryButton} onClick={() => item.status === 'uploading' ? controls.pause() : controls.resume()}>
-              {item.status === 'uploading' ? 'Mettre en pause' : 'Reprendre'}
-            </button>
-            <button className={styles.retryButton} onClick={() => {
-              void controls.cancel().then(() => onRemove(item.id)).catch(error => updateUpload(item.id, { status: 'error', errorMessage: error.message }));
-            }}>Annuler</button>
-          </div>
-        )}
+        {controls &&
+          item.status !== 'processing' &&
+          item.status !== 'completed' && (
+            <div className={styles.errorActions}>
+              <button
+                className={styles.retryButton}
+                onClick={() =>
+                  item.status === 'uploading'
+                    ? controls.pause()
+                    : controls.resume()
+                }
+              >
+                {item.status === 'uploading' ? 'Mettre en pause' : 'Reprendre'}
+              </button>
+              <button
+                className={styles.retryButton}
+                onClick={() => {
+                  void controls
+                    .cancel()
+                    .then(() => onRemove(item.id))
+                    .catch((error) =>
+                      updateUpload(item.id, {
+                        status: 'error',
+                        errorMessage: error.message,
+                      }),
+                    );
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          )}
         {item.status === 'error' && !controls && (
           <div className={styles.errorActions}>
-            {!item.videoId && <>
-            <button
-              className={styles.retryButton}
-              onClick={() => onGoToUploadPage()}
-              title={t('goToUploadPage')}
-            >
-              {t('goToUploadPage')}
-            </button>
-            {item.sessionId && <button className={styles.retryButton} onClick={() => {
-              void cancelStoredUpload(item.sessionId!).then(() => onRemove(item.id)).catch(error => updateUpload(item.id, { errorMessage: error.message }));
-            }}>Annuler l’envoi</button>}
-            </>}
+            {!item.videoId && (
+              <>
+                <button
+                  className={styles.retryButton}
+                  onClick={() => onGoToUploadPage()}
+                  title={t('goToUploadPage')}
+                >
+                  {t('goToUploadPage')}
+                </button>
+                {item.sessionId && (
+                  <button
+                    className={styles.retryButton}
+                    onClick={() => {
+                      void cancelStoredUpload(item.sessionId!)
+                        .then(() => onRemove(item.id))
+                        .catch((error) =>
+                          updateUpload(item.id, {
+                            errorMessage: error.message,
+                          }),
+                        );
+                    }}
+                  >
+                    Annuler l’envoi
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
