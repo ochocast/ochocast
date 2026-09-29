@@ -22,7 +22,6 @@ import { searchVideoAdminUseCase } from './domain/usecases/searchVideoAdmin.usec
 import { RestoreVideoUsecase } from './domain/usecases/restoreVideo.usecase';
 import { IncrementVideoViewsUsecase } from './domain/usecases/incrementVideoViews.usecase';
 import { QueueModule } from 'src/queue/queue.module';
-import { TranscodingResultConsumer } from './transcoding-result.consumer';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
@@ -54,7 +53,6 @@ import { TranscodingResultConsumer } from './transcoding-result.consumer';
     GetSuggestionsUsecase,
     searchVideoAdminUseCase,
     IncrementVideoViewsUsecase,
-    TranscodingResultConsumer,
     // GetUsersUsecase,
   ],
   exports: [CreateNewVideoUsecase, 'VideoGateway'],

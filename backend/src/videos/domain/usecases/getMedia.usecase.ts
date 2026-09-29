@@ -61,7 +61,8 @@ export class GetMediaUsecase {
     if (
       !normalizedPath ||
       normalizedPath.includes('..') ||
-      !/^[a-zA-Z0-9._/-]+$/.test(normalizedPath)
+      // Only public HLS assets: retained sources and job checkpoints stay private.
+      !/^[a-zA-Z0-9_-]+\.(m3u8|ts)$/.test(normalizedPath)
     ) {
       throw new NotFoundException('Invalid media path');
     }

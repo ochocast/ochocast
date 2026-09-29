@@ -6,6 +6,7 @@ on:
       - 'ffmpegServer/**'
       - 'backend/src/transcoding-jobs/**'
       - 'backend/src/queue/**'
+      - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
       - 'backend/package*.json'
       - '.github/workflows/ffmpeg-serverless.yml'
@@ -15,6 +16,7 @@ on:
       - 'ffmpegServer/**'
       - 'backend/src/transcoding-jobs/**'
       - 'backend/src/queue/**'
+      - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
       - 'backend/package*.json'
       - '.github/workflows/ffmpeg-serverless.yml'
@@ -58,6 +60,7 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npm run test:local-queue-config
       - run: npm run test:unit -- --runInBand
 
   validate:
