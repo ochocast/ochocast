@@ -6,6 +6,7 @@ import { createWorkerServer } from '../src/http-worker';
 import { parseJobEnvelope } from '../src/serverless/job-envelope';
 import { JobRunner } from '../src/serverless/job-runner';
 import { BackendClient } from '../src/serverless/backend-client';
+import { ScalewayQueuesClient } from '../../backend/src/queue/scaleway-queues.client';
 import {
   VideoTranscodingJob,
   VideoTranscodingResult,
@@ -93,6 +94,48 @@ test('HTTP root and alias validate signatures; only one job runs per instance', 
     finish();
     assert.equal((await first).status, 200);
     assert.equal(calls, 1);
+  } finally {
+    server.closeAllConnections();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+});
+
+test('the exact Scaleway queue message is accepted by the HTTP trigger', async () => {
+  const received: VideoTranscodingJob[] = [];
+  const { server } = createWorkerServer(
+    {
+      run: async (incoming) => {
+        received.push(incoming);
+      },
+    },
+    secret,
+  );
+  server.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const workerUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  const queueUrl = 'https://sqs.mnq.fr-par.scaleway.com/project/queue';
+  const client = new ScalewayQueuesClient({
+    endpoint: 'https://sqs.mnq.fr-par.scaleway.com',
+    region: 'fr-par',
+    accessKey: 'SCWTESTACCESS',
+    secretKey: 'test-secret',
+    fetchImplementation: (async (_target, request) => {
+      const parameters = new URLSearchParams(String(request?.body));
+      assert.equal(parameters.get('QueueUrl'), queueUrl);
+      const delivered = await fetch(`${workerUrl}/`, {
+        method: 'POST',
+        body: parameters.get('MessageBody'),
+      });
+      assert.equal(delivered.status, 200);
+      return new Response(
+        '<SendMessageResponse><SendMessageResult><MessageId>message-1</MessageId></SendMessageResult></SendMessageResponse>',
+        { status: 200 },
+      );
+    }) as typeof fetch,
+  });
+  try {
+    await client.sendMessage(queueUrl, JSON.stringify(envelope()));
+    assert.deepEqual(received, [job]);
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));

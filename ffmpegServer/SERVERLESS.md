@@ -1,12 +1,12 @@
 # FFmpeg déclenché par Scaleway Queues
 
-Le chemin staging/prod est `backend → Scaleway Queue → trigger HTTP → FFmpeg → S3 + callback backend`.
-L'image FFmpeg démarre un serveur HTTP, sans consumer RabbitMQ ni polling. Une requête traite une vidéo.
+Le chemin staging est `backend → Scaleway Queue → trigger HTTP → FFmpeg → S3 + callback backend`.
+L'image FFmpeg démarre un serveur HTTP, sans polling. Une requête traite une vidéo.
 La plateforme peut réduire à zéro le nombre d'instances inactives. Le serveur ne quitte pas le processus après chaque réponse : Scaleway gère son cycle de vie.
 
 ## Code et responsabilités
 
-- `backend/src/queue/queue.service.ts` : choix `rabbitmq` (développement historique) ou `scaleway`, enregistrement du job puis publication d'un message signé.
+- `backend/src/queue/queue.service.ts` : enregistrement du job puis publication d'un message signé dans Scaleway Queues.
 - `backend/src/queue/scaleway-queues.client.ts` : client HTTP natif Scaleway Queues ; aucune dépendance AWS n'est utilisée pour la file.
 - `backend/src/transcoding-jobs/` : authentification des callbacks, acquisition atomique d'un verrou par job, statut persistant et réception du résultat.
 - `ffmpegServer/src/http-worker.ts` : `GET /health`, `POST /` (trigger Scaleway), `POST /transcode` (alias local).
@@ -15,11 +15,11 @@ La plateforme peut réduire à zéro le nombre d'instances inactives. Le serveur
 - `.github/workflows/ffmpeg-serverless.yml` : tests, construction `linux/amd64` et publication de l'image.
 
 Les ressources Scaleway, secrets d'environnement et déploiements restent dans `ops-architecture-lab`.
-Le workflow existant de promotion frontend/backend n'est pas un déploiement de FFmpeg. L'image FFmpeg est publiée séparément ; l'infrastructure doit promouvoir son digest de staging vers production.
+Le workflow existant de promotion frontend/backend n'est pas un déploiement de FFmpeg. L'image FFmpeg est publiée séparément ; son digest doit être renseigné dans le staging ops.
 
 ## Configuration du backend
 
-Appliquer la migration `1789574400000-AddTranscodingJobs` avant d'activer le fournisseur Scaleway Queues.
+Appliquer la migration `1789574400000-AddTranscodingJobs` avant d'activer les uploads vidéo avec Scaleway Queues.
 Elle ajoute une table `transcoding_job`, liée aux vidéos et supprimée en cascade avec elles.
 
 ```dotenv
@@ -34,13 +34,13 @@ TRANSCODING_CALLBACK_SECRET=<autre secret aléatoire de 32 caractères minimum>
 TRANSCODING_LEASE_SECONDS=3600
 ```
 
-Avec `scaleway`, le backend n'ouvre aucune connexion RabbitMQ pour les jobs ou leurs résultats.
+Le backend publie uniquement vers Scaleway Queues. Sans cette configuration, il refuse de démarrer.
 Les credentials Queues sont distincts des credentials Object Storage.
 Le client HTTP Scaleway publie un JSON `{ "job": VideoTranscodingJob, "signature": "..." }`.
 Scaleway Queues expose le protocole SQS ; le code signe donc directement la requête HTTP avec les clés Scaleway, sans installer de SDK AWS.
 La signature est un HMAC SHA-256 hexadécimal de `JSON.stringify(job)` avec `TRANSCODING_DISPATCH_SECRET`.
 Le trigger doit transmettre le corps du message brut au container, sans format d'événement d'un autre fournisseur.
-La queue Scaleway utilisée est une queue standard ; la priorité RabbitMQ n'est pas transférée.
+La queue Scaleway utilisée est une queue standard, sans priorité de message.
 
 ## Configuration du container FFmpeg
 
@@ -70,12 +70,12 @@ Les fichiers vidéo et WAV sont téléchargés/uploadés en flux. Les pièces jo
 
 ## Contrat pour ops-architecture-lab
 
-Pour chaque environnement, prévoir séparément :
+Pour le staging, prévoir :
 
 1. Queue standard et stratégie de rétention/rejeu, credentials et file d'échec avec alerte.
 2. Container depuis l'image FFmpeg validée, port `8080`, probe `GET /health`.
 3. Trigger Queues transmettant le message en `POST /`. Pas de consumer à démarrer dans le container.
-4. Autoscaling par requêtes, concurrence **1**, minimum **0**, maximum selon budget (par exemple 2 en staging et 5 en prod pour commencer, à mesurer).
+4. Autoscaling par requêtes, concurrence **1**, minimum **0**, maximum initial **2** en staging, à mesurer.
 5. Timeout HTTP de **3300 s**, timeout applicatif de **3000 s**, verrou backend de **3600 s**. Vérifier également le timeout du proxy placé devant le backend et celui du trigger. Régler la visibilité de la queue pour éviter une redélivrance pendant un encodage (par exemple 3600 s), et sa rétention pour absorber le backlog.
 6. Secrets et permissions minimales : publication Scaleway Queues pour le backend, consommation pour le trigger, lecture/écriture Object Storage pour le worker.
 7. Logs et alertes sur erreurs, jobs bloqués, âge des messages, saturation disque/RAM et file d'échec.
@@ -98,7 +98,7 @@ Les conversions doivent rester sous la limite HTTP et sous le disque disponible.
 
 ## Développement et vérification
 
-Le Docker Compose existant utilise explicitement `node dist/worker.js` pour conserver le chemin RabbitMQ local. L'image de production démarre `node dist/http-worker.js` par défaut. L'API Whisper reste une image distincte.
+Le Docker Compose local expose uniquement le serveur HTTP, sans trigger cloud. L'image de staging démarre `node dist/http-worker.js` par défaut. L'API Whisper reste une image distincte.
 
 Tests sans cloud (FFmpeg et FFprobe doivent être installés) :
 
@@ -128,6 +128,6 @@ En staging, valider un upload complet, la lecture HLS depuis le frontend, un mes
 
 Configurer la variable GitHub `FFMPEG_IMAGE_REPOSITORY` avec le chemin complet du registre, par exemple `rg.fr-par.scw.cloud/<namespace>/ochocast-ffmpeg-worker`, et les secrets existants `SCW_REG_USER` / `SCW_SECRET_KEY`.
 Les PR exécutent les tests et construisent l'image sans la publier. Un push sur `main`, ou un lancement manuel avec `publish=true`, publie `sha-<commit-complet>` et affiche le digest dans le résumé du workflow. Un lancement manuel sans publication permet de vérifier le build.
-Ops déploie ce digest en staging puis promeut le même digest en production. Le nom d'image et les fichiers d'infrastructure ne sont pas devinés par le workflow Ochocast.
+Ops déploie ce digest en staging. Le nom d'image et les fichiers d'infrastructure ne sont pas devinés par le workflow Ochocast.
 
 Références : [trigger Scaleway Queues](https://www.scaleway.com/en/docs/serverless-containers/how-to/add-trigger-to-a-container/), [API Queues](https://www.scaleway.com/en/docs/queues/api-cli/python-node-queues/), [limites HTTP](https://www.scaleway.com/en/docs/serverless-containers/reference-content/containers-limitations/), [stockage temporaire et RAM](https://www.scaleway.com/en/docs/serverless-containers/troubleshooting/container-oom/).

@@ -19,6 +19,7 @@ frontend/docs
 backend/docs
 
 .env
+.env.local-queue.backup
 
 localMinio/run_env/*
 dev-tools/localMinio/run_env/*
