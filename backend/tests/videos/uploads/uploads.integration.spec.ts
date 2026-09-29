@@ -95,7 +95,6 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     await expect(service.complete(session.id, owner, metadata)).resolves.toEqual({ id: session.id });
     const stored = await db.manager.findOneByOrFail(VideoUpload, { id: session.id });
     expect(stored.state).toBe('uploaded');
-    expect(stored.job).toBeNull();
     expect((await storage.head(stored)).size).toBe(1024);
     const video = await db.manager.findOneByOrFail(VideoEntity, { id: session.id });
     expect(video.transcoding_status).toBe('pending');

@@ -1,4 +1,3 @@
-import { createReadStream } from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, ListPartsCommand,
   CompleteMultipartUploadCommand, AbortMultipartUploadCommand, HeadObjectCommand,
@@ -8,7 +7,6 @@ import { VideoUpload } from './upload.entity';
 
 export interface StoredPart { PartNumber: number; ETag: string; Size: number; ChecksumSHA256?: string }
 export abstract class MultipartStorage {
-  abstract uploadFilePart(s: VideoUpload, part: number, checksum: string, file: string, start: number, size: number): Promise<void>;
   abstract create(s: VideoUpload): Promise<string>;
   abstract sign(s: VideoUpload, part: number, checksum: string): Promise<string>;
   abstract parts(s: VideoUpload): Promise<StoredPart[]>;
@@ -22,12 +20,6 @@ export abstract class MultipartStorage {
 export class S3MultipartStorage extends MultipartStorage {
   constructor(@Inject('s3Client') private readonly client: S3Client) { super(); }
   private ref(s: VideoUpload) { return { Bucket: process.env.STOCK_MEDIA_BUCKET, Key: s.key, UploadId: s.uploadId }; }
-  async uploadFilePart(s: VideoUpload, part: number, checksum: string, file: string, start: number, size: number) {
-    const body = createReadStream(file, { start, end: start + size - 1 });
-    try { await this.client.send(new UploadPartCommand({ ...this.ref(s), PartNumber: part, Body: body, ContentLength: size,
-      ...(s.checksumMode === 'sha256' ? { ChecksumSHA256: checksum } : {}),
-    })); } finally { body.destroy(); }
-  }
   async create(s: VideoUpload) {
     const r = await this.client.send(new CreateMultipartUploadCommand({
       ...this.ref(s), ContentType: 'application/octet-stream', Metadata: { session: s.id },

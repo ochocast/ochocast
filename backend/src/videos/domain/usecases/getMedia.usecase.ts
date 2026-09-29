@@ -3,7 +3,6 @@ import { IVideoGateway } from '../gateways/videos.gateway';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { NotFoundException } from '@nestjs/common';
-import { Readable } from 'node:stream';
 
 export class GetMediaUsecase {
   constructor(
@@ -37,6 +36,7 @@ export class GetMediaUsecase {
 
     // Générer une URL signée valable pour une durée limitée (par exemple 1 heure)
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+    console.log(url);
     return url;
   }
 
@@ -44,7 +44,7 @@ export class GetMediaUsecase {
     id: string,
     requestedPath: string,
   ): Promise<{
-    body: Readable;
+    body: Uint8Array;
     contentType: string;
     cacheControl?: string;
   }> {
@@ -75,7 +75,7 @@ export class GetMediaUsecase {
     if (!response.Body) throw new NotFoundException('Media object not found');
 
     return {
-      body: response.Body as Readable,
+      body: await response.Body.transformToByteArray(),
       contentType:
         response.ContentType ||
         (normalizedPath.endsWith('.m3u8')

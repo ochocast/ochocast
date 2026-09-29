@@ -16,7 +16,6 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { pipeline } from 'node:stream/promises';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { ModifyVideoDto } from './dto/modify-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
@@ -164,7 +163,7 @@ export class VideosController {
     if (media.cacheControl) {
       response.setHeader('Cache-Control', media.cacheControl);
     }
-    await pipeline(media.body, response);
+    response.send(Buffer.from(media.body));
   }
 
   @Get('/miniature/:id')

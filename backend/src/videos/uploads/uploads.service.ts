@@ -1,6 +1,3 @@
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, GoneException, Injectable, NotFoundException, UnauthorizedException, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { DataSource, EntityManager } from 'typeorm';
@@ -75,21 +72,6 @@ export class UploadsService {
     return { id: s.id, size: Number(s.size), filename: s.filename, partSize: s.partSize,
       checksumMode: s.checksumMode, state: s.state, expiresAt: s.expiresAt,
       parts: parts.map(p => ({ number: p.PartNumber, size: p.Size, checksum: s.checksums[p.PartNumber] })) };
-  }
-  async importRecording(email: string, file: Express.Multer.File, fields: Record<string, any>) {
-    if (!file.path) throw new BadRequestException('Disk-backed recording required');
-    const info = await stat(file.path);
-    const session = await this.create(email, { size: info.size, filename: file.originalname });
-    const s = await this.db.manager.findOneByOrFail(VideoUpload, { id: session.id });
-    for (let number = 1, start = 0; start < info.size; number++, start += s.partSize) {
-      const size = Math.min(s.partSize, info.size - start);
-      const hash = createHash('sha256');
-      for await (const chunk of createReadStream(file.path, { start, end: start + size - 1 })) hash.update(chunk);
-      const checksum = hash.digest('base64');
-      await this.sign(s.id, email, number, checksum);
-      await this.storage.uploadFilePart(s, number, checksum, file.path, start, size);
-    }
-    return this.complete(s.id, email, fields);
   }
   async status(id: string, email: string) {
     return this.locked(id, email, async s => {

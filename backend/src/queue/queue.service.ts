@@ -16,29 +16,18 @@ export class QueueService implements OnModuleDestroy {
     process.env.VIDEO_QUEUE_NAME || 'video-transcoding-queue';
   private readonly resultQueueName =
     process.env.VIDEO_RESULT_QUEUE_NAME || 'video-transcoding-results';
-  /**
-   * Do not silently fall back to localhost in hosted environments. In the
-   * upload-only rollout RabbitMQ is intentionally absent and jobs stay in the
-   * PostgreSQL outbox until a worker plane is configured.
-   */
   get configured(): boolean {
     return Boolean(process.env.RABBITMQ_URL || process.env.RABBITMQ_HOST);
   }
-  private get rabbitUrl(): string {
-    if (process.env.RABBITMQ_URL) return process.env.RABBITMQ_URL;
-    const host = process.env.RABBITMQ_HOST || 'localhost';
-    const port = process.env.RABBITMQ_PORT || '5672';
-    const username = encodeURIComponent(process.env.RABBITMQ_USERNAME || 'admin');
-    const password = encodeURIComponent(process.env.RABBITMQ_PASSWORD || 'admin');
-    return `amqp://${username}:${password}@${host}:${port}`;
-  }
+  private readonly rabbitUrl =
+    process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672';
 
   private async connect(): Promise<void> {
     if (this.channel) return;
     if (this.connecting) return this.connecting;
 
     this.connecting = (async () => {
-      const connection = await amqp.connect(this.rabbitUrl, { timeout: 10000 });
+      const connection = await amqp.connect(this.rabbitUrl);
       const channel = await connection.createConfirmChannel();
       await Promise.all([
         channel.assertQueue(this.queueName, {
@@ -47,16 +36,7 @@ export class QueueService implements OnModuleDestroy {
         }),
         channel.assertQueue(this.resultQueueName, { durable: true }),
       ]);
-      const disconnected = () => {
-        if (this.connection !== connection) return;
-        this.resetConnection();
-        this.scheduleResultConsumer();
-        void connection.close().catch(() => undefined);
-      };
-      channel.on('error', disconnected);
-      channel.on('close', disconnected);
       connection.on('close', () => {
-        if (this.connection !== connection) return;
         this.resetConnection();
         this.scheduleResultConsumer();
       });
@@ -76,10 +56,12 @@ export class QueueService implements OnModuleDestroy {
   async publishJob(job: VideoTranscodingJob, priority = 5): Promise<void> {
     if (!this.configured) throw new Error('RabbitMQ is not configured');
     await this.connect();
-    const channel = this.channel;
-    await new Promise<void>((resolve, reject) => channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(job)), {
-      persistent: true, priority, contentType: 'application/json',
-    }, error => error ? reject(error) : resolve()));
+    this.channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(job)), {
+      persistent: true,
+      priority,
+      contentType: 'application/json',
+    });
+    await this.channel.waitForConfirms();
     this.logger.log(`Published transcoding job ${job.jobId}`);
   }
 
@@ -97,26 +79,17 @@ export class QueueService implements OnModuleDestroy {
     }
     try {
       await this.connect();
-      const channel = this.channel;
-      await channel.prefetch(10);
-      await channel.consume(this.resultQueueName, async (message) => {
-        if (!message) { this.resetConnection(); this.scheduleResultConsumer(); return; }
-        let result: VideoTranscodingResult;
+      await this.channel.consume(this.resultQueueName, async (message) => {
+        if (!message) return;
         try {
-          if (message.content.length > 64 * 1024) throw new Error('Oversized result');
-          result = JSON.parse(message.content.toString());
-          if (!/^[0-9a-f-]{36}$/i.test(result.videoId) || !/^[0-9a-f-]{36}$/i.test(result.jobId) ||
-            typeof result.success !== 'boolean' || !Number.isFinite(result.duration) || result.duration < 0 ||
-            (result.error !== undefined && typeof result.error !== 'string') ||
-            (result.success && !new RegExp(`^${result.videoId}/jobs/${result.jobId}/[0-9a-f-]{36}/master\\.m3u8$`).test(result.media_id || ''))) throw new Error('Invalid result');
-        } catch { if (this.channel === channel) channel.nack(message, false, false); return; }
-        try {
+          const result = JSON.parse(
+            message.content.toString(),
+          ) as VideoTranscodingResult;
           await this.resultHandler?.(result);
-          if (this.channel === channel) channel.ack(message);
+          this.channel?.ack(message);
         } catch (error) {
           this.logger.error('Unable to process transcoding result', error);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          if (this.channel === channel) channel.nack(message, false, true);
+          this.channel?.nack(message, false, true);
         }
       });
       this.resultConsumerActive = true;
