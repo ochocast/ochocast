@@ -20,6 +20,7 @@ backend/docs
 
 .env
 .env.local-queue.backup
+/.local-test/
 
 localMinio/run_env/*
 dev-tools/localMinio/run_env/*
