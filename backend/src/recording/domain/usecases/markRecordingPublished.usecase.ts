@@ -13,8 +13,9 @@ import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
 /**
  * US-4 — Mark a recording as `published` once the organizer has created a video
  * from it through the regular video editor. Does not create a video itself;
- * it only flips the recording out of the unlisted working set so it can't be
- * published twice. Organizer-only.
+ * it flips the recording out of the unlisted working set so it can't be
+ * published twice, and records when / on whose channel / as which video.
+ * Organizer-only.
  */
 @Injectable()
 export class MarkRecordingPublishedUsecase {
@@ -29,7 +30,11 @@ export class MarkRecordingPublishedUsecase {
     private eventGateway: IEventGateway,
   ) {}
 
-  async execute(recordingId: string, email: string): Promise<void> {
+  async execute(
+    recordingId: string,
+    email: string,
+    videoId?: string,
+  ): Promise<void> {
     const recording =
       await this.recordingRepository.getRecordingById(recordingId);
     if (!recording) {
@@ -66,6 +71,9 @@ export class MarkRecordingPublishedUsecase {
 
     await this.recordingRepository.updateRecording(recordingId, {
       visibility: 'published',
+      publishedAt: new Date(),
+      publishedById: currentUser.id,
+      publishedVideoId: videoId ?? null,
     });
   }
 }

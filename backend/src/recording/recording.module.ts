@@ -1,6 +1,17 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RecordingController } from './infra/controllers/recording.controller';
+import { PublicationRequestController } from './infra/controllers/publication-request.controller';
+import { PublicationRequestEntity } from './infra/gateways/entities/publication-request.entity';
+import { PublicationRequestGateway } from './infra/gateways/publication-request.gateway';
+import { CreatePublicationRequestUsecase } from './domain/usecases/createPublicationRequest.usecase';
+import { GetMyPublicationRequestsUsecase } from './domain/usecases/getMyPublicationRequests.usecase';
+import { GetTrackPublicationRequestsUsecase } from './domain/usecases/getTrackPublicationRequests.usecase';
+import { GetPublicationRequestUsecase } from './domain/usecases/getPublicationRequest.usecase';
+import { GetPublicationRequestMediaUrlUsecase } from './domain/usecases/getPublicationRequestMediaUrl.usecase';
+import { AcceptPublicationRequestUsecase } from './domain/usecases/acceptPublicationRequest.usecase';
+import { RefusePublicationRequestUsecase } from './domain/usecases/refusePublicationRequest.usecase';
+import { CancelPublicationRequestUsecase } from './domain/usecases/cancelPublicationRequest.usecase';
 import { RecordingVMGateway } from './infra/gateways/recording-vm.gateway';
 import { RecordingRepositoryGateway } from './infra/gateways/recording-repository.gateway';
 import { RecordingEntity } from './infra/gateways/entities/recording.entity';
@@ -25,12 +36,16 @@ import { S3Module } from 'src/s3.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([RecordingEntity, RecordingErrorEntity]),
+    TypeOrmModule.forFeature([
+      RecordingEntity,
+      RecordingErrorEntity,
+      PublicationRequestEntity,
+    ]),
     VideosModule,
     S3Module,
     forwardRef(() => TracksModule),
   ],
-  controllers: [RecordingController],
+  controllers: [RecordingController, PublicationRequestController],
   providers: [
     {
       provide: 'RecordingVMGateway',
@@ -44,6 +59,10 @@ import { S3Module } from 'src/s3.module';
       provide: 'RecordingErrorGateway',
       useClass: RecordingErrorGateway,
     },
+    {
+      provide: 'PublicationRequestGateway',
+      useClass: PublicationRequestGateway,
+    },
     StartRecordingUsecase,
     StopRecordingUsecase,
     PublishRecordingUsecase,
@@ -56,6 +75,14 @@ import { S3Module } from 'src/s3.module';
     SetRecordingArmedUsecase,
     HandleLiveEventUsecase,
     GetRecordingStatusUsecase,
+    CreatePublicationRequestUsecase,
+    GetMyPublicationRequestsUsecase,
+    GetTrackPublicationRequestsUsecase,
+    GetPublicationRequestUsecase,
+    GetPublicationRequestMediaUrlUsecase,
+    AcceptPublicationRequestUsecase,
+    RefusePublicationRequestUsecase,
+    CancelPublicationRequestUsecase,
     MergeResultConsumer,
   ],
   exports: [

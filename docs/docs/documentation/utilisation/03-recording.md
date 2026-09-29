@@ -207,6 +207,16 @@ Désactivez le toggle. Si un live est en cours, l'enregistrement s'arrête immé
 
 En cas d'erreur, un bandeau « Problème d'enregistrement » s'affiche aussi sur la page du live, **visible uniquement par l'organisateur**, avec un lien vers les paramètres du track. Le problème disparaît au prochain démarrage réussi, ou en désarmant le track.
 
+### Publier sur la chaîne d'un speaker
+
+Depuis **Publier**, le champ **Publier sur la chaîne** permet de choisir sa propre chaîne ou celle d'un speaker du track :
+
+1. L'organisateur renseigne le titre, la description, les tags et les intervenants, puis clique sur **Demander l'approbation**. Rien n'est publié à ce stade ; la carte de l'enregistrement affiche « En attente de validation par X » avec un bouton **Annuler la demande**.
+2. Le speaker voit la demande dans le panneau des uploads (bouton en bas de l'écran). **Examiner** ouvre la page de publication avec la vidéo pré-chargée : il peut modifier les informations et choisir la miniature et les sous-titres, puis **Publier sur ma chaîne**, ou **Refuser la publication** avec un motif facultatif.
+3. En cas de refus, la carte affiche « Refusé par X » et le motif ; l'enregistrement reste non répertorié. Sans réponse après 7 jours (`PUBLICATION_REQUEST_TTL_DAYS`), la demande expire.
+
+Une vidéo publiée sur la chaîne d'un speaker lui appartient : lui seul peut la modifier ensuite.
+
 ---
 
 ## Où retrouver les vidéos enregistrées

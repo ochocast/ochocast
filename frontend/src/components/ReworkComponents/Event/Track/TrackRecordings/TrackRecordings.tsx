@@ -1,12 +1,18 @@
 import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   getTrackRecordings,
   getRecordingMediaUrl,
   mergeRecordings,
   deleteRecording,
+  getTrackPublicationRequests,
+  cancelPublicationRequest,
 } from '../../../../../utils/api';
+import {
+  PublicationRequest,
+  displayName,
+} from '../../../../../utils/PublicationRequest';
 import logger from '../../../../../utils/logger';
 import styles from './TrackRecordings.module.css';
 
@@ -22,6 +28,9 @@ export interface Recording {
   kind: 'segment' | 'merged';
   status: 'ready' | 'processing' | 'failed';
   sourceSegmentIds: string[] | null;
+  publishedAt?: string | null;
+  publishedVideoId?: string | null;
+  publishedBy?: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface TrackRecordingsProps {
@@ -54,6 +63,9 @@ const formatDate = (iso: string): string => {
  * result appears as a card with its processing status and a "Go back" action.
  * Ready recordings show their first frame as a thumbnail and play inline.
  */
+// Beyond this, a refusal reason is clamped (roughly three lines).
+const REASON_PREVIEW_LENGTH = 180;
+
 const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -66,13 +78,25 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  // US-6: latest publication request of each recording (speaker channel).
+  const [requests, setRequests] = useState<Record<string, PublicationRequest>>(
+    {},
+  );
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [expandedReasonId, setExpandedReasonId] = useState<string | null>(null);
+
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   // Track which ids we've already requested a URL for, to avoid refetching.
   const requestedUrls = useRef<Set<string>>(new Set());
 
   const loadThumbnails = useCallback((recs: Recording[]) => {
     recs
-      .filter((r) => r.status === 'ready' && !requestedUrls.current.has(r.id))
+      .filter(
+        (r) =>
+          r.status === 'ready' &&
+          r.visibility === 'unlisted' &&
+          !requestedUrls.current.has(r.id),
+      )
       .forEach(async (r) => {
         requestedUrls.current.add(r.id);
         try {
@@ -84,6 +108,21 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
         }
       });
   }, []);
+
+  const fetchRequests = useCallback(async () => {
+    try {
+      const res = await getTrackPublicationRequests(trackId);
+      if (!res.ok || !Array.isArray(res.data)) return;
+      // Newest first: keep the first (latest) request of each recording.
+      const latest: Record<string, PublicationRequest> = {};
+      for (const request of res.data as PublicationRequest[]) {
+        latest[request.recordingId] ??= request;
+      }
+      setRequests(latest);
+    } catch (err) {
+      logger.error({ err, trackId }, 'Failed to fetch publication requests');
+    }
+  }, [trackId]);
 
   const fetchRecordings = useCallback(
     async (silent = false) => {
@@ -110,7 +149,22 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
 
   useEffect(() => {
     fetchRecordings();
-  }, [fetchRecordings]);
+    fetchRequests();
+  }, [fetchRecordings, fetchRequests]);
+
+  // Refresh while a speaker has not answered yet, so "waiting" turns into
+  // "refused" (or the recording leaves the list) without reloading the page.
+  useEffect(() => {
+    const hasPending = Object.values(requests).some(
+      (r) => r.status === 'pending',
+    );
+    if (!hasPending) return;
+    const interval = setInterval(() => {
+      void fetchRequests();
+      void fetchRecordings(true);
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [requests, fetchRequests, fetchRecordings]);
 
   // Auto-refresh (silently) while a merge is still processing.
   useEffect(() => {
@@ -126,6 +180,7 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
     requestedUrls.current = new Set();
     setMediaUrls({});
     void fetchRecordings();
+    void fetchRequests();
   };
 
   const toggleSelect = (id: string) => {
@@ -163,7 +218,7 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
         : t('RecordingTitleSuffix') || 'Recording';
     const title = base ? `${base} — ${suffix}` : suffix;
     navigate('/video/video-settings', {
-      state: { recordingId: rec.id, title },
+      state: { recordingId: rec.id, title, trackId },
     });
   };
 
@@ -185,8 +240,128 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
     }
   };
 
+  const cancelRequest = async (request: PublicationRequest) => {
+    setCancellingId(request.id);
+    setActionError(null);
+    try {
+      const res = await cancelPublicationRequest(request.id);
+      if (res.ok) {
+        await fetchRequests();
+      } else {
+        setActionError(t('PublicationCancelError'));
+      }
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  // Long reasons are clamped to a few lines, expandable on demand.
+  const renderRefusalReason = (request: PublicationRequest) => {
+    const reason = request.refusalReason ?? '';
+    const isLong = reason.length > REASON_PREVIEW_LENGTH;
+    const expanded = expandedReasonId === request.id;
+    return (
+      <>
+        <span
+          className={`${styles.publicationReason} ${
+            isLong && !expanded ? styles.publicationReasonClamped : ''
+          }`}
+        >
+          « {reason} »
+        </span>
+        {isLong && (
+          <button
+            type="button"
+            className={styles.linkButton}
+            aria-expanded={expanded}
+            onClick={() => setExpandedReasonId(expanded ? null : request.id)}
+          >
+            {expanded ? t('seeLess') : t('seeMore')}
+          </button>
+        )}
+      </>
+    );
+  };
+
+  const renderPublicationStatus = (request?: PublicationRequest) => {
+    if (!request) return null;
+    const name = displayName(request.target);
+
+    if (request.status === 'pending') {
+      return (
+        <div
+          className={`${styles.publicationStatus} ${styles.publicationPending}`}
+        >
+          <span>{t('PublicationStatusPending', { name })}</span>
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={() => cancelRequest(request)}
+            disabled={cancellingId === request.id}
+          >
+            {t('CancelPublicationRequest')}
+          </button>
+        </div>
+      );
+    }
+    if (request.status === 'refused' || request.status === 'expired') {
+      return (
+        <div
+          className={`${styles.publicationStatus} ${styles.publicationRefused}`}
+        >
+          <span>
+            {request.status === 'refused'
+              ? t('PublicationStatusRefused', { name })
+              : t('PublicationStatusExpired', { name })}
+          </span>
+          {request.refusalReason && renderRefusalReason(request)}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // A published recording collapses to a compact line: its title and where /
+  // when it was published (own channel or a speaker's, US-4 / US-6).
+  const renderPublished = (rec: Recording, variant: 'strip' | 'full') => {
+    const me = JSON.parse(localStorage.getItem('backendUser') || '{}')?.id;
+    const date = rec.publishedAt ? formatDate(rec.publishedAt) : '';
+    const info = !rec.publishedBy
+      ? t('PublishedNoDetails')
+      : rec.publishedBy.id === me
+        ? t('PublishedOnMyChannel', { date })
+        : t('PublishedOnChannel', { name: displayName(rec.publishedBy), date });
+
+    return (
+      <div
+        key={rec.id}
+        className={`${styles.publishedCard} ${
+          variant === 'full' ? styles.cardFull : styles.cardStrip
+        }`}
+      >
+        <span className={styles.cardTitle}>
+          {rec.kind === 'merged'
+            ? t('Merged') || 'Merged'
+            : `#${rec.segmentIndex + 1}`}
+        </span>
+        <span className={styles.publishedInfo}>{info}</span>
+        {rec.publishedVideoId && (
+          <Link
+            to={`/video/${rec.publishedVideoId}`}
+            className={styles.linkButton}
+          >
+            {t('viewVideo')}
+          </Link>
+        )}
+      </div>
+    );
+  };
+
   const renderCard = (rec: Recording, variant: 'strip' | 'full') => {
+    if (rec.visibility === 'published') return renderPublished(rec, variant);
     const isMerged = rec.kind === 'merged';
+    const request = requests[rec.id];
+    const isAwaitingSpeaker = request?.status === 'pending';
     const isReady = rec.status === 'ready';
     const isSelected = selected.includes(rec.id);
     const url = mediaUrls[rec.id];
@@ -266,6 +441,7 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
                 type="button"
                 className={styles.publishButton}
                 onClick={() => goToPublish(rec)}
+                disabled={isAwaitingSpeaker}
               >
                 {t('Publish') || 'Publish'}
               </button>
@@ -284,6 +460,8 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
             )}
           </div>
         </div>
+
+        {renderPublicationStatus(request)}
       </div>
     );
   };
@@ -358,6 +536,12 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
               <div className={styles.mergedList}>
                 {recordings
                   .filter((r) => r.kind === 'merged')
+                  // Newest merge first.
+                  .sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime(),
+                  )
                   .map((r) => renderCard(r, 'full'))}
               </div>
             </>

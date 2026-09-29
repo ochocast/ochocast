@@ -241,12 +241,16 @@ export class RecordingController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async markPublished(
     @Param('id') id: string,
+    @Body('videoId') videoId: string | undefined,
     @CurrentUserEmail() email: string,
   ): Promise<void> {
     if (!isUUID(id)) {
       throw new HttpException('id must be a UUID', HttpStatus.BAD_REQUEST);
     }
-    await this.markRecordingPublishedUsecase.execute(id, email);
+    if (videoId !== undefined && !isUUID(videoId)) {
+      throw new HttpException('videoId must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    await this.markRecordingPublishedUsecase.execute(id, email, videoId);
   }
 
   /**

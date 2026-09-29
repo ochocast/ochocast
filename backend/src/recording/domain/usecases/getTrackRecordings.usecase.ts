@@ -14,8 +14,9 @@ import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
  * US-1 / US-2 — List the recording segments of a track.
  *
  * Unlisted segments are organizer-only: access is restricted to a track speaker
- * or an editor of the parent event. Defaults to `unlisted`, the working set
- * shown in the track settings.
+ * or an editor of the parent event. Without a visibility filter, published
+ * recordings are included too: the track settings show them as a compact
+ * "published on X's channel" line.
  */
 @Injectable()
 export class GetTrackRecordingsUsecase {
@@ -33,7 +34,7 @@ export class GetTrackRecordingsUsecase {
   async execute(
     trackId: string,
     email: string,
-    visibility: RecordingVisibility = 'unlisted',
+    visibility?: RecordingVisibility,
   ): Promise<RecordingObject[]> {
     const tracks = await this.trackGateway.getTracks({ id: trackId });
     if (!tracks || tracks.length === 0) {
@@ -55,8 +56,9 @@ export class GetTrackRecordingsUsecase {
       }
     }
 
-    return this.recordingRepository.getRecordingsByTrack(trackId, {
-      visibility,
-    });
+    return this.recordingRepository.getRecordingsByTrack(
+      trackId,
+      visibility ? { visibility } : undefined,
+    );
   }
 }

@@ -98,6 +98,28 @@ export class RecordingObject {
   })
   sourceSegmentIds: string[] | null;
 
+  @ApiProperty({
+    description: 'When the recording was published (US-4 / US-6).',
+    required: false,
+    nullable: true,
+  })
+  publishedAt: Date | null = null;
+
+  @ApiProperty({
+    description: 'Video created from the recording on publication.',
+    required: false,
+    nullable: true,
+  })
+  publishedVideoId: string | null = null;
+
+  @ApiProperty({
+    description: 'Owner of the channel the recording was published on.',
+    required: false,
+    nullable: true,
+  })
+  publishedBy: { id: string; firstName: string; lastName: string } | null =
+    null;
+
   constructor(
     id: string,
     trackId: string,

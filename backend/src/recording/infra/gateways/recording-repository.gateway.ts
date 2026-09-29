@@ -34,6 +34,7 @@ export class RecordingRepositoryGateway implements IRecordingRepositoryGateway {
     }
     const entities = await this.recordingRepository.find({
       where,
+      relations: ['published_by'],
       order: { segment_index: 'ASC', createdAt: 'ASC' },
     });
     return entities.map(toRecordingObject);
@@ -57,6 +58,12 @@ export class RecordingRepositoryGateway implements IRecordingRepositoryGateway {
     if (changes.mediaId !== undefined) patch.media_id = changes.mediaId;
     if (changes.duration !== undefined) patch.duration = changes.duration;
     if (changes.visibility !== undefined) patch.visibility = changes.visibility;
+    if (changes.publishedAt !== undefined)
+      patch.published_at = changes.publishedAt;
+    if (changes.publishedById !== undefined)
+      patch.published_by_id = changes.publishedById;
+    if (changes.publishedVideoId !== undefined)
+      patch.published_video_id = changes.publishedVideoId;
 
     if (Object.keys(patch).length > 0) {
       await this.recordingRepository.update(id, patch);

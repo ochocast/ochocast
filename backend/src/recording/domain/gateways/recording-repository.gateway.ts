@@ -13,6 +13,9 @@ export interface RecordingUpdate {
   mediaId?: string;
   duration?: number | null;
   visibility?: RecordingVisibility;
+  publishedAt?: Date;
+  publishedById?: string;
+  publishedVideoId?: string | null;
 }
 
 /**

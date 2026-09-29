@@ -33,6 +33,9 @@ import getEnv from '../../utils/env';
 const CONTROL_PLANE_URL = getEnv('REACT_APP_SFU_CONTROL_PLANE_URL');
 const ROOM_STATUS_POLL_INTERVAL_MS = 3000;
 const ROOM_STATUS_TIMEOUT_MS = 8 * 60 * 1000;
+// Reason set by the control plane when it cleans up a room after the live
+// ended (grace period elapsed): the normal end of a session, not a failure.
+const IDLE_TIMEOUT_REASON = 'idle timeout';
 
 type RoomLifecycleState =
   | 'provisioning'
@@ -170,6 +173,17 @@ const TrackSettings: FC = () => {
     setIsCheckingRoom(true);
     try {
       const status = await fetchRoomStatus(trackId);
+      const closedForInactivity =
+        (status?.state === 'terminated' || status?.state === 'draining') &&
+        status.reason === IDLE_TIMEOUT_REASON;
+      if (closedForInactivity) {
+        // No active room: the organizer simply starts a new live.
+        setRoomLifecycleState(null);
+        setRoomStatusMessage('');
+        setSfuUrl('');
+        return;
+      }
+
       if (status?.state === 'failed' || status?.state === 'terminated') {
         setRoomLifecycleState(status.state);
         setRoomStatusMessage(

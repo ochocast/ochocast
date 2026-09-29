@@ -6,6 +6,12 @@ import {
   UploadStatus,
 } from '../../../context/UploadContext';
 import { useTranslation } from 'react-i18next';
+import { useUser } from '../../../context/UserContext';
+import { usePublicationRequests } from '../../../hooks/usePublicationRequests';
+import {
+  PublicationRequest,
+  displayName,
+} from '../../../utils/PublicationRequest';
 import styles from './UploadPanel.module.css';
 
 const UploadIcon = () => (
@@ -152,6 +158,45 @@ const UploadItemCard: React.FC<UploadItemCardProps> = ({
   );
 };
 
+interface PublicationRequestCardProps {
+  request: PublicationRequest;
+  onReview: (id: string) => void;
+}
+
+/** US-6 — A speaker is asked to publish a recording on their channel. */
+const PublicationRequestCard: React.FC<PublicationRequestCardProps> = ({
+  request,
+  onReview,
+}) => {
+  const { t } = useTranslation();
+
+  return (
+    <div className={styles.uploadItem}>
+      <div className={styles.uploadItemHeader}>
+        <div className={styles.uploadInfo}>
+          <p className={styles.uploadTitle}>{request.title}</p>
+          <p className={styles.uploadFileName}>
+            {t('PublicationRequestFrom', {
+              name: displayName(request.requester),
+            })}
+          </p>
+        </div>
+      </div>
+      <div className={styles.statusRow}>
+        <span className={styles.statusText}>
+          {t('PublicationRequestAwaiting')}
+        </span>
+        <button
+          className={styles.viewButton}
+          onClick={() => onReview(request.id)}
+        >
+          {t('ReviewPublicationRequest')}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const UploadPanel: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -164,6 +209,9 @@ const UploadPanel: React.FC = () => {
     closePanel,
     retryUpload,
   } = useUploadContext();
+  const { user } = useUser();
+  const publicationRequests = usePublicationRequests(!!user);
+  const itemCount = uploads.length + publicationRequests.length;
 
   const activeUploads = uploads.filter(
     (u) =>
@@ -185,12 +233,19 @@ const UploadPanel: React.FC = () => {
     closePanel();
   };
 
+  const handleReviewRequest = (id: string) => {
+    navigate('/video/video-settings', {
+      state: { publicationRequestId: id },
+    });
+    closePanel();
+  };
+
   const handleRetry = (id: string) => {
     retryUpload(id);
   };
 
-  // Ne pas afficher si aucun upload
-  if (uploads.length === 0 && !isPanelOpen) {
+  // Ne pas afficher si aucun upload ni demande de publication
+  if (itemCount === 0 && !isPanelOpen) {
     return null;
   }
 
@@ -202,11 +257,11 @@ const UploadPanel: React.FC = () => {
         title={t('uploadPanel')}
       >
         <UploadIcon />
-        {uploads.length > 0 && (
+        {itemCount > 0 && (
           <span
             className={`${styles.badge} ${hasErrorUploads ? styles.badgeError : ''}`}
           >
-            {uploads.length}
+            {itemCount}
           </span>
         )}
       </button>
@@ -231,7 +286,14 @@ const UploadPanel: React.FC = () => {
         </div>
 
         <div className={styles.uploadList}>
-          {uploads.length === 0 ? (
+          {publicationRequests.map((request) => (
+            <PublicationRequestCard
+              key={request.id}
+              request={request}
+              onReview={handleReviewRequest}
+            />
+          ))}
+          {itemCount === 0 ? (
             <div className={styles.emptyState}>
               <UploadIcon />
               <p className={styles.emptyText}>{t('noUploads')}</p>

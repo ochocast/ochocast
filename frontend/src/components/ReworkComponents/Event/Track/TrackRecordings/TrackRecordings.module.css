@@ -295,3 +295,81 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* US-6: publication on a speaker's channel */
+.publicationStatus {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0.75rem 0.75rem;
+  padding: 8px 10px;
+  min-width: 0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.publicationPending {
+  border: 1px solid var(--theme-color-300, #cbd5d0);
+  color: var(--theme-color-700, #2e6e4e);
+  background: var(--theme-color-100, #eef3f0);
+}
+
+.publicationRefused {
+  border: 1px solid var(--error-color, #c0392b);
+  color: var(--error-color, #c0392b);
+}
+
+.publicationReason {
+  font-style: italic;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.publicationReasonClamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.linkButton {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.publishButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Published recording: compact line instead of the full card. */
+.publishedCard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  align-self: flex-start;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--theme-color-300, #cbd5d0);
+  border-radius: 12px;
+  background: var(--theme-color-50, #fafcfb);
+  min-width: 0;
+}
+
+.publishedInfo {
+  font-size: 0.8rem;
+  color: var(--theme-color-500, #6b7770);
+  overflow-wrap: anywhere;
+}

@@ -192,6 +192,23 @@ export const searchVideosAdmin = (data) =>
 // US-5: arm / disarm the automatic recording of every live of a track
 export const setTrackRecordingArmed = (trackId, armed) =>
   api.put(`/recordings/track/${trackId}/armed`, { armed });
+// US-6: publishing a recording on a track speaker's channel, with approval
+export const createPublicationRequest = (data) =>
+  api.post('/publication-requests', data);
+export const getMyPublicationRequests = () =>
+  api.get('/publication-requests/mine');
+export const getTrackPublicationRequests = (trackId) =>
+  api.get(`/publication-requests/track/${trackId}`);
+export const getPublicationRequest = (id) =>
+  api.get(`/publication-requests/${id}`);
+export const getPublicationRequestMediaUrl = (id) =>
+  api.get(`/publication-requests/${id}/media`);
+export const acceptPublicationRequest = (id, videoId) =>
+  api.post(`/publication-requests/${id}/accept`, { videoId });
+export const refusePublicationRequest = (id, reason) =>
+  api.post(`/publication-requests/${id}/refuse`, { reason });
+export const cancelPublicationRequest = (id) =>
+  api.post(`/publication-requests/${id}/cancel`);
 // US-5c: real-time recording status of a track (organizer only)
 export const getTrackRecordingStatus = (trackId) =>
   api.get(`/recordings/track/${trackId}/status`);
@@ -208,8 +225,8 @@ export const mergeRecordings = (trackId, segmentIds) =>
 export const deleteRecording = (recordingId) =>
   api.delete(`/recordings/${recordingId}`);
 // US-4: mark a recording as published (after creating a video via the editor)
-export const markRecordingPublished = (recordingId) =>
-  api.post(`/recordings/${recordingId}/mark-published`);
+export const markRecordingPublished = (recordingId, videoId) =>
+  api.post(`/recordings/${recordingId}/mark-published`, { videoId });
 
 // Polls
 export const createPoll = (pollData) => api.post('/polls', pollData);

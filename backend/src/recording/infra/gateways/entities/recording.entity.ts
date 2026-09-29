@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { TrackEntity } from '../../../../tracks/infra/gateways/entities/track.entity';
+import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
 import {
   RecordingKind,
   RecordingStatus,
@@ -55,6 +56,20 @@ export class RecordingEntity {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  // Publication (US-4 / US-6): when, on whose channel, as which video.
+  @Column({ type: 'timestamp', nullable: true })
+  published_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  published_video_id: string | null;
+
+  @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'published_by_id' })
+  published_by: UserEntity | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  published_by_id: string | null;
 
   constructor(recording: Partial<RecordingEntity>) {
     Object.assign(this, recording);

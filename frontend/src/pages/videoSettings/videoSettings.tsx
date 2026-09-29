@@ -22,6 +22,12 @@ import {
   getMiniature,
   getRecordingMediaUrl,
   markRecordingPublished,
+  getTrackById,
+  createPublicationRequest,
+  getPublicationRequest,
+  getPublicationRequestMediaUrl,
+  acceptPublicationRequest,
+  refusePublicationRequest,
 } from '../../utils/api';
 import { uploadVideoWithProgress } from '../../utils/uploadService';
 import { useUploadContext } from '../../context/UploadContext';
@@ -40,6 +46,13 @@ import SuggestionBar, {
   Suggestion,
 } from '../../components/ReworkComponents/video/admin/SuggestionBar/SuggestionBar';
 import Card from '../../components/ReworkComponents/generic/Cards/Card';
+import Modal from '../../components/ReworkComponents/generic/modal/modal';
+import {
+  PUBLICATION_REQUESTS_CHANGED,
+  PublicationRequest,
+  displayName,
+} from '../../utils/PublicationRequest';
+import { PublicUser } from '../../utils/EventsProperties';
 
 const IMAGE_TUILE_EVENT = '/branding/exemple/image_tuile_event.png';
 type BackendMsgKey = 'videonotallowdeleted' | 'videonotallowmodify';
@@ -212,32 +225,126 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [recordingSourceId, setRecordingSourceId] = useState<string | null>(
     null,
   );
+  // US-6: the organizer may instead ask a track speaker to publish it on the
+  // speaker's channel (targetChannelId); the speaker reviews such a request
+  // in this same editor (reviewedRequest).
+  const [channelOptions, setChannelOptions] = useState<PublicUser[]>([]);
+  const [targetChannelId, setTargetChannelId] = useState('');
+  const targetChannel = channelOptions.find((c) => c.id === targetChannelId);
+  const [reviewedRequest, setReviewedRequest] =
+    useState<PublicationRequest | null>(null);
+  const [isRefuseModalOpen, setIsRefuseModalOpen] = useState(false);
+  const [refusalReason, setRefusalReason] = useState('');
   const location = useLocation();
+
+  // Best-effort: the user can still pick a file manually.
+  const preloadRemoteMedia = async (
+    getUrl: () => Promise<{ ok: boolean; data?: unknown }>,
+  ) => {
+    try {
+      const res = await getUrl();
+      const url = res.ok
+        ? (res.data as { url?: string } | undefined)?.url
+        : null;
+      if (!url) return;
+      const blob = await fetch(url).then((r) => r.blob());
+      const file = new File([blob], 'montage.mp4', { type: 'video/mp4' });
+      processMediaFile(file);
+    } catch {
+      // keep the manual file picker
+    }
+  };
+
+  const loadChannelOptions = async (trackId: string) => {
+    const res = await getTrackById(trackId);
+    if (!res.ok) return;
+    const me = JSON.parse(localStorage.getItem('backendUser') || '{}')?.id;
+    const speakers = ((res.data as { speakers?: PublicUser[] })?.speakers ??
+      []) as PublicUser[];
+    setChannelOptions(speakers.filter((s) => s.id !== me));
+  };
+
+  const loadPublicationRequest = async (id: string) => {
+    const res = await getPublicationRequest(id);
+    if (!res.ok) {
+      setToast({ message: t('PublicationRequestLoadError'), type: 'error' });
+      return;
+    }
+    const request = res.data as PublicationRequest;
+    setReviewedRequest(request);
+    setTitle(request.title);
+    setDescription(request.metadata.description);
+    setTags(request.metadata.tags as Tag_video[]);
+    setInternalSpeakers(request.metadata.internalSpeakers as string[]);
+    setExternalSpeakers(
+      request.metadata.externalSpeakers
+        .split(',')
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0),
+    );
+    if (request.status === 'pending') {
+      preloadRemoteMedia(() => getPublicationRequestMediaUrl(id));
+    }
+  };
+
   useEffect(() => {
     const state = location.state as {
       recordingId?: string;
       title?: string;
+      trackId?: string;
+      publicationRequestId?: string;
     } | null;
+    if (state?.publicationRequestId) {
+      loadPublicationRequest(state.publicationRequestId);
+      return;
+    }
     if (!state?.recordingId) return;
-    setRecordingSourceId(state.recordingId);
+    const recordingId = state.recordingId;
+    setRecordingSourceId(recordingId);
     if (state.title) setTitle(state.title);
-    (async () => {
-      try {
-        const res = await getRecordingMediaUrl(state.recordingId as string);
-        const url =
-          res.ok && (res.data as { url?: string } | undefined)?.url
-            ? (res.data as { url: string }).url
-            : null;
-        if (!url) return;
-        const blob = await fetch(url).then((r) => r.blob());
-        const file = new File([blob], 'montage.mp4', { type: 'video/mp4' });
-        processMediaFile(file);
-      } catch {
-        // preload is best-effort; the organizer can still pick a file manually
-      }
-    })();
+    if (state.trackId) loadChannelOptions(state.trackId);
+    preloadRemoteMedia(() => getRecordingMediaUrl(recordingId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const requestApproval = async () => {
+    if (!recordingSourceId || !targetChannel) return;
+    if (title.trim() === '') {
+      setToast({ message: t('unknownTitle'), type: 'error' });
+      return;
+    }
+    const res = await createPublicationRequest({
+      recordingId: recordingSourceId,
+      targetUserId: targetChannel.id,
+      title,
+      description,
+      tags,
+      internalSpeakers,
+      externalSpeakers: externalSpeakers.join(', '),
+    });
+    if (!res.ok) {
+      setToast({ message: t('PublicationRequestError'), type: 'error' });
+      return;
+    }
+    clearLocalStorage();
+    navigate(-1);
+  };
+
+  const refusePublication = async () => {
+    if (!reviewedRequest) return;
+    const res = await refusePublicationRequest(
+      reviewedRequest.id,
+      refusalReason,
+    );
+    if (!res.ok) {
+      setToast({ message: t('PublicationRefuseError'), type: 'error' });
+      return;
+    }
+    setIsRefuseModalOpen(false);
+    window.dispatchEvent(new Event(PUBLICATION_REQUESTS_CHANGED));
+    clearLocalStorage();
+    navigate('/');
+  };
 
   const handleRemoveMedia = () => {
     setMedia(undefined);
@@ -643,10 +750,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           status: 'completed',
           videoId: response.id,
         });
-        // US-4: the source recording is now published; take it out of the
-        // unlisted working set (best-effort).
-        if (recordingSourceId) {
-          markRecordingPublished(recordingSourceId).catch(() => undefined);
+        // US-6: the speaker accepted the request by publishing it.
+        // US-4: otherwise the source recording is now published; take it out
+        // of the unlisted working set (best-effort).
+        if (reviewedRequest) {
+          acceptPublicationRequest(reviewedRequest.id, response.id)
+            .then(() =>
+              window.dispatchEvent(new Event(PUBLICATION_REQUESTS_CHANGED)),
+            )
+            .catch(() => undefined);
+        } else if (recordingSourceId) {
+          markRecordingPublished(recordingSourceId, response.id).catch(
+            () => undefined,
+          );
         }
       },
       onError: (error: string) => {
@@ -975,12 +1091,48 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           </div>
         </div>
 
+        {reviewedRequest && (
+          <div className={styles.publicationBanner} role="status">
+            {reviewedRequest.status === 'pending'
+              ? t('PublicationReviewBanner', {
+                  name: displayName(reviewedRequest.requester),
+                })
+              : t('PublicationRequestClosed')}
+          </div>
+        )}
+        {targetChannel && (
+          <div className={styles.publicationBanner} role="status">
+            {t('PublicationPendingNotice', {
+              name: displayName(targetChannel),
+            })}
+          </div>
+        )}
+
         {/* MAIN CONTENT */}
         <div className={styles.mainContentWrapper}>
           <div className={styles.addVideoForm}>
             {/* SECTION 1: INFORMATIONS DE BASE */}
             <div className={styles.formSection}>
               <h3>Informations de base</h3>
+              {recordingSourceId && channelOptions.length > 0 && (
+                <div className={styles.inputWrapper}>
+                  <label htmlFor="publication-channel">
+                    {t('PublishOnChannel')}
+                  </label>
+                  <select
+                    id="publication-channel"
+                    value={targetChannelId}
+                    onChange={(e) => setTargetChannelId(e.target.value)}
+                  >
+                    <option value="">{t('MyChannel')}</option>
+                    {channelOptions.map((speaker) => (
+                      <option key={speaker.id} value={speaker.id}>
+                        {displayName(speaker)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className={styles.inputWrapper}>
                 <label>
                   {t('Titre')}
@@ -1051,68 +1203,78 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 )}
               </div>
 
-              <div className={styles.inputWrapper}>
-                <label>{t('addMiniature')}</label>
-                <div className={styles.fileInputWrapper}>
-                  {(miniature || miniatureUrl) && (
-                    <button
-                      className={styles.fileRemoveButton}
-                      onClick={handleRemoveMiniature}
-                      title={t('removeFile')}
-                      type="button"
-                    >
-                      ✕
-                    </button>
-                  )}
-                  <InputFile
-                    key={miniatureInputKey}
-                    placeholder={
-                      miniature
-                        ? miniature.name
-                        : baseVideo?.miniature_id
-                          ? baseVideo.miniature_id
-                          : t('addMiniature')
-                    }
-                    onChange={handleMiniatureChange}
-                    disable={false}
-                  />
-                </div>
+              {targetChannel ? (
                 <span className={styles.formatHint}>
-                  Formats acceptés : .jpg, .jpeg, .png, .gif, .webp
+                  {t('SpeakerChoosesFiles', {
+                    name: displayName(targetChannel),
+                  })}
                 </span>
-              </div>
+              ) : (
+                <>
+                  <div className={styles.inputWrapper}>
+                    <label>{t('addMiniature')}</label>
+                    <div className={styles.fileInputWrapper}>
+                      {(miniature || miniatureUrl) && (
+                        <button
+                          className={styles.fileRemoveButton}
+                          onClick={handleRemoveMiniature}
+                          title={t('removeFile')}
+                          type="button"
+                        >
+                          ✕
+                        </button>
+                      )}
+                      <InputFile
+                        key={miniatureInputKey}
+                        placeholder={
+                          miniature
+                            ? miniature.name
+                            : baseVideo?.miniature_id
+                              ? baseVideo.miniature_id
+                              : t('addMiniature')
+                        }
+                        onChange={handleMiniatureChange}
+                        disable={false}
+                      />
+                    </div>
+                    <span className={styles.formatHint}>
+                      Formats acceptés : .jpg, .jpeg, .png, .gif, .webp
+                    </span>
+                  </div>
 
-              <div className={styles.inputWrapper}>
-                <label>{t('addSubtitle')}</label>
-                <div className={styles.fileInputWrapper}>
-                  {subtitle && (
-                    <button
-                      className={styles.fileRemoveButton}
-                      onClick={handleRemoveSubtitle}
-                      title={t('removeFile')}
-                      type="button"
-                    >
-                      ✕
-                    </button>
-                  )}
-                  <InputFile
-                    key={subtitleInputKey}
-                    placeholder={
-                      subtitle
-                        ? subtitle.name
-                        : baseVideo?.subtitle_id !== undefined
-                          ? baseVideo.subtitle_id
-                          : t('addSubtitle')
-                    }
-                    onChange={handleSubtitleChange}
-                    disable={false}
-                    required={false}
-                  />
-                </div>
-                <span className={styles.formatHint}>
-                  Formats acceptés : .srt, .vtt
-                </span>
-              </div>
+                  <div className={styles.inputWrapper}>
+                    <label>{t('addSubtitle')}</label>
+                    <div className={styles.fileInputWrapper}>
+                      {subtitle && (
+                        <button
+                          className={styles.fileRemoveButton}
+                          onClick={handleRemoveSubtitle}
+                          title={t('removeFile')}
+                          type="button"
+                        >
+                          ✕
+                        </button>
+                      )}
+                      <InputFile
+                        key={subtitleInputKey}
+                        placeholder={
+                          subtitle
+                            ? subtitle.name
+                            : baseVideo?.subtitle_id !== undefined
+                              ? baseVideo.subtitle_id
+                              : t('addSubtitle')
+                        }
+                        onChange={handleSubtitleChange}
+                        disable={false}
+                        required={false}
+                      />
+                    </div>
+                    <span className={styles.formatHint}>
+                      Formats acceptés : .srt, .vtt
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* SECTION 3: TAGS & ORATEURS */}
@@ -1272,7 +1434,26 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                       type={ButtonType.danger}
                     ></Button>
                   </>
-                ) : (
+                ) : targetChannel ? (
+                  <Button
+                    onClick={requestApproval}
+                    label={t('RequestApproval')}
+                    type={ButtonType.primary}
+                  ></Button>
+                ) : reviewedRequest?.status === 'pending' ? (
+                  <>
+                    <Button
+                      onClick={publishVideo}
+                      label={t('PublishOnMyChannel')}
+                      type={ButtonType.primary}
+                    ></Button>
+                    <Button
+                      onClick={() => setIsRefuseModalOpen(true)}
+                      label={t('RefusePublication')}
+                      type={ButtonType.danger}
+                    ></Button>
+                  </>
+                ) : reviewedRequest ? null : (
                   <Button
                     onClick={publishVideo}
                     label={t('publish')}
@@ -1314,6 +1495,37 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             </div>
           </div>
         </div>
+
+        <Modal
+          isOpen={isRefuseModalOpen}
+          toggle={() => setIsRefuseModalOpen(false)}
+        >
+          <h2>{t('RefusePublication')}</h2>
+          <div className={styles.inputWrapper}>
+            <label htmlFor="refusal-reason">{t('RefusalReasonLabel')}</label>
+            <textarea
+              id="refusal-reason"
+              maxLength={500}
+              placeholder={t('RefusalReasonPlaceholder')}
+              value={refusalReason}
+              onChange={(e) => setRefusalReason(e.target.value)}
+            />
+          </div>
+          <div
+            className={`${styles.confirmationButtons} ${styles.modalActions}`}
+          >
+            <Button
+              onClick={() => setIsRefuseModalOpen(false)}
+              label={t('Cancel')}
+              type={ButtonType.secondary}
+            ></Button>
+            <Button
+              onClick={refusePublication}
+              label={t('ConfirmRefusal')}
+              type={ButtonType.danger}
+            ></Button>
+          </div>
+        </Modal>
 
         {toast && (
           <Toast

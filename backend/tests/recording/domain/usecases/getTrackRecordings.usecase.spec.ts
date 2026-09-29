@@ -77,6 +77,20 @@ describe('GetTrackRecordingsUsecase', () => {
     const result = await usecase.execute(trackId, email);
 
     expect(result).toBe(segments);
+    // Published recordings are listed too (shown as a compact line).
+    expect(recordingRepo.getRecordingsByTrack).toHaveBeenCalledWith(
+      trackId,
+      undefined,
+    );
+  });
+
+  it('filters on a visibility when one is given', async () => {
+    trackGateway.getTracks.mockResolvedValue([makeTrack(true)]);
+    userGateway.getUserByEmail.mockResolvedValue(user);
+    recordingRepo.getRecordingsByTrack.mockResolvedValue([]);
+
+    await usecase.execute(trackId, email, 'unlisted');
+
     expect(recordingRepo.getRecordingsByTrack).toHaveBeenCalledWith(trackId, {
       visibility: 'unlisted',
     });

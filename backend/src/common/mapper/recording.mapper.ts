@@ -2,7 +2,7 @@ import { RecordingEntity } from '../../recording/infra/gateways/entities/recordi
 import { RecordingObject } from '../../recording/domain/recording';
 
 export function toRecordingObject(entity: RecordingEntity): RecordingObject {
-  return new RecordingObject(
+  const recording = new RecordingObject(
     entity.id,
     entity.trackId,
     entity.media_id,
@@ -15,6 +15,16 @@ export function toRecordingObject(entity: RecordingEntity): RecordingObject {
     entity.status ?? 'ready',
     entity.source_segment_ids ?? null,
   );
+  recording.publishedAt = entity.published_at ?? null;
+  recording.publishedVideoId = entity.published_video_id ?? null;
+  recording.publishedBy = entity.published_by
+    ? {
+        id: entity.published_by.id,
+        firstName: entity.published_by.firstName,
+        lastName: entity.published_by.lastName,
+      }
+    : null;
+  return recording;
 }
 
 export function toRecordingEntity(recording: RecordingObject): RecordingEntity {

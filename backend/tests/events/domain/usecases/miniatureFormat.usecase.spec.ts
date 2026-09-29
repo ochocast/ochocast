@@ -20,6 +20,13 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
   let usecase: CreateNewVideoUsecase;
   let videoGateway: jest.Mocked<IVideoGateway>;
   let queueService: jest.Mocked<Pick<QueueService, 'publishJob'>>;
+  const userGateway = {
+    getUserByEmail: jest
+      .fn()
+      .mockImplementation(async (email: string) =>
+        email === 'me@example.com' ? { id: 'my-id' } : null,
+      ),
+  };
 
   beforeEach(async () => {
     videoGateway = mock<IVideoGateway>();
@@ -32,6 +39,7 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
         { provide: 'VideoGateway', useValue: videoGateway },
         { provide: 's3Client', useValue: mock<S3Client>() },
         { provide: QueueService, useValue: queueService },
+        { provide: 'UserGateway', useValue: userGateway },
       ],
     }).compile();
     usecase = module.get(CreateNewVideoUsecase);
@@ -92,5 +100,31 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
         ),
       }),
     );
+  });
+
+  it('publishes on the uploader channel, whatever creator the client sent', async () => {
+    const dto = {
+      title: 'Not mine',
+      description: '',
+      tags: [],
+      creator: new UserEntity({ id: 'someone-else' }),
+      internal_speakers: [],
+      external_speakers: '',
+    } as unknown as CreateVideoDto;
+    const videoFile = {
+      buffer: Buffer.from('video'),
+      originalname: 'movie.mp4',
+      mimetype: 'video/mp4',
+    } as Express.Multer.File;
+
+    const result = await usecase.execute(
+      dto,
+      videoFile,
+      undefined,
+      undefined,
+      'me@example.com',
+    );
+
+    expect(result.creator).toEqual({ id: 'my-id' });
   });
 });
