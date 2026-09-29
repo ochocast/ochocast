@@ -16,6 +16,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { pipeline } from 'node:stream/promises';
 import { CreateVideoDto } from './dto/create-video.dto';
 import { ModifyVideoDto } from './dto/modify-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
@@ -59,24 +60,8 @@ export class VideosController {
   ) {}
 
   @Post()
-  @UseInterceptors(AnyFilesInterceptor())
-  @UsePipes(new ValidationPipe())
-  async postVideo(
-    @UploadedFiles() files: Array<Express.Multer.File>,
-    @Body() video: CreateVideoDto & { media_id: string; miniature_id: string },
-  ): Promise<VideoObject> {
-    const videoFile = files.find((file) => file.fieldname === 'file');
-    const miniatureFile = files.find((file) => file.fieldname === 'miniature');
-    const subtitleFile = files.find((file) => file.fieldname === 'subtitle');
-    console.log(videoFile + '\n');
-    console.log(miniatureFile + '\n');
-    console.log(subtitleFile + '\n');
-    return await this.createNewVideoUsecase.execute(
-      video,
-      videoFile,
-      miniatureFile,
-      subtitleFile,
-    );
+  async postVideo(): Promise<never> {
+    throw new HttpException('Use /api/video-uploads for direct multipart upload', HttpStatus.GONE);
   }
 
   // Standard GET route with query parameters
@@ -103,7 +88,7 @@ export class VideosController {
   }
 
   @Post('/modify')
-  @UseInterceptors(AnyFilesInterceptor())
+  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: 5 * 1024 ** 2, files: 2, fields: 20, fieldSize: 64 * 1024 } }))
   @UsePipes(new ValidationPipe({ transform: true }))
   async modifyVideo(
     @UploadedFiles() files: Array<Express.Multer.File>,
@@ -179,7 +164,7 @@ export class VideosController {
     if (media.cacheControl) {
       response.setHeader('Cache-Control', media.cacheControl);
     }
-    response.send(Buffer.from(media.body));
+    await pipeline(media.body, response);
   }
 
   @Get('/miniature/:id')

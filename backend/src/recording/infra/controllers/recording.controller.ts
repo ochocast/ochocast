@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { unlink } from 'node:fs/promises';
 import {
   Body,
   Controller,
@@ -68,7 +70,7 @@ export class RecordingController {
   }
 
   @Post('publish')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', { dest: tmpdir(), limits: { fileSize: Number(process.env.UPLOAD_MAX_BYTES || 20 * 1024 ** 3), files: 1, fields: 1, fieldSize: 1024 } }))
   async publishRecording(
     @UploadedFile() file: Express.Multer.File,
     @Body('trackId') trackId: string,
@@ -78,6 +80,7 @@ export class RecordingController {
     }
 
     if (!trackId || !isUUID(trackId)) {
+      await unlink(file.path).catch(() => undefined);
       throw new HttpException(
         'trackId must be a valid UUID',
         HttpStatus.BAD_REQUEST,
@@ -91,6 +94,8 @@ export class RecordingController {
         `Failed to publish recording: ${error.message}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    } finally {
+      await unlink(file.path).catch(() => undefined);
     }
   }
 }

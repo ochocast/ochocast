@@ -1,3 +1,5 @@
+import { VideoUpload } from './uploads/upload.entity';
+import { UploadsModule } from './uploads/uploads.module';
 import { Module } from '@nestjs/common';
 import { VideosController } from './infra/controllers/videos.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -26,10 +28,11 @@ import { TranscodingResultConsumer } from './transcoding-result.consumer';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([VideoEntity]),
+    TypeOrmModule.forFeature([VideoEntity, VideoUpload]),
     S3Module,
     UsersModule,
     QueueModule,
+    UploadsModule,
   ],
   controllers: [VideosController],
   providers: [

@@ -588,17 +588,19 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     navigate('/videos');
 
     uploadVideoWithProgress(form, {
+      onSession: (sessionId) => updateUpload(uploadId, { sessionId }),
+      onPause: () => updateUpload(uploadId, { status: 'error', errorMessage: 'Envoi en pause. Vous pouvez le reprendre.' }),
       onProgress: (progress: number) => {
         updateUpload(uploadId, {
           progress,
-          status: progress === 100 ? 'processing' : 'uploading',
+          status: 'uploading',
         });
       },
-      onComplete: (response: { id: string }) => {
+      onComplete: () => {
         updateUpload(uploadId, {
           progress: 100,
           status: 'completed',
-          videoId: response.id,
+          videoId: undefined,
         });
       },
       onError: (error: string) => {
@@ -607,7 +609,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
           errorMessage: error,
         });
       },
-    });
+    }, uploadId);
   };
 
   const handleArchiveClick = () => {
