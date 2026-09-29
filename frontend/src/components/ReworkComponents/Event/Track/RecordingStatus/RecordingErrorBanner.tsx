@@ -24,7 +24,7 @@ const RecordingErrorBanner: FC<RecordingErrorBannerProps> = ({
 
   return (
     <div className={styles.banner} role="alert">
-      <strong>{t('RecordingStatusError')}</strong>
+      <strong>{t('RecordingErrorBannerTitle')}</strong>
       <span>{errorMessage(status.error)}</span>
       <Link to={settingsPath} className={styles.link}>
         {t('OpenTrackSettings')}

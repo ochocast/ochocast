@@ -201,11 +201,11 @@ Désactivez le toggle. Si un live est en cours, l'enregistrement s'arrête immé
 | Statut | Signification |
 |--------|---------------|
 | Désactivé | Le track n'est pas armé |
-| Armé — en attente du live | Le prochain live sera enregistré |
-| Enregistrement en cours | L'enregistreur capture le live |
-| Problème d'enregistrement | Le démarrage ou l'arrêt a échoué après plusieurs tentatives, ou l'enregistreur est injoignable |
+| Armé | Le prochain live sera enregistré |
+| Enregistrement | L'enregistreur capture le live |
+| Erreur | Le démarrage ou l'arrêt a échoué après plusieurs tentatives, ou l'enregistreur est injoignable |
 
-En cas de problème, un bandeau s'affiche aussi sur la page du live, **visible uniquement par l'organisateur**, avec un lien vers les paramètres du track. Le problème disparaît au prochain démarrage réussi, ou en désarmant le track.
+En cas d'erreur, un bandeau « Problème d'enregistrement » s'affiche aussi sur la page du live, **visible uniquement par l'organisateur**, avec un lien vers les paramètres du track. Le problème disparaît au prochain démarrage réussi, ou en désarmant le track.
 
 ---
 
