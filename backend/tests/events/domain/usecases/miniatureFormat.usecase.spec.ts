@@ -66,6 +66,7 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
     expect(result).toBeInstanceOf(VideoObject);
     expect(result.transcoding_status).toBe('pending');
     expect(result.media_id).toMatch(/\/master\.m3u8$/);
+    expect(result.subtitle_id).toBeUndefined();
     expect(Upload).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
@@ -90,6 +91,7 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
         miniatureSourceKey: expect.stringMatching(
           /\/source\/miniature-original$/,
         ),
+        subtitle_id: undefined,
       }),
     );
   });
