@@ -16,7 +16,6 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { CreateVideoDto } from './dto/create-video.dto';
 import { ModifyVideoDto } from './dto/modify-video.dto';
 import { CreateNewVideoUsecase } from '../../domain/usecases/createNewVideo.usecase';
 import { GetVideosUsecase } from '../../domain/usecases/getVideos.usecase';
@@ -60,7 +59,10 @@ export class VideosController {
 
   @Post()
   async postVideo(): Promise<never> {
-    throw new HttpException('Use /api/video-uploads for direct multipart upload', HttpStatus.GONE);
+    throw new HttpException(
+      'Use /api/video-uploads for direct multipart upload',
+      HttpStatus.GONE,
+    );
   }
 
   // Standard GET route with query parameters
@@ -87,7 +89,16 @@ export class VideosController {
   }
 
   @Post('/modify')
-  @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: 5 * 1024 ** 2, files: 2, fields: 20, fieldSize: 64 * 1024 } }))
+  @UseInterceptors(
+    AnyFilesInterceptor({
+      limits: {
+        fileSize: 5 * 1024 ** 2,
+        files: 2,
+        fields: 20,
+        fieldSize: 64 * 1024,
+      },
+    }),
+  )
   @UsePipes(new ValidationPipe({ transform: true }))
   async modifyVideo(
     @UploadedFiles() files: Array<Express.Multer.File>,

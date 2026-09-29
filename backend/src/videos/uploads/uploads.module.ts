@@ -9,9 +9,16 @@ import { UploadsService } from './uploads.service';
 import { VideoUpload } from './upload.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([VideoUpload, VideoEntity]), S3Module, UsersModule],
+  imports: [
+    TypeOrmModule.forFeature([VideoUpload, VideoEntity]),
+    S3Module,
+    UsersModule,
+  ],
   controllers: [UploadsController],
-  providers: [UploadsService, { provide: MultipartStorage, useClass: S3MultipartStorage }],
+  providers: [
+    UploadsService,
+    { provide: MultipartStorage, useClass: S3MultipartStorage },
+  ],
   exports: [UploadsService],
 })
 export class UploadsModule {}

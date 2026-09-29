@@ -8,7 +8,11 @@ export class VideoUploads1788950000000 implements MigrationInterface {
       state varchar NOT NULL DEFAULT 'uploading', checksums jsonb NOT NULL DEFAULT '{}',
       "expiresAt" timestamptz NOT NULL, "completedAt" timestamptz
     )`);
-    await q.query(`CREATE INDEX video_upload_expired ON video_upload (state, "expiresAt")`);
+    await q.query(
+      `CREATE INDEX video_upload_expired ON video_upload (state, "expiresAt")`,
+    );
   }
-  async down(q: QueryRunner): Promise<void> { await q.query('DROP TABLE video_upload'); }
+  async down(q: QueryRunner): Promise<void> {
+    await q.query('DROP TABLE video_upload');
+  }
 }
