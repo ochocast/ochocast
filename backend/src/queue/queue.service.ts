@@ -16,6 +16,9 @@ export class QueueService implements OnModuleDestroy {
     process.env.VIDEO_QUEUE_NAME || 'video-transcoding-queue';
   private readonly resultQueueName =
     process.env.VIDEO_RESULT_QUEUE_NAME || 'video-transcoding-results';
+  get configured(): boolean {
+    return Boolean(process.env.RABBITMQ_URL || process.env.RABBITMQ_HOST);
+  }
   private readonly rabbitUrl =
     process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672';
 
@@ -51,6 +54,7 @@ export class QueueService implements OnModuleDestroy {
   }
 
   async publishJob(job: VideoTranscodingJob, priority = 5): Promise<void> {
+    if (!this.configured) throw new Error('RabbitMQ is not configured');
     await this.connect();
     this.channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(job)), {
       persistent: true,
@@ -65,6 +69,7 @@ export class QueueService implements OnModuleDestroy {
     handler: (result: VideoTranscodingResult) => Promise<void>,
   ): Promise<void> {
     this.resultHandler = handler;
+    if (!this.configured) return;
     await this.startResultConsumer();
   }
 

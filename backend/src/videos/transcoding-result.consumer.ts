@@ -16,6 +16,7 @@ export class TranscodingResultConsumer implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
+    if (!this.queueService.configured) return;
     await this.queueService.consumeResults((result) =>
       this.handleResult(result),
     );
