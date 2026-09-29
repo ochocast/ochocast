@@ -1,8 +1,13 @@
 #!/bin/bash
 
-# Configuration - Modifiez ces valeurs selon votre registry Scaleway
-REGISTRY="rg.fr-par.scw.cloud/sfu-server"  # Votre namespace Scaleway
-VERSION="${1:-latest}"  # Utilisez le premier argument ou 'latest' par défaut
+# Configuration - override REGISTRY when targeting another Scaleway namespace.
+REGISTRY="${REGISTRY:-rg.fr-par.scw.cloud/sfu-server}"
+VERSION="${1:-sha-$(git rev-parse --short=12 HEAD)}"
+
+if [ "$VERSION" = "latest" ]; then
+    echo "Error: refusing to build or push the mutable 'latest' tag"
+    exit 1
+fi
 
 # Couleurs pour les logs
 GREEN='\033[0;32m'

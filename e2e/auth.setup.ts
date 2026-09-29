@@ -1,34 +1,25 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, expect } from '@playwright/test';
 
 const authFile = 'playwright/.auth/user.json';
 
-setup('authenticate', async ({ page }) => {
-  // 1. Naviguer vers l'application
+const keycloakUrl =
+  process.env.PLAYWRIGHT_KEYCLOAK_URL || 'http://localhost:8080';
+const testUser = process.env.PLAYWRIGHT_TEST_USER || 'test-user';
+const testPassword = process.env.PLAYWRIGHT_TEST_PASSWORD || 'test-password';
+
+setup('authenticate', async ({ page, baseURL }) => {
   await page.goto('/');
 
-  // 2. Attendre la redirection vers le serveur Keycloak
-  // Le serveur Keycloak local tourne par défaut sur le port 8080 (realm local-realm)
-  await page.waitForURL(/.*localhost:8080.*/);
+  // The app redirects unauthenticated users to the Keycloak login page.
+  await page.waitForURL(`${keycloakUrl}/**`);
 
-  // 3. Remplir le formulaire Keycloak
-  // Les sélecteurs ci-dessous sont les sélecteurs standard de la page de login Keycloak
-  const usernameInput = page.locator('#username');
-  const passwordInput = page.locator('#password');
-  const loginButton = page.locator('#kc-login');
+  await page.locator('#username').fill(testUser);
+  await page.locator('#password').fill(testPassword);
+  await page.locator('#kc-login').click();
 
-  // Récupérer les identifiants de test depuis l'environnement ou utiliser des valeurs par défaut
-  const testUser = process.env.PLAYWRIGHT_TEST_USER || 'test-user';
-  const testPassword = process.env.PLAYWRIGHT_TEST_PASSWORD || 'test-password';
+  // Back on the app once the OIDC flow is done.
+  await page.waitForURL(`${baseURL}/**`);
+  await expect(page.getByRole('img', { name: 'OchoCast logo' })).toBeVisible();
 
-  await usernameInput.fill(testUser);
-  await passwordInput.fill(testPassword);
-  
-  // 4. Soumettre le formulaire
-  await loginButton.click();
-
-  // 5. Attendre d'être redirigé à nouveau vers l'application principale
-  await page.waitForURL('http://localhost:3000/**');
-
-  // 6. Sauvegarder l'état d'authentification pour les autres tests
   await page.context().storageState({ path: authFile });
 });

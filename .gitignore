@@ -26,3 +26,4 @@ dev-tools/localMinio/run_env/*
 coverage
 /playwright-report
 /test-results
+/playwright/.auth

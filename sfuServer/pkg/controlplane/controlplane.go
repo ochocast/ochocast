@@ -2,6 +2,7 @@ package controlplane
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -12,9 +13,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
+	"whip-server/internal/lifecycle"
 	"whip-server/internal/models"
 )
 
@@ -85,7 +90,59 @@ type ControlPlane struct {
 
 	// Semaphore for limiting concurrent goroutines
 	syncSemaphore *semaphore
+
+	// Persistent room lifecycle state (provisioning/ready/failed/draining/terminated).
+	// nil if the backing store could not be opened — room state then lives only in memory.
+	roomState *lifecycle.Store
+
+	// provisioner creates on-demand SFU capacity. nil when no autoscaler is
+	// configured, in which case room creation hard-fails on "no active SFUs" as
+	// before.
+	provisioner capacityEnsurer
+
+	// Externally reachable TLS endpoint used in streamer-facing WHIP URLs.
+	// Empty falls back to the host and forwarding headers of the HTTP request.
+	publicURL string
 }
+
+// capacityEnsurer provisions on-demand SFU capacity for a room. Implemented by
+// autoscaler.Provisioner and stubbed in tests. Kept as an interface so the
+// control-plane package does not import the autoscaler (and to make the
+// cold-start path testable).
+type capacityEnsurer interface {
+	EnsureCapacity(ctx context.Context, roomID string) (models.WorkerRecord, error)
+	Drain(sfuID string) error
+	ReleaseCapacity(ctx context.Context, roomID string) error
+}
+
+// SetProvisioner wires an autoscaler into the control-plane. With one set, a
+// room created when no SFU is ready enters the provisioning path instead of
+// failing.
+func (cp *ControlPlane) SetProvisioner(p capacityEnsurer) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	cp.provisioner = p
+}
+
+// SetPublicURL configures the externally reachable control-plane base URL.
+func (cp *ControlPlane) SetPublicURL(raw string) error {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return fmt.Errorf("invalid control-plane public URL %q", raw)
+	}
+	cp.mu.Lock()
+	cp.publicURL = strings.TrimRight(raw, "/")
+	cp.mu.Unlock()
+	return nil
+}
+
+// LifecycleStore returns the control-plane's persistent lifecycle store so the
+// autoscaler can share it. nil if the store could not be opened.
+func (cp *ControlPlane) LifecycleStore() *lifecycle.Store { return cp.roomState }
 
 // Grace period before cleaning up room topology when stream ends
 // This allows the host to reconnect (e.g., OBS stop/start) without losing the room
@@ -102,6 +159,44 @@ type SFUInfo struct {
 	Active        bool
 }
 
+type operatorSFUStatus struct {
+	ID            string    `json:"id"`
+	URL           string    `json:"url"`
+	Region        string    `json:"region,omitempty"`
+	Zone          string    `json:"zone,omitempty"`
+	Active        bool      `json:"active"`
+	LastHeartbeat time.Time `json:"last_heartbeat"`
+	CPU           float64   `json:"cpu,omitempty"`
+	Memory        float64   `json:"memory,omitempty"`
+	ActiveHosts   int       `json:"active_hosts,omitempty"`
+	ActiveViewers int       `json:"active_viewers,omitempty"`
+}
+
+type operatorFailureStatus struct {
+	Kind   string `json:"kind"`
+	ID     string `json:"id"`
+	State  string `json:"state"`
+	Reason string `json:"reason,omitempty"`
+}
+
+type operatorStatusCounts struct {
+	RegisteredSFUs int                        `json:"registered_sfus"`
+	ActiveSFUs     int                        `json:"active_sfus"`
+	RoomsByState   map[models.RoomState]int   `json:"rooms_by_state"`
+	WorkersByState map[models.WorkerState]int `json:"workers_by_state"`
+}
+
+type operatorStatusResponse struct {
+	GeneratedAt             time.Time               `json:"generated_at"`
+	LifecycleStoreAvailable bool                    `json:"lifecycle_store_available"`
+	Counts                  operatorStatusCounts    `json:"counts"`
+	RegisteredSFUs          []operatorSFUStatus     `json:"registered_sfus"`
+	Rooms                   []models.RoomLifecycle  `json:"rooms"`
+	Workers                 []models.WorkerRecord   `json:"workers"`
+	ProvisioningFailures    []operatorFailureStatus `json:"provisioning_failures"`
+	PendingCleanupRooms     []string                `json:"pending_cleanup_rooms"`
+}
+
 // NewControlPlane creates a new control plane instance
 func NewControlPlane(maxFanout int, rebalanceThreshold float64) *ControlPlane {
 	cp := &ControlPlane{
@@ -112,6 +207,19 @@ func NewControlPlane(maxFanout int, rebalanceThreshold float64) *ControlPlane {
 		relayCreating:      make(map[string]bool),
 		pendingCleanups:    make(map[string]*time.Timer),
 		syncSemaphore:      newSemaphore(5), // Max 5 concurrent sync operations
+	}
+
+	// Open the persistent room lifecycle store. Failure is non-fatal: the
+	// control-plane still serves traffic, just without restart-durable room state.
+	statePath := os.Getenv("CONTROL_PLANE_STATE_FILE")
+	if statePath == "" {
+		statePath = "controlplane-state/rooms.json"
+	}
+	if store, err := lifecycle.New(statePath); err != nil {
+		log.Printf("[CP] lifecycle store unavailable (%v); room state will not persist", err)
+	} else {
+		cp.roomState = store
+		log.Printf("[CP] lifecycle store %s recovered %d room(s)", statePath, len(store.List()))
 	}
 
 	// Start background tasks
@@ -161,6 +269,10 @@ func (cp *ControlPlane) RegisterSFU(reg *models.SFURegistration) error {
 	cp.sfus[reg.SFUID] = sfu
 	log.Printf("[CP] Registered SFU: %s (%s)", reg.SFUID, reg.ServerURL)
 
+	// Advance a provisioned worker from `provisioning` to `registered`; a healthy
+	// heartbeat then promotes it to `ready` (task 5.3).
+	cp.promoteWorker(reg.SFUID, false)
+
 	return nil
 }
 
@@ -186,10 +298,15 @@ func (cp *ControlPlane) UpdateMetrics(metrics *models.SFUMetrics) error {
 	sfu.Active = true
 
 	// Check if any room needs rebalancing based on new metrics
-	if metrics.CPU > cp.rebalanceThreshold || metrics.Memory > cp.rebalanceThreshold {
+	healthy := metrics.CPU <= cp.rebalanceThreshold && metrics.Memory <= cp.rebalanceThreshold
+	if !healthy {
 		log.Printf("[CP] SFU %s is overloaded (CPU: %.2f%%, Mem: %.2f%%), considering rebalance",
 			metrics.SFUID, metrics.CPU*100, metrics.Memory*100)
 	}
+
+	// A healthy heartbeat promotes a registered worker to ready and binds it to
+	// its room (task 5.3).
+	cp.promoteWorker(metrics.SFUID, healthy)
 
 	// Process per-room stats for relay cleanup
 	if metrics.RoomStats != nil {
@@ -322,6 +439,7 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 	if !exists {
 		return
 	}
+	ingestionSFUID := topology.IngestionSFUID
 
 	// Collect relay SFUs to notify
 	relaysToNotify := make([]string, 0)
@@ -342,6 +460,75 @@ func (cp *ControlPlane) scheduleTopologyCleanup(roomID string) {
 
 	// Notify ALL SFUs to delete the room so it can be re-created with a new key later
 	go cp.syncRoomDeletionToAllSFUs(roomID)
+	cp.markRoomTerminated(roomID)
+
+	// The topology grace period doubles as the first-stage idle timeout. Once it
+	// expires, release only capacity tracked by the on-demand provisioner. A
+	// ready worker may host multiple rooms, so removing one room must not destroy
+	// capacity that another topology still references.
+	if cp.provisioner != nil {
+		if ingestionSFUID != "" {
+			for otherRoomID, otherTopology := range cp.rooms {
+				if _, stillReferenced := otherTopology.Nodes[ingestionSFUID]; stillReferenced {
+					log.Printf("[CP-CLEANUP] Retaining SFU %s after room %s cleanup; still serving room %s", ingestionSFUID, roomID, otherRoomID)
+					return
+				}
+			}
+
+			// Resolve the provisioner's owning room before draining. Reused rooms
+			// are not the worker record's original RoomID.
+			releaseRoomID := roomID
+			if cp.roomState != nil {
+				if worker, tracked := cp.roomState.GetWorker(ingestionSFUID); tracked {
+					releaseRoomID = worker.RoomID
+					// Drain synchronously while cp.mu is held so selectIngestionSFU
+					// cannot assign a new room between the final reference check and
+					// asynchronous destruction.
+					if err := cp.provisioner.Drain(ingestionSFUID); err != nil {
+						log.Printf("[CP-CLEANUP] drain SFU %s after room %s: %v", ingestionSFUID, roomID, err)
+						return
+					}
+				}
+			}
+
+			go func() {
+				if err := cp.provisioner.ReleaseCapacity(context.Background(), releaseRoomID); err != nil {
+					log.Printf("[CP-CLEANUP] release capacity for worker %s (owner room %s): %v", ingestionSFUID, releaseRoomID, err)
+				}
+			}()
+			return
+		}
+
+		// Legacy/static test topologies may not carry an ingestion SFU. Preserve
+		// the room-keyed release path; untracked static capacity remains a no-op.
+		go func() {
+			if err := cp.provisioner.ReleaseCapacity(context.Background(), roomID); err != nil {
+				log.Printf("[CP-CLEANUP] release capacity for room %s: %v", roomID, err)
+			}
+		}()
+	}
+}
+
+// markRoomTerminated records topology removal independently from worker
+// destruction. This matters when a worker is shared: the cleaned room is
+// terminal even though the worker remains ready for another active room.
+func (cp *ControlPlane) markRoomTerminated(roomID string) {
+	if cp.roomState == nil {
+		return
+	}
+	room, exists := cp.roomState.Get(roomID)
+	if !exists || room.State == models.RoomTerminated {
+		return
+	}
+	if room.State == models.RoomReady {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomDraining, "idle timeout"); err != nil {
+			log.Printf("[CP-CLEANUP] mark room %s draining: %v", roomID, err)
+			return
+		}
+	}
+	if _, err := cp.roomState.Upsert(roomID, models.RoomTerminated, "idle timeout"); err != nil {
+		log.Printf("[CP-CLEANUP] mark room %s terminated: %v", roomID, err)
+	}
 }
 
 // syncRoomDeletionToAllSFUs sends room deletion to all registered SFUs
@@ -516,6 +703,21 @@ func (cp *ControlPlane) JoinHost(req *models.JoinHostRequest, currentSFUID strin
 	}, nil
 }
 
+// acceptsNewRooms reports whether an SFU may receive a new room assignment. A
+// worker that is draining (or otherwise not ready) is excluded so scale-down
+// candidates stop taking new rooms while still serving their current one
+// (task 5.5). SFUs with no worker record (statically-run SFUs) always accept.
+func (cp *ControlPlane) acceptsNewRooms(sfuID string) bool {
+	if cp.roomState == nil {
+		return true
+	}
+	rec, ok := cp.roomState.GetWorker(sfuID)
+	if !ok {
+		return true
+	}
+	return rec.State == models.WorkerReady
+}
+
 // selectIngestionSFU selects the best SFU to be the ingestion node
 func (cp *ControlPlane) selectIngestionSFU() string {
 	var bestSFUID string
@@ -524,6 +726,9 @@ func (cp *ControlPlane) selectIngestionSFU() string {
 	for sfuID, sfu := range cp.sfus {
 		if !sfu.Active {
 			continue
+		}
+		if !cp.acceptsNewRooms(sfuID) {
+			continue // draining/not-ready worker: no new room assignments (task 5.5)
 		}
 
 		// Score based on current load (lower is better)
@@ -869,7 +1074,29 @@ func (cp *ControlPlane) CreateRoom(roomID string) (string, bool, error) {
 	// Select an ingestion SFU for this room
 	ingestionSFUID := cp.selectIngestionSFU()
 	if ingestionSFUID == "" {
-		return "", false, fmt.Errorf("no active SFUs available")
+		// No ready SFU. Without an autoscaler this is still a hard failure.
+		if cp.provisioner == nil {
+			return "", false, fmt.Errorf("no active SFUs available")
+		}
+		// Cold start: create the room in `provisioning` with no ingestion SFU
+		// yet, trigger capacity creation, and let the streamer poll until it is
+		// ready (task 5.2). A worker fills IngestionSFUID once it registers.
+		key := generateRoomKey()
+		cp.rooms[roomID] = &models.RoomTopology{
+			RoomID:        roomID,
+			Key:           key,
+			Nodes:         make(map[string]*models.TopologyNode),
+			CreatedAt:     time.Now(),
+			LastRebalance: time.Now(),
+		}
+		if cp.roomState != nil {
+			if _, err := cp.roomState.Upsert(roomID, models.RoomProvisioning, ""); err != nil {
+				log.Printf("[CP] failed to persist provisioning room %s: %v", roomID, err)
+			}
+		}
+		cp.triggerProvisioning(roomID)
+		log.Printf("[CP] Room %s has no ready SFU; provisioning on demand (key %s)", roomID, key)
+		return key, false, nil
 	}
 
 	log.Printf("[CP] Creating new room %s with key %s on ingestion SFU %s", roomID, key, ingestionSFUID)
@@ -898,10 +1125,108 @@ func (cp *ControlPlane) CreateRoom(roomID string) (string, bool, error) {
 
 	cp.rooms[roomID] = topology
 
+	// Persist room lifecycle. Today a room only succeeds here with an ingestion
+	// SFU already assigned, so it is effectively ready; the provisioning/failed
+	// path is wired in by the cold-start room-creation work (task 5.1).
+	// ponytail: file write under cp.mu — fine at cold-start traffic; move off the
+	// lock if room-create throughput ever matters.
+	if cp.roomState != nil {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomReady, ""); err != nil {
+			log.Printf("[CP] failed to persist room %s lifecycle: %v", roomID, err)
+		}
+	}
+
 	// Synchronize room creation to all active SFUs
 	go cp.syncRoomToAllSFUs(roomID, key)
 
 	return key, false, nil
+}
+
+// triggerProvisioning asks the autoscaler for capacity in the background so the
+// room-create HTTP call returns immediately. On failure (including budget cap)
+// the room is marked failed for the streamer to observe.
+func (cp *ControlPlane) triggerProvisioning(roomID string) {
+	p := cp.provisioner
+	go func() {
+		if _, err := p.EnsureCapacity(context.Background(), roomID); err != nil {
+			log.Printf("[CP] provisioning room %s failed: %v", roomID, err)
+			if cp.roomState != nil {
+				if _, uerr := cp.roomState.Upsert(roomID, models.RoomFailed, err.Error()); uerr != nil {
+					log.Printf("[CP] failed to mark room %s failed: %v", roomID, uerr)
+				}
+			}
+		}
+	}()
+}
+
+// promoteWorker advances an on-demand worker's lifecycle as it registers and
+// reports health, binding it to its room once ready. The readiness policy
+// (task 5.3): a worker becomes `ready` only after it has registered AND
+// delivered a healthy heartbeat. No-op for SFUs with no worker record (e.g.
+// statically-run SFUs) or workers already past `registered`. Caller holds cp.mu.
+func (cp *ControlPlane) promoteWorker(sfuID string, healthy bool) {
+	if cp.roomState == nil {
+		return
+	}
+	rec, ok := cp.roomState.GetWorker(sfuID)
+	if !ok {
+		return
+	}
+	switch rec.State {
+	case models.WorkerProvisioning:
+		rec.State = models.WorkerRegistered
+	case models.WorkerRegistered:
+		if !healthy {
+			return
+		}
+		rec.State = models.WorkerReady
+		if rec.ReadyAt == nil {
+			now := time.Now().UTC()
+			rec.ReadyAt = &now
+		}
+	default:
+		return // ready/draining/failed/terminated: nothing to advance
+	}
+	if sfu, ok := cp.sfus[sfuID]; ok && sfu.URL != "" {
+		rec.PublicEndpoint = sfu.URL
+	}
+	rec.LastHeartbeat = time.Now().UTC()
+	saved, err := cp.roomState.UpsertWorker(rec)
+	if err != nil {
+		log.Printf("[CP] promote worker %s: %v", sfuID, err)
+		return
+	}
+	if saved.State == models.WorkerReady && saved.RoomID != "" {
+		cp.bindWorkerToRoom(saved.RoomID, sfuID)
+	}
+}
+
+// bindWorkerToRoom makes a ready worker the room's ingestion SFU and marks the
+// room ready so its WHIP/viewer flows unblock. Idempotent: an already-bound room
+// keeps its ingestion SFU. Caller holds cp.mu.
+func (cp *ControlPlane) bindWorkerToRoom(roomID, sfuID string) {
+	topology, ok := cp.rooms[roomID]
+	if !ok {
+		return
+	}
+	if topology.IngestionSFUID == "" {
+		topology.IngestionSFUID = sfuID
+		topology.Nodes[sfuID] = &models.TopologyNode{
+			SFUID:      sfuID,
+			RoomID:     roomID,
+			Role:       "ingestion",
+			MaxLoad:    100,
+			LastUpdate: time.Now(),
+		}
+	}
+	if cp.roomState != nil {
+		if _, err := cp.roomState.Upsert(roomID, models.RoomReady, ""); err != nil {
+			log.Printf("[CP] mark room %s ready: %v", roomID, err)
+			return
+		}
+	}
+	go cp.syncRoomToAllSFUs(roomID, topology.Key)
+	log.Printf("[CP] room %s ready on ingestion SFU %s", roomID, sfuID)
 }
 
 // syncRoomToAllSFUs sends room creation to all registered SFUs
@@ -1115,25 +1440,73 @@ func (cp *ControlPlane) HandleCreateRoom(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Reflect the room's lifecycle state so a cold-start streamer knows to wait.
+	state := models.RoomReady
+	if cp.roomState != nil {
+		if rl, ok := cp.roomState.Get(req.RoomID); ok {
+			state = rl.State
+		}
+	}
+
 	response := models.CreateRoomResponse{
 		RoomID:  req.RoomID,
 		Key:     key,
 		Created: !alreadyExists,
+		State:   string(state),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if alreadyExists {
+	switch {
+	case state == models.RoomProvisioning:
+		w.WriteHeader(http.StatusAccepted) // 202: capacity is being provisioned
+	case alreadyExists:
 		w.WriteHeader(http.StatusOK)
-	} else {
+	default:
 		w.WriteHeader(http.StatusCreated)
 	}
 	json.NewEncoder(w).Encode(response)
 
-	log.Printf("[CP] Room %s %s (key: %s)", req.RoomID,
-		map[bool]string{true: "already exists", false: "created"}[alreadyExists], key)
+	log.Printf("[CP] Room %s %s (key: %s, state: %s)", req.RoomID,
+		map[bool]string{true: "already exists", false: "created"}[alreadyExists], key, state)
 }
 
 // HandleWHIP proxies WHIP requests to the appropriate ingestion SFU
+// roomReadyForMedia reports whether roomID may serve media (WHIP/viewer/
+// recorder). When the room is not ready it writes a JSON error and returns
+// false, so those flows hand out usable endpoints only after the room is ready
+// (task 5.4). Rooms with no lifecycle record (legacy / pre-autoscaler) pass
+// through so existing behaviour is preserved.
+func (cp *ControlPlane) roomReadyForMedia(w http.ResponseWriter, roomID string) bool {
+	if cp.roomState == nil {
+		return true
+	}
+	rl, ok := cp.roomState.Get(roomID)
+	if !ok {
+		return true
+	}
+	switch rl.State {
+	case models.RoomReady:
+		return true
+	case models.RoomProvisioning, models.RoomDraining:
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", "5")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"room_id": roomID, "state": string(rl.State),
+			"error": "room is not ready yet; retry once it is ready",
+		})
+		return false
+	default: // failed / terminated
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"room_id": roomID, "state": string(rl.State),
+			"error": "room is not available", "reason": rl.Reason,
+		})
+		return false
+	}
+}
+
 func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	// Extract room_id from query parameters
 	roomID := r.URL.Query().Get("room_id")
@@ -1159,6 +1532,11 @@ func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		log.Printf("[CP-WHIP] Room %s not found - must be created via /room/create first", roomID)
 		http.Error(w, "Room not found. Create it first via /room/create", http.StatusNotFound)
+		return
+	}
+
+	// Gate: only proxy WHIP once the room is ready (task 5.4).
+	if !cp.roomReadyForMedia(w, roomID) {
 		return
 	}
 
@@ -1284,8 +1662,102 @@ func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CP-WHIP] WHIP request for room %s successfully proxied to SFU %s", roomID, ingestionSFUID)
 }
 
+func parseWHIPResourcePath(requestPath string) (roomID, key string, ok bool) {
+	const prefix = "/whip/resource/"
+	if !strings.HasPrefix(requestPath, prefix) {
+		return "", "", false
+	}
+	parts := strings.SplitN(strings.TrimPrefix(requestPath, prefix), "/", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	roomID, err := url.PathUnescape(parts[0])
+	if err != nil {
+		return "", "", false
+	}
+	key, err = url.PathUnescape(parts[1])
+	if err != nil {
+		return "", "", false
+	}
+	return roomID, key, true
+}
+
+// HandleWHIPResource proxies termination of the resource returned in the
+// WHIP Location header to the worker that owns the room.
+func (cp *ControlPlane) HandleWHIPResource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Only DELETE is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID, key, ok := parseWHIPResourcePath(r.URL.Path)
+	if !ok {
+		http.Error(w, "Invalid WHIP resource", http.StatusBadRequest)
+		return
+	}
+
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	invalidKey := exists && topology.Key != key
+	if !exists || invalidKey || topology.IngestionSFUID == "" {
+		cp.mu.RUnlock()
+		if invalidKey {
+			http.Error(w, "Invalid key", http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "WHIP resource not found", http.StatusNotFound)
+		return
+	}
+	ingestionSFUID := topology.IngestionSFUID
+	sfu, exists := cp.sfus[ingestionSFUID]
+	if !exists || !sfu.Active {
+		cp.mu.RUnlock()
+		http.Error(w, "Ingestion SFU is not available", http.StatusServiceUnavailable)
+		return
+	}
+	ingestionURL := sfu.URL
+	cp.mu.RUnlock()
+
+	targetURL, err := url.Parse(ingestionURL)
+	if err != nil {
+		log.Printf("[CP-WHIP] Failed to parse resource target URL for room %s: %v", roomID, err)
+		http.Error(w, "Invalid SFU URL", http.StatusInternalServerError)
+		return
+	}
+	targetURL.Path = r.URL.Path
+	targetURL.RawQuery = ""
+
+	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = targetURL.Host
+		req.URL.Path = targetURL.Path
+		req.URL.RawQuery = ""
+	}
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Del("Access-Control-Allow-Origin")
+		resp.Header.Del("Access-Control-Allow-Methods")
+		resp.Header.Del("Access-Control-Allow-Headers")
+		resp.Header.Del("Access-Control-Expose-Headers")
+		return nil
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
+		log.Printf("[CP-WHIP] Resource delete proxy error to SFU %s: %v", ingestionSFUID, err)
+		http.Error(w, "Failed to delete WHIP resource", http.StatusBadGateway)
+	}
+
+	proxy.ServeHTTP(w, r)
+	log.Printf("[CP-WHIP] Resource for room %s deleted on SFU %s", roomID, ingestionSFUID)
+}
+
 // HandleViewer proxies viewer requests to the optimal SFU
 func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "Only GET and POST are supported", http.StatusMethodNotAllowed)
+		return
+	}
+
 	// Extract room_id from query parameters
 	roomID := r.URL.Query().Get("room_id")
 	if roomID == "" {
@@ -1294,6 +1766,12 @@ func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("[CP-VIEWER] Received viewer request for room %s", roomID)
+
+	// Gate: only route viewers once the room is ready (task 5.4). Unknown rooms
+	// pass through to the legacy SFU-scan fallback below.
+	if !cp.roomReadyForMedia(w, roomID) {
+		return
+	}
 
 	// Check if room exists in topology
 	cp.mu.RLock()
@@ -1497,8 +1975,46 @@ func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return the SFU info to the viewer (NO PROXYING - direct connection)
-	log.Printf("[CP-VIEWER] Returning SFU %s for direct viewer connection in room %s", targetSFUID, roomID)
+	if r.Method == http.MethodPost {
+		target, err := url.Parse(targetURL)
+		if err != nil {
+			log.Printf("[CP-VIEWER] Failed to parse target URL %s: %v", targetURL, err)
+			http.Error(w, "Invalid SFU URL", http.StatusInternalServerError)
+			return
+		}
+		target.Path = "/viewer"
+		target.RawQuery = r.URL.RawQuery
+
+		log.Printf("[CP-VIEWER] Proxying viewer SDP for room %s to SFU %s", roomID, targetSFUID)
+		proxy := httputil.NewSingleHostReverseProxy(target)
+		originalDirector := proxy.Director
+		proxy.Director = func(req *http.Request) {
+			originalDirector(req)
+			req.Host = target.Host
+			req.URL.Path = "/viewer"
+			req.URL.RawQuery = r.URL.RawQuery
+		}
+		proxy.ModifyResponse = func(resp *http.Response) error {
+			// The public control-plane CORS middleware owns these headers. Keeping
+			// worker headers here can produce duplicate Access-Control values.
+			resp.Header.Del("Access-Control-Allow-Origin")
+			resp.Header.Del("Access-Control-Allow-Methods")
+			resp.Header.Del("Access-Control-Allow-Headers")
+			resp.Header.Del("Access-Control-Expose-Headers")
+			return nil
+		}
+		proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
+			log.Printf("[CP-VIEWER] Proxy error to SFU %s: %v", targetSFUID, err)
+			http.Error(w, "Failed to proxy viewer negotiation to SFU", http.StatusBadGateway)
+		}
+		proxy.ServeHTTP(w, r)
+		return
+	}
+
+	// Keep GET discovery for backwards compatibility and non-browser clients.
+	// Browser viewers POST their SDP to this TLS endpoint so private worker URLs
+	// are never exposed as mixed-content fetch targets.
+	log.Printf("[CP-VIEWER] Returning SFU %s discovery information for room %s", targetSFUID, roomID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -1529,6 +2045,11 @@ func (cp *ControlPlane) HandleRecorder(w http.ResponseWriter, r *http.Request) {
 	if !exists {
 		log.Printf("[CP-RECORDER] Room %s not found in topology", roomID)
 		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	// Gate: only hand the recorder an SFU once the room is ready (task 5.4).
+	if !cp.roomReadyForMedia(w, roomID) {
 		return
 	}
 
@@ -1728,11 +2249,11 @@ func (cp *ControlPlane) HandleRoomViewerCount(w http.ResponseWriter, r *http.Req
 	}
 
 	resultChan := make(chan sfuResult, len(sfuNodes))
-	
+
 	for sfuID, sfuURL := range sfuNodes {
 		go func(id, url string) {
 			result := sfuResult{sfuID: id}
-			
+
 			viewersURL := fmt.Sprintf("%s/room/viewers?room_id=%s", url, roomID)
 			client := &http.Client{Timeout: 3 * time.Second}
 
@@ -1827,17 +2348,233 @@ func (cp *ControlPlane) HandleRoomExists(w http.ResponseWriter, r *http.Request)
 
 	// Room exists - get info from topology
 	roomKey := topology.Key
-	controlPlaneURL := fmt.Sprintf("http://localhost:%s", "8090") // Use control plane URL
 	cp.mu.RUnlock()
 
-	// Room exists - return WHIP URL
-	whipURL := fmt.Sprintf("%s/whip?room_id=%s&key=%s", controlPlaneURL, roomID, roomKey)
+	state := models.RoomReady // legacy rooms without lifecycle records
+	if cp.roomState != nil {
+		if room, ok := cp.roomState.Get(roomID); ok {
+			state = room.State
+		}
+	}
+	ready := state == models.RoomReady
+	response := map[string]interface{}{
+		"exists":  true,
+		"room_id": roomID,
+		"state":   string(state),
+		"ready":   ready,
+	}
+	if ready {
+		response["whip_url"] = cp.publicWHIPURL(r, roomID, roomKey)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"exists":   true,
-		"room_id":  roomID,
-		"whip_url": whipURL,
-	})
+	json.NewEncoder(w).Encode(response)
 	log.Printf("[CP-EXISTS] Room %s exists", roomID)
+}
+
+func (cp *ControlPlane) operatorStatus() operatorStatusResponse {
+	now := time.Now().UTC()
+
+	cp.mu.RLock()
+	registeredSFUs := make([]operatorSFUStatus, 0, len(cp.sfus))
+	activeSFUs := 0
+	for _, sfu := range cp.sfus {
+		status := operatorSFUStatus{
+			ID:            sfu.ID,
+			URL:           sfu.URL,
+			Region:        sfu.Region,
+			Zone:          sfu.Zone,
+			Active:        sfu.Active,
+			LastHeartbeat: sfu.LastHeartbeat,
+		}
+		if sfu.Active {
+			activeSFUs++
+		}
+		if sfu.Metrics != nil {
+			status.CPU = sfu.Metrics.CPU
+			status.Memory = sfu.Metrics.Memory
+			status.ActiveHosts = sfu.Metrics.ActiveHosts
+			status.ActiveViewers = sfu.Metrics.ActiveViewers
+		}
+		registeredSFUs = append(registeredSFUs, status)
+	}
+	cp.mu.RUnlock()
+
+	sort.Slice(registeredSFUs, func(i, j int) bool {
+		return registeredSFUs[i].ID < registeredSFUs[j].ID
+	})
+
+	cp.cleanupMu.Lock()
+	pendingCleanupRooms := make([]string, 0, len(cp.pendingCleanups))
+	for roomID := range cp.pendingCleanups {
+		pendingCleanupRooms = append(pendingCleanupRooms, roomID)
+	}
+	cp.cleanupMu.Unlock()
+	sort.Strings(pendingCleanupRooms)
+
+	var rooms []models.RoomLifecycle
+	var workers []models.WorkerRecord
+	lifecycleStoreAvailable := cp.roomState != nil
+	if cp.roomState != nil {
+		rooms = cp.roomState.List()
+		workers = cp.roomState.ListWorkers()
+	}
+
+	sort.Slice(rooms, func(i, j int) bool {
+		return rooms[i].RoomID < rooms[j].RoomID
+	})
+	sort.Slice(workers, func(i, j int) bool {
+		return workers[i].SFUID < workers[j].SFUID
+	})
+
+	roomsByState := make(map[models.RoomState]int)
+	workersByState := make(map[models.WorkerState]int)
+	failures := make([]operatorFailureStatus, 0)
+
+	for _, room := range rooms {
+		roomsByState[room.State]++
+		if room.State == models.RoomFailed {
+			failures = append(failures, operatorFailureStatus{
+				Kind:   "room",
+				ID:     room.RoomID,
+				State:  string(room.State),
+				Reason: room.Reason,
+			})
+		}
+	}
+	for _, worker := range workers {
+		workersByState[worker.State]++
+		if worker.State == models.WorkerFailed {
+			failures = append(failures, operatorFailureStatus{
+				Kind:   "worker",
+				ID:     worker.SFUID,
+				State:  string(worker.State),
+				Reason: worker.Reason,
+			})
+		}
+	}
+
+	sort.Slice(failures, func(i, j int) bool {
+		if failures[i].Kind == failures[j].Kind {
+			return failures[i].ID < failures[j].ID
+		}
+		return failures[i].Kind < failures[j].Kind
+	})
+
+	return operatorStatusResponse{
+		GeneratedAt:             now,
+		LifecycleStoreAvailable: lifecycleStoreAvailable,
+		Counts: operatorStatusCounts{
+			RegisteredSFUs: len(registeredSFUs),
+			ActiveSFUs:     activeSFUs,
+			RoomsByState:   roomsByState,
+			WorkersByState: workersByState,
+		},
+		RegisteredSFUs:       registeredSFUs,
+		Rooms:                rooms,
+		Workers:              workers,
+		ProvisioningFailures: failures,
+		PendingCleanupRooms:  pendingCleanupRooms,
+	}
+}
+
+// HandleOperatorStatus exposes a compact operational snapshot for active SFUs,
+// worker lifecycle, provisioning failures, and scheduled cleanup actions.
+func (cp *ControlPlane) HandleOperatorStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(cp.operatorStatus())
+}
+
+// HandleRoomStatus reports a room's lifecycle state so a streamer can poll a
+// cold-start room from `provisioning` to `ready` or `failed` (task 5.2). The
+// WHIP URL is returned only once the room is ready, so the frontend cannot show
+// publish instructions early (tasks 5.4/6.2).
+func (cp *ControlPlane) HandleRoomStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+		return
+	}
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "room_id parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	cp.mu.RLock()
+	topology, exists := cp.rooms[roomID]
+	key := ""
+	if exists {
+		key = topology.Key
+	}
+	cp.mu.RUnlock()
+
+	// Prefer the persisted lifecycle state; fall back to topology presence for
+	// rooms created before lifecycle tracking (treated as ready).
+	var state models.RoomState
+	reason := ""
+	if cp.roomState != nil {
+		if rl, ok := cp.roomState.Get(roomID); ok {
+			state, reason = rl.State, rl.Reason
+		}
+	}
+	if state == "" && exists {
+		state = models.RoomReady
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if state == "" {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{"room_id": roomID, "exists": false})
+		return
+	}
+
+	ready := state == models.RoomReady
+	resp := map[string]interface{}{
+		"room_id": roomID,
+		"state":   string(state),
+		"ready":   ready,
+	}
+	if reason != "" {
+		resp["reason"] = reason
+	}
+	if ready && key != "" {
+		resp["whip_url"] = cp.publicWHIPURL(r, roomID, key)
+	}
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (cp *ControlPlane) publicWHIPURL(r *http.Request, roomID, key string) string {
+	cp.mu.RLock()
+	base := cp.publicURL
+	cp.mu.RUnlock()
+	if base == "" {
+		scheme := firstForwardedValue(r.Header.Get("X-Forwarded-Proto"))
+		if scheme == "" {
+			if r.TLS != nil {
+				scheme = "https"
+			} else {
+				scheme = "http"
+			}
+		}
+		host := firstForwardedValue(r.Header.Get("X-Forwarded-Host"))
+		if host == "" {
+			host = r.Host
+		}
+		base = scheme + "://" + host
+	}
+	query := url.Values{"room_id": {roomID}, "key": {key}}
+	return strings.TrimRight(base, "/") + "/whip?" + query.Encode()
+}
+
+func firstForwardedValue(value string) string {
+	if first, _, ok := strings.Cut(value, ","); ok {
+		return strings.TrimSpace(first)
+	}
+	return strings.TrimSpace(value)
 }

@@ -11,17 +11,23 @@ services:
       dockerfile: Dockerfile
     image: ${DOCKER_HUB_USERNAME}/ochocast-frontend:${APP_VERSION:-latest}
 
+  live-recorder:
+    build:
+      context: ../liveRecoder
+      dockerfile: Dockerfile
+    image: ${DOCKER_HUB_USERNAME}/ochocast-live-recorder:${APP_VERSION:?APP_VERSION must be set to an immutable tag}
+
   sfu-controlplane:
     build:
       context: ../sfuServer
       dockerfile: Dockerfile.controlplane
-    image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-controlplane:${APP_VERSION:-latest}
+    image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-controlplane:${APP_VERSION:?APP_VERSION must be set to an immutable tag}
 
   sfu-server:
     build:
       context: ../sfuServer
       dockerfile: Dockerfile.sfu
-    image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-server:${APP_VERSION:-latest}
+    image: ${DOCKER_HUB_USERNAME}/ochocast-sfu-server:${APP_VERSION:?APP_VERSION must be set to an immutable tag}
 
   ffmpeg-worker:
     build:

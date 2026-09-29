@@ -1,10 +1,17 @@
 name: E2E tests
 
 on:
+  # Runs on every PR targeting main. Make the "run-e2e-tests" check required in
+  # the branch protection rules to block merges on E2E failures.
   pull_request:
-    types: [labeled]
     branches:
       - main
+  # Reused by main.yml as a gate before building/promoting images.
+  workflow_call:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -13,8 +20,9 @@ jobs:
   run-e2e-tests:
     name: run-e2e-tests
     runs-on: self-hosted
-    # Only run when the exact label 'run-e2e' is added
-    if: github.event.label.name == 'run-e2e'
+    timeout-minutes: 30
+    # Empêche l'exécution pour les branches commençant par renovate/
+    if: ${{ !startsWith(github.head_ref, 'renovate/') }}
     steps:
       - name: Force clean postgres-data and minio run_env
         run: docker run --rm -v $GITHUB_WORKSPACE:/workspace alpine rm -rf /workspace/dev-tools/database/postgres-data /workspace/dev-tools/localMinio/run_env || true
@@ -58,6 +66,12 @@ jobs:
         env:
           PLAYWRIGHT_TEST_USER: "test-user"
           PLAYWRIGHT_TEST_PASSWORD: "test-password"
+      - name: Stop Docker Services
+        if: always()
+        run: |
+          cd dev-tools
+          docker compose down -v || true
+          npx kill-port 3000 3001 || true
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: always()

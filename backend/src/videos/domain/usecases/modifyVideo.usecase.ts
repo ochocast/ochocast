@@ -10,7 +10,7 @@ import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import type { Express } from 'express';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import * as sharp from 'sharp';
+import sharp = require('sharp');
 export class ModifyVideoUsecase {
   constructor(
     @Inject('VideoGateway')

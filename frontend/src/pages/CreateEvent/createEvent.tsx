@@ -300,6 +300,7 @@ const CreateEventPage: React.FC = () => {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t('MyEvent')}
+                  data-testid="event-name-input"
                   className={errorName ? styles.error : ''}
                   required
                 />
@@ -319,6 +320,7 @@ const CreateEventPage: React.FC = () => {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t('DescriptionEvent')}
+                  data-testid="event-description-input"
                   className={errorDescription ? styles.error : ''}
                   required
                 />
@@ -350,6 +352,7 @@ const CreateEventPage: React.FC = () => {
                 </label>
                 <input
                   type="date"
+                  data-testid="event-date-input"
                   value={date}
                   min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setDate(e.target.value)}
@@ -370,6 +373,7 @@ const CreateEventPage: React.FC = () => {
                 </label>
                 <input
                   type="time"
+                  data-testid="event-start-time-input"
                   value={startHour}
                   onChange={(e) => setStartHour(e.target.value)}
                   className={errorStartHour ? styles.error : ''}
@@ -389,6 +393,7 @@ const CreateEventPage: React.FC = () => {
                 </label>
                 <input
                   type="time"
+                  data-testid="event-end-time-input"
                   value={endHour}
                   onChange={(e) => setEndHour(e.target.value)}
                   className={errorEndHour || errorTimeOrder ? styles.error : ''}
@@ -449,6 +454,7 @@ const CreateEventPage: React.FC = () => {
               <div className={styles.confirmationButtons}>
                 <Button
                   onClick={handleSubmit}
+                  testId="event-submit-button"
                   label={
                     isCreatingEvent ? t('CreatingEvent') : t('CreateEvent')
                   }

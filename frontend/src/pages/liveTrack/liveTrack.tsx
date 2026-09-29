@@ -120,36 +120,10 @@ const LiveTrack = () => {
     };
   }, [trackId]);
 
-  // Discover SFU endpoint from control plane
-  const discoverSFU = useCallback(
-    async (roomId: string) => {
-      try {
-        const discoveryUrl = `${CONTROL_PLANE_URL}/viewer?room_id=${roomId}`;
-        console.log('Discovering SFU from control plane:', discoveryUrl);
-
-        const response = await fetch(discoveryUrl);
-        if (!response.ok) {
-          throw new Error(
-            `Discovery failed: ${response.status} ${response.statusText}`,
-          );
-        }
-
-        const data = await response.json();
-        console.log('SFU discovery response:', data);
-
-        if (!data.sfu_url) {
-          throw new Error('No SFU URL returned from control plane');
-        }
-
-        // Return the direct SFU URL for viewer endpoint
-        const sfuViewerUrl = `${data.sfu_url}/viewer?room_id=${roomId}`;
-        console.log('Discovered SFU viewer URL:', sfuViewerUrl);
-        return sfuViewerUrl;
-      } catch (error) {
-        console.error('Failed to discover SFU:', error);
-        throw error;
-      }
-    },
+  // Keep browser signaling on the public TLS control-plane endpoint. Workers
+  // use private HTTP URLs that browsers cannot fetch from an HTTPS page.
+  const getViewerUrl = useCallback(
+    (roomId: string) => `${CONTROL_PLANE_URL}/viewer?room_id=${roomId}`,
     [CONTROL_PLANE_URL],
   );
 
@@ -523,27 +497,15 @@ const LiveTrack = () => {
         peerConnection?.addEventListener('icegatheringstatechange', checkState);
       });
 
-      Logger.info('Connection', 'Discovering SFU');
-
-      // ============ DISCOVER SFU ============
-      let sfuViewerUrl: string;
-      try {
-        sfuViewerUrl = await discoverSFU(trackId!);
-      } catch (error) {
-        throw new Error(
-          `Failed to discover SFU: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
+      const viewerUrl = getViewerUrl(trackId!);
 
       // ============ SEND OFFER TO SFU ============
       if (!peerConnection.localDescription?.sdp) {
         throw new Error('Local description is not set');
       }
 
-      Logger.info('Connection', 'Sending SDP to SFU');
-      const response = await fetch(sfuViewerUrl, {
+      Logger.info('Connection', 'Sending SDP through control plane');
+      const response = await fetch(viewerUrl, {
         method: 'POST',
         body: peerConnection.localDescription.sdp,
         headers: { 'Content-Type': 'application/sdp' },
@@ -575,7 +537,7 @@ const LiveTrack = () => {
       setIsConnecting(false);
       throw err; // Re-throw for reconnection handler
     }
-  }, [discoverSFU, trackId, handleIncomingTrack, attemptReconnect]);
+  }, [getViewerUrl, trackId, handleIncomingTrack, attemptReconnect]);
 
   if (track?.closed) {
     navigate(`/events/${track?.event.id}/tracks`);
