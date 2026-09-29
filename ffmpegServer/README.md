@@ -28,10 +28,13 @@ The RabbitMQ management UI is available at `http://localhost:15672` with
 
 ## Processing lifecycle
 
-1. The backend uploads source objects under `<videoId>/source/`.
-2. It saves the video with `transcoding_status=pending`.
-3. A persistent job is published to `VIDEO_QUEUE_NAME`.
-4. A worker creates and uploads the HLS playlists, segments, thumbnail and
+1. The browser creates `/api/video-uploads`, then sends parts to short-lived
+   presigned S3 URLs. The API never receives the video body.
+2. The API verifies ownership, part count, sizes, checksums and final metadata,
+   then creates the video and a durable outbox job.
+3. A maintenance loop publishes the job to `VIDEO_QUEUE_NAME`; a broker outage
+   leaves the outbox row pending for a later attempt.
+4. A worker downloads the source as a stream to disk, then creates and uploads the HLS playlists, segments, thumbnail and
    optional WebVTT subtitle.
 5. The worker publishes a persistent result to `VIDEO_RESULT_QUEUE_NAME`.
 6. The backend sets the video to `ready` or `failed` and stores its duration.
@@ -58,6 +61,14 @@ npm run dev
 npm run test:connection
 ```
 
-The production image uses the FFmpeg package installed in Alpine. Worker
-parallelism is controlled by `WORKER_CONCURRENCY`; each job currently starts
-three FFmpeg encoders in parallel.
+The production image uses the FFmpeg package installed in Alpine. One worker
+process handles one job at a time and encodes the three renditions sequentially
+to bound CPU and memory. Scale with dedicated worker pods or nodes.
+
+The source object is retained after a successful transcode. Failed jobs can be
+retried from `/api/video-uploads/:id/retry`; each retry gets a new output prefix.
+
+The container exposes `/healthz` and `/readyz` on `HEALTH_PORT` for Kubernetes
+probes. RabbitMQ credentials are supplied through `RABBITMQ_HOST`,
+`RABBITMQ_PORT`, `RABBITMQ_USERNAME` and `RABBITMQ_PASSWORD`; `RABBITMQ_URL`
+remains supported for local development.

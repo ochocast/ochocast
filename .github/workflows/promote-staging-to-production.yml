@@ -36,10 +36,14 @@ jobs:
         uses: mikefarah/yq@v4.44.3
         env:
           STAGING_VALUES_FILE: ops-architecture-lab/${{ env.STAGING_VALUES_FILE }}
+          PROD_VALUES_FILE: ops-architecture-lab/${{ env.PROD_VALUES_FILE }}
         with:
           cmd: |
             frontend_tag="$(yq '.frontend.image.tag' "$STAGING_VALUES_FILE")"
+            ffmpeg_tag="$(yq '.transcoding.workerImage.tag' "$STAGING_VALUES_FILE")"
             backend_tag="$(yq '.backend.image.tag' "$STAGING_VALUES_FILE")"
+            staging_transcoding="$(yq '.transcoding.enabled' "$STAGING_VALUES_FILE")"
+            production_transcoding="$(yq '.transcoding.enabled' "$PROD_VALUES_FILE")"
 
             if [ -z "$frontend_tag" ] || [ "$frontend_tag" = "null" ]; then
               echo "Missing staging frontend image tag" >&2
@@ -51,6 +55,25 @@ jobs:
               exit 1
             fi
 
+            if [ "$staging_transcoding" = "true" ] && ! echo "$ffmpeg_tag" | grep -Eq '^sha-[0-9a-f]{12,40}$'; then
+              echo "Staging transcoding is enabled but its worker tag is not an immutable SHA tag" >&2
+              exit 1
+            fi
+            if [ "$staging_transcoding" = "true" ]; then
+              for field in rabbitmq.host workerControl.startUrl workerControl.stopUrl; do
+                value="$(yq ".transcoding.$field" "$PROD_VALUES_FILE")"
+                if [ -z "$value" ] || [ "$value" = "null" ]; then
+                  echo "Production transcoding.$field must be configured before HLS promotion" >&2
+                  exit 1
+                fi
+              done
+            fi
+            if [ "$staging_transcoding" != "true" ] && [ "$production_transcoding" = "true" ]; then
+              echo "Validate the on-demand transcoding plane in staging before enabling HLS in production" >&2
+              exit 1
+            fi
+            echo "transcoding_enabled=$staging_transcoding" >> "$GITHUB_OUTPUT"
+            echo "ffmpeg_tag=$ffmpeg_tag" >> "$GITHUB_OUTPUT"
             echo "frontend_tag=$frontend_tag" >> "$GITHUB_OUTPUT"
             echo "backend_tag=$backend_tag" >> "$GITHUB_OUTPUT"
 
@@ -58,12 +81,19 @@ jobs:
         uses: mikefarah/yq@v4.44.3
         env:
           FRONTEND_TAG: ${{ steps.tags.outputs.frontend_tag }}
+          FFMPEG_TAG: ${{ steps.tags.outputs.ffmpeg_tag }}
+          TRANSCODING_ENABLED: ${{ steps.tags.outputs.transcoding_enabled }}
           BACKEND_TAG: ${{ steps.tags.outputs.backend_tag }}
           PROD_VALUES_FILE: ops-architecture-lab/${{ env.PROD_VALUES_FILE }}
         with:
           cmd: |
             yq -i '.frontend.image.tag = strenv(FRONTEND_TAG)' "$PROD_VALUES_FILE"
             yq -i '.backend.image.tag = strenv(BACKEND_TAG)' "$PROD_VALUES_FILE"
+            if [ "$TRANSCODING_ENABLED" = "true" ]; then
+              yq -i '.ffmpegWorker.image.tag = strenv(FFMPEG_TAG)' "$PROD_VALUES_FILE"
+              yq -i '.transcoding.workerImage.tag = strenv(FFMPEG_TAG)' "$PROD_VALUES_FILE"
+              yq -i '.transcoding.enabled = true' "$PROD_VALUES_FILE"
+            fi
 
       - name: Create production promotion pull request
         if: inputs.dry_run != true
@@ -81,6 +111,8 @@ jobs:
             - Source environment: staging
             - Target environment: production
             - Frontend image tag: `${{ steps.tags.outputs.frontend_tag }}`
+            - On-demand FFmpeg image tag: `${{ steps.tags.outputs.ffmpeg_tag }}`
+            - HLS staging validation enabled: `${{ steps.tags.outputs.transcoding_enabled }}`
             - Backend image tag: `${{ steps.tags.outputs.backend_tag }}`
 
             This PR does not rebuild images. It only copies the staging image tags from `${{ env.STAGING_VALUES_FILE }}` to `${{ env.PROD_VALUES_FILE }}`.

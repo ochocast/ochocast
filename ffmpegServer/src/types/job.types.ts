@@ -8,11 +8,12 @@ export interface VideoTranscodingJob {
   media_id: string;
   miniature_id: string;
   subtitle_id?: string;
-  title: string;
+  title?: string;
   timestamp: number;
 }
 
 export interface VideoTranscodingResult {
+  media_id?: string;
   jobId: string;
   videoId: string;
   success: boolean;

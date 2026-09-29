@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/worker.js",
     "dev": "ts-node src/worker.ts",
-    "test:connection": "ts-node src/test-connection.ts"
+    "test:connection": "ts-node src/test-connection.ts",
+    "test": "npm run build && node --test tests/*.test.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1031.0",

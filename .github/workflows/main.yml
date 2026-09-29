@@ -26,6 +26,7 @@ on:
           - live-recorder
           - sfu-controlplane
           - sfu-worker
+          - ffmpeg-worker
           - media
           - all
       dry_run:
@@ -47,6 +48,8 @@ env:
   LIVE_RECORDER_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/sfu-server/live-recorder
   SFU_CONTROLPLANE_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/sfu-server/controlplane
   SFU_WORKER_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/sfu-server/sfu
+  FFMPEG_REGISTRY_ENDPOINT: rg.fr-par.scw.cloud/backend-images
+  FFMPEG_IMAGE_REPOSITORY: rg.fr-par.scw.cloud/backend-images/ffmpeg-worker
   OPS_REPOSITORY: ochocast/ops-architecture-lab
   OPS_BASE_BRANCH: ${{ vars.OPS_REPO_BASE_BRANCH || 'main' }}
 
@@ -60,6 +63,7 @@ jobs:
       live_recorder_changed: ${{ steps.effective.outputs.live_recorder }}
       sfu_controlplane_changed: ${{ steps.effective.outputs.sfu_controlplane }}
       sfu_worker_changed: ${{ steps.effective.outputs.sfu_worker }}
+      ffmpeg_worker_changed: ${{ steps.effective.outputs.ffmpeg_worker }}
       image_tag: ${{ steps.meta.outputs.image_tag }}
       source_commit_subject: ${{ steps.meta.outputs.source_commit_subject }}
       target_environment: ${{ steps.target.outputs.environment }}
@@ -84,6 +88,8 @@ jobs:
               - 'sfuServer/**'
             sfu_worker:
               - 'sfuServer/**'
+            ffmpeg_worker:
+              - 'ffmpegServer/**'
       - name: Resolve target environment
         id: target
         run: |
@@ -110,6 +116,7 @@ jobs:
           live_recorder="${{ steps.filter.outputs.live_recorder }}"
           sfu_controlplane="${{ steps.filter.outputs.sfu_controlplane }}"
           sfu_worker="${{ steps.filter.outputs.sfu_worker }}"
+          ffmpeg_worker="${{ steps.filter.outputs.ffmpeg_worker }}"
           force_components="${{ inputs.force_components || 'changed-only' }}"
           dry_run="${{ inputs.dry_run || 'false' }}"
 
@@ -129,10 +136,14 @@ jobs:
             sfu-worker)
               sfu_worker="true"
               ;;
+            ffmpeg-worker)
+              ffmpeg_worker="true"
+              ;;
             media)
               live_recorder="true"
               sfu_controlplane="true"
               sfu_worker="true"
+              ffmpeg_worker="true"
               ;;
             all)
               frontend="true"
@@ -140,14 +151,23 @@ jobs:
               live_recorder="true"
               sfu_controlplane="true"
               sfu_worker="true"
+              ffmpeg_worker="true"
               ;;
           esac
+
+          # The worker and backend share the queue contract and the backend
+          # owns the transcoding state/result consumer. Publish both images
+          # from the same source commit when the worker changes.
+          if [ "$ffmpeg_worker" = "true" ]; then
+            backend="true"
+          fi
 
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           echo "live_recorder=$live_recorder" >> "$GITHUB_OUTPUT"
           echo "sfu_controlplane=$sfu_controlplane" >> "$GITHUB_OUTPUT"
           echo "sfu_worker=$sfu_worker" >> "$GITHUB_OUTPUT"
+          echo "ffmpeg_worker=$ffmpeg_worker" >> "$GITHUB_OUTPUT"
           echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
 
   validate-frontend:
@@ -201,6 +221,29 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.frontend_changed == 'true' || needs.detect-changes.outputs.backend_changed == 'true'
     uses: ./.github/workflows/e2e.yml
+
+  validate-ffmpeg-worker:
+    name: Validate FFmpeg worker
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.ffmpeg_worker_changed == 'true'
+    defaults:
+      run:
+        working-directory: ffmpegServer
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ffmpegServer/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Install FFmpeg for worker tests
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Test worker
+        run: npm test
 
   build-and-push-frontend:
     name: Build and push frontend image
@@ -339,6 +382,34 @@ jobs:
           tags: |
             ${{ env.SFU_WORKER_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
 
+  build-and-push-ffmpeg-worker:
+    name: Build and push FFmpeg worker image
+    runs-on: ubuntu-latest
+    needs:
+      - detect-changes
+      - validate-ffmpeg-worker
+    if: needs.detect-changes.outputs.ffmpeg_worker_changed == 'true'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@f95db51fddba0c2d1ec667646a06c2ce06100226 # v3.0.0
+      - name: Docker Login
+        if: needs.detect-changes.outputs.dry_run != 'true'
+        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d # v3.0.0
+        with:
+          registry: ${{ env.FFMPEG_REGISTRY_ENDPOINT }}
+          username: ${{ secrets.SCW_REG_USER }}
+          password: ${{ secrets.SCW_SECRET_KEY }}
+      - name: Build and push FFmpeg worker image
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+        with:
+          context: ./ffmpegServer
+          push: ${{ needs.detect-changes.outputs.dry_run != 'true' }}
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.FFMPEG_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}
+
   propose-gitops-promotion:
     name: Propose GitOps promotion
     runs-on: ubuntu-latest
@@ -350,6 +421,7 @@ jobs:
       - build-and-push-sfu-controlplane
       - build-and-push-sfu-worker
       - e2e
+      - build-and-push-ffmpeg-worker
     if: |
       always() &&
       needs.detect-changes.result == 'success' &&
@@ -359,7 +431,8 @@ jobs:
         needs.detect-changes.outputs.frontend_changed == 'true' ||
         needs.detect-changes.outputs.backend_changed == 'true' ||
         needs.detect-changes.outputs.sfu_controlplane_changed == 'true' ||
-        needs.detect-changes.outputs.sfu_worker_changed == 'true'
+        needs.detect-changes.outputs.sfu_worker_changed == 'true' ||
+        needs.detect-changes.outputs.ffmpeg_worker_changed == 'true'
       )
     steps:
       - name: Checkout ops repository
@@ -376,6 +449,7 @@ jobs:
           FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend_changed }}
           SFU_CONTROLPLANE_CHANGED: ${{ needs.detect-changes.outputs.sfu_controlplane_changed }}
           SFU_WORKER_CHANGED: ${{ needs.detect-changes.outputs.sfu_worker_changed }}
+          FFMPEG_WORKER_CHANGED: ${{ needs.detect-changes.outputs.ffmpeg_worker_changed }}
           IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
           VALUES_FILE: ops-architecture-lab/${{ needs.detect-changes.outputs.values_file }}
         with:
@@ -391,6 +465,10 @@ jobs:
             fi
             if [ "$SFU_WORKER_CHANGED" = "true" ]; then
               yq -i '.sfuControlPlane.workerImage.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+            fi
+            if [ "$FFMPEG_WORKER_CHANGED" = "true" ]; then
+              yq -i '.ffmpegWorker.image.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+              yq -i '.transcoding.workerImage.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
             fi
       - name: Create promotion pull request
         if: needs.detect-changes.outputs.dry_run != 'true'
@@ -413,6 +491,7 @@ jobs:
             - Backend changed: `${{ needs.detect-changes.outputs.backend_changed }}`
             - Frontend image: `${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}`
             - Backend image: `${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}`
+            - FFmpeg worker image: `${{ env.FFMPEG_IMAGE_REPOSITORY }}:${{ needs.detect-changes.outputs.image_tag }}`
 
             Deployment remains controlled by ops-architecture-lab and ArgoCD after this PR is reviewed and merged.
           labels: |

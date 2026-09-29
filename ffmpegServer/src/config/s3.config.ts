@@ -5,6 +5,9 @@ dotenv.config();
 
 export function createS3Client(): S3Client {
   return new S3Client({
+    requestHandler: { connectionTimeout: 10000, socketTimeout: 120000 },
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
     endpoint:
       process.env.STOCK_SERVER_URL ||
       `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT || 'localhost'}:${process.env.MINIO_PORT || '9000'}`,
