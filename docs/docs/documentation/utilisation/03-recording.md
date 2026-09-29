@@ -194,6 +194,19 @@ Seul l'organisateur (speaker du track ou créateur de l'événement) peut armer 
 
 Désactivez le toggle. Si un live est en cours, l'enregistrement s'arrête immédiatement et le segment en cours est conservé. À l'inverse, armer pendant un live démarre l'enregistrement immédiatement.
 
+### Statut de l'enregistrement
+
+À côté du toggle, un statut se met à jour en temps réel (toutes les 5 s) :
+
+| Statut | Signification |
+|--------|---------------|
+| Désactivé | Le track n'est pas armé |
+| Armé — en attente du live | Le prochain live sera enregistré |
+| Enregistrement en cours | L'enregistreur capture le live |
+| Problème d'enregistrement | Le démarrage ou l'arrêt a échoué après plusieurs tentatives, ou l'enregistreur est injoignable |
+
+En cas de problème, un bandeau s'affiche aussi sur la page du live, **visible uniquement par l'organisateur**, avec un lien vers les paramètres du track. Le problème disparaît au prochain démarrage réussi, ou en désarmant le track.
+
 ---
 
 ## Où retrouver les vidéos enregistrées

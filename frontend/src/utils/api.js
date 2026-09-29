@@ -192,6 +192,9 @@ export const searchVideosAdmin = (data) =>
 // US-5: arm / disarm the automatic recording of every live of a track
 export const setTrackRecordingArmed = (trackId, armed) =>
   api.put(`/recordings/track/${trackId}/armed`, { armed });
+// US-5c: real-time recording status of a track (organizer only)
+export const getTrackRecordingStatus = (trackId) =>
+  api.get(`/recordings/track/${trackId}/status`);
 // US-1 / US-2: list the unlisted recording segments of a track (organizer only)
 export const getTrackRecordings = (trackId) =>
   api.get(`/recordings/track/${trackId}`);

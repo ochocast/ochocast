@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { IRecordingVMGateway } from '../gateways/recording-vm.gateway';
+import { IRecordingErrorGateway } from '../gateways/recording-error.gateway';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
@@ -31,6 +32,8 @@ export class SetRecordingArmedUsecase {
     private eventGateway: IEventGateway,
     @Inject('RecordingVMGateway')
     private recordingVMGateway: IRecordingVMGateway,
+    @Inject('RecordingErrorGateway')
+    private recordingErrorGateway: IRecordingErrorGateway,
     private startRecordingUsecase: StartRecordingUsecase,
     private stopRecordingUsecase: StopRecordingUsecase,
   ) {}
@@ -62,6 +65,9 @@ export class SetRecordingArmedUsecase {
 
     track.recordingArmed = armed;
     const updated = await this.trackGateway.updateTrack(track);
+
+    // Disarming acknowledges any previous recorder failure.
+    if (!armed) await this.recordingErrorGateway.clearError(trackId);
 
     await this.applyToCurrentLive(trackId, armed);
 

@@ -1,10 +1,12 @@
 import { Test } from '@nestjs/testing';
 import { StartRecordingUsecase } from 'src/recording/domain/usecases/startRecording.usecase';
 import { IRecordingVMGateway } from 'src/recording/domain/gateways/recording-vm.gateway';
+import { IRecordingErrorGateway } from 'src/recording/domain/gateways/recording-error.gateway';
 
 describe('StartRecordingUsecase', () => {
   let usecase: StartRecordingUsecase;
   let vmGateway: jest.Mocked<IRecordingVMGateway>;
+  let errorGateway: jest.Mocked<IRecordingErrorGateway>;
 
   const trackId = '4ea6d8c0-8819-4378-bfee-98bd1bd50be0';
 
@@ -15,11 +17,17 @@ describe('StartRecordingUsecase', () => {
       getStatus: jest.fn().mockResolvedValue({ status: 'idle' }),
       isLiveActive: jest.fn(),
     };
+    errorGateway = {
+      setError: jest.fn(),
+      clearError: jest.fn(),
+      getError: jest.fn(),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         StartRecordingUsecase,
         { provide: 'RecordingVMGateway', useValue: vmGateway },
+        { provide: 'RecordingErrorGateway', useValue: errorGateway },
       ],
     }).compile();
 
@@ -34,6 +42,7 @@ describe('StartRecordingUsecase', () => {
       roomId: trackId,
       trackId,
     });
+    expect(errorGateway.clearError).toHaveBeenCalledWith(trackId);
   });
 
   it('never starts a second recorder when one is already running', async () => {
@@ -59,5 +68,7 @@ describe('StartRecordingUsecase', () => {
 
     await expect(usecase.execute(trackId)).rejects.toThrow('VM unreachable');
     expect(vmGateway.getStatus).toHaveBeenCalledTimes(3);
+    expect(errorGateway.setError).toHaveBeenCalledWith(trackId, 'start_failed');
+    expect(errorGateway.clearError).not.toHaveBeenCalled();
   });
 });

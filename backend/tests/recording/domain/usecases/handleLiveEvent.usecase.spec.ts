@@ -68,4 +68,13 @@ describe('HandleLiveEventUsecase', () => {
     expect(stopRecording.execute).toHaveBeenCalledWith(trackId);
     expect(startRecording.execute).not.toHaveBeenCalled();
   });
+
+  it('acknowledges the SFU even when the recorder fails', async () => {
+    trackGateway.getTracks.mockResolvedValue([
+      { id: trackId, recordingArmed: true } as any,
+    ]);
+    startRecording.execute.mockRejectedValue(new Error('VM unreachable'));
+
+    await expect(usecase.execute(trackId, 'started')).resolves.toBeUndefined();
+  });
 });

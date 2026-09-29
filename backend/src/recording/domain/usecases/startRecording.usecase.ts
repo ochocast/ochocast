@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { IRecordingVMGateway } from '../gateways/recording-vm.gateway';
+import { IRecordingErrorGateway } from '../gateways/recording-error.gateway';
 
 // Delays between start attempts: the SFU may answer "stream not ready" for a
 // few seconds after the live started, and the recorder VM may be restarting.
@@ -10,7 +11,8 @@ const RETRY_DELAYS_MS = [2000, 5000];
  *
  * Idempotent: never starts a second recorder when one is already running on
  * the track (webhook received twice, re-arming during a live...). Retries a
- * few times before giving up. `room_id == trackId`.
+ * few times, then records the failure for the organizer (US-5c).
+ * `room_id == trackId`.
  */
 @Injectable()
 export class StartRecordingUsecase {
@@ -19,21 +21,27 @@ export class StartRecordingUsecase {
   constructor(
     @Inject('RecordingVMGateway')
     private recordingVMGateway: IRecordingVMGateway,
+    @Inject('RecordingErrorGateway')
+    private recordingErrorGateway: IRecordingErrorGateway,
   ) {}
 
   async execute(trackId: string): Promise<void> {
     for (let attempt = 0; ; attempt++) {
       try {
         const { status } = await this.recordingVMGateway.getStatus(trackId);
-        if (status === 'recording') return;
-
-        await this.recordingVMGateway.startRecording({
-          roomId: trackId,
-          trackId,
-        });
+        if (status !== 'recording') {
+          await this.recordingVMGateway.startRecording({
+            roomId: trackId,
+            trackId,
+          });
+        }
+        await this.recordingErrorGateway.clearError(trackId);
         return;
       } catch (err) {
-        if (attempt >= RETRY_DELAYS_MS.length) throw err;
+        if (attempt >= RETRY_DELAYS_MS.length) {
+          await this.recordingErrorGateway.setError(trackId, 'start_failed');
+          throw err;
+        }
         this.logger.warn(
           `Start recording attempt ${attempt + 1} failed for track ${trackId}: ${err.message}`,
         );

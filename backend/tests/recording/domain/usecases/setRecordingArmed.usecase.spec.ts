@@ -4,6 +4,7 @@ import { SetRecordingArmedUsecase } from 'src/recording/domain/usecases/setRecor
 import { StartRecordingUsecase } from 'src/recording/domain/usecases/startRecording.usecase';
 import { StopRecordingUsecase } from 'src/recording/domain/usecases/stopRecording.usecase';
 import { IRecordingVMGateway } from 'src/recording/domain/gateways/recording-vm.gateway';
+import { IRecordingErrorGateway } from 'src/recording/domain/gateways/recording-error.gateway';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
@@ -14,6 +15,7 @@ describe('SetRecordingArmedUsecase', () => {
   let userGateway: jest.Mocked<IUserGateway>;
   let eventGateway: jest.Mocked<IEventGateway>;
   let vmGateway: jest.Mocked<IRecordingVMGateway>;
+  let errorGateway: jest.Mocked<IRecordingErrorGateway>;
   let startRecording: { execute: jest.Mock };
   let stopRecording: { execute: jest.Mock };
 
@@ -49,6 +51,11 @@ describe('SetRecordingArmedUsecase', () => {
       getStatus: jest.fn(),
       isLiveActive: jest.fn().mockResolvedValue(false),
     };
+    errorGateway = {
+      setError: jest.fn(),
+      clearError: jest.fn(),
+      getError: jest.fn(),
+    };
     startRecording = { execute: jest.fn() };
     stopRecording = { execute: jest.fn() };
 
@@ -59,6 +66,7 @@ describe('SetRecordingArmedUsecase', () => {
         { provide: 'UserGateway', useValue: userGateway },
         { provide: 'EventGateway', useValue: eventGateway },
         { provide: 'RecordingVMGateway', useValue: vmGateway },
+        { provide: 'RecordingErrorGateway', useValue: errorGateway },
         { provide: StartRecordingUsecase, useValue: startRecording },
         { provide: StopRecordingUsecase, useValue: stopRecording },
       ],
@@ -95,6 +103,7 @@ describe('SetRecordingArmedUsecase', () => {
 
     expect(result).toEqual({ recordingArmed: false });
     expect(stopRecording.execute).toHaveBeenCalledWith(trackId);
+    expect(errorGateway.clearError).toHaveBeenCalledWith(trackId);
   });
 
   it('keeps the flag saved when the recorder cannot be reached', async () => {

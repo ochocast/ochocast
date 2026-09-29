@@ -22,6 +22,10 @@ import { SetRecordingArmedDto } from './dto/set-recording-armed.dto';
 import { LiveEventDto } from './dto/live-event.dto';
 import { SetRecordingArmedUsecase } from '../../domain/usecases/setRecordingArmed.usecase';
 import { HandleLiveEventUsecase } from '../../domain/usecases/handleLiveEvent.usecase';
+import {
+  GetRecordingStatusUsecase,
+  RecordingStatus,
+} from '../../domain/usecases/getRecordingStatus.usecase';
 import { PublishRecordingUsecase } from '../../domain/usecases/publishRecording.usecase';
 import { CreateRecordingSegmentFromFileUsecase } from '../../domain/usecases/createRecordingSegmentFromFile.usecase';
 import { GetTrackRecordingsUsecase } from '../../domain/usecases/getTrackRecordings.usecase';
@@ -42,6 +46,7 @@ export class RecordingController {
   constructor(
     private setRecordingArmedUsecase: SetRecordingArmedUsecase,
     private handleLiveEventUsecase: HandleLiveEventUsecase,
+    private getRecordingStatusUsecase: GetRecordingStatusUsecase,
     private publishRecordingUsecase: PublishRecordingUsecase,
     private createRecordingSegmentFromFileUsecase: CreateRecordingSegmentFromFileUsecase,
     private getTrackRecordingsUsecase: GetTrackRecordingsUsecase,
@@ -66,6 +71,21 @@ export class RecordingController {
       throw new HttpException('trackId must be a UUID', HttpStatus.BAD_REQUEST);
     }
     return this.setRecordingArmedUsecase.execute(trackId, dto.armed, email);
+  }
+
+  /**
+   * US-5c — Real-time recording status of a track (disabled / armed and
+   * waiting / recording / error). Organizer-only.
+   */
+  @Get('track/:trackId/status')
+  async getRecordingStatus(
+    @Param('trackId') trackId: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<RecordingStatus> {
+    if (!isUUID(trackId)) {
+      throw new HttpException('trackId must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    return this.getRecordingStatusUsecase.execute(trackId, email);
   }
 
   /**

@@ -23,7 +23,19 @@ export class HandleLiveEventUsecase {
     private stopRecordingUsecase: StopRecordingUsecase,
   ) {}
 
+  // Failures are already recorded for the organizer by the start/stop
+  // usecases (US-5c); the SFU only needs an acknowledgement.
   async execute(roomId: string, event: LiveEventType): Promise<void> {
+    try {
+      await this.handle(roomId, event);
+    } catch (err) {
+      this.logger.error(
+        `Could not handle live ${event} on track ${roomId}: ${err.message}`,
+      );
+    }
+  }
+
+  private async handle(roomId: string, event: LiveEventType): Promise<void> {
     if (event === 'stopped') {
       await this.stopRecordingUsecase.execute(roomId);
       return;

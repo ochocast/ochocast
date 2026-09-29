@@ -20,8 +20,10 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 import Toggle from '../../components/newComponents/Toggle/Toggle';
 import TrackRecordings from '../../components/ReworkComponents/Event/Track/TrackRecordings/TrackRecordings';
+import RecordingStatus from '../../components/ReworkComponents/Event/Track/RecordingStatus/RecordingStatus';
 
 import { useTrackSettings } from './useTrackSettings';
+import { useRecordingStatus } from '../../hooks/useRecordingStatus';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
 import { closeTrack, setTrackRecordingArmed } from '../../utils/api';
@@ -289,16 +291,18 @@ const TrackSettings: FC = () => {
     }
   };
 
-  if (trackId && !track) {
-    return <div className="loading">{t('LoadingTrack')}</div>;
-  }
-
   const userString = localStorage.getItem('backendUser');
   const userId = userString ? JSON.parse(userString)?.id || '' : '';
   const canEdit =
     event?.creatorId === userId ||
     track?.speakers?.some((e) => e.id === userId);
   const closed = track?.closed || event?.closed;
+  const { status: recordingStatus, refresh: refreshRecordingStatus } =
+    useRecordingStatus(trackId, !!trackId && !!canEdit);
+
+  if (trackId && !track) {
+    return <div className="loading">{t('LoadingTrack')}</div>;
+  }
 
   const toggle = () => {
     setIsOpen(!isOpen);
@@ -436,6 +440,7 @@ const TrackSettings: FC = () => {
         throw new Error('Failed to update recording setting');
       }
       setTrack({ ...track, recordingArmed: response.data.recordingArmed });
+      refreshRecordingStatus();
       setToast({
         message: armed ? t('RecordingArmed') : t('RecordingDisarmed'),
         type: 'success',
@@ -463,6 +468,7 @@ const TrackSettings: FC = () => {
               label={t('RecordTrackLives')}
               disabled={!!closed || isRecordingLoading}
             />
+            <RecordingStatus status={recordingStatus} />
             <Button
               label={t('StartLive')}
               onClick={toggle}
