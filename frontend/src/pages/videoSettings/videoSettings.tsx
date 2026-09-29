@@ -146,7 +146,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       return;
     }
 
-    const objectUrl = URL.createObjectURL(media_tmp);
+    // Wrapping the File in a Blob is zero-copy; the resulting blob: URL is
+    // only ever used as a <video> source, never interpreted as HTML.
+    const objectUrl = URL.createObjectURL(
+      new Blob([media_tmp], { type: media_tmp.type }),
+    );
     const videoElement = document.createElement('video');
     videoElement.src = objectUrl;
     videoElement.muted = true;
