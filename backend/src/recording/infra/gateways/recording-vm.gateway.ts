@@ -50,9 +50,17 @@ export class RecordingVMGateway implements IRecordingVMGateway {
         room_id: config.roomId,
         room_key: cpData.room_key,
         sfu_url: cpData.sfu_url,
-        track_id: config.trackId || config.roomId,
+        track_id: config.trackId,
       }),
     });
+
+    // 409 = the recorder already records this room: starting is idempotent.
+    if (response.status === 409) {
+      this.logger.log(
+        `Recording already in progress for room: ${config.roomId}`,
+      );
+      return;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -106,5 +114,16 @@ export class RecordingVMGateway implements IRecordingVMGateway {
       roomId: data.room_id,
       filePath: data.file_path,
     };
+  }
+
+  async isLiveActive(roomId: string): Promise<boolean> {
+    const response = await fetch(
+      `${this.controlPlaneUrl}/stream-status?room_id=${encodeURIComponent(roomId)}`,
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to get stream status (HTTP ${response.status})`);
+    }
+    const data = await response.json();
+    return data.active === true;
   }
 }

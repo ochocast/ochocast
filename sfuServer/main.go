@@ -54,6 +54,9 @@ func main() {
 	} else {
 		log.Println("Warning: No control plane configured, cluster functionality will be limited")
 	}
+	if os.Getenv("BACKEND_URL") == "" || os.Getenv("SFU_WEBHOOK_SECRET") == "" {
+		log.Println("Warning: BACKEND_URL or SFU_WEBHOOK_SECRET not set, armed tracks will not be recorded automatically")
+	}
 
 	if enableHTTPS {
 		// HTTPS Configuration

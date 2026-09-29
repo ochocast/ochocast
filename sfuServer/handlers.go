@@ -491,6 +491,10 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		isOrigin := room.IsOrigin
 		room.mu.Unlock()
 
+		if wasInactive {
+			go notifyLiveStarted(room)
+		}
+
 		// Notifier les peers après un délai pour permettre à toutes les tracks d'arriver
 		// (audio et vidéo arrivent généralement ensemble mais avec un léger décalage)
 		if wasInactive && isOrigin && becameOrigin {
@@ -508,6 +512,7 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		removed = true
 		log.Printf("[WHIP][ROOM-%s] Host cleanup due to %s", roomID, reason)
 		room.CleanupHost()
+		go notifyLiveStopped(roomID)
 	}
 
 	peerConnection.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {

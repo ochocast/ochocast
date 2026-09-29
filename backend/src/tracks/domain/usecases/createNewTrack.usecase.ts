@@ -53,6 +53,7 @@ export class CreateNewTrackUsecase {
       trackToCreate.endDate,
       speakers,
       null,
+      process.env.RECORDING_ARMED_BY_DEFAULT === 'true',
     );
 
     return this.trackGateway.createNewTrack(track);

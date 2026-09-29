@@ -13,6 +13,8 @@ import { GetRecordingMediaUrlUsecase } from './domain/usecases/getRecordingMedia
 import { MergeRecordingsUsecase } from './domain/usecases/mergeRecordings.usecase';
 import { DeleteRecordingUsecase } from './domain/usecases/deleteRecording.usecase';
 import { MarkRecordingPublishedUsecase } from './domain/usecases/markRecordingPublished.usecase';
+import { SetRecordingArmedUsecase } from './domain/usecases/setRecordingArmed.usecase';
+import { HandleLiveEventUsecase } from './domain/usecases/handleLiveEvent.usecase';
 import { MergeResultConsumer } from './infra/merge-result.consumer';
 import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
@@ -44,6 +46,8 @@ import { S3Module } from 'src/s3.module';
     MergeRecordingsUsecase,
     DeleteRecordingUsecase,
     MarkRecordingPublishedUsecase,
+    SetRecordingArmedUsecase,
+    HandleLiveEventUsecase,
     MergeResultConsumer,
   ],
   exports: [

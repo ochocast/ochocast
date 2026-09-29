@@ -1,8 +1,6 @@
 export interface StartRecordingConfig {
   roomId: string;
-  roomKey: string;
-  sfuUrl: string;
-  trackId?: string;
+  trackId: string;
 }
 
 export interface IRecordingVMGateway {
@@ -13,4 +11,6 @@ export interface IRecordingVMGateway {
     roomId?: string;
     filePath?: string;
   }>;
+  /** Whether a live is currently being broadcast in the SFU room. */
+  isLiveActive: (roomId: string) => Promise<boolean>;
 }

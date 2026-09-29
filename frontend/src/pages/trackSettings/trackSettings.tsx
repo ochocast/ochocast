@@ -24,7 +24,7 @@ import TrackRecordings from '../../components/ReworkComponents/Event/Track/Track
 import { useTrackSettings } from './useTrackSettings';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
-import { closeTrack, startRecording, stopRecording } from '../../utils/api';
+import { closeTrack, setTrackRecordingArmed } from '../../utils/api';
 
 import styles from './trackSettings.module.css';
 import getEnv from '../../utils/env';
@@ -60,9 +60,6 @@ const TrackSettings: FC = () => {
     type: 'success' | 'error';
   } | null>(null);
   const [isCloseTrackModalOpen, setIsCloseTrackModalOpen] = useState(false);
-  const [isRecordingEnabled, setIsRecordingEnabled] = useState(false);
-  const [sfuRoomId, setSfuRoomId] = useState<string | null>(null);
-  const [sfuRoomKey, setSfuRoomKey] = useState<string | null>(null);
   const [isRecordingLoading, setIsRecordingLoading] = useState(false);
 
   const qrCodeRef = useRef<HTMLDivElement>(null);
@@ -89,15 +86,6 @@ const TrackSettings: FC = () => {
       const data = await response.json();
       if (data.exists && data.whip_url) {
         setSfuUrl(data.whip_url);
-        if (data.room_id) {
-          setSfuRoomId(data.room_id);
-          try {
-            const key = new URL(data.whip_url).searchParams.get('key');
-            if (key) setSfuRoomKey(key);
-          } catch (_) {
-            // invalid whip_url, key stays null
-          }
-        }
       } else {
         setSfuUrl('');
       }
@@ -203,9 +191,6 @@ const TrackSettings: FC = () => {
       }
 
       const data = await response.json();
-      // Store room info for recording
-      setSfuRoomId(data.room_id);
-      setSfuRoomKey(data.key);
       const whipUrl = `${CONTROL_PLANE_URL}/whip?room_id=${data.room_id}&key=${data.key}`;
       setSfuUrl(whipUrl);
       setIsOpen(false);
@@ -290,57 +275,23 @@ const TrackSettings: FC = () => {
   };
 
   const handleRecordingToggle = async (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked;
-
-    if (!sfuRoomId || !sfuRoomKey || !trackId) {
-      setToast({
-        message: t('StartLiveFirst'),
-        type: 'error',
-      });
-      return;
-    }
+    const armed = e.target.checked;
+    if (!trackId) return;
 
     setIsRecordingLoading(true);
-
     try {
-      if (enabled) {
-        // Start recording
-        const response = await startRecording({
-          trackId: trackId,
-          roomId: sfuRoomId,
-          roomKey: sfuRoomKey,
-          sfuUrl: CONTROL_PLANE_URL,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to start recording');
-        }
-
-        setIsRecordingEnabled(true);
-        setToast({
-          message: t('RecordingStarted'),
-          type: 'success',
-        });
-      } else {
-        // Stop recording
-        const response = await stopRecording(trackId);
-
-        if (!response.ok) {
-          throw new Error('Failed to stop recording');
-        }
-
-        setIsRecordingEnabled(false);
-        setToast({
-          message: t('RecordingStopped'),
-          type: 'success',
-        });
+      const response = await setTrackRecordingArmed(trackId, armed);
+      if (!response.ok) {
+        throw new Error('Failed to update recording setting');
       }
+      setTrack({ ...track, recordingArmed: response.data.recordingArmed });
+      setToast({
+        message: armed ? t('RecordingArmed') : t('RecordingDisarmed'),
+        type: 'success',
+      });
     } catch (error) {
       console.error('Recording toggle error:', error);
-      setToast({
-        message: enabled ? t('RecordingStartError') : t('RecordingStopError'),
-        type: 'error',
-      });
+      setToast({ message: t('RecordingArmError'), type: 'error' });
     } finally {
       setIsRecordingLoading(false);
     }
@@ -356,10 +307,10 @@ const TrackSettings: FC = () => {
         {trackId && (
           <div className={styles.liveControls}>
             <Toggle
-              checked={isRecordingEnabled}
+              checked={!!track.recordingArmed}
               onChange={handleRecordingToggle}
-              label={t('EnableRecording')}
-              disabled={!!closed || !sfuRoomId || isRecordingLoading}
+              label={t('RecordTrackLives')}
+              disabled={!!closed || isRecordingLoading}
             />
             <Button
               label={t('StartLive')}

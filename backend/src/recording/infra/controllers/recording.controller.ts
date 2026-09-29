@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,9 +18,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from 'nest-keycloak-connect';
-import { StartRecordingDto } from './dto/start-recording.dto';
-import { StartRecordingUsecase } from '../../domain/usecases/startRecording.usecase';
-import { StopRecordingUsecase } from '../../domain/usecases/stopRecording.usecase';
+import { SetRecordingArmedDto } from './dto/set-recording-armed.dto';
+import { LiveEventDto } from './dto/live-event.dto';
+import { SetRecordingArmedUsecase } from '../../domain/usecases/setRecordingArmed.usecase';
+import { HandleLiveEventUsecase } from '../../domain/usecases/handleLiveEvent.usecase';
 import { PublishRecordingUsecase } from '../../domain/usecases/publishRecording.usecase';
 import { CreateRecordingSegmentFromFileUsecase } from '../../domain/usecases/createRecordingSegmentFromFile.usecase';
 import { GetTrackRecordingsUsecase } from '../../domain/usecases/getTrackRecordings.usecase';
@@ -30,6 +32,7 @@ import { MarkRecordingPublishedUsecase } from '../../domain/usecases/markRecordi
 import { MergeRecordingsDto } from './dto/merge-recordings.dto';
 import { RecordingObject } from '../../domain/recording';
 import { RecordingSecretGuard } from '../guards/recording-secret.guard';
+import { SfuWebhookGuard } from '../guards/sfu-webhook.guard';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 import { isUUID } from 'class-validator';
 
@@ -37,8 +40,8 @@ import { isUUID } from 'class-validator';
 @Controller('recordings')
 export class RecordingController {
   constructor(
-    private startRecordingUsecase: StartRecordingUsecase,
-    private stopRecordingUsecase: StopRecordingUsecase,
+    private setRecordingArmedUsecase: SetRecordingArmedUsecase,
+    private handleLiveEventUsecase: HandleLiveEventUsecase,
     private publishRecordingUsecase: PublishRecordingUsecase,
     private createRecordingSegmentFromFileUsecase: CreateRecordingSegmentFromFileUsecase,
     private getTrackRecordingsUsecase: GetTrackRecordingsUsecase,
@@ -48,44 +51,34 @@ export class RecordingController {
     private markRecordingPublishedUsecase: MarkRecordingPublishedUsecase,
   ) {}
 
-  @Post('start')
+  /**
+   * US-5a — Arm / disarm the automatic recording of a track's lives.
+   * Organizer-only.
+   */
+  @Put('track/:trackId/armed')
   @UsePipes(new ValidationPipe())
-  async startRecording(
-    @Body() dto: StartRecordingDto,
-  ): Promise<{ status: string }> {
-    try {
-      await this.startRecordingUsecase.execute({
-        roomId: dto.roomId,
-        roomKey: dto.roomKey,
-        sfuUrl: dto.sfuUrl,
-        trackId: dto.trackId,
-      });
-      return { status: 'recording' };
-    } catch (error) {
-      throw new HttpException(
-        `Failed to start recording: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
-  @Post('stop/:trackId')
-  async stopRecording(
+  async setRecordingArmed(
     @Param('trackId') trackId: string,
-  ): Promise<{ status: string }> {
+    @Body() dto: SetRecordingArmedDto,
+    @CurrentUserEmail() email: string,
+  ): Promise<{ recordingArmed: boolean }> {
     if (!isUUID(trackId)) {
       throw new HttpException('trackId must be a UUID', HttpStatus.BAD_REQUEST);
     }
+    return this.setRecordingArmedUsecase.execute(trackId, dto.armed, email);
+  }
 
-    try {
-      await this.stopRecordingUsecase.execute(trackId);
-      return { status: 'stopped' };
-    } catch (error) {
-      throw new HttpException(
-        `Failed to stop recording: ${error.message}`,
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+  /**
+   * US-5b — "Live started / stopped" notification from the SFU, which starts
+   * or stops the recorder of armed tracks. SFU-only (secret-guarded).
+   */
+  @Public()
+  @UseGuards(SfuWebhookGuard)
+  @Post('live-events')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UsePipes(new ValidationPipe())
+  async handleLiveEvent(@Body() dto: LiveEventDto): Promise<void> {
+    await this.handleLiveEventUsecase.execute(dto.roomId, dto.event);
   }
 
   @Public()

@@ -17,7 +17,7 @@ flowchart TB
 
     subgraph FRONTEND["🖥️ Frontend React"]
         UI[Interface TrackSettings]
-        Toggle[Toggle Recording]
+        Toggle[Toggle « Enregistrer les lives »]
     end
 
     subgraph BACKEND["⚙️ Backend NestJS"]
@@ -48,14 +48,15 @@ flowchart TB
     OBS -->|WHIP| CP
     CP -->|Proxy| Room
     UI -->|1. Créer Room| CP
-    Toggle -->|2. POST /recordings/start| API
+    Toggle -->|0. PUT /recordings/track/:id/armed| API
+    Room -->|2. POST /recordings/live-events| API
     API -->|3. GET /recorder| Discovery
     Discovery -->|4. sfu_url + room_key| API
     API -->|5. HTTP| Recorder
     Recorder -->|6. WebRTC /recorder| Room
     Room -->|7. RTP packets| MP4Writer
     MP4Writer -->|8. Fichier MP4| Recorder
-    Recorder -->|9. POST /recordings/publish| API
+    Recorder -->|9. POST /recordings/segments| API
     UseCase -->|10. Transcode + Upload| S3
     VideoService -->|11. Métadonnées| DB
 
@@ -73,15 +74,16 @@ flowchart TB
 
 | Étape | Action | Description |
 |-------|--------|-------------|
-| 1 | Créer la Room | Le frontend crée une room via le Control Plane et récupère `room_id` + `key` |
-| 2 | Démarrer l'enregistrement | L'utilisateur active le toggle, le frontend appelle `/recordings/start` |
+| 0 | Armer la track | L'organisateur active une fois le toggle « Enregistrer les lives de cette track » (`PUT /recordings/track/:id/armed`), même avant le live. Le réglage persiste d'un live à l'autre |
+| 1 | Créer la Room | Le frontend crée une room via le Control Plane (`room_id` = id de la track) |
+| 2 | Live démarré | Au premier flux reçu, le SFU d'origine notifie le backend (`POST /recordings/live-events`, header `X-Sfu-Webhook-Secret`). Si la track est armée, le backend démarre l'enregistrement (jamais deux recorders sur une même track, 3 tentatives) |
 | 3 | Discovery SFU | Le backend appelle le Control Plane (`GET /recorder?room_id=X`) pour obtenir l'URL du SFU d'ingestion |
 | 4 | Réponse Control Plane | Le Control Plane retourne `sfu_url`, `room_key` et `recorder_url` |
 | 5 | Notification VM | Le backend contacte la VM liveRecorder via HTTP avec les infos du SFU |
 | 6 | Connexion WebRTC | Le recorder se connecte au SFU d'ingestion via l'endpoint `/recorder` |
 | 7 | Réception des flux | Le recorder reçoit les packets RTP (audio + vidéo) avec buffer dédié (50k packets) |
 | 8 | Écriture MP4 | Les flux sont synchronisés et écrits dans un fichier MP4 |
-| 9 | Publication | À l'arrêt, le recorder envoie le MP4 au backend |
+| 9 | Segment | À la coupure du live (notification `stopped` du SFU ou déconnexion de l'hôte), le recorder envoie le MP4 au backend comme segment non répertorié |
 | 10 | Traitement | Le backend transcode et upload vers S3 |
 | 11 | Finalisation | La vidéo est créée en base avec les métadonnées du track |
 
@@ -121,6 +123,24 @@ CONTROL_PLANE_URL=http://localhost:8090
 
 # URL de la VM d'enregistrement
 RECORDING_VM_URL=http://localhost:8080
+
+# Secret partagé avec le SFU (notifications live démarré / arrêté)
+SFU_WEBHOOK_SECRET=<secret>
+
+# Les nouvelles tracks sont-elles armées par défaut ? (false par défaut)
+RECORDING_ARMED_BY_DEFAULT=false
+```
+
+### Configuration SFU
+
+Dans le fichier `.env` du SFU :
+
+```env
+# URL du backend (sans /api) à notifier des débuts / fins de live
+BACKEND_URL=<url-backend>
+
+# Même valeur que SFU_WEBHOOK_SECRET côté backend
+SFU_WEBHOOK_SECRET=<secret>
 ```
 
 ### Configuration VM liveRecorder
@@ -156,37 +176,23 @@ Créez un utilisateur dédié dans Keycloak avec les droits nécessaires pour pu
 3. Remplissez les informations du track (titre, description, speakers, tags)
 4. Sauvegardez le track
 
-### Étape 2 : Démarrer le live
+### Étape 2 : Armer l'enregistrement
 
-1. Accédez aux paramètres du track (`/track/{id}/settings`)
-2. Cliquez sur **"Démarrer le live OBS"**
-3. Une URL WHIP s'affiche - copiez-la dans OBS Studio
-4. Configurez OBS et lancez le streaming
+1. Accédez aux paramètres du track
+2. Activez le toggle **« Enregistrer les lives de cette track »** — possible dès la création du track, sans live en cours
+3. Un toast confirme que les prochains lives seront enregistrés
 
-### Étape 3 : Activer l'enregistrement
+Seul l'organisateur (speaker du track ou créateur de l'événement) peut armer ou désarmer. Le réglage persiste d'un live à l'autre, et clôturer le track ne le modifie pas.
 
-Une fois le live démarré :
+### Étape 3 : Lancer le live
 
-1. Le toggle **"Activer l'enregistrement"** devient disponible
-2. Activez le toggle
-3. Un toast de confirmation s'affiche : "Enregistrement démarré"
-4. L'enregistrement commence immédiatement
+1. Cliquez sur **"Démarrer le live OBS"**, copiez l'URL WHIP dans OBS et lancez le streaming
+2. L'enregistrement démarre automatiquement, sans qu'aucune page ne soit ouverte
+3. À chaque coupure du live (arrêt, crash, reconnexion), le segment en cours est clôturé ; la reprise en crée un nouveau
 
-:::info Le live doit être actif
-Le toggle d'enregistrement n'est activable qu'après avoir démarré le live. Un message vous indiquera : "Démarrez d'abord le live avant d'activer l'enregistrement".
-:::
+### Désarmer
 
-### Étape 4 : Arrêter l'enregistrement
-
-Pour arrêter l'enregistrement :
-
-1. Désactivez le toggle **"Activer l'enregistrement"**
-2. Un toast confirme : "Enregistrement arrêté"
-3. La vidéo est automatiquement publiée
-
-:::warning Publication automatique
-L'arrêt de l'enregistrement déclenche automatiquement la publication de la vidéo. Assurez-vous d'avoir terminé votre session avant de désactiver le toggle.
-:::
+Désactivez le toggle. Si un live est en cours, l'enregistrement s'arrête immédiatement et le segment en cours est conservé. À l'inverse, armer pendant un live démarre l'enregistrement immédiatement.
 
 ---
 
@@ -230,26 +236,17 @@ Le traitement peut prendre quelques minutes selon la durée de l'enregistrement.
 
 ## Dépannage
 
-### Le toggle d'enregistrement est grisé
-
-**Cause** : Le live n'est pas encore démarré.
-
-**Solution** : Cliquez d'abord sur "Démarrer le live OBS" et attendez que la room SFU soit créée.
-
-### Message "Erreur lors du démarrage de l'enregistrement"
+### Le track est armé mais rien n'est enregistré
 
 **Causes possibles** :
-- La VM liveRecorder n'est pas accessible
-- Le Control Plane n'est pas accessible
-- La room n'existe pas dans le Control Plane
-- Problème de connexion réseau
+- Le SFU ne notifie pas le backend (`BACKEND_URL` ou `SFU_WEBHOOK_SECRET` absent côté SFU)
+- Les secrets diffèrent entre SFU et backend (le backend répond 401)
+- La VM liveRecorder ou le Control Plane n'est pas accessible
 
 **Solutions** :
-1. Vérifiez que le Control Plane est en cours d'exécution
-2. Vérifiez la variable `CONTROL_PLANE_URL` dans le backend
-3. Vérifiez que la VM liveRecorder est en cours d'exécution
-4. Vérifiez la variable `RECORDING_VM_URL` dans le backend
-5. Consultez les logs du backend pour voir l'erreur exacte
+1. Cherchez `[LIVE-EVENT]` dans les logs du SFU
+2. Vérifiez `SFU_WEBHOOK_SECRET` des deux côtés
+3. Vérifiez `CONTROL_PLANE_URL` et `RECORDING_VM_URL` dans le backend, puis les logs `StartRecordingUsecase`
 
 ### Message "Failed to discover SFU" ou "Room not found"
 

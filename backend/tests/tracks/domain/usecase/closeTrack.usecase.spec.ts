@@ -158,6 +158,7 @@ describe('CloseTracktUsecase', () => {
       startRecording: jest.fn(),
       stopRecording: jest.fn(),
       getStatus: jest.fn().mockResolvedValue({ status: 'idle' }),
+      isLiveActive: jest.fn(),
     };
 
     stopRecordingUsecaseMock = {
