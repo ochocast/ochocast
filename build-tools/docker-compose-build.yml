@@ -34,3 +34,9 @@ services:
       context: ../ffmpegServer
       dockerfile: Dockerfile
     image: ${DOCKER_HUB_USERNAME}/ochocast-ffmpeg-worker:${APP_VERSION:-latest}
+
+  transcript:
+    build:
+      context: ../ffmpegServer
+      dockerfile: Dockerfile.transcript
+    image: ${DOCKER_HUB_USERNAME}/ochocast-transcript:${APP_VERSION:-latest}

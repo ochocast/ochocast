@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/worker.js",
+    "start:transcript": "node dist/transcript-server.js",
     "dev": "ts-node src/worker.ts",
+    "dev:transcript": "ts-node src/transcript-server.ts",
     "test:connection": "ts-node src/test-connection.ts"
   },
   "dependencies": {
