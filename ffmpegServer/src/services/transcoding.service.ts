@@ -331,7 +331,8 @@ export class TranscodingService {
       await this.uploadHLSFiles(hlsOutputDir, job.videoId);
 
       // Extract and upload WAV audio when the source has an audio track
-      const hasAudioTrack = await this.hasAudio(tempInputPath);
+      const extractAudio = process.env.TRANSCODING_EXTRACT_AUDIO !== 'false';
+      const hasAudioTrack = extractAudio && (await this.hasAudio(tempInputPath));
       const audioKey = `${job.videoId}/audio.wav`;
       let generatedSubtitleId: string | undefined;
       if (hasAudioTrack) {

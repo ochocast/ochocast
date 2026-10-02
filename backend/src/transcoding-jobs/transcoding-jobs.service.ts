@@ -25,13 +25,19 @@ export class TranscodingJobsService {
   }
 
   async register(job: VideoTranscodingJob): Promise<void> {
-    await this.dataSource.getRepository(TranscodingJobEntity).insert({
-      id: job.jobId,
-      videoId: job.videoId,
-      payload: job,
-      status: 'pending',
-      attempts: 0,
-    });
+    await this.dataSource
+      .getRepository(TranscodingJobEntity)
+      .createQueryBuilder()
+      .insert()
+      .values({
+        id: job.jobId,
+        videoId: job.videoId,
+        payload: job,
+        status: 'pending',
+        attempts: 0,
+      })
+      .orIgnore()
+      .execute();
   }
 
   async claim(jobId: string, videoId: string) {
