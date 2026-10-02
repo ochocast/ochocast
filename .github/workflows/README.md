@@ -2,6 +2,15 @@
 
 `ochocast` owns application code and application CI only.
 
+`ffmpeg-serverless.yml` validates the FFmpeg HTTP worker and its backend contract,
+including PostgreSQL concurrency and real FFmpeg tests, then builds an amd64 image.
+PRs do not publish; pushes to `main` and explicit manual publication use
+`vars.FFMPEG_IMAGE_REPOSITORY` plus the existing Scaleway registry credentials.
+The immutable tag and digest are reported for deployment through ops-architecture-lab.
+The existing frontend/backend GitOps promotion does not deploy this worker;
+the serverless infrastructure must promote the worker's same digest separately.
+See `ffmpegServer/SERVERLESS.md` for the environment and trigger contract.
+
 The GitOps promotion workflow:
 
 1. validates the frontend and backend;

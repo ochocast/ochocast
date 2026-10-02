@@ -2,8 +2,8 @@ import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import {
   mkdir,
+  mkdtemp,
   writeFile,
-  readFile,
   readdir,
   stat,
   unlink,
@@ -19,9 +19,13 @@ import {
 } from '../types/job.types';
 import { S3_CONFIG } from '../config/s3.config';
 import { spawn } from 'node:child_process';
+import { createReadStream } from 'node:fs';
 
 export class TranscodingService {
-  constructor(private s3Client: S3Client) {}
+  constructor(
+    private s3Client: S3Client,
+    private signal?: AbortSignal,
+  ) {}
 
   /**
    * Get video duration in seconds
@@ -46,25 +50,21 @@ export class TranscodingService {
    * Check if video has audio track
    */
   async hasAudio(inputPath: string): Promise<boolean> {
-    try {
-      const { stdout } = await this.runProcess(
-        process.env.FFPROBE_PATH || 'ffprobe',
-        [
-          '-v',
-          'error',
-          '-select_streams',
-          'a',
-          '-show_entries',
-          'stream=index',
-          '-of',
-          'csv=p=0',
-          inputPath,
-        ],
-      );
-      return stdout.trim() !== '';
-    } catch {
-      return false;
-    }
+    const { stdout } = await this.runProcess(
+      process.env.FFPROBE_PATH || 'ffprobe',
+      [
+        '-v',
+        'error',
+        '-select_streams',
+        'a',
+        '-show_entries',
+        'stream=index',
+        '-of',
+        'csv=p=0',
+        inputPath,
+      ],
+    );
+    return stdout.trim() !== '';
   }
 
   /**
@@ -129,7 +129,7 @@ export class TranscodingService {
     console.log(`   Audio: ${hasAudioTrack ? 'Yes' : 'No'}`);
 
     // Transcode all variants in parallel for speed
-    await Promise.all(
+    const outcomes = await Promise.allSettled(
       HLS_VARIANTS.map((variant) =>
         this.transcodeVariant(
           inputPath,
@@ -141,6 +141,9 @@ export class TranscodingService {
         ),
       ),
     );
+    // Wait for every encoder before removing the working directory on failure.
+    const failed = outcomes.find((outcome) => outcome.status === 'rejected');
+    if (failed?.status === 'rejected') throw failed.reason;
 
     // Create master playlist
     const masterPlaylistContent = [
@@ -194,6 +197,25 @@ export class TranscodingService {
   }
 
   /**
+   * Extract audio track to WAV format
+   */
+  async extractAudioWav(inputPath: string, outputPath: string): Promise<void> {
+    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
+      '-y',
+      '-i',
+      inputPath,
+      '-vn',
+      '-acodec',
+      'pcm_s16le',
+      '-ar',
+      '44100',
+      '-ac',
+      '2',
+      outputPath,
+    ]);
+  }
+
+  /**
    * Process miniature/thumbnail
    */
   async processMiniature(
@@ -233,22 +255,17 @@ export class TranscodingService {
     let fileCount = 0;
 
     for await (const filePath of this.walk(hlsDir)) {
-      const fileContent = await readFile(filePath);
       const relativePath = path.relative(hlsDir, filePath);
       const contentType = filePath.endsWith('.m3u8')
         ? 'application/vnd.apple.mpegurl'
         : 'video/mp2t';
 
-      await new Upload({
-        client: this.s3Client,
-        params: {
-          Bucket: S3_CONFIG.mediaBucket,
-          Key: `${videoId}/${relativePath}`,
-          Body: fileContent,
-          ContentType: contentType,
-          CacheControl: 'max-age=31536000',
-        },
-      }).done();
+      await this.uploadFile(
+        filePath,
+        S3_CONFIG.mediaBucket,
+        `${videoId}/${relativePath}`,
+        contentType,
+      );
 
       fileCount++;
       if (fileCount % 10 === 0) {
@@ -277,24 +294,30 @@ export class TranscodingService {
    */
   async processJob(
     job: VideoTranscodingJob,
-    videoBuffer: Buffer,
+    videoBuffer: Buffer | string,
     miniatureBuffer?: Buffer,
     subtitleBuffer?: Buffer,
+    retainSources = false,
   ): Promise<VideoTranscodingResult> {
-    const tempInputPath = path.join(tmpdir(), `${job.jobId}-input.mp4`);
-    const hlsOutputDir = path.join(tmpdir(), `${job.jobId}-hls`);
-    const tempMiniaturePath = path.join(tmpdir(), `${job.jobId}-miniature.jpg`);
+    const root = process.env.TRANSCODING_WORK_DIR || tmpdir();
+    await mkdir(root, { recursive: true });
+    const workDir = await mkdtemp(path.join(root, 'encode-'));
+    const tempInputPath =
+      typeof videoBuffer === 'string'
+        ? videoBuffer
+        : path.join(workDir, 'input.mp4');
+    const hlsOutputDir = path.join(workDir, 'hls');
+    const tempMiniaturePath = path.join(workDir, 'miniature.jpg');
+    const tempAudioPath = path.join(workDir, 'audio.wav');
 
     try {
       console.log(`\nStarting transcoding job: ${job.jobId}`);
       console.log(`   Video ID: ${job.videoId}`);
       console.log(`   Title: ${job.title}`);
-      console.log(
-        `   File size: ${(videoBuffer.length / 1024 / 1024).toFixed(2)} MB`,
-      );
 
       // Write input file and create output directory
-      await writeFile(tempInputPath, videoBuffer);
+      if (Buffer.isBuffer(videoBuffer))
+        await writeFile(tempInputPath, videoBuffer);
       await mkdir(hlsOutputDir, { recursive: true });
 
       // Get video duration
@@ -307,6 +330,21 @@ export class TranscodingService {
       // Upload HLS files
       await this.uploadHLSFiles(hlsOutputDir, job.videoId);
 
+      // Extract and upload WAV audio when the source has an audio track
+      const hasAudioTrack = await this.hasAudio(tempInputPath);
+      const audioKey = `${job.videoId}/audio.wav`;
+      let generatedSubtitleId: string | undefined;
+      if (hasAudioTrack) {
+        await this.extractAudioWav(tempInputPath, tempAudioPath);
+        await this.uploadFile(
+          tempAudioPath,
+          S3_CONFIG.mediaBucket,
+          audioKey,
+          'audio/wav',
+        );
+        console.log(`WAV audio uploaded: ${audioKey}`);
+      }
+
       // Process and upload miniature
       await this.processMiniature(
         miniatureBuffer,
@@ -315,33 +353,27 @@ export class TranscodingService {
       );
 
       if (job.miniature_id) {
-        const miniatureContent = await readFile(tempMiniaturePath);
-        await new Upload({
-          client: this.s3Client,
-          params: {
-            Bucket: S3_CONFIG.miniatureBucket,
-            Key: job.miniature_id,
-            Body: miniatureContent,
-            ContentType: 'image/jpeg',
-            CacheControl: 'max-age=31536000',
-          },
-        }).done();
+        await this.uploadFile(
+          tempMiniaturePath,
+          S3_CONFIG.miniatureBucket,
+          job.miniature_id,
+          'image/jpeg',
+        );
         console.log(`Miniature uploaded: ${job.miniature_id}`);
       }
 
       // Upload subtitle if provided
       if (subtitleBuffer && job.subtitle_id) {
-        await new Upload({
-          client: this.s3Client,
-          params: {
-            Bucket: S3_CONFIG.mediaBucket,
-            Key: job.subtitle_id,
-            Body: subtitleBuffer,
-            ContentType: 'text/vtt',
-            CacheControl: 'max-age=31536000',
-          },
-        }).done();
+        const subtitlePath = path.join(workDir, 'subtitle.vtt');
+        await writeFile(subtitlePath, subtitleBuffer);
+        await this.uploadFile(
+          subtitlePath,
+          S3_CONFIG.mediaBucket,
+          job.subtitle_id,
+          'text/vtt',
+        );
         console.log(`Subtitle uploaded: ${job.subtitle_id}`);
+        generatedSubtitleId = job.subtitle_id;
       }
 
       const sourceObjects = [
@@ -355,16 +387,22 @@ export class TranscodingService {
       ].filter((entry): entry is { bucket: string; key: string } =>
         Boolean(entry),
       );
-      await Promise.all(
-        sourceObjects.map(({ bucket, key }) =>
-          this.s3Client.send(
-            new DeleteObjectCommand({ Bucket: bucket, Key: key }),
+      if (!retainSources)
+        await Promise.all(
+          sourceObjects.map(({ bucket, key }) =>
+            this.s3Client.send(
+              new DeleteObjectCommand({ Bucket: bucket, Key: key }),
+            ),
           ),
-        ),
-      );
+        );
 
       // Cleanup temporary files
-      await this.cleanup([tempInputPath, tempMiniaturePath, hlsOutputDir]);
+      await this.cleanup([
+        tempInputPath,
+        tempMiniaturePath,
+        tempAudioPath,
+        hlsOutputDir,
+      ]);
 
       console.log(`Job completed successfully: ${job.jobId}\n`);
 
@@ -373,22 +411,64 @@ export class TranscodingService {
         success: true,
         videoId: job.videoId,
         duration,
+        ...(generatedSubtitleId ? { subtitle_id: generatedSubtitleId } : {}),
         processedAt: Date.now(),
       };
     } catch (error: unknown) {
       console.error(`Job failed: ${job.jobId}`, error);
 
       // Cleanup on error
-      await this.cleanup([tempInputPath, tempMiniaturePath, hlsOutputDir]);
+      await this.cleanup([
+        tempInputPath,
+        tempMiniaturePath,
+        tempAudioPath,
+        hlsOutputDir,
+      ]);
 
       return {
         jobId: job.jobId,
         success: false,
         videoId: job.videoId,
         duration: 0,
-        error: error instanceof Error ? error.message : String(error),
+        subtitle_id: null,
+        error: (error instanceof Error ? error.message : String(error)).slice(
+          -2000,
+        ),
         processedAt: Date.now(),
       };
+    } finally {
+      await this.cleanup([workDir]);
+    }
+  }
+
+  private async uploadFile(
+    filePath: string,
+    bucket: string,
+    key: string,
+    contentType: string,
+  ): Promise<void> {
+    this.signal?.throwIfAborted();
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    this.signal?.addEventListener('abort', abort, { once: true });
+    const body = createReadStream(filePath);
+    try {
+      await new Upload({
+        client: this.s3Client,
+        queueSize: 1,
+        abortController: controller,
+        params: {
+          Bucket: bucket,
+          Key: key,
+          Body: body,
+          ContentLength: (await stat(filePath)).size,
+          ContentType: contentType,
+          CacheControl: 'max-age=31536000',
+        },
+      }).done();
+    } finally {
+      body.destroy();
+      this.signal?.removeEventListener('abort', abort);
     }
   }
 
@@ -415,14 +495,33 @@ export class TranscodingService {
     args: string[],
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      this.signal?.throwIfAborted();
+      const child = spawn(
+        command,
+        ['-protocol_whitelist', 'file,pipe', ...args],
+        {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          signal: this.signal,
+          killSignal: 'SIGKILL',
+        },
+      );
       let stdout = '';
       let stderr = '';
-      child.stdout.on('data', (chunk) => (stdout += chunk.toString()));
-      child.stderr.on('data', (chunk) => (stderr += chunk.toString()));
-      child.on('error', reject);
+      let processError: Error | undefined;
+      child.stdout.on(
+        'data',
+        (chunk) => (stdout = (stdout + chunk.toString()).slice(-8192)),
+      );
+      child.stderr.on(
+        'data',
+        (chunk) => (stderr = (stderr + chunk.toString()).slice(-16384)),
+      );
+      child.on('error', (error) => {
+        processError = error;
+      });
       child.on('close', (code) => {
-        if (code === 0) resolve({ stdout, stderr });
+        if (processError) reject(processError);
+        else if (code === 0) resolve({ stdout, stderr });
         else
           reject(new Error(`${command} exited with code ${code}: ${stderr}`));
       });
