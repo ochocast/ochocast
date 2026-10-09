@@ -181,6 +181,13 @@ export class VideoGateway implements IVideoGateway {
       Key: video.miniature_id,
     });
     await this.s3Client.send(miniatureCommand);
+    // The HTTP worker retains this input for retries; permanent deletion removes it too.
+    await this.s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.STOCK_MINIATURE_BUCKET,
+        Key: `${video.id}/source/miniature-original`,
+      }),
+    );
 
     // Delete subtitle file if it exists
     if (video.subtitle_id) {

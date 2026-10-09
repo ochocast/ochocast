@@ -2,12 +2,26 @@
 
 `ochocast` owns application code and application CI only.
 
+`ffmpeg-serverless.yml` validates the FFmpeg HTTP worker and its backend contract,
+including PostgreSQL concurrency and multipart → local queue → HTTP worker → authenticated callback → three HLS qualities with real storage and FFmpeg, then builds an amd64 image.
+PRs do not publish; pushes to `main` and explicit manual publication use
+`vars.FFMPEG_IMAGE_REPOSITORY` plus the existing Scaleway registry credentials.
+The immutable tag and digest are reported for deployment through ops-architecture-lab.
+The existing frontend/backend GitOps promotion does not deploy this worker;
+the serverless infrastructure must promote the worker's same digest separately.
+The disposable MinIO service is built from a pinned official source revision,
+so the contract recipe does not depend on discontinued public MinIO images.
+See `ffmpegServer/SERVERLESS.md` for the environment and trigger contract.
+
 The GitOps promotion workflow:
 
 1. validates the frontend and backend;
 2. builds Docker images;
 3. pushes immutable `sha-<commit>` image tags to Scaleway Registry;
 4. opens a pull request in `ochocast/ops-architecture-lab` to promote those image tags.
+
+Manual `force_components=application` builds and publishes frontend and backend
+together, then proposes their staging promotion. It does not force SFU builds.
 
 This repository must not contain kubeconfigs, ArgoCD tokens, Terraform credentials, or direct deployment steps. Kubernetes manifests, Helm values, runtime secrets, ArgoCD Applications, and infrastructure as code stay in `ops-architecture-lab`.
 

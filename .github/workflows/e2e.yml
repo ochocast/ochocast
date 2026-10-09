@@ -66,11 +66,23 @@ jobs:
         env:
           PLAYWRIGHT_TEST_USER: "test-user"
           PLAYWRIGHT_TEST_PASSWORD: "test-password"
+          # Must match nest-back in the local Keycloak realm import.
+          AUTH_SECRET: "this-is-a-local-keycloak-secret"
+          TRANSCODING_QUEUE_PROVIDER: "local"
+          TRANSCODING_QUEUE_ENDPOINT: "http://127.0.0.1:9324"
+          TRANSCODING_QUEUE_REGION: "fr-par"
+          TRANSCODING_QUEUE_URL: "http://127.0.0.1:9324/000000000000/ochocast-local-ffmpeg"
+          TRANSCODING_QUEUE_ACCESS_KEY: "local"
+          TRANSCODING_QUEUE_SECRET_KEY: "local"
+          TRANSCODING_DISPATCH_SECRET: "e2e-dispatch-secret-at-least-32-characters"
+          TRANSCODING_CALLBACK_SECRET: "e2e-callback-secret-at-least-32-characters"
       - name: Stop Docker Services
         if: always()
         run: |
           cd dev-tools
           docker compose down -v || true
+          # Bind-mounted data is root-owned; leave the next checkout clean.
+          docker run --rm -v "$GITHUB_WORKSPACE:/workspace" alpine rm -rf /workspace/dev-tools/database/postgres-data /workspace/dev-tools/localMinio/run_env
           npx kill-port 3000 3001 || true
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
