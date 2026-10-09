@@ -66,6 +66,8 @@ jobs:
         env:
           PLAYWRIGHT_TEST_USER: "test-user"
           PLAYWRIGHT_TEST_PASSWORD: "test-password"
+          # Must match nest-back in the local Keycloak realm import.
+          AUTH_SECRET: "this-is-a-local-keycloak-secret"
           TRANSCODING_QUEUE_PROVIDER: "local"
           TRANSCODING_QUEUE_ENDPOINT: "http://127.0.0.1:9324"
           TRANSCODING_QUEUE_REGION: "fr-par"

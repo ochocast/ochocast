@@ -52,6 +52,8 @@ playwright/.auth/      Saved session (git-ignored, generated)
 
 `auth.setup.ts` runs first (Playwright project `setup`), logs in as the Keycloak test user and stores cookies + localStorage in `playwright/.auth/user.json`. Every test then starts **already logged in**: just `page.goto('/...')`.
 
+The setup also checks that `GET /api/users/login` returns 200 before saving the session. The backend's `AUTH_SECRET` must match the imported `nest-back` client secret (`this-is-a-local-keycloak-secret`); the placeholder in `backend/.env.example` cannot validate tokens. Set it in your local backend environment. The E2E workflow supplies this local secret explicitly and keeps online token validation enabled.
+
 The user `test-user` / `test-password` is part of the realm import (`dev-tools/localKeycloak/config/realm-export.json`), so there is nothing to create by hand. `playwright/.auth/` holds live session tokens and is git-ignored: never commit it.
 
 Environment variables (all optional):
