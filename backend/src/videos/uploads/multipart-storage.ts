@@ -131,6 +131,8 @@ export class S3MultipartStorage extends MultipartStorage {
     for (const [Bucket, Key] of [
       [process.env.STOCK_MEDIA_BUCKET, s.key],
       [process.env.STOCK_MEDIA_BUCKET, `subtitle-${s.id}.vtt`],
+      [process.env.STOCK_MEDIA_BUCKET, `${s.id}/source/subtitle-${s.id}.vtt`],
+      [process.env.STOCK_MINIATURE_BUCKET, `${s.id}/source/miniature-original`],
       [process.env.STOCK_MINIATURE_BUCKET, `miniature-${s.id}.jpg`],
     ])
       await this.client.send(new DeleteObjectCommand({ Bucket, Key }));

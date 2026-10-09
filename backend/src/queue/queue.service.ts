@@ -87,6 +87,10 @@ export class QueueService {
 
   async publishJob(job: VideoTranscodingJob): Promise<void> {
     await this.jobs.register(job);
+    await this.publishRegisteredJob(job);
+  }
+
+  async publishRegisteredJob(job: VideoTranscodingJob): Promise<void> {
     const signature = createHmac('sha256', this.dispatchSecret)
       .update(JSON.stringify(job))
       .digest('hex');

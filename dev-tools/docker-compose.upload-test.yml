@@ -1,0 +1,25 @@
+# Disposable local-only services for the multipart/FFmpeg contract recipe.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: uploadtest
+      POSTGRES_DB: upload_test
+    ports: ['127.0.0.1:25432:5432']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+  minio:
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    environment:
+      MINIO_ROOT_USER: uploadtest
+      MINIO_ROOT_PASSWORD: uploadtest
+    command: server /data
+    ports: ['127.0.0.1:29000:9000']
+  elasticmq:
+    image: softwaremill/elasticmq-native:1.7.1
+    ports: ['127.0.0.1:29324:9324']
+    volumes:
+      - ./elasticmq/elasticmq.conf:/opt/elasticmq.conf:ro

@@ -6,6 +6,10 @@ on:
       - 'ffmpegServer/**'
       - 'backend/src/transcoding-jobs/**'
       - 'backend/src/queue/**'
+      - 'backend/src/videos/uploads/**'
+      - 'backend/tests/videos/uploads/**'
+      - 'dev-tools/docker-compose.upload-test.yml'
+      - 'dev-tools/elasticmq/**'
       - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
       - 'backend/package*.json'
@@ -16,6 +20,10 @@ on:
       - 'ffmpegServer/**'
       - 'backend/src/transcoding-jobs/**'
       - 'backend/src/queue/**'
+      - 'backend/src/videos/uploads/**'
+      - 'backend/tests/videos/uploads/**'
+      - 'dev-tools/docker-compose.upload-test.yml'
+      - 'dev-tools/elasticmq/**'
       - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
       - 'backend/package*.json'
@@ -62,6 +70,24 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm run test:local-queue-config
       - run: npm run test:unit -- --runInBand
+      - name: Prepare real FFmpeg multipart recipe
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          npm ci --prefix ../ffmpegServer
+          npm run build --prefix ../ffmpegServer
+      - name: Start disposable upload test services
+        working-directory: .
+        run: docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test up -d --wait
+      - name: Test multipart through the real queue and HTTP worker
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+          UPLOAD_TEST_DATABASE_URL: postgresql://postgres:uploadtest@127.0.0.1:25432/upload_test
+          UPLOAD_TEST_QUEUE_URL: http://127.0.0.1:29324/000000000000/ochocast-local-ffmpeg
+        run: npm run test:unit -- --runInBand tests/videos/uploads/uploads.integration.spec.ts
+      - name: Remove disposable upload test services
+        if: always()
+        working-directory: .
+        run: docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test down -v
 
   validate:
     runs-on: ubuntu-latest

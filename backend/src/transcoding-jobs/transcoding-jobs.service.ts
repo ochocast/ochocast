@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import {
   VideoTranscodingJob,
@@ -24,8 +24,11 @@ export class TranscodingJobsService {
     }
   }
 
-  async register(job: VideoTranscodingJob): Promise<void> {
-    await this.dataSource.getRepository(TranscodingJobEntity).insert({
+  async register(
+    job: VideoTranscodingJob,
+    manager: EntityManager = this.dataSource.manager,
+  ): Promise<void> {
+    await manager.getRepository(TranscodingJobEntity).insert({
       id: job.jobId,
       videoId: job.videoId,
       payload: job,
