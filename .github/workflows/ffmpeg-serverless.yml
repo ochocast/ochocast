@@ -10,6 +10,7 @@ on:
       - 'backend/tests/videos/uploads/**'
       - 'dev-tools/docker-compose.upload-test.yml'
       - 'dev-tools/elasticmq/**'
+      - 'dev-tools/localMinio/Dockerfile.test'
       - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
       - 'backend/package*.json'
@@ -24,6 +25,7 @@ on:
       - 'backend/tests/videos/uploads/**'
       - 'dev-tools/docker-compose.upload-test.yml'
       - 'dev-tools/elasticmq/**'
+      - 'dev-tools/localMinio/Dockerfile.test'
       - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
       - 'backend/package*.json'
@@ -77,7 +79,7 @@ jobs:
           npm run build --prefix ../ffmpegServer
       - name: Start disposable upload test services
         working-directory: .
-        run: docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test up -d --wait
+        run: docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test up --build -d --wait
       - name: Test multipart through the real queue and HTTP worker
         env:
           NODE_OPTIONS: --experimental-vm-modules

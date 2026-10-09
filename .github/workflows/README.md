@@ -9,6 +9,8 @@ PRs do not publish; pushes to `main` and explicit manual publication use
 The immutable tag and digest are reported for deployment through ops-architecture-lab.
 The existing frontend/backend GitOps promotion does not deploy this worker;
 the serverless infrastructure must promote the worker's same digest separately.
+The disposable MinIO service is built from a pinned official source revision,
+so the contract recipe does not depend on discontinued public MinIO images.
 See `ffmpegServer/SERVERLESS.md` for the environment and trigger contract.
 
 The GitOps promotion workflow:
@@ -17,6 +19,9 @@ The GitOps promotion workflow:
 2. builds Docker images;
 3. pushes immutable `sha-<commit>` image tags to Scaleway Registry;
 4. opens a pull request in `ochocast/ops-architecture-lab` to promote those image tags.
+
+Manual `force_components=application` builds and publishes frontend and backend
+together, then proposes their staging promotion. It does not force SFU builds.
 
 This repository must not contain kubeconfigs, ArgoCD tokens, Terraform credentials, or direct deployment steps. Kubernetes manifests, Helm values, runtime secrets, ArgoCD Applications, and infrastructure as code stay in `ops-architecture-lab`.
 

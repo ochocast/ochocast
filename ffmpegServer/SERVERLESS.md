@@ -130,7 +130,7 @@ Recette locale du multipart jusqu'aux rendus HLS (PostgreSQL, MinIO, queue, serv
 
 ```bash
 # À la racine du dépôt ; ports locaux dédiés 25432, 29000, 29324.
-docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test up -d --wait
+docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test up --build -d --wait
 npm ci --prefix backend
 npm ci --prefix ffmpegServer
 npm run build --prefix ffmpegServer
