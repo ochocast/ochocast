@@ -66,6 +66,14 @@ jobs:
         env:
           PLAYWRIGHT_TEST_USER: "test-user"
           PLAYWRIGHT_TEST_PASSWORD: "test-password"
+          TRANSCODING_QUEUE_PROVIDER: "local"
+          TRANSCODING_QUEUE_ENDPOINT: "http://127.0.0.1:9324"
+          TRANSCODING_QUEUE_REGION: "fr-par"
+          TRANSCODING_QUEUE_URL: "http://127.0.0.1:9324/000000000000/ochocast-local-ffmpeg"
+          TRANSCODING_QUEUE_ACCESS_KEY: "local"
+          TRANSCODING_QUEUE_SECRET_KEY: "local"
+          TRANSCODING_DISPATCH_SECRET: "e2e-dispatch-secret-at-least-32-characters"
+          TRANSCODING_CALLBACK_SECRET: "e2e-callback-secret-at-least-32-characters"
       - name: Stop Docker Services
         if: always()
         run: |
