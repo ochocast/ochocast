@@ -5,7 +5,11 @@ import {
   GetObjectCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
-import { INestApplication } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  INestApplication,
+} from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Server } from 'node:http';
 import {
@@ -32,6 +36,8 @@ import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.se
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
 import { VideoTranscodingJob } from 'src/queue/job.types';
 import { VideoUploads1788950000000 } from 'src/migrations/1788950000000-VideoUploads';
+import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
+import sharp = require('sharp');
 
 const integration = process.env.UPLOAD_TEST_DATABASE_URL
   ? describe
@@ -44,9 +50,14 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
   const owner = 'multipart-test@example.test';
   let other: UserEntity;
   let jobs: TranscodingJobsService;
-  const queue = { publishRegisteredJob: jest.fn() };
+  // Declare enabled explicitly: a mock without it takes the disabled path.
+  const queue = { enabled: true, publishRegisteredJob: jest.fn() };
+  const disabledQueue = { enabled: false, publishRegisteredJob: jest.fn() };
   const makeService = () => new UploadsService(db, storage, queue as any, jobs);
+  const makeDisabledService = () =>
+    new UploadsService(db, storage, disabledQueue as any, jobs);
   beforeEach(() => {
+    disabledQueue.publishRegisteredJob.mockReset();
     queue.publishRegisteredJob
       .mockReset()
       .mockImplementation(async (job: VideoTranscodingJob) => {
@@ -61,6 +72,12 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
   });
   const checksum = (b: Buffer) =>
     createHash('sha256').update(b).digest('base64');
+  const png = () =>
+    sharp({
+      create: { width: 8, height: 8, channels: 3, background: '#00ccff' },
+    })
+      .png()
+      .toBuffer();
   beforeAll(async () => {
     const url = process.env.UPLOAD_TEST_DATABASE_URL;
     for (const target of [
@@ -121,8 +138,12 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     s3?.destroy();
     if (db?.isInitialized) await db.destroy();
   });
-  async function upload(size = 1024, filename = 'sample.mp4') {
-    const session = await service.create(owner, { size, filename });
+  async function upload(
+    size = 1024,
+    filename = 'sample.mp4',
+    uploads = service,
+  ) {
+    const session = await uploads.create(owner, { size, filename });
     const bytes = Buffer.alloc(size, 17);
     for (
       let start = 0, number = 1;
@@ -133,7 +154,7 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
         start,
         Math.min(start + session.partSize, size),
       );
-      const { url, headers } = await service.sign(
+      const { url, headers } = await uploads.sign(
         session.id,
         owner,
         number,
@@ -274,6 +295,29 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
       (await db.manager.findOneByOrFail(VideoEntity, { id: session.id }))
         .transcoding_status,
     ).toBe('ready');
+  });
+  it('counts pending and processing jobs for the disabled-queue boot warning', async () => {
+    const before = await jobs.unfinished();
+    const session = await upload();
+    queue.publishRegisteredJob.mockRejectedValue(new Error('queue down'));
+    await service.complete(session.id, owner, metadata);
+    const { payload } = await db.manager.findOneByOrFail(TranscodingJobEntity, {
+      id: session.id,
+    });
+    const pending = await jobs.unfinished();
+    expect(pending.count).toBe(before.count + 1);
+    expect(pending.oldest.getTime()).toBeLessThanOrEqual(payload.timestamp);
+    const claim = await jobs.claim(session.id, session.id);
+    if (claim.status !== 'claimed') throw new Error('Expected claim');
+    expect((await jobs.unfinished()).count).toBe(before.count + 1);
+    await jobs.complete(session.id, claim.leaseToken, {
+      jobId: session.id,
+      videoId: session.id,
+      success: true,
+      duration: 1,
+      processedAt: Date.now(),
+    });
+    expect((await jobs.unfinished()).count).toBe(before.count);
   });
   it('rolls back video and job together and recovers an already completed S3 source', async () => {
     const session = await upload();
@@ -516,11 +560,7 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
         expect(
           (await fetch(url, { method: 'PUT', body: bytes, headers })).status,
         ).toBe(200);
-        const image = await require('sharp')({
-          create: { width: 8, height: 8, channels: 3, background: '#00ccff' },
-        })
-          .png()
-          .toBuffer();
+        const image = await png();
         await uploads.complete(session.id, owner, metadata, [
           {
             fieldname: 'miniature',
@@ -632,6 +672,202 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     },
     60000,
   );
+  const attachments = async () =>
+    [
+      {
+        fieldname: 'miniature',
+        originalname: 'thumb.png',
+        mimetype: 'image/png',
+        buffer: await png(),
+      },
+      {
+        fieldname: 'subtitle',
+        originalname: 'captions.srt',
+        mimetype: 'text/plain',
+        buffer: Buffer.from('1\n00:00:00,000 --> 00:00:01,000\nHello'),
+      },
+    ] as Express.Multer.File[];
+  const exists = (Bucket: string, Key: string) =>
+    s3.send(new GetObjectCommand({ Bucket, Key })).then(
+      () => true,
+      (e) => {
+        if (e.name !== 'NoSuchKey') throw e;
+        return false;
+      },
+    );
+  it('plays a completed upload from its source without a job when transcoding is disabled', async () => {
+    const disabled = makeDisabledService();
+    const session = await upload(1024, 'sample.mp4', disabled);
+    await expect(
+      disabled.complete(session.id, owner, metadata, await attachments()),
+    ).resolves.toEqual({ id: session.id });
+    const video = await db.manager.findOneByOrFail(VideoEntity, {
+      id: session.id,
+    });
+    expect(video.transcoding_status).toBe('ready');
+    expect(video.media_id).toBe(`${session.id}/source/original.mp4`);
+    expect(video.miniature_id).toBe(`miniature-${session.id}.jpg`);
+    expect(video.subtitle_id).toBe(`subtitle-${session.id}.vtt`);
+    const subtitle = await s3.send(
+      new GetObjectCommand({
+        Bucket: process.env.STOCK_MEDIA_BUCKET,
+        Key: video.subtitle_id,
+      }),
+    );
+    expect(subtitle.ContentType).toBe('text/vtt');
+    expect(await subtitle.Body.transformToString()).toBe(
+      'WEBVTT\n\n1\n00:00:00.000 --> 00:00:01.000\nHello\n',
+    );
+    // Served as is, so only the worker's rendition: a 1280x720 JPEG.
+    const miniature = await s3.send(
+      new GetObjectCommand({
+        Bucket: process.env.STOCK_MINIATURE_BUCKET,
+        Key: video.miniature_id,
+      }),
+    );
+    expect(miniature.ContentType).toBe('image/jpeg');
+    expect(
+      await sharp(
+        Buffer.from(await miniature.Body.transformToByteArray()),
+      ).metadata(),
+    ).toMatchObject({ format: 'jpeg', width: 1280, height: 720 });
+    expect(
+      await exists(
+        process.env.STOCK_MINIATURE_BUCKET,
+        `${session.id}/source/miniature-original`,
+      ),
+    ).toBe(false);
+    expect(
+      await exists(
+        process.env.STOCK_MEDIA_BUCKET,
+        `${session.id}/source/${video.subtitle_id}`,
+      ),
+    ).toBe(false);
+    expect(
+      await db.manager.findOneBy(TranscodingJobEntity, { id: session.id }),
+    ).toBeNull();
+    expect((await disabled.status(session.id, owner)).state).toBe('uploaded');
+    // The browser plays the presigned source immediately.
+    const url = await new GetMediaUsecase(
+      new VideoGateway(db.getRepository(VideoEntity), s3),
+      s3,
+    ).execute(session.id, 'http://api.test/api');
+    const media = await fetch(url);
+    expect(media.status).toBe(200);
+    expect(media.headers.get('content-type')).toBe('video/mp4');
+    expect((await media.arrayBuffer()).byteLength).toBe(1024);
+    // Retries, cancellation and maintenance leave the finalized upload alone.
+    await expect(
+      disabled.complete(session.id, owner, metadata),
+    ).resolves.toEqual({ id: session.id });
+    await expect(disabled.cancel(session.id, owner)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+    await disabled.maintain();
+    expect((await disabled.status(session.id, owner)).state).toBe('uploaded');
+    expect(
+      (await db.manager.findOneByOrFail(VideoEntity, { id: session.id }))
+        .transcoding_status,
+    ).toBe('ready');
+    expect(disabledQueue.publishRegisteredJob).not.toHaveBeenCalled();
+    // Permanent deletion removes the source and the final attachments.
+    await new VideoGateway(db.getRepository(VideoEntity), s3).deleteVideoAdmin(
+      session.id,
+    );
+    for (const [bucket, key] of [
+      [process.env.STOCK_MEDIA_BUCKET, video.media_id],
+      [process.env.STOCK_MEDIA_BUCKET, video.subtitle_id],
+      [process.env.STOCK_MINIATURE_BUCKET, video.miniature_id],
+    ])
+      expect(await exists(bucket, key)).toBe(false);
+  });
+  it('never publishes client markup as the miniature while transcoding is disabled', async () => {
+    const disabled = makeDisabledService();
+    const session = await upload(1024, 'sample.mp4', disabled);
+    await expect(
+      disabled.complete(session.id, owner, metadata, [
+        {
+          fieldname: 'miniature',
+          originalname: 'thumb.jpg',
+          mimetype: 'text/html',
+          buffer: Buffer.from('<script>alert(document.domain)</script>'),
+        },
+      ] as Express.Multer.File[]),
+    ).resolves.toEqual({ id: session.id });
+    const video = await db.manager.findOneByOrFail(VideoEntity, {
+      id: session.id,
+    });
+    expect(video.transcoding_status).toBe('ready');
+    // Not an image: no miniature, as for an upload without one.
+    expect(
+      await exists(process.env.STOCK_MINIATURE_BUCKET, video.miniature_id),
+    ).toBe(false);
+  });
+  it('refuses to publish a non-video session opened while transcoding was enabled', async () => {
+    const session = await upload(1024, 'clip');
+    const s = await db.manager.findOneByOrFail(VideoUpload, { id: session.id });
+    expect(s.key).toBe(`${session.id}/source/original.video`);
+    const disabled = makeDisabledService();
+    await expect(
+      disabled.complete(session.id, owner, metadata),
+    ).rejects.toThrow(new BadRequestException('Unsupported video format'));
+    expect(
+      await db.manager.findOneBy(VideoEntity, { id: session.id }),
+    ).toBeNull();
+    // Still open: the owner can cancel it, or maintenance expires it.
+    expect((await disabled.status(session.id, owner)).state).toBe('uploading');
+    await disabled.cancel(session.id, owner);
+    expect((await disabled.status(session.id, owner)).state).toBe('aborted');
+  });
+  it('never transcodes uploads finalized while disabled once transcoding is enabled', async () => {
+    const disabled = makeDisabledService();
+    const session = await upload(1024, 'sample.mp4', disabled);
+    await disabled.complete(session.id, owner, metadata);
+    const enabled = makeService();
+    await enabled.maintain();
+    await expect(
+      enabled.complete(session.id, owner, metadata),
+    ).resolves.toEqual({ id: session.id });
+    expect(queue.publishRegisteredJob).not.toHaveBeenCalledWith(
+      expect.objectContaining({ videoId: session.id }),
+    );
+    expect((await enabled.status(session.id, owner)).state).toBe('uploaded');
+    const video = await db.manager.findOneByOrFail(VideoEntity, {
+      id: session.id,
+    });
+    expect(video.transcoding_status).toBe('ready');
+    expect(video.media_id).toBe(`${session.id}/source/original.mp4`);
+  });
+  it('leaves jobs registered while enabled untouched after switching to disabled', async () => {
+    const session = await upload();
+    queue.publishRegisteredJob.mockRejectedValue(new Error('queue down'));
+    await service.complete(session.id, owner, metadata);
+    const disabled = makeDisabledService();
+    await expect(
+      disabled.complete(session.id, owner, metadata),
+    ).resolves.toEqual({ id: session.id });
+    await disabled.maintain();
+    expect(disabledQueue.publishRegisteredJob).not.toHaveBeenCalled();
+    expect((await disabled.status(session.id, owner)).state).toBe('uploaded');
+    expect(
+      (
+        await db.manager.findOneByOrFail(TranscodingJobEntity, {
+          id: session.id,
+        })
+      ).status,
+    ).toBe('pending');
+    expect((await jobs.unfinished()).count).toBeGreaterThanOrEqual(1);
+  });
+  it('still aborts expired sessions while transcoding is disabled', async () => {
+    const disabled = makeDisabledService();
+    const s = await disabled.create(owner, {
+      size: 10,
+      filename: 'abandoned.mp4',
+    });
+    await db.manager.update(VideoUpload, s.id, { expiresAt: new Date(0) });
+    await disabled.maintain();
+    expect((await disabled.status(s.id, owner)).state).toBe('aborted');
+  });
   it('cleans expired multipart uploads and makes cancellation idempotent', async () => {
     const s = await service.create(owner, {
       size: 10,

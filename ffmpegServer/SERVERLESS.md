@@ -7,7 +7,8 @@ La plateforme peut réduire à zéro le nombre d'instances inactives. Le serveur
 ## Code et responsabilités
 
 - `backend/src/videos/uploads/` : multipart direct S3, vidéo HLS en attente et job enregistrés ensemble ; reprise des publications après commit.
-- `backend/src/queue/queue.service.ts` : publication d'un message signé dans Scaleway Queues.
+- `backend/src/queue/queue.service.ts` : choix du fournisseur (ou mode désactivé) et publication d'un message signé dans Scaleway Queues.
+- `backend/src/queue/transcoding-plan.ts` : clés S3 et statut d'une nouvelle vidéo, avec ou sans transcodage.
 - `backend/src/queue/scaleway-queues.client.ts` : client HTTP natif Scaleway Queues ; aucune dépendance AWS n'est utilisée pour la file.
 - `backend/src/transcoding-jobs/` : authentification des callbacks, acquisition atomique d'un verrou par job, statut persistant et réception du résultat.
 - `ffmpegServer/src/http-worker.ts` : `GET /health`, `POST /` (trigger Scaleway), `POST /transcode` (alias local).
@@ -36,13 +37,46 @@ TRANSCODING_LEASE_SECONDS=3600
 UPLOAD_MAX_BYTES=1073741824
 ```
 
-Le backend publie uniquement vers Scaleway Queues. Sans cette configuration, il refuse de démarrer.
+Le backend publie uniquement vers Scaleway Queues (ou ElasticMQ avec `local` en développement). Une configuration de queue incomplète empêche le démarrage ; sans fournisseur, le transcodage est désactivé (voir ci-dessous).
 Les credentials Queues sont distincts des credentials Object Storage.
 Le client HTTP Scaleway publie un JSON `{ "job": VideoTranscodingJob, "signature": "..." }`.
 Scaleway Queues expose le protocole SQS ; le code signe donc directement la requête HTTP avec les clés Scaleway, sans installer de SDK AWS.
 La signature est un HMAC SHA-256 hexadécimal de `JSON.stringify(job)` avec `TRANSCODING_DISPATCH_SECRET`.
 Le trigger doit transmettre le corps du message brut au container, sans format d'événement d'un autre fournisseur.
 La queue Scaleway utilisée est une queue standard, sans priorité de message.
+
+### Transcodage désactivé
+
+`TRANSCODING_QUEUE_PROVIDER` est lu une fois au démarrage. Valeurs exactes, en minuscules, sans espaces :
+
+| Valeur | Effet |
+| --- | --- |
+| absente ou vide | Désactivé, **sauf** si `TRANSCODING_QUEUE_URL`, `TRANSCODING_QUEUE_ENDPOINT`, `TRANSCODING_QUEUE_REGION`, `TRANSCODING_QUEUE_ACCESS_KEY`, `TRANSCODING_QUEUE_SECRET_KEY` ou `TRANSCODING_DISPATCH_SECRET` est renseignée : le démarrage échoue (`must be scaleway, local or disabled`). Un Secret staging qui perd sa clé de fournisseur ne coupe donc pas FFmpeg silencieusement. |
+| `disabled` | Désactivé explicitement. Les autres variables de queue sont ignorées et listées dans l'unique WARN de démarrage. |
+| `scaleway` | Activé, avec les contrôles ci-dessus : variables obligatoires, secrets d'au moins 32 caractères, endpoint HTTPS. |
+| `local` | Activé avec ElasticMQ ; exige en plus `NODE_ENV=development`. |
+| autre (`Scaleway`, `none`, `false`…) | Le démarrage échoue. |
+
+Un environnement sans aucune variable `TRANSCODING_*` démarre donc en mode désactivé. Un environnement qui transcode doit garder `TRANSCODING_QUEUE_PROVIDER=scaleway` explicite.
+
+En mode désactivé :
+
+- le backend démarre sans aucune variable `TRANSCODING_*` et l'indique par un WARN ;
+- un upload finalisé est lu depuis sa source (`<id>/source/original.<ext>`, URL présignée) : statut `ready` immédiat, aucun job ni message de queue. Les sous-titres normalisés sont écrits directement à leur clé finale `subtitle-<id>.vtt`. La miniature fournie est réencodée par le backend comme le ferait le worker (JPEG 1280x720) puis écrite à `miniature-<id>.jpg` ; un fichier qui n'est pas une image est ignoré (vidéo sans miniature). Il n'y a ni HLS, ni miniature générée, ni durée, et la lecture dépend des codecs supportés par le navigateur ;
+- seuls les conteneurs vidéo connus (`mp4`, `webm`, `mov`, `mkv`, `avi`, `m4v`, `ogg`) sont publiés, car la source est servie telle quelle. L'extension est vérifiée à la création de l'upload et de nouveau à sa finalisation (une session ouverte quand le transcodage était actif reçoit `400 Unsupported video format`). La source est stockée et servie avec le type MIME de son extension, jamais celui envoyé par le client ;
+- la publication d'un enregistrement (`POST /api/recordings/publish`) applique les mêmes règles : extension vérifiée avant tout stockage, type MIME déduit de l'extension, aucun job. Cette route n'exige qu'un utilisateur authentifié ;
+- le proxy public `/api/videos/media-content` ne sert que les vidéos HLS (`media_id` terminé par `/master.m3u8`), jamais une source ;
+- la maintenance expire toujours les sessions abandonnées, mais ne publie plus rien.
+
+Ces vidéos n'ont pas de job : si le transcodage est réactivé plus tard, elles restent lues depuis leur source et ne sont pas transcodées a posteriori.
+
+**Passage de activé à désactivé (rollback).** Les jobs déjà enregistrés (`pending` ou `processing`) ne sont plus publiés et leurs vidéos restent `pending`. Au démarrage, le backend journalise un WARN avec leur nombre et l'âge du plus ancien. Remédiation :
+
+1. Pendant le drain, conserver `TRANSCODING_CALLBACK_SECRET` (au moins 32 caractères). Ce secret reste accepté sans fournisseur : les workers peuvent encore terminer les jobs déjà en file (sessions `queued`). Sans lui, toutes les routes `/api/internal/transcoding/jobs/*` répondent `401`.
+2. Pour les jobs jamais publiés (sessions `uploaded`), réactiver `TRANSCODING_QUEUE_PROVIDER=scaleway` avec sa configuration complète : la maintenance les publie de nouveau.
+3. Repasser à `disabled` une fois le WARN de démarrage disparu, ou quand `SELECT count(*) FROM transcoding_job WHERE status IN ('pending', 'processing')` renvoie 0.
+
+Aucun basculement automatique de ces jobs vers `ready` n'est effectué.
 
 ## Configuration du container FFmpeg
 
@@ -143,7 +177,7 @@ cd ..
 docker compose -f dev-tools/docker-compose.upload-test.yml -p ochocast-upload-test down -v
 ```
 
-Ces identifiants sont factices et les ports sont limités au loopback. La recette efface la base `upload_test` fournie : réserver cette base aux tests. Sans `UPLOAD_TEST_DATABASE_URL`, les tests d'intégration sont ignorés ; sans `UPLOAD_TEST_QUEUE_URL`, seule la recette avec FFmpeg est ignorée. FFmpeg/FFprobe doivent être installés. Le workflow exécute cette recette et les cas de reprise/limites/nettoyage avant le build de l'image.
+Ces identifiants sont factices et les ports sont limités au loopback. La recette efface la base `upload_test` fournie : réserver cette base aux tests. Sans `UPLOAD_TEST_DATABASE_URL`, les tests d'intégration sont ignorés, y compris ceux du mode désactivé ; sans `UPLOAD_TEST_QUEUE_URL`, seule la recette avec FFmpeg est ignorée. FFmpeg/FFprobe doivent être installés. Le workflow exécute cette recette et les cas de reprise/limites/nettoyage avant le build de l'image.
 
 En staging, valider un upload complet, la lecture HLS depuis le frontend, un message dupliqué, une panne temporaire du callback et le redrive après épuisement des retries.
 

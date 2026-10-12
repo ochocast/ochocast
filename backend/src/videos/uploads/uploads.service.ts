@@ -18,6 +18,11 @@ import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { VideoEntity } from '../infra/gateways/entities/video.entity';
 import { QueueService } from 'src/queue/queue.service';
 import { VideoTranscodingJob } from 'src/queue/job.types';
+import {
+  VIDEO_CONTENT_TYPES,
+  planVideoMedia,
+  prepareMiniature,
+} from 'src/queue/transcoding-plan';
 import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
 import { VideoGateway } from '../infra/gateways/video.gateway';
@@ -91,6 +96,12 @@ export class UploadsService {
       input.filename.length > 255
     )
       throw new BadRequestException('Invalid filename or upload size');
+    const extension = extname(input.filename)
+      .toLowerCase()
+      .replace(/[^.a-z0-9]/g, '');
+    // Without transcoding the source itself is published: only video containers.
+    if (!this.queue.enabled && !VIDEO_CONTENT_TYPES.has(extension.slice(1)))
+      throw new BadRequestException('Unsupported video format');
     // Serialize per-owner creation to bound abandoned sessions even across API replicas.
     return this.db.transaction(async (m) => {
       await m.findOne(UserEntity, {
@@ -107,9 +118,6 @@ export class UploadsService {
           'Too many active uploads; cancel or wait for expiry',
         );
       const id = randomUUID();
-      const extension = extname(input.filename)
-        .toLowerCase()
-        .replace(/[^.a-z0-9]/g, '');
       const mode = process.env.UPLOAD_CHECKSUM_MODE || 'sha256';
       if (!['sha256', 'etag'].includes(mode))
         throw new Error('Invalid UPLOAD_CHECKSUM_MODE');
@@ -218,6 +226,12 @@ export class UploadsService {
     const result = await this.locked(id, email, async (s, m) => {
       if (s.state === 'uploaded' || s.state === 'queued') return { id: s.id };
       this.active(s);
+      // Opened while transcoding was enabled, the session may hold any file.
+      if (
+        !this.queue.enabled &&
+        !VIDEO_CONTENT_TYPES.has(extname(s.key).slice(1))
+      )
+        throw new BadRequestException('Unsupported video format');
       if (
         typeof fields.title !== 'string' ||
         !fields.title.trim() ||
@@ -240,13 +254,6 @@ export class UploadsService {
       }
       const miniature = files.find((f) => f.fieldname === 'miniature');
       const subtitle = files.find((f) => f.fieldname === 'subtitle');
-      const miniatureKey = miniature
-        ? `${s.id}/source/miniature-original`
-        : undefined;
-      const subtitleId = subtitle ? `subtitle-${s.id}.vtt` : undefined;
-      const subtitleSourceKey = subtitle
-        ? `${s.id}/source/${subtitleId}`
-        : undefined;
       let subtitleBuffer: Buffer;
       if (subtitle) {
         if (!/\.(srt|vtt)$/i.test(subtitle.originalname))
@@ -273,25 +280,33 @@ export class UploadsService {
         if (e.name !== 'NoSuchUpload') throw e;
       }
       await this.verify(s);
-      if (miniature)
+      // Decoded only once the upload is known to be complete and valid.
+      const thumbnail = await prepareMiniature(miniature, this.queue.enabled);
+      if (miniature && !thumbnail)
+        this.logger.warn(`Upload ${s.id}: miniature is not an image, ignored`);
+      const plan = planVideoMedia(s.id, s.key, this.queue.enabled, {
+        miniature: !!thumbnail,
+        subtitle: !!subtitle,
+      });
+      if (thumbnail)
         await this.storage.put(
           process.env.STOCK_MINIATURE_BUCKET,
-          miniatureKey,
-          miniature.buffer,
-          miniature.mimetype,
+          plan.miniatureKey,
+          thumbnail.body,
+          thumbnail.contentType,
         );
       if (subtitleBuffer)
         await this.storage.put(
           process.env.STOCK_MEDIA_BUCKET,
-          subtitleSourceKey,
+          plan.subtitleKey,
           subtitleBuffer,
           'text/vtt',
         );
       const video = new VideoEntity({
         id: s.id,
-        media_id: `${s.id}/master.m3u8`,
-        miniature_id: `miniature-${s.id}.jpg`,
-        subtitle_id: subtitleId,
+        media_id: plan.media_id,
+        miniature_id: plan.miniature_id,
+        subtitle_id: plan.subtitle_id,
         title: fields.title.trim(),
         description: String(fields.description || ''),
         tags,
@@ -303,34 +318,37 @@ export class UploadsService {
         views: 0,
         comments: [],
         archived: false,
-        transcoding_status: 'pending',
+        transcoding_status: plan.transcoding_status,
       });
       // Reuse relation normalization, on this transaction's repository.
       await new VideoGateway(m.getRepository(VideoEntity), null).createNewVideo(
         video as any,
       );
-      const job: VideoTranscodingJob = {
-        // One immutable job per upload. At-least-once delivery reuses this ID.
-        jobId: s.id,
-        videoId: s.id,
-        originalFileName: s.filename,
-        originalKey: s.key,
-        miniatureSourceKey: miniatureKey,
-        subtitleSourceKey,
-        media_id: video.media_id,
-        miniature_id: video.miniature_id,
-        subtitle_id: subtitleId,
-        title: video.title,
-        timestamp: Date.now(),
-      };
-      await this.jobs.register(job, m);
+      if (this.queue.enabled) {
+        const job: VideoTranscodingJob = {
+          // One immutable job per upload. At-least-once delivery reuses this ID.
+          jobId: s.id,
+          videoId: s.id,
+          originalFileName: s.filename,
+          originalKey: s.key,
+          miniatureSourceKey: plan.miniatureKey,
+          subtitleSourceKey: plan.subtitleKey,
+          media_id: video.media_id,
+          miniature_id: video.miniature_id,
+          subtitle_id: plan.subtitle_id,
+          title: video.title,
+          timestamp: Date.now(),
+        };
+        await this.jobs.register(job, m);
+      }
       // uploaded also means a durable publication is waiting; queued means sent.
+      // Without a queue, uploaded is final: the source is already playable.
       s.state = 'uploaded';
       s.completedAt = new Date();
       await m.save(s);
       return { id: s.id };
     });
-    await this.dispatch(result.id);
+    if (this.queue.enabled) await this.dispatch(result.id);
     return result;
   }
 
@@ -392,6 +410,8 @@ export class UploadsService {
           await m.save(s);
         }
       });
+      // Jobs left by an earlier enabled run are reported once at boot instead.
+      if (!this.queue.enabled) return;
       const pending = await this.db
         .getRepository(VideoUpload)
         .createQueryBuilder('s')

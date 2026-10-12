@@ -176,6 +176,36 @@ describe('Internal transcoding HTTP API', () => {
       .expect(200);
   });
 
+  it('fails closed without a usable callback secret, as when transcoding is disabled', async () => {
+    const claim = (token?: string) => {
+      const call = request(app.getHttpServer())
+        .post(`/api/internal/transcoding/jobs/${payload.jobId}/claim`)
+        .send({ videoId: payload.videoId });
+      return token === undefined
+        ? call
+        : call.set('X-Transcoding-Token', token);
+    };
+    jobs.claim.mockClear();
+    jobs.complete.mockClear();
+    try {
+      delete process.env.TRANSCODING_CALLBACK_SECRET;
+      await claim().expect(401);
+      await claim('').expect(401);
+      await claim(secret).expect(401);
+      await request(app.getHttpServer())
+        .post(`/api/internal/transcoding/jobs/${payload.jobId}/result`)
+        .set('X-Transcoding-Token', secret)
+        .send({ leaseToken: randomUUID(), result })
+        .expect(401);
+      process.env.TRANSCODING_CALLBACK_SECRET = 'short-secret';
+      await claim('short-secret').expect(401);
+      expect(jobs.claim).not.toHaveBeenCalled();
+      expect(jobs.complete).not.toHaveBeenCalled();
+    } finally {
+      process.env.TRANSCODING_CALLBACK_SECRET = secret;
+    }
+  });
+
   it('validates nested results and identifiers before changing the database', async () => {
     const endpoint = `/api/internal/transcoding/jobs/${payload.jobId}/result`;
     const send = (body) =>

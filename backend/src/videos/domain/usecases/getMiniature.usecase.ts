@@ -39,6 +39,8 @@ export class GetMiniatureUsecase {
     const command = new GetObjectCommand({
       Bucket,
       Key,
+      // Served miniatures are JPEG renditions; older objects kept the client's type.
+      ResponseContentType: 'image/jpeg',
     });
 
     // Generate a signed URL valid for 1 hour

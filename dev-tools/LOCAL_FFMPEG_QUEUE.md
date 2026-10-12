@@ -25,6 +25,11 @@ précédente dans une sauvegarde locale privée.
 N'utilise pas ces valeurs de développement en staging. Les fichiers `.env`
 locaux sont ignorés par Git.
 
+Pour développer sans queue ni FFmpeg, mets `TRANSCODING_QUEUE_PROVIDER=disabled`
+(ou laisse vides toutes les variables `TRANSCODING_*`) : les vidéos sont alors
+lues depuis leur fichier source, sans HLS. Voir la section « Transcodage
+désactivé » de [SERVERLESS.md](../ffmpegServer/SERVERLESS.md).
+
 ## Démarrage
 
 Depuis la racine du dépôt, démarre les services locaux :

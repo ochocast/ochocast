@@ -37,6 +37,23 @@ export class TranscodingJobsService {
     });
   }
 
+  // Jobs a disabled queue can no longer dispatch, reported once at boot.
+  async unfinished(): Promise<{ count: number; oldest: Date | null }> {
+    const row = await this.dataSource
+      .getRepository(TranscodingJobEntity)
+      .createQueryBuilder('job')
+      .select('COUNT(*)', 'count')
+      .addSelect("MIN((job.payload->>'timestamp')::bigint)", 'oldest')
+      .where('job.status IN (:...statuses)', {
+        statuses: ['pending', 'processing'],
+      })
+      .getRawOne();
+    return {
+      count: Number(row.count),
+      oldest: row.oldest ? new Date(Number(row.oldest)) : null,
+    };
+  }
+
   async claim(jobId: string, videoId: string) {
     return this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(TranscodingJobEntity);

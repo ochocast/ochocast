@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import { TranscodingJobsService } from '../transcoding-jobs/transcoding-jobs.service';
 import { VideoTranscodingJob } from './job.types';
@@ -9,8 +9,44 @@ import {
 import type { LocalQueueBridgeOptions } from './local-queue-bridge';
 import { ScalewayQueuesClient } from './scaleway-queues.client';
 
+// Without a provider these settings mean a deployment lost its provider key:
+// fail at boot instead of silently switching transcoding off.
+const QUEUE_SETTINGS = [
+  'TRANSCODING_QUEUE_URL',
+  'TRANSCODING_QUEUE_ENDPOINT',
+  'TRANSCODING_QUEUE_REGION',
+  'TRANSCODING_QUEUE_ACCESS_KEY',
+  'TRANSCODING_QUEUE_SECRET_KEY',
+  'TRANSCODING_DISPATCH_SECRET',
+];
+
+function resolveProvider(): 'scaleway' | 'local' | 'disabled' {
+  const provider = process.env.TRANSCODING_QUEUE_PROVIDER;
+  const invalid =
+    'TRANSCODING_QUEUE_PROVIDER must be scaleway, local or disabled';
+  if (
+    provider === 'scaleway' ||
+    provider === 'local' ||
+    provider === 'disabled'
+  )
+    return provider;
+  if (provider) throw new Error(invalid);
+  if (QUEUE_SETTINGS.some((name) => process.env[name]))
+    throw new Error(`${invalid} (queue settings present without a provider)`);
+  return 'disabled';
+}
+
+export class TranscodingDisabledError extends Error {
+  constructor() {
+    super('Transcoding is disabled by TRANSCODING_QUEUE_PROVIDER');
+    this.name = 'TranscodingDisabledError';
+  }
+}
+
 @Injectable()
-export class QueueService {
+export class QueueService implements OnApplicationBootstrap {
+  /** False when no queue is configured: uploads are then served from source. */
+  readonly enabled: boolean;
   private readonly logger = new Logger(QueueService.name);
   private readonly client: ScalewayQueuesClient;
   private readonly queueUrl: string;
@@ -20,9 +56,15 @@ export class QueueService {
   private localBridgeTail: Promise<void> = Promise.resolve();
 
   constructor(private readonly jobs: TranscodingJobsService) {
-    const provider = process.env.TRANSCODING_QUEUE_PROVIDER;
-    if (provider !== 'scaleway' && provider !== 'local') {
-      throw new Error('TRANSCODING_QUEUE_PROVIDER must be scaleway or local');
+    const provider = resolveProvider();
+    this.enabled = provider !== 'disabled';
+    if (provider === 'disabled') {
+      const ignored = QUEUE_SETTINGS.filter((name) => process.env[name]);
+      this.logger.warn(
+        'Transcoding queue disabled: uploads are served from their source file' +
+          (ignored.length ? `; ignoring ${ignored.join(', ')}` : ''),
+      );
+      return;
     }
     if (provider === 'local' && process.env.NODE_ENV !== 'development') {
       throw new Error('The local queue provider requires NODE_ENV=development');
@@ -85,12 +127,36 @@ export class QueueService {
     }
   }
 
+  async onApplicationBootstrap(): Promise<void> {
+    if (this.enabled) return;
+    // Jobs registered while enabled are no longer dispatched: make them visible.
+    try {
+      const { count, oldest } = await this.jobs.unfinished();
+      if (!count) return;
+      const age = oldest
+        ? `oldest registered ${oldest.toISOString()}, ${Math.round((Date.now() - oldest.getTime()) / 60_000)} min ago`
+        : 'registration time unknown';
+      this.logger.warn(
+        `${count} transcoding job(s) still pending or processing (${age}): ` +
+          'their videos stay pending until the queue is re-enabled to drain them; ' +
+          'keep TRANSCODING_CALLBACK_SECRET set so in-flight jobs can still complete',
+      );
+    } catch (e) {
+      this.logger.warn(
+        `Unfinished transcoding jobs could not be counted: ${e.message}`,
+      );
+    }
+  }
+
   async publishJob(job: VideoTranscodingJob): Promise<void> {
+    // Checked before register: a disabled queue must not leave an orphan job.
+    if (!this.enabled) throw new TranscodingDisabledError();
     await this.jobs.register(job);
     await this.publishRegisteredJob(job);
   }
 
   async publishRegisteredJob(job: VideoTranscodingJob): Promise<void> {
+    if (!this.enabled) throw new TranscodingDisabledError();
     const signature = createHmac('sha256', this.dispatchSecret)
       .update(JSON.stringify(job))
       .digest('hex');
