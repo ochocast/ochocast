@@ -246,10 +246,7 @@ function signingKey(secret: string, date: string, region: string): Buffer {
 }
 
 function formatAmzDate(value: Date): string {
-  return value
-    .toISOString()
-    .replace(/[:-]|\.\d{3}/g, '')
-    .replace('Z', 'Z');
+  return value.toISOString().replace(/[:-]|\.\d{3}/g, '');
 }
 
 function canonicalUri(pathname: string): string {
