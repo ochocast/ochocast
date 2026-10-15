@@ -3,6 +3,12 @@ import { IVideoGateway } from '../gateways/videos.gateway';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { NotFoundException } from '@nestjs/common';
+import { extname } from 'path';
+import { VIDEO_CONTENT_TYPES } from 'src/queue/transcoding-plan';
+
+// Only transcoder output is HLS. A source file (served when transcoding is
+// disabled) keeps a presigned URL, even if it is named .m3u8 or .ts.
+const isHls = (mediaId: string) => mediaId.endsWith('/master.m3u8');
 
 export class GetMediaUsecase {
   constructor(
@@ -23,7 +29,7 @@ export class GetMediaUsecase {
       throw new NotFoundException('Video transcoding failed');
     }
 
-    if (videos[0].media_id.endsWith('.m3u8')) {
+    if (isHls(videos[0].media_id)) {
       if (!apiBaseUrl)
         throw new Error('API base URL is required for HLS media');
       return `${apiBaseUrl}/videos/media-content/${id}/master.m3u8`;
@@ -32,12 +38,15 @@ export class GetMediaUsecase {
     const command = new GetObjectCommand({
       Bucket: process.env.STOCK_MEDIA_BUCKET,
       Key: videos[0].media_id,
+      // Never the stored type, which older sources took from the client.
+      ResponseContentType:
+        VIDEO_CONTENT_TYPES.get(
+          extname(videos[0].media_id).slice(1).toLowerCase(),
+        ) || 'application/octet-stream',
     });
 
     // Générer une URL signée valable pour une durée limitée (par exemple 1 heure)
-    const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
-    console.log(url);
-    return url;
+    return getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
   }
 
   async getContent(
@@ -49,7 +58,11 @@ export class GetMediaUsecase {
     cacheControl?: string;
   }> {
     const videos = await this.videoGateway.getVideos({ id });
-    if (!videos.length || videos[0].transcoding_status !== 'ready') {
+    if (
+      !videos.length ||
+      videos[0].transcoding_status !== 'ready' ||
+      !isHls(videos[0].media_id)
+    ) {
       throw new NotFoundException('Media is not available');
     }
 
@@ -61,7 +74,8 @@ export class GetMediaUsecase {
     if (
       !normalizedPath ||
       normalizedPath.includes('..') ||
-      !/^[a-zA-Z0-9._/-]+$/.test(normalizedPath)
+      // Only public HLS assets: retained sources and job checkpoints stay private.
+      !/^[a-zA-Z0-9_-]+\.(m3u8|ts)$/.test(normalizedPath)
     ) {
       throw new NotFoundException('Invalid media path');
     }

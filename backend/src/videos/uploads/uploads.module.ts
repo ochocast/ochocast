@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { S3Module } from 'src/s3.module';
+import { QueueModule } from 'src/queue/queue.module';
+import { TranscodingJobsModule } from 'src/transcoding-jobs/transcoding-jobs.module';
 import { UsersModule } from 'src/users/users.module';
 import { VideoEntity } from '../infra/gateways/entities/video.entity';
 import { MultipartStorage, S3MultipartStorage } from './multipart-storage';
@@ -13,6 +15,8 @@ import { VideoUpload } from './upload.entity';
     TypeOrmModule.forFeature([VideoUpload, VideoEntity]),
     S3Module,
     UsersModule,
+    QueueModule,
+    TranscodingJobsModule,
   ],
   controllers: [UploadsController],
   providers: [

@@ -1,126 +1,192 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import * as amqp from 'amqplib';
-import { VideoTranscodingJob, VideoTranscodingResult } from './job.types';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { createHmac } from 'node:crypto';
+import { TranscodingJobsService } from '../transcoding-jobs/transcoding-jobs.service';
+import { VideoTranscodingJob } from './job.types';
+import {
+  forwardOneLocalJob,
+  validateLocalBridgeTargets,
+} from './local-queue-bridge';
+import type { LocalQueueBridgeOptions } from './local-queue-bridge';
+import { ScalewayQueuesClient } from './scaleway-queues.client';
+
+// Without a provider these settings mean a deployment lost its provider key:
+// fail at boot instead of silently switching transcoding off.
+const QUEUE_SETTINGS = [
+  'TRANSCODING_QUEUE_URL',
+  'TRANSCODING_QUEUE_ENDPOINT',
+  'TRANSCODING_QUEUE_REGION',
+  'TRANSCODING_QUEUE_ACCESS_KEY',
+  'TRANSCODING_QUEUE_SECRET_KEY',
+  'TRANSCODING_DISPATCH_SECRET',
+];
+
+function resolveProvider(): 'scaleway' | 'local' | 'disabled' {
+  const provider = process.env.TRANSCODING_QUEUE_PROVIDER;
+  const invalid =
+    'TRANSCODING_QUEUE_PROVIDER must be scaleway, local or disabled';
+  if (
+    provider === 'scaleway' ||
+    provider === 'local' ||
+    provider === 'disabled'
+  )
+    return provider;
+  if (provider) throw new Error(invalid);
+  if (QUEUE_SETTINGS.some((name) => process.env[name]))
+    throw new Error(`${invalid} (queue settings present without a provider)`);
+  return 'disabled';
+}
+
+export class TranscodingDisabledError extends Error {
+  constructor() {
+    super('Transcoding is disabled by TRANSCODING_QUEUE_PROVIDER');
+    this.name = 'TranscodingDisabledError';
+  }
+}
 
 @Injectable()
-export class QueueService implements OnModuleDestroy {
+export class QueueService implements OnApplicationBootstrap {
+  /** False when no queue is configured: uploads are then served from source. */
+  readonly enabled: boolean;
   private readonly logger = new Logger(QueueService.name);
-  private connection?: amqp.ChannelModel;
-  private channel?: amqp.ConfirmChannel;
-  private connecting?: Promise<void>;
-  private resultHandler?: (result: VideoTranscodingResult) => Promise<void>;
-  private resultConsumerActive = false;
-  private reconnectTimer?: NodeJS.Timeout;
-  private shuttingDown = false;
-  private readonly queueName =
-    process.env.VIDEO_QUEUE_NAME || 'video-transcoding-queue';
-  private readonly resultQueueName =
-    process.env.VIDEO_RESULT_QUEUE_NAME || 'video-transcoding-results';
-  get configured(): boolean {
-    return Boolean(process.env.RABBITMQ_URL || process.env.RABBITMQ_HOST);
-  }
-  private readonly rabbitUrl =
-    process.env.RABBITMQ_URL || 'amqp://admin:admin@localhost:5672';
+  private readonly client: ScalewayQueuesClient;
+  private readonly queueUrl: string;
+  private readonly dispatchSecret: string;
+  private readonly provider: 'scaleway' | 'local';
+  private readonly localBridge?: LocalQueueBridgeOptions;
+  private localBridgeTail: Promise<void> = Promise.resolve();
 
-  private async connect(): Promise<void> {
-    if (this.channel) return;
-    if (this.connecting) return this.connecting;
-
-    this.connecting = (async () => {
-      const connection = await amqp.connect(this.rabbitUrl);
-      const channel = await connection.createConfirmChannel();
-      await Promise.all([
-        channel.assertQueue(this.queueName, {
-          durable: true,
-          arguments: { 'x-max-priority': 10 },
-        }),
-        channel.assertQueue(this.resultQueueName, { durable: true }),
-      ]);
-      connection.on('close', () => {
-        this.resetConnection();
-        this.scheduleResultConsumer();
-      });
-      connection.on('error', (error) =>
-        this.logger.error('RabbitMQ connection error', error),
+  constructor(private readonly jobs: TranscodingJobsService) {
+    const provider = resolveProvider();
+    this.enabled = provider !== 'disabled';
+    if (provider === 'disabled') {
+      const ignored = QUEUE_SETTINGS.filter((name) => process.env[name]);
+      this.logger.warn(
+        'Transcoding queue disabled: uploads are served from their source file' +
+          (ignored.length ? `; ignoring ${ignored.join(', ')}` : ''),
       );
-      this.connection = connection;
-      this.channel = channel;
-      this.logger.log(`Connected to RabbitMQ queue ${this.queueName}`);
-    })().finally(() => {
-      this.connecting = undefined;
-    });
-
-    return this.connecting;
-  }
-
-  async publishJob(job: VideoTranscodingJob, priority = 5): Promise<void> {
-    if (!this.configured) throw new Error('RabbitMQ is not configured');
-    await this.connect();
-    this.channel.sendToQueue(this.queueName, Buffer.from(JSON.stringify(job)), {
-      persistent: true,
-      priority,
-      contentType: 'application/json',
-    });
-    await this.channel.waitForConfirms();
-    this.logger.log(`Published transcoding job ${job.jobId}`);
-  }
-
-  async consumeResults(
-    handler: (result: VideoTranscodingResult) => Promise<void>,
-  ): Promise<void> {
-    this.resultHandler = handler;
-    if (!this.configured) return;
-    await this.startResultConsumer();
-  }
-
-  private async startResultConsumer(): Promise<void> {
-    if (this.resultConsumerActive || !this.resultHandler || this.shuttingDown) {
       return;
     }
-    try {
-      await this.connect();
-      await this.channel.consume(this.resultQueueName, async (message) => {
-        if (!message) return;
-        try {
-          const result = JSON.parse(
-            message.content.toString(),
-          ) as VideoTranscodingResult;
-          await this.resultHandler?.(result);
-          this.channel?.ack(message);
-        } catch (error) {
-          this.logger.error('Unable to process transcoding result', error);
-          this.channel?.nack(message, false, true);
-        }
-      });
-      this.resultConsumerActive = true;
-    } catch (error) {
-      this.logger.warn(
-        `RabbitMQ result consumer unavailable: ${error instanceof Error ? error.message : String(error)}`,
+    if (provider === 'local' && process.env.NODE_ENV !== 'development') {
+      throw new Error('The local queue provider requires NODE_ENV=development');
+    }
+    this.provider = provider;
+    const required = (name: string): string => {
+      const value = process.env[name];
+      if (!value) throw new Error(`Missing ${name}`);
+      return value;
+    };
+    this.queueUrl = required('TRANSCODING_QUEUE_URL');
+    this.dispatchSecret = required('TRANSCODING_DISPATCH_SECRET');
+    if (
+      this.dispatchSecret.length < 32 ||
+      required('TRANSCODING_CALLBACK_SECRET').length < 32
+    ) {
+      throw new Error(
+        'Transcoding secrets must contain at least 32 characters',
       );
-      this.resetConnection();
-      this.scheduleResultConsumer();
+    }
+    this.client = new ScalewayQueuesClient({
+      endpoint: required('TRANSCODING_QUEUE_ENDPOINT'),
+      region: required('TRANSCODING_QUEUE_REGION'),
+      accessKey: required('TRANSCODING_QUEUE_ACCESS_KEY'),
+      secretKey: required('TRANSCODING_QUEUE_SECRET_KEY'),
+      allowLocalHttp: provider === 'local',
+    });
+    const localQueueUrl =
+      provider === 'local'
+        ? this.queueUrl
+        : process.env.LOCAL_QUEUE_BRIDGE_QUEUE_URL;
+    if (process.env.NODE_ENV === 'development' && localQueueUrl) {
+      if (localQueueUrl !== this.queueUrl) {
+        throw new Error(
+          'LOCAL_QUEUE_BRIDGE_QUEUE_URL must match TRANSCODING_QUEUE_URL',
+        );
+      }
+      const workerUrl =
+        process.env.LOCAL_QUEUE_BRIDGE_WORKER_URL || 'http://127.0.0.1:8081/';
+      validateLocalBridgeTargets(localQueueUrl, workerUrl);
+      this.localBridge = {
+        client: new ScalewayQueuesClient({
+          endpoint: required('TRANSCODING_QUEUE_ENDPOINT'),
+          region: required('TRANSCODING_QUEUE_REGION'),
+          accessKey: required(
+            provider === 'local'
+              ? 'TRANSCODING_QUEUE_ACCESS_KEY'
+              : 'LOCAL_QUEUE_BRIDGE_ACCESS_KEY',
+          ),
+          secretKey: required(
+            provider === 'local'
+              ? 'TRANSCODING_QUEUE_SECRET_KEY'
+              : 'LOCAL_QUEUE_BRIDGE_SECRET_KEY',
+          ),
+          allowLocalHttp: provider === 'local',
+        }),
+        queueUrl: localQueueUrl,
+        workerUrl,
+      };
     }
   }
 
-  private scheduleResultConsumer(): void {
-    if (this.shuttingDown || !this.resultHandler || this.reconnectTimer) return;
-    this.reconnectTimer = setTimeout(() => {
-      this.reconnectTimer = undefined;
-      void this.startResultConsumer();
-    }, 5000);
+  async onApplicationBootstrap(): Promise<void> {
+    if (this.enabled) return;
+    // Jobs registered while enabled are no longer dispatched: make them visible.
+    try {
+      const { count, oldest } = await this.jobs.unfinished();
+      if (!count) return;
+      const age = oldest
+        ? `oldest last published ${oldest.toISOString()}, ${Math.round((Date.now() - oldest.getTime()) / 60_000)} min ago`
+        : 'registration time unknown';
+      this.logger.warn(
+        `${count} transcoding job(s) still pending or processing (${age}): ` +
+          'their videos stay pending until the queue is re-enabled to drain them; ' +
+          'keep TRANSCODING_CALLBACK_SECRET set so in-flight jobs can still complete',
+      );
+    } catch (e) {
+      this.logger.warn(
+        `Unfinished transcoding jobs could not be counted: ${e.message}`,
+      );
+    }
   }
 
-  private resetConnection(): void {
-    this.channel = undefined;
-    this.connection = undefined;
-    this.resultConsumerActive = false;
+  async publishJob(job: VideoTranscodingJob): Promise<void> {
+    // Checked before register: a disabled queue must not leave an orphan job.
+    if (!this.enabled) throw new TranscodingDisabledError();
+    await this.jobs.register(job);
+    await this.publishRegisteredJob(job);
   }
 
-  async onModuleDestroy(): Promise<void> {
-    this.shuttingDown = true;
-    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    await this.channel?.close().catch(() => undefined);
-    await this.connection?.close().catch(() => undefined);
-    this.resetConnection();
+  async publishRegisteredJob(job: VideoTranscodingJob): Promise<void> {
+    if (!this.enabled) throw new TranscodingDisabledError();
+    const signature = createHmac('sha256', this.dispatchSecret)
+      .update(JSON.stringify(job))
+      .digest('hex');
+    await this.client.sendMessage(
+      this.queueUrl,
+      JSON.stringify({ job, signature }),
+    );
+    this.logger.log(`Published ${this.provider} transcoding job ${job.jobId}`);
+    const localBridge = this.localBridge;
+    if (localBridge) {
+      // Uploads return promptly. Each upload schedules one receive/HTTP/delete
+      // cycle, serialized because the local FFmpeg container handles one job.
+      this.localBridgeTail = this.localBridgeTail
+        .then(async () => {
+          const result = await forwardOneLocalJob(localBridge);
+          if (result.status === 'empty') {
+            this.logger.warn(
+              `Local queue was empty after publishing ${job.jobId}`,
+            );
+          } else {
+            this.logger.log(
+              `Local FFmpeg processed queue message ${result.messageId}`,
+            );
+          }
+        })
+        .catch((error: unknown) => {
+          this.logger.error(
+            `Local FFmpeg bridge failed after publishing ${job.jobId}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        });
+    }
   }
 }

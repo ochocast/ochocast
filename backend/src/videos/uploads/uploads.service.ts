@@ -16,6 +16,15 @@ import { VideoUpload } from './upload.entity';
 import { MultipartStorage, StoredPart } from './multipart-storage';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { VideoEntity } from '../infra/gateways/entities/video.entity';
+import { QueueService } from 'src/queue/queue.service';
+import { VideoTranscodingJob } from 'src/queue/job.types';
+import {
+  PLAYABLE_AS_IS,
+  planVideoMedia,
+  prepareMiniature,
+} from 'src/queue/transcoding-plan';
+import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
+import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
 import { VideoGateway } from '../infra/gateways/video.gateway';
 
 export function validateParts(s: VideoUpload, parts: StoredPart[]) {
@@ -35,13 +44,28 @@ export function validateParts(s: VideoUpload, parts: StoredPart[]) {
       throw new BadRequestException('Part checksum mismatch');
   });
 }
+function positiveInteger(name: string, fallback: number) {
+  const value = Number(process.env[name] || fallback);
+  if (!Number.isInteger(value) || value < 1)
+    throw new Error(`${name} must be a positive integer`);
+  return value;
+}
 @Injectable()
 export class UploadsService {
   private readonly logger = new Logger(UploadsService.name);
   private sweeping = false;
+  // A pending job not claimed within this delay lost its message.
+  private readonly redispatchAfterMs =
+    positiveInteger('TRANSCODING_REDISPATCH_AFTER_SECONDS', 7200) * 1000;
+  private readonly maxAttempts = positiveInteger(
+    'TRANSCODING_MAX_ATTEMPTS',
+    10,
+  );
   constructor(
     private readonly db: DataSource,
     private readonly storage: MultipartStorage,
+    private readonly queue: QueueService,
+    private readonly jobs: TranscodingJobsService,
   ) {}
 
   private async owner(email: string, m = this.db.manager) {
@@ -73,7 +97,7 @@ export class UploadsService {
   }
   async create(email: string, input: { size: number; filename: string }) {
     const owner = await this.owner(email);
-    const max = Number(process.env.UPLOAD_MAX_BYTES || 20 * 1024 ** 3);
+    const max = Number(process.env.UPLOAD_MAX_BYTES || 1024 ** 3);
     if (!Number.isSafeInteger(max) || max < 1 || max > 50 * 1024 ** 3)
       throw new Error('UPLOAD_MAX_BYTES must be between 1 byte and 50 GiB');
     if (
@@ -85,6 +109,12 @@ export class UploadsService {
       input.filename.length > 255
     )
       throw new BadRequestException('Invalid filename or upload size');
+    const extension = extname(input.filename)
+      .toLowerCase()
+      .replace(/[^.a-z0-9]/g, '');
+    // Without transcoding the source itself is published: only video containers.
+    if (!this.queue.enabled && !PLAYABLE_AS_IS.has(extension.slice(1)))
+      throw new BadRequestException('Unsupported video format');
     // Serialize per-owner creation to bound abandoned sessions even across API replicas.
     return this.db.transaction(async (m) => {
       await m.findOne(UserEntity, {
@@ -101,9 +131,6 @@ export class UploadsService {
           'Too many active uploads; cancel or wait for expiry',
         );
       const id = randomUUID();
-      const extension = extname(input.filename)
-        .toLowerCase()
-        .replace(/[^.a-z0-9]/g, '');
       const mode = process.env.UPLOAD_CHECKSUM_MODE || 'sha256';
       if (!['sha256', 'etag'].includes(mode))
         throw new Error('Invalid UPLOAD_CHECKSUM_MODE');
@@ -167,7 +194,9 @@ export class UploadsService {
               ),
             })),
           ),
-          state: 'uploaded',
+          // Keep uploading until metadata and the job are committed. The browser
+          // will reuse these verified parts and retry /complete after a DB failure.
+          state: s.state,
         };
       }
     });
@@ -207,9 +236,12 @@ export class UploadsService {
     fields: Record<string, any>,
     files: Express.Multer.File[] = [],
   ) {
-    return this.locked(id, email, async (s, m) => {
-      if (s.state === 'uploaded') return { id: s.id }; // Same response after HTTP retry.
+    const result = await this.locked(id, email, async (s, m) => {
+      if (s.state === 'uploaded' || s.state === 'queued') return { id: s.id };
       this.active(s);
+      // Opened while transcoding was enabled, the session may hold any file.
+      if (!this.queue.enabled && !PLAYABLE_AS_IS.has(extname(s.key).slice(1)))
+        throw new BadRequestException('Unsupported video format');
       if (
         typeof fields.title !== 'string' ||
         !fields.title.trim() ||
@@ -230,26 +262,9 @@ export class UploadsService {
       } catch {
         throw new BadRequestException('Invalid tags or speakers');
       }
-      // Never trust ETags, sizes, keys or creator supplied by the browser.
-      try {
-        const parts = await this.storage.parts(s);
-        validateParts(s, parts);
-        await this.storage.complete(s, parts);
-      } catch (e) {
-        if (e.name !== 'NoSuchUpload') throw e;
-      }
-      await this.verify(s);
       const miniature = files.find((f) => f.fieldname === 'miniature');
       const subtitle = files.find((f) => f.fieldname === 'subtitle');
-      const miniatureKey = miniature ? `miniature-${s.id}.jpg` : undefined;
-      const subtitleId = subtitle ? `subtitle-${s.id}.vtt` : undefined;
-      if (miniature)
-        await this.storage.put(
-          process.env.STOCK_MINIATURE_BUCKET,
-          miniatureKey,
-          miniature.buffer,
-          miniature.mimetype,
-        );
+      let subtitleBuffer: Buffer;
       if (subtitle) {
         if (!/\.(srt|vtt)$/i.test(subtitle.originalname))
           throw new BadRequestException('Expected SRT or VTT');
@@ -261,18 +276,47 @@ export class UploadsService {
         if (/\.srt$/i.test(subtitle.originalname))
           content = content.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2');
         if (!content.startsWith('WEBVTT')) content = `WEBVTT\n\n${content}`;
+        subtitleBuffer = Buffer.from(`${content}\n`);
+        // Match the worker's download cap, including normalization overhead.
+        if (subtitleBuffer.length > 4 * 1024 ** 2)
+          throw new BadRequestException('Subtitle exceeds 4 MiB');
+      }
+      // Never trust ETags, sizes, keys or creator supplied by the browser.
+      try {
+        const parts = await this.storage.parts(s);
+        validateParts(s, parts);
+        await this.storage.complete(s, parts);
+      } catch (e) {
+        if (e.name !== 'NoSuchUpload') throw e;
+      }
+      await this.verify(s);
+      // Decoded only once the upload is known to be complete and valid.
+      const thumbnail = await prepareMiniature(miniature, this.queue.enabled);
+      if (miniature && !thumbnail)
+        this.logger.warn(`Upload ${s.id}: miniature is not an image, ignored`);
+      const plan = planVideoMedia(s.id, s.key, this.queue.enabled, {
+        miniature: !!thumbnail,
+        subtitle: !!subtitle,
+      });
+      if (thumbnail)
+        await this.storage.put(
+          process.env.STOCK_MINIATURE_BUCKET,
+          plan.miniatureKey,
+          thumbnail.body,
+          thumbnail.contentType,
+        );
+      if (subtitleBuffer)
         await this.storage.put(
           process.env.STOCK_MEDIA_BUCKET,
-          subtitleId,
-          Buffer.from(`${content}\n`),
+          plan.subtitleKey,
+          subtitleBuffer,
           'text/vtt',
         );
-      }
       const video = new VideoEntity({
         id: s.id,
-        media_id: s.key,
-        miniature_id: `miniature-${s.id}.jpg`,
-        subtitle_id: subtitleId,
+        media_id: plan.media_id,
+        miniature_id: plan.miniature_id,
+        subtitle_id: plan.subtitle_id,
         title: fields.title.trim(),
         description: String(fields.description || ''),
         tags,
@@ -284,20 +328,69 @@ export class UploadsService {
         views: 0,
         comments: [],
         archived: false,
-        // Multipart persists the source file directly; transcoding is a later feature.
-        transcoding_status: 'ready',
+        transcoding_status: plan.transcoding_status,
       });
       // Reuse relation normalization, on this transaction's repository.
       await new VideoGateway(m.getRepository(VideoEntity), null).createNewVideo(
         video as any,
       );
-      // Upload completion means the original object and metadata are durable.
+      if (this.queue.enabled) {
+        const job: VideoTranscodingJob = {
+          // One immutable job per upload. At-least-once delivery reuses this ID.
+          jobId: s.id,
+          videoId: s.id,
+          originalFileName: s.filename,
+          originalKey: s.key,
+          miniatureSourceKey: plan.miniatureKey,
+          subtitleSourceKey: plan.subtitleKey,
+          media_id: video.media_id,
+          miniature_id: video.miniature_id,
+          subtitle_id: plan.subtitle_id,
+          title: video.title,
+          timestamp: Date.now(),
+        };
+        await this.jobs.register(job, m);
+      }
+      // uploaded also means a durable publication is waiting; queued means sent.
+      // Without a queue, uploaded is final: the source is already playable.
       s.state = 'uploaded';
       s.completedAt = new Date();
       await m.save(s);
       return { id: s.id };
     });
+    if (this.queue.enabled) await this.dispatch(result.id);
+    return result;
   }
+
+  private async dispatch(id: string) {
+    try {
+      // This is a separate transaction: the video and job are already committed.
+      // Serializing the upload row prevents concurrent API replicas sending it twice.
+      await this.db.transaction(async (m) => {
+        const s = await m.findOne(VideoUpload, {
+          where: { id, state: 'uploaded' },
+          lock: { mode: 'pessimistic_write', onLocked: 'skip_locked' },
+        });
+        if (!s) return;
+        const job = await m.findOneBy(TranscodingJobEntity, { id });
+        if (!job) return; // Completed uploads from before FFmpeg remain readable.
+        if (job.status === 'pending') {
+          // Dated at publication: reconciliation then waits a full delay.
+          job.payload = { ...job.payload, timestamp: Date.now() };
+          await m.save(job);
+          await this.queue.publishRegisteredJob(job.payload);
+        }
+        s.state = 'queued';
+        await m.save(s);
+      });
+    } catch (e) {
+      // No source or metadata rollback: a later sweep retries with the same jobId.
+      this.logger.warn(
+        `Transcoding publication deferred for ${id}: ${e.message}`,
+      );
+    }
+  }
+
   async cancel(id: string, email: string) {
     return this.locked(id, email, async (s, m) => {
       if (s.state === 'aborted') return;
@@ -313,28 +406,120 @@ export class UploadsService {
   async maintain() {
     if (this.sweeping) return;
     this.sweeping = true;
+    // Independent phases: a failure in one never holds back the others.
     try {
-      await this.db.transaction(async (m) => {
-        const expired = await m
-          .createQueryBuilder(VideoUpload, 's')
-          .setLock('pessimistic_write')
-          .setOnLocked('skip_locked')
-          .where("s.state = 'uploading' AND s.expiresAt < :now", {
-            now: new Date(),
-          })
-          .take(10)
-          .getMany();
-        for (const s of expired) {
-          await this.storage.abort(s);
-          await this.storage.remove(s);
-          s.state = 'aborted';
-          await m.save(s);
-        }
-      });
-    } catch (e) {
-      this.logger.warn(`Upload maintenance deferred: ${e.message}`);
+      await this.expireSessions().catch((e) =>
+        this.logger.warn(`Expired upload cleanup deferred: ${e.message}`),
+      );
+      // Jobs left by an earlier enabled run are reported once at boot instead.
+      if (!this.queue.enabled) return;
+      // Before re-dispatch, so a job is never published twice in one sweep.
+      await this.reconcileJobs().catch((e) =>
+        this.logger.warn(
+          `Transcoding job reconciliation deferred: ${e.message}`,
+        ),
+      );
+      await this.redispatchUploaded().catch((e) =>
+        this.logger.warn(`Upload re-dispatch deferred: ${e.message}`),
+      );
     } finally {
       this.sweeping = false;
     }
+  }
+
+  private async expireSessions() {
+    await this.db.transaction(async (m) => {
+      const expired = await m
+        .createQueryBuilder(VideoUpload, 's')
+        .setLock('pessimistic_write')
+        .setOnLocked('skip_locked')
+        .where("s.state = 'uploading' AND s.expiresAt < :now", {
+          now: new Date(),
+        })
+        .orderBy('s.expiresAt', 'ASC')
+        .take(10)
+        .getMany();
+      for (const s of expired) {
+        await this.storage.abort(s);
+        await this.storage.remove(s);
+        s.state = 'aborted';
+        await m.save(s);
+      }
+    });
+  }
+
+  private async redispatchUploaded() {
+    const pending = await this.db
+      .getRepository(VideoUpload)
+      .createQueryBuilder('s')
+      .innerJoin(TranscodingJobEntity, 'job', 'job.id = s.id')
+      .where("s.state = 'uploaded'")
+      .orderBy('s.completedAt', 'ASC')
+      .take(10)
+      .getMany();
+    for (const s of pending) await this.dispatch(s.id);
+  }
+
+  // Jobs whose message was lost or dead-lettered: never claimed, or claimed by
+  // a worker that died. Uploads still 'uploaded' are left to re-dispatch, and
+  // recordings, which have no upload row, are included.
+  private async reconcileJobs() {
+    await this.db.transaction(async (m) => {
+      const now = Date.now();
+      const stale = await m
+        .createQueryBuilder(TranscodingJobEntity, 'job')
+        .setLock('pessimistic_write')
+        .setOnLocked('skip_locked')
+        .where(
+          "((job.status = 'processing' AND job.leaseExpiresAt < :leaseCutoff)" +
+            " OR (job.status = 'pending' AND (job.payload->>'timestamp')::bigint < :pendingCutoff))" +
+            " AND NOT EXISTS (SELECT 1 FROM video_upload u WHERE u.id = job.id AND u.state = 'uploaded')",
+          {
+            leaseCutoff: new Date(now - 10 * 60_000),
+            pendingCutoff: now - this.redispatchAfterMs,
+          },
+        )
+        .orderBy("(job.payload->>'timestamp')::bigint", 'ASC')
+        .limit(10)
+        .getMany();
+      for (const job of stale) {
+        job.leaseToken = null;
+        job.leaseExpiresAt = null;
+        if (job.attempts >= this.maxAttempts) {
+          const error = `Transcoding abandoned after ${job.attempts} attempts`;
+          job.status = 'failed';
+          job.result = {
+            jobId: job.id,
+            videoId: job.videoId,
+            success: false,
+            duration: 0,
+            error,
+            processedAt: now,
+          };
+          await m.save(job);
+          await m.update(VideoEntity, job.videoId, {
+            transcoding_status: 'failed',
+            transcoding_error: error,
+          });
+          this.logger.warn(`Transcoding job ${job.id}: ${error}`);
+          continue;
+        }
+        const payload = { ...job.payload, timestamp: now };
+        try {
+          await this.queue.publishRegisteredJob(payload);
+        } catch (e) {
+          // Saved only once sent: this job stays a candidate for the next
+          // sweep, and jobs already handled in this batch stay committed.
+          this.logger.warn(
+            `Transcoding job ${job.id} republication deferred: ${e.message}`,
+          );
+          break;
+        }
+        job.status = 'pending';
+        job.payload = payload;
+        await m.save(job);
+        this.logger.log(`Transcoding job ${job.id} republished`);
+      }
+    });
   }
 }

@@ -21,6 +21,7 @@ on:
         type: choice
         options:
           - changed-only
+          - application
           - frontend
           - backend
           - live-recorder
@@ -114,6 +115,10 @@ jobs:
           dry_run="${{ inputs.dry_run || 'false' }}"
 
           case "$force_components" in
+            application)
+              frontend="true"
+              backend="true"
+              ;;
             frontend)
               frontend="true"
               ;;
