@@ -52,24 +52,37 @@ export class BackendClient {
     result: VideoTranscodingResult,
   ): Promise<void> {
     for (let attempt = 0; attempt < 3; attempt++) {
+      let response: Response;
       try {
-        const response = await this.post(jobId, 'result', {
+        response = await this.post(jobId, 'result', {
           leaseToken,
           result,
         });
-        if (response.ok) return;
-        if (response.status === 410) {
-          console.log(`Transcoding job ${jobId} deleted; result discarded`);
-          return;
-        }
-        if (response.status < 500)
-          throw new HttpError(
-            502,
-            `Result callback rejected (${response.status})`,
-          );
       } catch (error) {
         if (error instanceof HttpError || attempt === 2) throw error;
+        continue;
       }
+      if (response.ok) return;
+      if (response.status === 410) {
+        console.log(`Transcoding job ${jobId} deleted; result discarded`);
+        return;
+      }
+      // A backend predating permanent failures rejects their fields (400):
+      // store a plain failure instead. Deploy the backend first to keep them.
+      if (response.status === 400 && result.permanent) {
+        console.warn(
+          `Backend rejected permanent failure fields for job ${jobId}; storing a plain failure`,
+        );
+        const plain = { ...result };
+        delete plain.permanent;
+        delete plain.reason;
+        return this.complete(jobId, leaseToken, plain);
+      }
+      if (response.status < 500)
+        throw new HttpError(
+          502,
+          `Result callback rejected (${response.status})`,
+        );
     }
     throw new HttpError(503, 'Result callback unavailable');
   }

@@ -22,6 +22,7 @@ import {
   PLAYABLE_AS_IS,
   planVideoMedia,
   prepareMiniature,
+  uploadMaxBytes,
 } from 'src/queue/transcoding-plan';
 import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
@@ -97,9 +98,7 @@ export class UploadsService {
   }
   async create(email: string, input: { size: number; filename: string }) {
     const owner = await this.owner(email);
-    const max = Number(process.env.UPLOAD_MAX_BYTES || 1024 ** 3);
-    if (!Number.isSafeInteger(max) || max < 1 || max > 50 * 1024 ** 3)
-      throw new Error('UPLOAD_MAX_BYTES must be between 1 byte and 50 GiB');
+    const max = uploadMaxBytes();
     if (
       !Number.isSafeInteger(input.size) ||
       input.size < 1 ||
