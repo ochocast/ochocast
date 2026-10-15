@@ -118,7 +118,7 @@ func runCLIMode(roomID, roomKey, sfuBaseURL, outputDir string) {
 	log.Println("Recording directly to MP4 with synchronized A/V")
 
 	// Create recording session (use roomID as eventID for filename)
-	// In CLI mode, no auto-publish (no backend/keycloak config)
+	// In CLI mode, no auto-publish (no backend config)
 	session, err := NewRecordingSession(RecordingConfig{
 		EventID:    roomID,
 		RoomID:     roomID,

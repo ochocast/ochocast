@@ -35,29 +35,18 @@ type RecordingSession struct {
 	backendURL       string                 // Backend URL for auto-publish after recording
 	trackID          string                 // Track ID for video metadata
 	sharedSecret     string                 // Shared secret sent to backend on publish
-	// Keycloak authentication for publishing
-	keycloakURL          string // Keycloak token endpoint URL
-	keycloakClientID     string // Keycloak client ID
-	keycloakClientSecret string // Keycloak client secret (for confidential clients)
-	keycloakUsername     string // Keycloak username (recording user)
-	keycloakPassword     string // Keycloak password (recording user)
 }
 
 // RecordingConfig holds all configuration for a recording session
 type RecordingConfig struct {
-	EventID              string
-	RoomID               string
-	RoomKey              string
-	SfuBaseURL           string
-	OutputDir            string
-	BackendURL           string
-	TrackID              string
-	SharedSecret         string // Sent as X-Recording-Secret when publishing to backend
-	KeycloakURL          string
-	KeycloakClientID     string
-	KeycloakClientSecret string
-	KeycloakUsername     string
-	KeycloakPassword     string
+	EventID      string
+	RoomID       string
+	RoomKey      string
+	SfuBaseURL   string
+	OutputDir    string
+	BackendURL   string
+	TrackID      string
+	SharedSecret string // Sent as X-Recording-Secret when publishing to backend
 }
 
 // NewRecordingSession creates a new recording session.
@@ -78,22 +67,17 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 	}
 
 	return &RecordingSession{
-		eventID:              config.EventID,
-		roomID:               config.RoomID,
-		roomKey:              config.RoomKey,
-		sfuBaseURL:           config.SfuBaseURL,
-		outputDir:            config.OutputDir,
-		mp4Writer:            mp4Writer,
-		mp4FilePath:          mp4FilePath,
-		stopChan:             make(chan struct{}),
-		backendURL:           config.BackendURL,
-		trackID:              config.TrackID,
-		sharedSecret:         config.SharedSecret,
-		keycloakURL:          config.KeycloakURL,
-		keycloakClientID:     config.KeycloakClientID,
-		keycloakClientSecret: config.KeycloakClientSecret,
-		keycloakUsername:     config.KeycloakUsername,
-		keycloakPassword:     config.KeycloakPassword,
+		eventID:      config.EventID,
+		roomID:       config.RoomID,
+		roomKey:      config.RoomKey,
+		sfuBaseURL:   config.SfuBaseURL,
+		outputDir:    config.OutputDir,
+		mp4Writer:    mp4Writer,
+		mp4FilePath:  mp4FilePath,
+		stopChan:     make(chan struct{}),
+		backendURL:   config.BackendURL,
+		trackID:      config.TrackID,
+		sharedSecret: config.SharedSecret,
 	}, nil
 }
 
@@ -246,7 +230,6 @@ func (rs *RecordingSession) StartRecording() error {
 	return nil
 }
 
-
 // setupCallbacks configures WebRTC event handlers
 func (rs *RecordingSession) setupCallbacks() error {
 	// OnTrack: called when a track (video/audio) is received from SFU
@@ -358,7 +341,7 @@ func (rs *RecordingSession) recordTrack(track *webrtc.TrackRemote) {
 					log.Printf("[ERROR] Error writing audio packet to MP4: %v", err)
 					continue
 				}
-				
+
 				rs.mu.Lock()
 				rs.audioPacketCount++
 				rs.mu.Unlock()
@@ -452,24 +435,9 @@ func (rs *RecordingSession) Stop() error {
 		backendURL := rs.backendURL
 		trackID := rs.trackID
 		sharedSecret := rs.sharedSecret
-		keycloakURL := rs.keycloakURL
-		keycloakClientID := rs.keycloakClientID
-		keycloakClientSecret := rs.keycloakClientSecret
-		keycloakUsername := rs.keycloakUsername
-		keycloakPassword := rs.keycloakPassword
 
 		go func() {
-			var token string
-			var err error
-			if keycloakURL != "" && keycloakUsername != "" && keycloakPassword != "" {
-				token, err = getKeycloakToken(keycloakURL, keycloakClientID, keycloakClientSecret, keycloakUsername, keycloakPassword)
-				if err != nil {
-					log.Printf("[ERROR] Failed to get Keycloak token: %v", err)
-					return
-				}
-			}
-
-			if err := publishToBackend(backendURL, trackID, filePath, token, sharedSecret); err != nil {
+			if err := publishToBackend(backendURL, trackID, filePath, sharedSecret); err != nil {
 				log.Printf("[ERROR] Failed to publish recording to backend: %v", err)
 			} else {
 				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
@@ -482,4 +450,3 @@ func (rs *RecordingSession) Stop() error {
 
 	return nil
 }
-

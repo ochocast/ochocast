@@ -19,8 +19,8 @@ type StartRecordingRequest struct {
 	RoomKey string `json:"room_key"`
 	SfuURL  string `json:"sfu_url"`
 	TrackID string `json:"track_id,omitempty"` // Track ID for video metadata
-	// BackendURL, OutputDir and Keycloak credentials are intentionally NOT
-	// accepted from the request body — they come from server env vars only.
+	// BackendURL and OutputDir are intentionally NOT accepted from the
+	// request body — they come from server env vars only.
 }
 
 // StopRecordingRequest is the JSON body for POST /recording/stop
@@ -55,26 +55,16 @@ type RecordingServer struct {
 	mu            sync.Mutex
 	defaultOutput string
 	// Environment-based config (read from env vars only — never from request body)
-	sharedSecret         string // RECORDING_SHARED_SECRET — required on every request
-	backendURL           string
-	keycloakURL          string
-	keycloakClientID     string
-	keycloakClientSecret string
-	keycloakUsername     string
-	keycloakPassword     string
+	sharedSecret string // RECORDING_SHARED_SECRET — required on every request
+	backendURL   string
 }
 
 // NewRecordingServer creates a new HTTP server instance
 func NewRecordingServer(defaultOutput string) *RecordingServer {
 	return &RecordingServer{
-		sessions:             make(map[string]*RecordingSession),
-		defaultOutput:        defaultOutput,
-		sharedSecret:         getEnv("RECORDING_SHARED_SECRET", ""),
-		backendURL:           getEnv("BACKEND_PUBLIC_URL", ""),
-		keycloakURL:          getEnv("KEYCLOAK_TOKEN_URL", ""),
-		keycloakClientID:     getEnv("KEYCLOAK_CLIENT_ID", ""),
-		keycloakClientSecret: getEnv("KEYCLOAK_CLIENT_SECRET", ""),
-		keycloakUsername:     getEnv("RECORDING_USER_USERNAME", ""),
-		keycloakPassword:     getEnv("RECORDING_USER_PASSWORD", ""),
+		sessions:      make(map[string]*RecordingSession),
+		defaultOutput: defaultOutput,
+		sharedSecret:  getEnv("RECORDING_SHARED_SECRET", ""),
+		backendURL:    getEnv("BACKEND_PUBLIC_URL", ""),
 	}
 }

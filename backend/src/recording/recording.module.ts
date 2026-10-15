@@ -19,7 +19,6 @@ import { RecordingErrorEntity } from './infra/gateways/entities/recording-error.
 import { RecordingErrorGateway } from './infra/gateways/recording-error.gateway';
 import { StartRecordingUsecase } from './domain/usecases/startRecording.usecase';
 import { StopRecordingUsecase } from './domain/usecases/stopRecording.usecase';
-import { PublishRecordingUsecase } from './domain/usecases/publishRecording.usecase';
 import { CreateRecordingSegmentFromFileUsecase } from './domain/usecases/createRecordingSegmentFromFile.usecase';
 import { GetTrackRecordingsUsecase } from './domain/usecases/getTrackRecordings.usecase';
 import { GetRecordingMediaUrlUsecase } from './domain/usecases/getRecordingMediaUrl.usecase';
@@ -65,7 +64,6 @@ import { S3Module } from 'src/s3.module';
     },
     StartRecordingUsecase,
     StopRecordingUsecase,
-    PublishRecordingUsecase,
     CreateRecordingSegmentFromFileUsecase,
     GetTrackRecordingsUsecase,
     GetRecordingMediaUrlUsecase,

@@ -111,7 +111,7 @@ Avant de pouvoir utiliser l'enregistrement, plusieurs composants doivent être d
 | **VM liveRecorder** | Service Go qui capture les flux | `RECORDING_VM_URL` (backend) |
 | **Serveur(s) SFU** | Gère les connexions WebRTC | Enregistrés auprès du Control Plane |
 | **Stockage (MinIO/S3)** | Stocke les vidéos finales | `STOCK_*` (backend) |
-| **Keycloak** | Authentification pour la publication auto | Variables Keycloak (VM) |
+| **Secret partagé** | Authentifie le backend et la VM liveRecorder entre eux | `RECORDING_SHARED_SECRET` (backend et VM) |
 
 ### Configuration Backend
 
@@ -123,6 +123,9 @@ CONTROL_PLANE_URL=http://localhost:8090
 
 # URL de la VM d'enregistrement
 RECORDING_VM_URL=http://localhost:8080
+
+# Secret partagé avec la VM liveRecorder (même valeur des deux côtés)
+RECORDING_SHARED_SECRET=<secret>
 
 # Secret partagé avec le SFU (notifications live démarré / arrêté)
 SFU_WEBHOOK_SECRET=<secret>
@@ -148,21 +151,15 @@ SFU_WEBHOOK_SECRET=<secret>
 Dans le fichier `.env` de la VM :
 
 ```env
-# URL du backend pour la publication automatique
+# URL du backend où déposer les segments enregistrés
 BACKEND_PUBLIC_URL=<url-backend>
 
-# Authentification Keycloak
-KEYCLOAK_TOKEN_URL=<url-keycloak>/realms/<realm>/protocol/openid-connect/token
-KEYCLOAK_CLIENT_ID=<client-id>
-KEYCLOAK_CLIENT_SECRET=<client-secret>
-
-# Utilisateur technique pour la publication
-RECORDING_USER_USERNAME=<username>
-RECORDING_USER_PASSWORD=<password>
+# Même valeur que RECORDING_SHARED_SECRET côté backend
+RECORDING_SHARED_SECRET=<secret>
 ```
 
-:::warning Utilisateur technique
-Créez un utilisateur dédié dans Keycloak avec les droits nécessaires pour publier des vidéos. Ne pas utiliser un compte administrateur.
+:::info Pas de compte Keycloak
+La VM s'authentifie uniquement par le secret partagé (en-tête `X-Recording-Secret`) : aucun utilisateur technique Keycloak n'est nécessaire.
 :::
 
 ---
@@ -291,7 +288,7 @@ Le traitement peut prendre quelques minutes selon la durée de l'enregistrement.
 **Solutions** :
 1. Attendez quelques minutes (le transcodage prend du temps)
 2. Vérifiez les logs du backend pour les erreurs
-3. Vérifiez la configuration Keycloak de la VM
+3. Vérifiez que `RECORDING_SHARED_SECRET` a la même valeur sur le backend et la VM (sinon le backend répond 401)
 
 ### La vidéo est désynchronisée (audio/vidéo)
 

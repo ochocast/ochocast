@@ -8,10 +8,8 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // setCORSHeaders sets CORS headers for cross-origin requests
@@ -83,19 +81,14 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 
 	// Create new recording session — all sensitive config comes from server env vars only
 	session, err := NewRecordingSession(RecordingConfig{
-		EventID:              req.RoomID,
-		RoomID:               req.RoomID,
-		RoomKey:              req.RoomKey,
-		SfuBaseURL:           req.SfuURL,
-		OutputDir:            outputDir,
-		BackendURL:           s.backendURL,
-		TrackID:              req.TrackID,
-		SharedSecret:         s.sharedSecret,
-		KeycloakURL:          s.keycloakURL,
-		KeycloakClientID:     s.keycloakClientID,
-		KeycloakClientSecret: s.keycloakClientSecret,
-		KeycloakUsername:     s.keycloakUsername,
-		KeycloakPassword:     s.keycloakPassword,
+		EventID:      req.RoomID,
+		RoomID:       req.RoomID,
+		RoomKey:      req.RoomKey,
+		SfuBaseURL:   req.SfuURL,
+		OutputDir:    outputDir,
+		BackendURL:   s.backendURL,
+		TrackID:      req.TrackID,
+		SharedSecret: s.sharedSecret,
 	})
 	if err != nil {
 		http.Error(w, "Failed to create session: "+err.Error(), http.StatusInternalServerError)
@@ -255,50 +248,8 @@ func (s *RecordingServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-// getKeycloakToken obtains an access token from Keycloak using password grant
-func getKeycloakToken(keycloakURL, clientID, clientSecret, username, password string) (string, error) {
-	log.Printf("[KEYCLOAK] Getting token from: %s", keycloakURL)
-
-	data := url.Values{}
-	data.Set("grant_type", "password")
-	data.Set("client_id", clientID)
-	if clientSecret != "" {
-		data.Set("client_secret", clientSecret)
-	}
-	data.Set("username", username)
-	data.Set("password", password)
-
-	req, err := http.NewRequest("POST", keycloakURL, strings.NewReader(data.Encode()))
-	if err != nil {
-		return "", fmt.Errorf("failed to create token request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to request token: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("keycloak returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var tokenResponse struct {
-		AccessToken string `json:"access_token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
-		return "", fmt.Errorf("failed to decode token response: %w", err)
-	}
-
-	log.Printf("[KEYCLOAK] Token obtained successfully")
-	return tokenResponse.AccessToken, nil
-}
-
 // publishToBackend sends the recorded MP4 file to the backend for auto-publication
-func publishToBackend(backendURL, trackID, filePath, token, sharedSecret string) error {
+func publishToBackend(backendURL, trackID, filePath, sharedSecret string) error {
 	log.Printf("[PUBLISH] Sending recording to backend: %s (track: %s)", backendURL, trackID)
 
 	// Open the MP4 file
@@ -351,11 +302,6 @@ func publishToBackend(backendURL, trackID, filePath, token, sharedSecret string)
 	// Add shared secret header (always required by the backend publish endpoint)
 	if sharedSecret != "" {
 		req.Header.Set("X-Recording-Secret", sharedSecret)
-	}
-
-	// Add Authorization header if token is provided
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	log.Printf("[PUBLISH] Sending POST to %s", publishURL)
