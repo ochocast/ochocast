@@ -1,3 +1,4 @@
+import { GoneException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
@@ -95,6 +96,10 @@ integration(
           job.jobId,
         ]),
       ).toEqual([]);
+      // Gone, so the worker discards the obsolete message.
+      await expect(
+        service.claim(job.jobId, job.videoId),
+      ).rejects.toBeInstanceOf(GoneException);
       const runner = database.createQueryRunner();
       try {
         await new AddTranscodingJobs1789574400000().down(runner);

@@ -23,8 +23,11 @@ export class BackendClient {
     const response = await this.post(job.jobId, 'claim', {
       videoId: job.videoId,
     });
-    // Deleting a video cascades to its job. Discard its signed, obsolete message.
-    if (response.status === 404) return { status: 'completed' };
+    // Deleting a video cascades to its job (410). Discard its signed, obsolete message.
+    if (response.status === 410) {
+      console.log(`Transcoding job ${job.jobId} deleted; message discarded`);
+      return { status: 'completed' };
+    }
     if (response.status === 409)
       throw new HttpError(503, 'Job already being processed');
     if (!response.ok)
@@ -54,7 +57,11 @@ export class BackendClient {
           leaseToken,
           result,
         });
-        if (response.ok || response.status === 404) return;
+        if (response.ok) return;
+        if (response.status === 410) {
+          console.log(`Transcoding job ${jobId} deleted; result discarded`);
+          return;
+        }
         if (response.status < 500)
           throw new HttpError(
             502,
@@ -67,12 +74,12 @@ export class BackendClient {
     throw new HttpError(503, 'Result callback unavailable');
   }
 
-  private post(
+  private async post(
     jobId: string,
     action: string,
     body: unknown,
   ): Promise<Response> {
-    return fetch(
+    const response = await fetch(
       `${this.baseUrl}/internal/transcoding/jobs/${encodeURIComponent(jobId)}/${action}`,
       {
         method: 'POST',
@@ -82,7 +89,18 @@ export class BackendClient {
         },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(10000),
+        // A redirect would turn the POST into a GET and could forward the secret.
+        redirect: 'manual',
       },
     );
+    if (response.status >= 300 && response.status < 400)
+      throw new HttpError(
+        503,
+        `Transcoding callback redirected (${response.status})`,
+      );
+    // A deleted job answers 410; a 404 is a misrouted callback, never a success.
+    if (response.status === 404)
+      throw new HttpError(503, 'Transcoding callback route not found (404)');
+    return response;
   }
 }

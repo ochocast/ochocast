@@ -76,15 +76,23 @@ export class JobProcessorService {
       );
       if (result.success) {
         // Durable checkpoint: a lost callback can be retried without encoding again.
-        await this.s3.send(
-          new PutObjectCommand({
-            Bucket: S3_CONFIG.mediaBucket,
-            Key: checkpointKey,
-            Body: JSON.stringify(result),
-            ContentType: 'application/json',
-          }),
-          { abortSignal: signal },
-        );
+        // Best effort, with its own timeout: every output is already uploaded.
+        try {
+          await this.s3.send(
+            new PutObjectCommand({
+              Bucket: S3_CONFIG.mediaBucket,
+              Key: checkpointKey,
+              Body: JSON.stringify(result),
+              ContentType: 'application/json',
+            }),
+            { abortSignal: AbortSignal.timeout(10000) },
+          );
+        } catch (error) {
+          console.warn(
+            `Transcoding checkpoint not saved for job ${job.jobId}:`,
+            error instanceof Error ? error.message : String(error),
+          );
+        }
       }
       return result;
     } finally {
@@ -122,7 +130,12 @@ export class JobProcessorService {
           ?.httpStatusCode === 404
       )
         return undefined;
-      throw error;
+      // An unreadable checkpoint only costs a re-encode; it must not fail the job.
+      console.warn(
+        `Transcoding checkpoint unreadable for job ${job.jobId}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+      return undefined;
     }
   }
 

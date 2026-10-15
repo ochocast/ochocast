@@ -271,7 +271,12 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     });
     queue.publishRegisteredJob.mockClear().mockResolvedValue(undefined);
     await makeService().maintain();
-    expect(queue.publishRegisteredJob).toHaveBeenCalledWith(job.payload);
+    // The same job, dated at its publication.
+    const { payload } = await db.manager.findOneByOrFail(TranscodingJobEntity, {
+      id: job.id,
+    });
+    expect(payload).toEqual({ ...job.payload, timestamp: expect.any(Number) });
+    expect(queue.publishRegisteredJob).toHaveBeenCalledWith(payload);
     expect((await service.status(session.id, owner)).state).toBe('queued');
     expect(await service.complete(session.id, owner, metadata)).toEqual({
       id: session.id,
@@ -880,5 +885,172 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     await expect(
       service.sign(s.id, owner, 1, checksum(Buffer.alloc(10))),
     ).rejects.toThrow();
+  });
+  describe('reconciliation of lost or dead-lettered transcoding jobs', () => {
+    const lostFor = 3 * 3600_000; // Beyond the default 2 h re-dispatch delay.
+    // Rows as complete() or a recording leaves them, written directly. Jobs
+    // are asserted by id: earlier tests share the database.
+    async function staleJob(
+      uploadState: 'uploaded' | 'queued' | null,
+      fields: Partial<TranscodingJobEntity> = {},
+      age = lostFor,
+    ) {
+      const id = randomUUID();
+      await db.manager.insert(VideoEntity, {
+        id,
+        media_id: `${id}/master.m3u8`,
+        miniature_id: `miniature-${id}.jpg`,
+        title: 'Lost job',
+        description: '',
+        external_speakers: '',
+        views: 0,
+        archived: false,
+        transcoding_status: 'pending',
+        creator: { id: other.id },
+      });
+      const payload: VideoTranscodingJob = {
+        jobId: id,
+        videoId: id,
+        originalFileName: 'sample.mp4',
+        originalKey: `${id}/source/original.mp4`,
+        media_id: `${id}/master.m3u8`,
+        miniature_id: `miniature-${id}.jpg`,
+        title: 'Lost job',
+        timestamp: Date.now() - age,
+      };
+      await jobs.register(payload);
+      if (Object.keys(fields).length)
+        await db.manager.update(TranscodingJobEntity, id, fields);
+      if (uploadState)
+        await db.manager.insert(VideoUpload, {
+          id,
+          ownerId: other.id,
+          key: payload.originalKey,
+          size: '1',
+          partSize: 1,
+          filename: 'sample.mp4',
+          checksumMode: 'sha256',
+          state: uploadState,
+          checksums: {},
+          expiresAt: new Date(Date.now() + 3600_000),
+          completedAt: new Date(Date.now() - age),
+        });
+      return payload;
+    }
+    const jobRow = (id: string) =>
+      db.manager.findOneByOrFail(TranscodingJobEntity, { id });
+    const published = (id: string) =>
+      queue.publishRegisteredJob.mock.calls.filter(([job]) => job.jobId === id);
+
+    it('republishes a lost pending job, with or without an upload row', async () => {
+      const queued = await staleJob('queued');
+      const recording = await staleJob(null);
+      const fresh = await staleJob('queued', {}, 60_000);
+      const before = Date.now();
+      await service.maintain();
+      for (const lost of [queued, recording]) {
+        const row = await jobRow(lost.jobId);
+        expect(row.status).toBe('pending');
+        expect(row.payload.timestamp).toBeGreaterThanOrEqual(before);
+        expect(published(lost.jobId)).toEqual([[row.payload]]);
+      }
+      expect(published(fresh.jobId)).toEqual([]);
+    });
+
+    it('republishes a processing job whose worker died, keeping its attempts', async () => {
+      const crashed = await staleJob('queued', {
+        status: 'processing',
+        attempts: 2,
+        leaseToken: randomUUID(),
+        leaseExpiresAt: new Date(Date.now() - 11 * 60_000),
+      });
+      const running = await staleJob('queued', {
+        status: 'processing',
+        attempts: 1,
+        leaseToken: randomUUID(),
+        leaseExpiresAt: new Date(Date.now() - 60_000), // Within the grace period.
+      });
+      await service.maintain();
+      const row = await jobRow(crashed.jobId);
+      expect(row).toMatchObject({
+        status: 'pending',
+        attempts: 2,
+        leaseToken: null,
+        leaseExpiresAt: null,
+      });
+      expect(published(crashed.jobId)).toEqual([[row.payload]]);
+      expect(published(running.jobId)).toEqual([]);
+      expect((await jobRow(running.jobId)).status).toBe('processing');
+      const claim = await jobs.claim(crashed.jobId, crashed.videoId);
+      expect(claim.status).toBe('claimed');
+      expect((await jobRow(crashed.jobId)).attempts).toBe(3);
+    });
+
+    it('marks the job and its video failed once attempts are exhausted', async () => {
+      const doomed = await staleJob('queued', {
+        status: 'processing',
+        attempts: 10,
+        leaseToken: randomUUID(),
+        leaseExpiresAt: new Date(Date.now() - 11 * 60_000),
+      });
+      await service.maintain();
+      const error = 'Transcoding abandoned after 10 attempts';
+      const row = await jobRow(doomed.jobId);
+      expect(row.status).toBe('failed');
+      expect(row.result).toMatchObject({ success: false, error });
+      expect(published(doomed.jobId)).toEqual([]);
+      expect(
+        await db.manager.findOneByOrFail(VideoEntity, { id: doomed.videoId }),
+      ).toMatchObject({
+        transcoding_status: 'failed',
+        transcoding_error: error,
+      });
+      // Final: later sweeps leave it alone.
+      await service.maintain();
+      expect((await jobRow(doomed.jobId)).status).toBe('failed');
+    });
+
+    it('leaves uploads still waiting for their first publication to re-dispatch', async () => {
+      const waiting = await staleJob('uploaded');
+      const before = Date.now();
+      await service.maintain();
+      // Published once, by re-dispatch, which dates the publication so the
+      // next sweep does not take it for a lost message.
+      const row = await jobRow(waiting.jobId);
+      expect(row.payload.timestamp).toBeGreaterThanOrEqual(before);
+      expect(published(waiting.jobId)).toEqual([[row.payload]]);
+      expect(
+        (await db.manager.findOneByOrFail(VideoUpload, { id: waiting.jobId }))
+          .state,
+      ).toBe('queued');
+      await service.maintain();
+      expect(published(waiting.jobId)).toHaveLength(1);
+    });
+
+    it('leaves a republication the queue refused untouched and retries it', async () => {
+      const lost = await staleJob('queued');
+      queue.publishRegisteredJob.mockRejectedValue(new Error('queue down'));
+      await service.maintain();
+      expect((await jobRow(lost.jobId)).payload).toEqual(lost);
+      queue.publishRegisteredJob.mockReset().mockResolvedValue(undefined);
+      await service.maintain();
+      expect(published(lost.jobId)).toHaveLength(1);
+      expect((await jobRow(lost.jobId)).payload.timestamp).toBeGreaterThan(
+        lost.timestamp,
+      );
+    });
+
+    it('never sweeps jobs while transcoding is disabled', async () => {
+      const lost = await staleJob('queued');
+      await makeDisabledService().maintain();
+      expect(disabledQueue.publishRegisteredJob).not.toHaveBeenCalled();
+      expect(await jobRow(lost.jobId)).toMatchObject({
+        status: 'pending',
+        payload: lost,
+      });
+      // Not left as a candidate for later enabled sweeps.
+      await db.manager.delete(VideoUpload, lost.jobId);
+      await db.manager.delete(VideoEntity, lost.videoId);
+    });
   });
 });

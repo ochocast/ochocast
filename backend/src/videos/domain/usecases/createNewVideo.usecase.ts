@@ -10,6 +10,7 @@ import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.enti
 import { QueueService } from 'src/queue/queue.service';
 import { VideoTranscodingJob } from 'src/queue/job.types';
 import {
+  PLAYABLE_AS_IS,
   VIDEO_CONTENT_TYPES,
   planVideoMedia,
   prepareMiniature,
@@ -41,7 +42,10 @@ export class CreateNewVideoUsecase {
         .replace(/[^.a-z0-9]/g, '') || '.video';
     const sourceType = VIDEO_CONTENT_TYPES.get(originalExtension.slice(1));
     // Without transcoding the source itself is published: only video containers.
-    if (!this.queueService.enabled && !sourceType)
+    if (
+      !this.queueService.enabled &&
+      !PLAYABLE_AS_IS.has(originalExtension.slice(1))
+    )
       throw new BadRequestException('Unsupported video format');
     const originalKey = `${videoId}/source/original${originalExtension}`;
     const subtitle = this.prepareSubtitle(subtitleFile);

@@ -448,10 +448,13 @@ export class TranscodingService {
     contentType: string,
   ): Promise<void> {
     this.signal?.throwIfAborted();
+    const { size } = await stat(filePath);
     const controller = new AbortController();
     const abort = () => controller.abort();
     this.signal?.addEventListener('abort', abort, { once: true });
     const body = createReadStream(filePath);
+    // Read errors reject the upload below; an unhandled stream error would kill the worker.
+    body.on('error', () => {});
     try {
       await new Upload({
         client: this.s3Client,
@@ -461,7 +464,7 @@ export class TranscodingService {
           Bucket: bucket,
           Key: key,
           Body: body,
-          ContentLength: (await stat(filePath)).size,
+          ContentLength: size,
           ContentType: contentType,
           CacheControl: 'max-age=31536000',
         },

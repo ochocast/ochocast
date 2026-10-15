@@ -19,7 +19,7 @@ import { VideoEntity } from '../infra/gateways/entities/video.entity';
 import { QueueService } from 'src/queue/queue.service';
 import { VideoTranscodingJob } from 'src/queue/job.types';
 import {
-  VIDEO_CONTENT_TYPES,
+  PLAYABLE_AS_IS,
   planVideoMedia,
   prepareMiniature,
 } from 'src/queue/transcoding-plan';
@@ -44,10 +44,23 @@ export function validateParts(s: VideoUpload, parts: StoredPart[]) {
       throw new BadRequestException('Part checksum mismatch');
   });
 }
+function positiveInteger(name: string, fallback: number) {
+  const value = Number(process.env[name] || fallback);
+  if (!Number.isInteger(value) || value < 1)
+    throw new Error(`${name} must be a positive integer`);
+  return value;
+}
 @Injectable()
 export class UploadsService {
   private readonly logger = new Logger(UploadsService.name);
   private sweeping = false;
+  // A pending job not claimed within this delay lost its message.
+  private readonly redispatchAfterMs =
+    positiveInteger('TRANSCODING_REDISPATCH_AFTER_SECONDS', 7200) * 1000;
+  private readonly maxAttempts = positiveInteger(
+    'TRANSCODING_MAX_ATTEMPTS',
+    10,
+  );
   constructor(
     private readonly db: DataSource,
     private readonly storage: MultipartStorage,
@@ -100,7 +113,7 @@ export class UploadsService {
       .toLowerCase()
       .replace(/[^.a-z0-9]/g, '');
     // Without transcoding the source itself is published: only video containers.
-    if (!this.queue.enabled && !VIDEO_CONTENT_TYPES.has(extension.slice(1)))
+    if (!this.queue.enabled && !PLAYABLE_AS_IS.has(extension.slice(1)))
       throw new BadRequestException('Unsupported video format');
     // Serialize per-owner creation to bound abandoned sessions even across API replicas.
     return this.db.transaction(async (m) => {
@@ -227,10 +240,7 @@ export class UploadsService {
       if (s.state === 'uploaded' || s.state === 'queued') return { id: s.id };
       this.active(s);
       // Opened while transcoding was enabled, the session may hold any file.
-      if (
-        !this.queue.enabled &&
-        !VIDEO_CONTENT_TYPES.has(extname(s.key).slice(1))
-      )
+      if (!this.queue.enabled && !PLAYABLE_AS_IS.has(extname(s.key).slice(1)))
         throw new BadRequestException('Unsupported video format');
       if (
         typeof fields.title !== 'string' ||
@@ -364,8 +374,12 @@ export class UploadsService {
         if (!s) return;
         const job = await m.findOneBy(TranscodingJobEntity, { id });
         if (!job) return; // Completed uploads from before FFmpeg remain readable.
-        if (job.status === 'pending')
+        if (job.status === 'pending') {
+          // Dated at publication: reconciliation then waits a full delay.
+          job.payload = { ...job.payload, timestamp: Date.now() };
+          await m.save(job);
           await this.queue.publishRegisteredJob(job.payload);
+        }
         s.state = 'queued';
         await m.save(s);
       });
@@ -392,39 +406,120 @@ export class UploadsService {
   async maintain() {
     if (this.sweeping) return;
     this.sweeping = true;
+    // Independent phases: a failure in one never holds back the others.
     try {
-      await this.db.transaction(async (m) => {
-        const expired = await m
-          .createQueryBuilder(VideoUpload, 's')
-          .setLock('pessimistic_write')
-          .setOnLocked('skip_locked')
-          .where("s.state = 'uploading' AND s.expiresAt < :now", {
-            now: new Date(),
-          })
-          .take(10)
-          .getMany();
-        for (const s of expired) {
-          await this.storage.abort(s);
-          await this.storage.remove(s);
-          s.state = 'aborted';
-          await m.save(s);
-        }
-      });
+      await this.expireSessions().catch((e) =>
+        this.logger.warn(`Expired upload cleanup deferred: ${e.message}`),
+      );
       // Jobs left by an earlier enabled run are reported once at boot instead.
       if (!this.queue.enabled) return;
-      const pending = await this.db
-        .getRepository(VideoUpload)
-        .createQueryBuilder('s')
-        .innerJoin(TranscodingJobEntity, 'job', 'job.id = s.id')
-        .where("s.state = 'uploaded'")
-        .orderBy('s.completedAt', 'ASC')
-        .take(10)
-        .getMany();
-      for (const s of pending) await this.dispatch(s.id);
-    } catch (e) {
-      this.logger.warn(`Upload maintenance deferred: ${e.message}`);
+      // Before re-dispatch, so a job is never published twice in one sweep.
+      await this.reconcileJobs().catch((e) =>
+        this.logger.warn(
+          `Transcoding job reconciliation deferred: ${e.message}`,
+        ),
+      );
+      await this.redispatchUploaded().catch((e) =>
+        this.logger.warn(`Upload re-dispatch deferred: ${e.message}`),
+      );
     } finally {
       this.sweeping = false;
     }
+  }
+
+  private async expireSessions() {
+    await this.db.transaction(async (m) => {
+      const expired = await m
+        .createQueryBuilder(VideoUpload, 's')
+        .setLock('pessimistic_write')
+        .setOnLocked('skip_locked')
+        .where("s.state = 'uploading' AND s.expiresAt < :now", {
+          now: new Date(),
+        })
+        .orderBy('s.expiresAt', 'ASC')
+        .take(10)
+        .getMany();
+      for (const s of expired) {
+        await this.storage.abort(s);
+        await this.storage.remove(s);
+        s.state = 'aborted';
+        await m.save(s);
+      }
+    });
+  }
+
+  private async redispatchUploaded() {
+    const pending = await this.db
+      .getRepository(VideoUpload)
+      .createQueryBuilder('s')
+      .innerJoin(TranscodingJobEntity, 'job', 'job.id = s.id')
+      .where("s.state = 'uploaded'")
+      .orderBy('s.completedAt', 'ASC')
+      .take(10)
+      .getMany();
+    for (const s of pending) await this.dispatch(s.id);
+  }
+
+  // Jobs whose message was lost or dead-lettered: never claimed, or claimed by
+  // a worker that died. Uploads still 'uploaded' are left to re-dispatch, and
+  // recordings, which have no upload row, are included.
+  private async reconcileJobs() {
+    await this.db.transaction(async (m) => {
+      const now = Date.now();
+      const stale = await m
+        .createQueryBuilder(TranscodingJobEntity, 'job')
+        .setLock('pessimistic_write')
+        .setOnLocked('skip_locked')
+        .where(
+          "((job.status = 'processing' AND job.leaseExpiresAt < :leaseCutoff)" +
+            " OR (job.status = 'pending' AND (job.payload->>'timestamp')::bigint < :pendingCutoff))" +
+            " AND NOT EXISTS (SELECT 1 FROM video_upload u WHERE u.id = job.id AND u.state = 'uploaded')",
+          {
+            leaseCutoff: new Date(now - 10 * 60_000),
+            pendingCutoff: now - this.redispatchAfterMs,
+          },
+        )
+        .orderBy("(job.payload->>'timestamp')::bigint", 'ASC')
+        .limit(10)
+        .getMany();
+      for (const job of stale) {
+        job.leaseToken = null;
+        job.leaseExpiresAt = null;
+        if (job.attempts >= this.maxAttempts) {
+          const error = `Transcoding abandoned after ${job.attempts} attempts`;
+          job.status = 'failed';
+          job.result = {
+            jobId: job.id,
+            videoId: job.videoId,
+            success: false,
+            duration: 0,
+            error,
+            processedAt: now,
+          };
+          await m.save(job);
+          await m.update(VideoEntity, job.videoId, {
+            transcoding_status: 'failed',
+            transcoding_error: error,
+          });
+          this.logger.warn(`Transcoding job ${job.id}: ${error}`);
+          continue;
+        }
+        const payload = { ...job.payload, timestamp: now };
+        try {
+          await this.queue.publishRegisteredJob(payload);
+        } catch (e) {
+          // Saved only once sent: this job stays a candidate for the next
+          // sweep, and jobs already handled in this batch stay committed.
+          this.logger.warn(
+            `Transcoding job ${job.id} republication deferred: ${e.message}`,
+          );
+          break;
+        }
+        job.status = 'pending';
+        job.payload = payload;
+        await m.save(job);
+        this.logger.log(`Transcoding job ${job.id} republished`);
+      }
+    });
   }
 }

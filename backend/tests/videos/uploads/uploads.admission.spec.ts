@@ -32,6 +32,10 @@ describe('Upload admission of the source file', () => {
     'segment.ts',
     'clip',
     'trick.constructor',
+    // Served as is, most browsers cannot play these containers.
+    'talk.avi',
+    'talk.mkv',
+    'talk.ogg',
   ])(
     'refuses %s while transcoding is disabled because the source is served as is',
     async (filename) => {
@@ -42,7 +46,7 @@ describe('Upload admission of the source file', () => {
     },
   );
 
-  it.each(['talk.mp4', 'Talk.MOV', 'talk.webm', 'talk.mkv', 'talk.avi'])(
+  it.each(['talk.mp4', 'Talk.MOV', 'talk.webm', 'talk.m4v'])(
     'admits the video %s while transcoding is disabled',
     async (filename) => {
       await service(false).create('user@example.test', { size: 10, filename });
@@ -50,13 +54,37 @@ describe('Upload admission of the source file', () => {
     },
   );
 
-  it('leaves format checks to FFmpeg when transcoding is enabled', async () => {
-    await service(true).create('user@example.test', {
-      size: 10,
-      filename: 'clip',
-    });
-    expect(db.transaction).toHaveBeenCalledTimes(1);
-  });
+  it.each(['clip', 'talk.avi', 'talk.mkv'])(
+    'leaves format checks of %s to FFmpeg when transcoding is enabled',
+    async (filename) => {
+      await service(true).create('user@example.test', { size: 10, filename });
+      expect(db.transaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['avi', 'mkv', 'ogg'])(
+    'refuses to publish a .%s session opened while transcoding was enabled',
+    async (extension) => {
+      const session = {
+        id: 'session',
+        key: `session/source/original.${extension}`,
+        state: 'uploading',
+        expiresAt: new Date(Date.now() + 60_000),
+      } as VideoUpload;
+      const m = {
+        findOneBy: jest.fn().mockResolvedValue({ id: 'owner' }),
+        findOne: jest.fn().mockResolvedValue(session),
+      };
+      db.transaction.mockImplementation(async (work) => work(m));
+      await expect(
+        service(false).complete(
+          '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+          'user@example.test',
+          { title: 'Talk' },
+        ),
+      ).rejects.toThrow(new BadRequestException('Unsupported video format'));
+    },
+  );
 });
 
 describe('Multipart source content type', () => {

@@ -134,7 +134,7 @@ export class QueueService implements OnApplicationBootstrap {
       const { count, oldest } = await this.jobs.unfinished();
       if (!count) return;
       const age = oldest
-        ? `oldest registered ${oldest.toISOString()}, ${Math.round((Date.now() - oldest.getTime()) / 60_000)} min ago`
+        ? `oldest last published ${oldest.toISOString()}, ${Math.round((Date.now() - oldest.getTime()) / 60_000)} min ago`
         : 'registration time unknown';
       this.logger.warn(
         `${count} transcoding job(s) still pending or processing (${age}): ` +

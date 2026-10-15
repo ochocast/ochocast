@@ -77,7 +77,7 @@ test('source streams to disk; durable success checkpoint bypasses encoding on re
   await assert.rejects(readFile(inputPath), { code: 'ENOENT' });
 });
 
-test('S3 authorization errors are not mistaken for a missing checkpoint', async () => {
+test('S3 authorization errors on the source still fail the job', async () => {
   const s3 = {
     send: async () => {
       throw new Error('AccessDenied');
@@ -87,4 +87,115 @@ test('S3 authorization errors are not mistaken for a missing checkpoint', async 
     new JobProcessorService(s3).processJob(job, new AbortController().signal),
     /AccessDenied/,
   );
+});
+
+test('a missing output file rejects its upload without crashing the worker', async () => {
+  const service = new TranscodingService({} as S3Client) as unknown as {
+    uploadFile(
+      file: string,
+      bucket: string,
+      key: string,
+      type: string,
+    ): Promise<void>;
+  };
+  await assert.rejects(
+    service.uploadFile(
+      '/nonexistent-dir/miniature.jpg',
+      'b',
+      'k',
+      'image/jpeg',
+    ),
+    { code: 'ENOENT' },
+  );
+  // The stream would emit its own ENOENT later, as an uncaught exception.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+});
+
+const encodedS3 = (
+  checkpointRead: () => never,
+  checkpointWrite: (signal?: AbortSignal) => void,
+) =>
+  ({
+    send: async (
+      command: GetObjectCommand | PutObjectCommand,
+      options?: { abortSignal?: AbortSignal },
+    ) => {
+      if (command instanceof PutObjectCommand) {
+        checkpointWrite(options?.abortSignal);
+        return {};
+      }
+      if (command.input.Key?.endsWith('result.json')) checkpointRead();
+      return { Body: Readable.from([Buffer.from('video')]), ContentLength: 5 };
+    },
+  }) as unknown as S3Client;
+const notFound = () => {
+  throw Object.assign(new Error('not found'), { name: 'NoSuchKey' });
+};
+const encoded = {
+  jobId: job.jobId,
+  videoId: job.videoId,
+  success: true,
+  duration: 1,
+  processedAt: 1,
+};
+
+test('a failed checkpoint write does not turn a completed encode into a failure', async (t) => {
+  t.mock.method(
+    TranscodingService.prototype,
+    'processJob',
+    async () => encoded,
+  );
+  const warn = t.mock.method(console, 'warn', () => {});
+  const s3 = encodedS3(notFound, () => {
+    throw new Error('SlowDown');
+  });
+  assert.deepEqual(
+    await new JobProcessorService(s3).processJob(
+      job,
+      new AbortController().signal,
+    ),
+    encoded,
+  );
+  assert.equal(warn.mock.callCount(), 1);
+});
+
+test('the checkpoint write is not cancelled by the job deadline firing after the encode', async (t) => {
+  const deadline = new AbortController();
+  t.mock.method(TranscodingService.prototype, 'processJob', async () => {
+    deadline.abort();
+    return encoded;
+  });
+  let written = false;
+  const s3 = encodedS3(notFound, (signal) => {
+    if (!signal || signal.aborted) throw new Error('aborted');
+    written = true;
+  });
+  await new JobProcessorService(s3).processJob(job, deadline.signal);
+  assert.equal(written, true);
+});
+
+test('an unreadable checkpoint is logged and treated as absent', async (t) => {
+  let encodings = 0;
+  t.mock.method(TranscodingService.prototype, 'processJob', async () => {
+    encodings++;
+    return encoded;
+  });
+  const warn = t.mock.method(console, 'warn', () => {});
+  const s3 = encodedS3(
+    () => {
+      throw Object.assign(new Error('InternalError'), {
+        $metadata: { httpStatusCode: 500 },
+      });
+    },
+    () => {},
+  );
+  assert.deepEqual(
+    await new JobProcessorService(s3).processJob(
+      job,
+      new AbortController().signal,
+    ),
+    encoded,
+  );
+  assert.equal(encodings, 1);
+  assert.equal(warn.mock.callCount(), 1);
 });

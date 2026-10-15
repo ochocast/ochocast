@@ -1,5 +1,21 @@
 import sharp = require('sharp');
-import { planVideoMedia, prepareMiniature } from './transcoding-plan';
+import {
+  PLAYABLE_AS_IS,
+  VIDEO_CONTENT_TYPES,
+  planVideoMedia,
+  prepareMiniature,
+} from './transcoding-plan';
+
+describe('Formats published without transcoding', () => {
+  it('only plays containers every browser can decode', () => {
+    expect([...PLAYABLE_AS_IS].sort()).toEqual(['m4v', 'mov', 'mp4', 'webm']);
+  });
+
+  it('still serves other uploaded sources with their own content type', () => {
+    for (const extension of ['avi', 'mkv', 'ogg', ...PLAYABLE_AS_IS])
+      expect(VIDEO_CONTENT_TYPES.get(extension)).toMatch(/^video\//);
+  });
+});
 
 describe('Video media layout with and without transcoding', () => {
   const id = 'video';

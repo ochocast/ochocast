@@ -1,8 +1,7 @@
 import sharp = require('sharp');
 
-// Source containers playable as is. Without transcoding only these are
-// accepted, and every source is stored and served with the type of its
-// extension, never a type supplied by the client.
+// Every source is stored and served with the type of its extension, never a
+// type supplied by the client.
 export const VIDEO_CONTENT_TYPES = new Map([
   ['avi', 'video/x-msvideo'],
   ['m4v', 'video/x-m4v'],
@@ -12,6 +11,10 @@ export const VIDEO_CONTENT_TYPES = new Map([
   ['ogg', 'video/ogg'],
   ['webm', 'video/webm'],
 ]);
+
+// Containers browsers play natively. Without transcoding only these are
+// accepted, since the source itself is published.
+export const PLAYABLE_AS_IS = new Set(['m4v', 'mov', 'mp4', 'webm']);
 
 export interface VideoMediaPlan {
   media_id: string;

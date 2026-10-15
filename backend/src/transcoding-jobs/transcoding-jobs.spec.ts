@@ -1,4 +1,9 @@
-import { ConflictException, INestApplication } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  GoneException,
+  INestApplication,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
 import { randomUUID } from 'node:crypto';
@@ -127,7 +132,18 @@ describe('Transcoding job leases', () => {
         ...result,
         jobId: randomUUID(),
       }),
-    ).rejects.toThrow('not found');
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  // 410, not 404: the worker must tell a deleted job from a missing route.
+  it('reports a deleted job as gone on claim and result', async () => {
+    findOne.mockResolvedValue(null);
+    await expect(
+      service.claim(payload.jobId, payload.videoId),
+    ).rejects.toBeInstanceOf(GoneException);
+    await expect(
+      service.complete(payload.jobId, randomUUID(), result),
+    ).rejects.toBeInstanceOf(GoneException);
   });
 });
 
@@ -223,5 +239,21 @@ describe('Internal transcoding HTTP API', () => {
       result: { ...result, duration: -1 },
     }).expect(400);
     await send({ leaseToken: randomUUID(), result }).expect(200);
+  });
+
+  it('answers 410 Gone for a deleted job on claim and result', async () => {
+    const gone = new GoneException('Transcoding job not found');
+    jobs.claim.mockRejectedValueOnce(gone);
+    jobs.complete.mockRejectedValueOnce(gone);
+    await request(app.getHttpServer())
+      .post(`/api/internal/transcoding/jobs/${payload.jobId}/claim`)
+      .set('X-Transcoding-Token', secret)
+      .send({ videoId: payload.videoId })
+      .expect(410);
+    await request(app.getHttpServer())
+      .post(`/api/internal/transcoding/jobs/${payload.jobId}/result`)
+      .set('X-Transcoding-Token', secret)
+      .send({ leaseToken: randomUUID(), result })
+      .expect(410);
   });
 });

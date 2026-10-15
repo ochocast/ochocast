@@ -168,6 +168,9 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
       'playlist.m3u8',
       'segment.ts',
       'recording',
+      'talk.avi',
+      'talk.mkv',
+      'talk.ogg',
     ])(
       'refuses %s because the source would be served as is',
       async (originalname) => {

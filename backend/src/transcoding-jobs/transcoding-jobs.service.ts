@@ -1,7 +1,8 @@
 import {
+  BadRequestException,
   ConflictException,
+  GoneException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'node:crypto';
@@ -61,7 +62,9 @@ export class TranscodingJobsService {
         where: { id: jobId, videoId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!job) throw new NotFoundException('Transcoding job not found');
+      // Deleting a video cascades to its job. 410 tells the worker to discard
+      // the message, while a 404 means a routing error and is retried.
+      if (!job) throw new GoneException('Transcoding job not found');
       if (job.status === 'ready') return { status: 'completed' as const };
       if (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > Date.now()) {
         throw new ConflictException('Transcoding job is already running');
@@ -89,14 +92,15 @@ export class TranscodingJobsService {
     leaseToken: string,
     result: VideoTranscodingResult,
   ): Promise<void> {
+    if (result.jobId !== jobId)
+      throw new BadRequestException('Result does not match the job');
     await this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(TranscodingJobEntity);
       const job = await repository.findOne({
         where: { id: jobId, videoId: result.videoId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!job || result.jobId !== jobId)
-        throw new NotFoundException('Transcoding job not found');
+      if (!job) throw new GoneException('Transcoding job not found');
       // A delayed failure or repeated callback must never overwrite a success.
       if (job.status === 'ready') return;
       if (

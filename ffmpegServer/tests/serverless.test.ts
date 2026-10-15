@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHmac, randomUUID } from 'node:crypto';
+import { createServer } from 'node:http';
 import { AddressInfo } from 'node:net';
 import { test } from 'node:test';
 import { createWorkerServer } from '../src/http-worker';
@@ -246,20 +247,93 @@ test('the processing deadline aborts the work and releases the lease through a f
 
 test('backend client retries transient callbacks, but rejects an expired lease', async (t) => {
   let calls = 0;
-  t.mock.method(globalThis, 'fetch', async () => {
+  const fetchMock = t.mock.method(globalThis, 'fetch', async () => {
     calls++;
     return new Response('{}', { status: calls < 3 ? 503 : 200 });
   });
   const client = new BackendClient('http://backend/api', secret);
   await client.complete(job.jobId, randomUUID(), result);
   assert.equal(calls, 3);
-  t.mock.method(
-    globalThis,
-    'fetch',
+  // Re-mocking fetch would leak the first mock into later tests.
+  fetchMock.mock.mockImplementation(
     async () => new Response('{}', { status: 409 }),
   );
   await assert.rejects(
     client.complete(job.jobId, randomUUID(), result),
     /rejected/,
   );
+});
+
+const encodeOnce = () => ({
+  processJob: async () => assert.fail('unexpected encoding'),
+});
+
+test('a deleted job (410) is discarded with a log line and no encoding', async (t) => {
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async () => new Response('{}', { status: 410 }),
+  );
+  const log = t.mock.method(console, 'log', () => {});
+  const client = new BackendClient('http://backend/api', secret);
+  await new JobRunner(client, encodeOnce(), 1000).run(
+    job,
+    new AbortController().signal,
+  );
+  await client.complete(job.jobId, randomUUID(), result);
+  const lines = log.mock.calls.map((call) => call.arguments.join(' '));
+  assert.equal(lines.filter((line) => line.includes(job.jobId)).length, 2);
+});
+
+test('a callback 404 (route, ingress or version skew) is retryable, never success', async (t) => {
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async () => new Response('{}', { status: 404 }),
+  );
+  const client = new BackendClient('http://backend/api', secret);
+  const notFound = { status: 503, message: /route not found \(404\)/ };
+  await assert.rejects(
+    new JobRunner(client, encodeOnce(), 1000).run(
+      job,
+      new AbortController().signal,
+    ),
+    notFound,
+  );
+  await assert.rejects(
+    client.complete(job.jobId, randomUUID(), result),
+    notFound,
+  );
+});
+
+test('callback redirects are refused and never forward the secret', async () => {
+  const leaked: string[] = [];
+  const target = createServer((request, response) => {
+    leaked.push(String(request.headers['x-transcoding-token']));
+    response.writeHead(404).end();
+  });
+  target.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => target.once('listening', resolve));
+  const targetUrl = `http://127.0.0.1:${(target.address() as AddressInfo).port}`;
+  const backend = createServer((request, response) => {
+    response.writeHead(302, { Location: `${targetUrl}${request.url}` }).end();
+  });
+  backend.listen(0, '127.0.0.1');
+  await new Promise<void>((resolve) => backend.once('listening', resolve));
+  const client = new BackendClient(
+    `http://127.0.0.1:${(backend.address() as AddressInfo).port}/api`,
+    secret,
+  );
+  try {
+    await assert.rejects(client.claim(job), { status: 503 });
+    await assert.rejects(client.complete(job.jobId, randomUUID(), result), {
+      status: 503,
+    });
+    assert.deepEqual(leaked, []);
+  } finally {
+    for (const server of [backend, target]) {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  }
 });
