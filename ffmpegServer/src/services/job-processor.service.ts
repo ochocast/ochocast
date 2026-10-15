@@ -11,6 +11,7 @@ import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { S3_CONFIG } from '../config/s3.config';
 import {
+  PermanentJobError,
   VideoTranscodingJob,
   VideoTranscodingResult,
 } from '../types/job.types';
@@ -22,6 +23,7 @@ export class JobProcessorService {
   async processJob(
     job: VideoTranscodingJob,
     signal: AbortSignal,
+    onEncodingStarted?: () => void,
   ): Promise<VideoTranscodingResult> {
     const checkpointKey = `${job.videoId}/_transcoding/${job.jobId}/result.json`;
     const cached = await this.readCheckpoint(checkpointKey, job, signal);
@@ -67,13 +69,11 @@ export class JobProcessorService {
         );
         subtitle = await readFile(file);
       }
-      const result = await new TranscodingService(this.s3, signal).processJob(
-        job,
-        input,
-        miniature,
-        subtitle,
-        true,
-      );
+      const result = await new TranscodingService(
+        this.s3,
+        signal,
+        onEncodingStarted,
+      ).processJob(job, input, miniature, subtitle, true);
       if (result.success) {
         // Durable checkpoint: a lost callback can be retried without encoding again.
         // Best effort, with its own timeout: every output is already uploaded.
@@ -152,20 +152,21 @@ export class JobProcessorService {
     );
     const body = response.Body as Readable;
     if (!body) throw new Error('Missing S3 object body');
+    // Another attempt would download the same object: never retried.
+    const tooLarge = () =>
+      new PermanentJobError(
+        'source_too_large',
+        'Source exceeds configured size limit',
+      );
     if ((response.ContentLength || 0) > maxBytes) {
       body.destroy();
-      throw new Error('Source exceeds configured size limit');
+      throw tooLarge();
     }
     let received = 0;
     const limiter = new Transform({
       transform(chunk: Buffer, _encoding, callback) {
         received += chunk.length;
-        callback(
-          received > maxBytes
-            ? new Error('Source exceeds configured size limit')
-            : null,
-          chunk,
-        );
+        callback(received > maxBytes ? tooLarge() : null, chunk);
       },
     });
     await pipeline(body, limiter, createWriteStream(destination), { signal });

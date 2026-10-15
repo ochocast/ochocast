@@ -69,6 +69,16 @@ export class QueueService implements OnApplicationBootstrap {
     if (provider === 'local' && process.env.NODE_ENV !== 'development') {
       throw new Error('The local queue provider requires NODE_ENV=development');
     }
+    // Without it, HLS playlist URLs are built from the request protocol, which
+    // is http behind the TLS-terminating ingress: browsers block them.
+    if (
+      provider === 'scaleway' &&
+      !process.env.PUBLIC_API_URL?.startsWith('https://')
+    ) {
+      throw new Error(
+        'PUBLIC_API_URL must be an https URL when the Scaleway transcoding queue is enabled',
+      );
+    }
     this.provider = provider;
     const required = (name: string): string => {
       const value = process.env[name];

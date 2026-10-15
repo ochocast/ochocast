@@ -24,6 +24,7 @@ describe('Scaleway queue publishing', () => {
         'dispatch-test-secret-at-least-32-characters',
       TRANSCODING_CALLBACK_SECRET:
         'callback-test-secret-at-least-32-characters',
+      PUBLIC_API_URL: 'https://api.example/api',
     });
   });
   afterEach(() => {
@@ -35,6 +36,25 @@ describe('Scaleway queue publishing', () => {
       if (/^(TRANSCODING_|LOCAL_QUEUE_BRIDGE_)/.test(name))
         delete process.env[name];
   };
+
+  it.each([
+    ['missing', undefined],
+    ['plain http', 'http://api.example/api'],
+  ])('refuses the Scaleway queue with a %s PUBLIC_API_URL', (_, value) => {
+    if (value === undefined) delete process.env.PUBLIC_API_URL;
+    else process.env.PUBLIC_API_URL = value;
+    // HLS playlists built from the request would be http:// behind the
+    // TLS-terminating ingress and blocked as mixed content.
+    expect(() => new QueueService({} as TranscodingJobsService)).toThrow(
+      'PUBLIC_API_URL must be an https URL when the Scaleway transcoding queue is enabled',
+    );
+  });
+
+  it('does not require PUBLIC_API_URL while transcoding is disabled', () => {
+    clearTranscodingEnv();
+    delete process.env.PUBLIC_API_URL;
+    expect(new QueueService({} as TranscodingJobsService).enabled).toBe(false);
+  });
 
   it('persists the job before publishing a signed Scaleway message', async () => {
     let registered = false;
@@ -408,6 +428,7 @@ describe('Transcoding backlog while the queue is disabled', () => {
         'dispatch-test-secret-at-least-32-characters',
       TRANSCODING_CALLBACK_SECRET:
         'callback-test-secret-at-least-32-characters',
+      PUBLIC_API_URL: 'https://api.example/api',
     });
     const service = new QueueService({
       unfinished,

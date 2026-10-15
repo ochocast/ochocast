@@ -622,8 +622,8 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
         expect(
           objects.Contents.filter((o) => o.Key.endsWith('.ts')).length,
         ).toBeGreaterThanOrEqual(3);
-        expect((await get(`${session.id}/audio.wav`)).ContentType).toBe(
-          'audio/wav',
+        expect((await get(`${session.id}/audio.flac`)).ContentType).toBe(
+          'audio/flac',
         );
         expect((await get(video.subtitle_id)).ContentType).toBe('text/vtt');
         expect(

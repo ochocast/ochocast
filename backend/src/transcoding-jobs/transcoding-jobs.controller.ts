@@ -73,6 +73,14 @@ export class TranscodingResultDto {
   @IsString()
   @MaxLength(2000)
   error?: string;
+  // Sent by workers that classify failures; older workers omit them.
+  @IsOptional()
+  @IsBoolean()
+  permanent?: boolean;
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  reason?: string;
 }
 
 export class CompleteTranscodingDto {

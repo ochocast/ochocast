@@ -207,6 +207,43 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
     });
   });
 
+  describe('with a recording above the worker source limit (UPLOAD_MAX_BYTES)', () => {
+    const previous = process.env.UPLOAD_MAX_BYTES;
+    beforeEach(() => {
+      process.env.UPLOAD_MAX_BYTES = '4';
+    });
+    afterEach(() => {
+      if (previous === undefined) delete process.env.UPLOAD_MAX_BYTES;
+      else process.env.UPLOAD_MAX_BYTES = previous;
+    });
+    const recording = {
+      ...videoFile,
+      originalname: 'event_20260101.mp4',
+      mimetype: 'application/octet-stream',
+    };
+
+    it('publishes it from its source instead of queueing a job the worker would refuse', async () => {
+      const result = await usecase.execute(dto, recording);
+      expect(result.transcoding_status).toBe('ready');
+      expect(result.media_id).toBe(`${result.id}/source/original.mp4`);
+      expect(queueService.publishJob).not.toHaveBeenCalled();
+    });
+
+    it('still queues a recording at the limit', async () => {
+      process.env.UPLOAD_MAX_BYTES = String(recording.buffer.length);
+      const result = await usecase.execute(dto, recording);
+      expect(result.transcoding_status).toBe('pending');
+      expect(queueService.publishJob).toHaveBeenCalled();
+    });
+
+    it('refuses it when browsers cannot play the source as is', async () => {
+      await expect(
+        usecase.execute(dto, { ...recording, originalname: 'talk.mkv' }),
+      ).rejects.toThrow(new BadRequestException('Unsupported video format'));
+      expect(Upload).not.toHaveBeenCalled();
+    });
+  });
+
   it('types the recorder source from its extension when transcoding', async () => {
     // The recorder posts its .mp4 as application/octet-stream.
     await usecase.execute(dto, {
