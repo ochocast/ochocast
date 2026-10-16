@@ -22,6 +22,14 @@ import { S3_CONFIG } from '../config/s3.config';
 import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 
+/** HLS files uploaded at once (TRANSCODING_UPLOAD_CONCURRENCY, default 8). */
+const uploadConcurrency = (): number => {
+  const value = Number(process.env.TRANSCODING_UPLOAD_CONCURRENCY || 8);
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error('Invalid TRANSCODING_UPLOAD_CONCURRENCY');
+  return value;
+};
+
 export class TranscodingService {
   constructor(
     private s3Client: S3Client,
@@ -92,59 +100,13 @@ export class TranscodingService {
   }
 
   /**
-   * Transcode a single HLS variant
-   */
-  async transcodeVariant(
-    inputPath: string,
-    outputDir: string,
-    resolution: string,
-    bitrate: string,
-    name: string,
-    hasAudio: boolean,
-  ): Promise<void> {
-    const outputOptions = [
-      '-y',
-      '-i',
-      inputPath,
-      '-c:v',
-      'libx264',
-      '-b:v',
-      bitrate,
-      '-vf',
-      `scale=${resolution}:force_original_aspect_ratio=decrease,pad=${resolution}:(ow-iw)/2:(oh-ih)/2`,
-      '-pix_fmt',
-      'yuv420p',
-      '-preset',
-      'fast',
-      '-threads',
-      process.env.FFMPEG_THREADS || '2',
-      '-sc_threshold',
-      '0',
-      '-force_key_frames',
-      'expr:gte(t,n_forced*5)',
-      '-hls_time',
-      '5',
-      '-hls_playlist_type',
-      'vod',
-      '-hls_flags',
-      'independent_segments',
-      '-hls_segment_type',
-      'mpegts',
-    ];
-
-    if (hasAudio) {
-      outputOptions.push('-c:a', 'aac', '-ar', '48000', '-b:a', '128k');
-    } else {
-      outputOptions.push('-an');
-    }
-
-    outputOptions.push(path.join(outputDir, `${name}.m3u8`));
-    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', outputOptions);
-    console.log(`  ${name} completed`);
-  }
-
-  /**
-   * Transcode video to HLS format with multiple quality variants
+   * Transcode video to HLS format with multiple quality variants. One FFmpeg
+   * process decodes the source once and feeds one output per rendition, each
+   * with its own scaling, encoders and HLS muxer (<name>.m3u8, <name><N>.ts).
+   * Keyframes are forced every 5 s with scene cuts disabled, so the renditions
+   * share their segment boundaries (ABR switching). FFMPEG_THREADS is the
+   * thread count of EACH x264 encoder: 3 x FFMPEG_THREADS encoding threads,
+   * plus FFmpeg's automatic decoding and scaling threads.
    */
   async transcodeVideoHLS(inputPath: string, outputDir: string): Promise<void> {
     console.log('Starting HLS transcoding...');
@@ -152,22 +114,44 @@ export class TranscodingService {
     const hasAudioTrack = await this.hasAudio(inputPath);
     console.log(`   Audio: ${hasAudioTrack ? 'Yes' : 'No'}`);
 
-    // Transcode all variants in parallel for speed
-    const outcomes = await Promise.allSettled(
-      HLS_VARIANTS.map((variant) =>
-        this.transcodeVariant(
-          inputPath,
-          outputDir,
-          variant.scale,
-          variant.bitrate,
-          variant.name,
-          hasAudioTrack,
-        ),
-      ),
+    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
+      '-y',
+      '-i',
+      inputPath,
+      ...HLS_VARIANTS.flatMap((variant) => [
+        '-c:v',
+        'libx264',
+        '-b:v',
+        variant.bitrate,
+        '-vf',
+        `scale=${variant.scale}:force_original_aspect_ratio=decrease,pad=${variant.scale}:(ow-iw)/2:(oh-ih)/2`,
+        '-pix_fmt',
+        'yuv420p',
+        '-preset',
+        'fast',
+        '-threads',
+        process.env.FFMPEG_THREADS || '2',
+        '-sc_threshold',
+        '0',
+        '-force_key_frames',
+        'expr:gte(t,n_forced*5)',
+        '-hls_time',
+        '5',
+        '-hls_playlist_type',
+        'vod',
+        '-hls_flags',
+        'independent_segments',
+        '-hls_segment_type',
+        'mpegts',
+        ...(hasAudioTrack
+          ? ['-c:a', 'aac', '-ar', '48000', '-b:a', '128k']
+          : ['-an']),
+        path.join(outputDir, `${variant.name}.m3u8`),
+      ]),
+    ]);
+    console.log(
+      `  ${HLS_VARIANTS.map((variant) => variant.name).join(', ')} completed`,
     );
-    // Wait for every encoder before removing the working directory on failure.
-    const failed = outcomes.find((outcome) => outcome.status === 'rejected');
-    if (failed?.status === 'rejected') throw failed.reason;
 
     // Create master playlist
     const masterPlaylistContent = [
@@ -275,30 +259,55 @@ export class TranscodingService {
   }
 
   /**
-   * Upload all HLS files to S3
+   * Upload all HLS files to S3, TRANSCODING_UPLOAD_CONCURRENCY (8) at a time,
+   * and master.m3u8 last, once every file it references is stored. After a
+   * failure or an abort no upload starts, and the uploads in flight settle
+   * before the first error is thrown.
    */
   async uploadHLSFiles(hlsDir: string, videoId: string): Promise<number> {
+    const concurrency = uploadConcurrency();
     console.log('Uploading HLS segments to S3...');
-    let fileCount = 0;
-
+    const master = path.join(hlsDir, 'master.m3u8');
+    const files: string[] = [];
+    let hasMaster = false;
     for await (const filePath of this.walk(hlsDir)) {
-      const relativePath = path.relative(hlsDir, filePath);
-      const contentType = filePath.endsWith('.m3u8')
-        ? 'application/vnd.apple.mpegurl'
-        : 'video/mp2t';
+      if (filePath === master) hasMaster = true;
+      else files.push(filePath);
+    }
+    files.sort();
 
+    let fileCount = 0;
+    const upload = async (filePath: string) => {
       await this.uploadFile(
         filePath,
         S3_CONFIG.mediaBucket,
-        `${videoId}/${relativePath}`,
-        contentType,
+        `${videoId}/${path.relative(hlsDir, filePath)}`,
+        filePath.endsWith('.m3u8')
+          ? 'application/vnd.apple.mpegurl'
+          : 'video/mp2t',
       );
-
       fileCount++;
       if (fileCount % 10 === 0) {
         console.log(`   Uploaded ${fileCount} files...`);
       }
-    }
+    };
+
+    let next = 0;
+    let failure: { error: unknown } | undefined;
+    const worker = async () => {
+      while (!failure && next < files.length) {
+        try {
+          await upload(files[next++]);
+        } catch (error) {
+          failure ??= { error };
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, files.length) }, worker),
+    );
+    if (failure) throw failure.error;
+    if (hasMaster) await upload(master);
 
     console.log(`Uploaded ${fileCount} HLS files`);
     return fileCount;
@@ -397,6 +406,9 @@ export class TranscodingService {
           'duration_exceeded',
           `Video duration ${duration} s exceeds TRANSCODING_MAX_DURATION_SECONDS (${maxDuration} s)`,
         );
+
+      // A misconfiguration must not cost a whole encode before failing.
+      uploadConcurrency();
 
       // Transcode to HLS. From here a deadline means the video is too long to
       // transcode, not a stall: the runner reports it permanent.
