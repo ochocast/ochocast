@@ -18,6 +18,24 @@ export interface Video {
   transcoding_error?: string;
 }
 
+/** GET /videos/:id/processing — what a viewer can be told while a video is prepared. */
+export type VideoProcessingState =
+  | 'queued'
+  | 'processing'
+  | 'retrying'
+  | 'ready'
+  | 'failed';
+
+export interface VideoProcessing {
+  state: VideoProcessingState;
+  /** ISO time the current state started, when known. */
+  since: string | null;
+  /** Final failure reason code, only when state is failed. */
+  reason: string | null;
+  /** Ready by playing the uploaded source instead of HLS renditions. */
+  playedFromSource: boolean;
+}
+
 export interface User {
   id: string;
   email: string;

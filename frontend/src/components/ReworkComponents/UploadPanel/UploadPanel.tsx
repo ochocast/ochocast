@@ -38,9 +38,11 @@ const getStatusText = (
     case 'uploading':
       return t('uploadStatusUploading') || 'Téléversement...';
     case 'processing':
-      return t('uploadStatusProcessing') || 'Traitement en cours...';
+      return (
+        t('uploadStatusProcessing') || 'Envoi terminé · Traitement en cours…'
+      );
     case 'completed':
-      return t('uploadStatusCompleted') || 'Terminé !';
+      return t('uploadStatusCompleted') || 'Vidéo en ligne';
     case 'error':
       return t('uploadStatusError') || 'Erreur';
     default:
@@ -127,19 +129,15 @@ const UploadItemCard: React.FC<UploadItemCardProps> = ({
         {item.status === 'uploading' && (
           <span className={styles.progressPercent}>{item.progress}%</span>
         )}
-        {item.status === 'processing' && (
-          <span className={styles.progressPercent}>
-            {item.progress > 0 ? `${item.progress}%` : ''}
-          </span>
-        )}
-        {item.status === 'completed' && item.videoId && (
-          <button
-            className={styles.viewButton}
-            onClick={() => onView(item.videoId!)}
-          >
-            {t('viewVideo')}
-          </button>
-        )}
+        {(item.status === 'processing' || item.status === 'completed') &&
+          item.videoId && (
+            <button
+              className={styles.viewButton}
+              onClick={() => onView(item.videoId!)}
+            >
+              {t('viewVideo')}
+            </button>
+          )}
         {controls &&
           item.status !== 'processing' &&
           item.status !== 'completed' && (
@@ -174,32 +172,29 @@ const UploadItemCard: React.FC<UploadItemCardProps> = ({
           )}
         {item.status === 'error' && !controls && (
           <div className={styles.errorActions}>
-            {!item.videoId && (
-              <>
-                <button
-                  className={styles.retryButton}
-                  onClick={() => onGoToUploadPage()}
-                  title={t('goToUploadPage')}
-                >
-                  {t('goToUploadPage')}
-                </button>
-                {item.sessionId && (
-                  <button
-                    className={styles.retryButton}
-                    onClick={() => {
-                      void cancelStoredUpload(item.sessionId!)
-                        .then(() => onRemove(item.id))
-                        .catch((error) =>
-                          updateUpload(item.id, {
-                            errorMessage: error.message,
-                          }),
-                        );
-                    }}
-                  >
-                    Annuler l’envoi
-                  </button>
-                )}
-              </>
+            <button
+              className={styles.retryButton}
+              onClick={() => onGoToUploadPage()}
+              title={t('goToUploadPage')}
+            >
+              {t('goToUploadPage')}
+            </button>
+            {/* Once the video exists, the upload session is over. */}
+            {!item.videoId && item.sessionId && (
+              <button
+                className={styles.retryButton}
+                onClick={() => {
+                  void cancelStoredUpload(item.sessionId!)
+                    .then(() => onRemove(item.id))
+                    .catch((error) =>
+                      updateUpload(item.id, {
+                        errorMessage: error.message,
+                      }),
+                    );
+                }}
+              >
+                Annuler l’envoi
+              </button>
             )}
           </div>
         )}

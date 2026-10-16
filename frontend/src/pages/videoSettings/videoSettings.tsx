@@ -23,6 +23,7 @@ import {
 } from '../../utils/api';
 import { uploadVideoWithProgress } from '../../utils/uploadService';
 import { useUploadContext } from '../../context/UploadContext';
+import { uploadCompletedUpdate } from '../../context/uploadProcessing';
 import { Tag_video } from '../../utils/VideoProperties';
 import { Video } from '../../utils/VideoProperties';
 
@@ -587,10 +588,14 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     navigate('/videos');
 
+    let uploadSessionId: string | undefined;
     uploadVideoWithProgress(
       form,
       {
-        onSession: (sessionId) => updateUpload(uploadId, { sessionId }),
+        onSession: (sessionId) => {
+          uploadSessionId = sessionId;
+          updateUpload(uploadId, { sessionId });
+        },
         onPause: () =>
           updateUpload(uploadId, {
             status: 'error',
@@ -602,12 +607,12 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
             status: 'uploading',
           });
         },
-        onComplete: () => {
-          updateUpload(uploadId, {
-            progress: 100,
-            status: 'completed',
-            videoId: undefined,
-          });
+        // The video exists but is not online yet: follow its processing.
+        onComplete: (result) => {
+          updateUpload(
+            uploadId,
+            uploadCompletedUpdate(result, uploadSessionId),
+          );
         },
         onError: (error: string) => {
           updateUpload(uploadId, {
