@@ -187,6 +187,14 @@ describe('Upload maintenance with and without a transcoding queue', () => {
       const [[where, params]] = calls.where;
       expect(where).toContain("job.status = 'processing'");
       expect(where).toContain("job.status = 'pending'");
+      // A failure marked retryable whose message may be dead-lettered, after
+      // the same delay as a lost pending job. Permanent failures, and those an
+      // older backend recorded without the marker, are final.
+      expect(where).toContain(
+        "(job.status = 'failed' AND job.result->>'retryable' = 'true'" +
+          " AND (job.payload->>'timestamp')::bigint < :pendingCutoff)",
+      );
+      expect(where).not.toContain("job.result->>'permanent'");
       // Recordings have no upload row: NOT EXISTS keeps them candidates.
       expect(where).toMatch(
         /NOT EXISTS \(SELECT 1 FROM video_upload u WHERE u\.id = job\.id AND u\.state = 'uploaded'\)/,
@@ -215,7 +223,11 @@ describe('Upload maintenance with and without a transcoding queue', () => {
 
     it('republishes a lost pending job with a fresh timestamp', async () => {
       stale = [
-        job({ id: 'lost', payload: { jobId: 'lost', timestamp: 1 } as any }),
+        job({
+          id: 'lost',
+          videoId: 'video',
+          payload: { jobId: 'lost', timestamp: 1 } as any,
+        }),
       ];
       await service(true).maintain();
       expect(publishRegisteredJob).toHaveBeenCalledWith({
@@ -228,6 +240,13 @@ describe('Upload maintenance with and without a transcoding queue', () => {
           status: 'pending',
           payload: { jobId: 'lost', timestamp: now },
         }),
+      );
+      // Will run again: a video an older backend failed when the first
+      // publication of a recording failed is pending again.
+      expect(manager.update).toHaveBeenCalledWith(
+        VideoEntity,
+        { id: 'video', transcoding_status: 'failed' },
+        { transcoding_status: 'pending', transcoding_error: null },
       );
     });
 
@@ -274,12 +293,19 @@ describe('Upload maintenance with and without a transcoding queue', () => {
           id: 'doomed',
           status: 'failed',
           leaseExpiresAt: null,
-          result: expect.objectContaining({ success: false, error }),
+          // Final like claim's abandonment: redeliveries are acknowledged.
+          result: expect.objectContaining({
+            success: false,
+            error,
+            permanent: true,
+            reason: 'max_attempts',
+          }),
         }),
       );
+      // Only the reason code reaches the public video row.
       expect(manager.update).toHaveBeenCalledWith(VideoEntity, 'video', {
         transcoding_status: 'failed',
-        transcoding_error: error,
+        transcoding_error: 'max_attempts',
       });
     });
 

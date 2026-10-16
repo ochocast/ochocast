@@ -34,6 +34,54 @@
   background: #050505;
 }
 
+/* Ready, signed media URL on its way: keep the 16:9 box, no full-page spinner */
+.playerLoading {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ready, but the media URL could not be loaded after a few tries */
+.playerError {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--theme-color-white, #ffffff);
+}
+
+.playerErrorMessage {
+  margin: 0;
+  max-width: 30rem;
+  line-height: 1.5;
+}
+
+.playerSpinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--accent-color);
+  animation: playerSpin 1.1s linear infinite;
+}
+
+@keyframes playerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playerSpinner {
+    animation: none;
+  }
+}
+
 .qualityControl {
   position: absolute;
   top: 0.75rem;

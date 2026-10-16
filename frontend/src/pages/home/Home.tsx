@@ -8,6 +8,10 @@ import {
   getEventsMiniature,
 } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
+import {
+  filterListedVideos,
+  getStoredUserId,
+} from '../../utils/videoVisibility';
 import { PublicEvent } from '../../utils/EventsProperties';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
@@ -175,9 +179,10 @@ const HomePage: FC<HomeProps> = () => {
     return allEvents.slice(0, itemsPerRow);
   }, [allEvents, itemsPerRow]);
 
+  const viewerId = getStoredUserId();
   const displayedVideos = useMemo(() => {
-    return allVideos.slice(0, itemsPerRow);
-  }, [allVideos, itemsPerRow]);
+    return filterListedVideos(allVideos, viewerId).slice(0, itemsPerRow);
+  }, [allVideos, itemsPerRow, viewerId]);
 
   const hasEvents = displayedEvents.length > 0;
   const hasVideos = displayedVideos.length > 0;
@@ -273,6 +278,8 @@ const HomePage: FC<HomeProps> = () => {
               createdAt={video.createdAt.toString()}
               tags={video.tags?.map((tag) => tag.name)}
               duration={video.duration}
+              transcodingStatus={video.transcoding_status}
+              isOwner={!!viewerId && video.creator?.id === viewerId}
             />
           ))}
         </div>

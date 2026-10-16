@@ -22,18 +22,23 @@ import { searchVideoAdminUseCase } from './domain/usecases/searchVideoAdmin.usec
 import { RestoreVideoUsecase } from './domain/usecases/restoreVideo.usecase';
 import { IncrementVideoViewsUsecase } from './domain/usecases/incrementVideoViews.usecase';
 import { QueueModule } from 'src/queue/queue.module';
+import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
+import { VideoProcessingController } from './infra/controllers/videoProcessing.controller';
+import { VideoProcessingGateway } from './infra/gateways/videoProcessing.gateway';
+import { GetVideoProcessingUsecase } from './domain/usecases/getVideoProcessing.usecase';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([VideoEntity, VideoUpload]),
+    TypeOrmModule.forFeature([VideoEntity, VideoUpload, TranscodingJobEntity]),
     S3Module,
     UsersModule,
     QueueModule,
     UploadsModule,
   ],
-  controllers: [VideosController],
+  // VideoProcessingController last: see its route-order note.
+  controllers: [VideosController, VideoProcessingController],
   providers: [
     {
       provide: 'VideoGateway',
@@ -53,6 +58,11 @@ import { QueueModule } from 'src/queue/queue.module';
     GetSuggestionsUsecase,
     searchVideoAdminUseCase,
     IncrementVideoViewsUsecase,
+    {
+      provide: 'VideoProcessingGateway',
+      useClass: VideoProcessingGateway,
+    },
+    GetVideoProcessingUsecase,
     // GetUsersUsecase,
   ],
   exports: [CreateNewVideoUsecase, 'VideoGateway'],

@@ -145,16 +145,27 @@ export class CreateNewVideoUsecase {
       };
 
       try {
-        await this.queueService.publishJob(job);
+        await this.queueService.registerJob(job);
       } catch (error) {
-        const failureMessage =
-          error instanceof Error ? error.message : String(error);
+        // Nothing would ever transcode it. The video row is public: a reason
+        // code only, never the error message.
         video.transcoding_status = 'failed';
-        video.transcoding_error = failureMessage;
+        video.transcoding_error = 'unknown';
         savedVideo.transcoding_status = 'failed';
-        savedVideo.transcoding_error = failureMessage;
+        savedVideo.transcoding_error = 'unknown';
         await this.videoGateway.modifyVideo(savedVideo);
         throw error;
+      }
+      try {
+        await this.queueService.publishRegisteredJob(job);
+      } catch (error) {
+        // Transient: reconciliation republishes the registered job, and the
+        // video stays pending meanwhile.
+        this.logger.warn(
+          `Transcoding publication deferred for recording ${videoId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
       }
 
       return savedVideo;

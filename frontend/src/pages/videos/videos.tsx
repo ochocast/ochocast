@@ -4,6 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { FC } from 'react';
 import { getVideos, searchVideos } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
+import {
+  filterListedVideos,
+  getStoredUserId,
+} from '../../utils/videoVisibility';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import logger from '../../utils/logger';
@@ -376,6 +380,10 @@ const Videos: FC<VideosProps> = () => {
     return <LoadingCircle />;
   }
 
+  // Processing videos show a badge; failed ones only to their creator.
+  const viewerId = getStoredUserId();
+  const listedVideos = filterListedVideos(filteredVideos, viewerId);
+
   return (
     <div className={style.videos}>
       <div className={style.display}>
@@ -405,8 +413,8 @@ const Videos: FC<VideosProps> = () => {
         </div>
 
         <div className={style.video_row} data-cards-per-row={cardsPerRow}>
-          {filteredVideos.length > 0 ? (
-            filteredVideos.map((video) => (
+          {listedVideos.length > 0 ? (
+            listedVideos.map((video) => (
               <Thumbnail
                 key={video.id}
                 Id={video.id}
@@ -424,6 +432,8 @@ const Videos: FC<VideosProps> = () => {
                 onTagClick={handleTagClick}
                 cropTags={true}
                 duration={video.duration}
+                transcodingStatus={video.transcoding_status}
+                isOwner={!!viewerId && video.creator?.id === viewerId}
               />
             ))
           ) : (

@@ -158,11 +158,12 @@ export class QueueService implements OnApplicationBootstrap {
     }
   }
 
-  async publishJob(job: VideoTranscodingJob): Promise<void> {
+  // Then publishRegisteredJob: once registered, a job whose publication failed
+  // is republished by reconciliation (UploadsService.maintain).
+  async registerJob(job: VideoTranscodingJob): Promise<void> {
     // Checked before register: a disabled queue must not leave an orphan job.
     if (!this.enabled) throw new TranscodingDisabledError();
     await this.jobs.register(job);
-    await this.publishRegisteredJob(job);
   }
 
   async publishRegisteredJob(job: VideoTranscodingJob): Promise<void> {

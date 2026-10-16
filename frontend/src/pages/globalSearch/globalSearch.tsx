@@ -10,6 +10,10 @@ import {
   getVideos,
 } from '../../utils/api';
 import { Video } from '../../utils/VideoProperties';
+import {
+  filterListedVideos,
+  getStoredUserId,
+} from '../../utils/videoVisibility';
 import { PublicEvent } from '../../utils/EventsProperties';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
@@ -361,16 +365,17 @@ const GlobalSearchPage = () => {
     };
   }, [events, fallbackMiniatureUrl]);
 
+  const viewerId = getStoredUserId();
   const filteredVideos = useMemo(
     () =>
-      videos
+      filterListedVideos(videos, viewerId)
         .filter((video) => searchVideo(video, query, searchParams))
         .sort(
           (left, right) =>
             new Date(right.createdAt).getTime() -
             new Date(left.createdAt).getTime(),
         ),
-    [query, searchParams, videos],
+    [query, searchParams, videos, viewerId],
   );
 
   const filteredEvents = useMemo(
@@ -603,6 +608,8 @@ const GlobalSearchPage = () => {
                           .sort((a, b) => a.localeCompare(b))}
                         cropTags={true}
                         duration={video.duration}
+                        transcodingStatus={video.transcoding_status}
+                        isOwner={!!viewerId && video.creator?.id === viewerId}
                       />
                     </div>
                   ))}
