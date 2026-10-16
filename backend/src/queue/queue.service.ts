@@ -70,9 +70,11 @@ export class QueueService implements OnApplicationBootstrap {
       throw new Error('The local queue provider requires NODE_ENV=development');
     }
     // Without it, HLS playlist URLs are built from the request protocol, which
-    // is http behind the TLS-terminating ingress: browsers block them.
+    // is http behind the TLS-terminating ingress: browsers block them. In
+    // local development (the local queue bridge) page and API are both http.
     if (
       provider === 'scaleway' &&
+      process.env.NODE_ENV !== 'development' &&
       !process.env.PUBLIC_API_URL?.startsWith('https://')
     ) {
       throw new Error(
