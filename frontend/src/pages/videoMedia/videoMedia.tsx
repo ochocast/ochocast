@@ -137,7 +137,8 @@ const VideoMedia: FC = () => {
   const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<Video>();
   const [suggestedVideos, setSuggestedVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // True until the first fetch settles: otherwise the page flashes "not found".
+  const [isLoading, setIsLoading] = useState(true);
   const [commentaryList, setCommentaryList] = useState<CommentObject[]>([]);
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -329,11 +330,12 @@ const VideoMedia: FC = () => {
       } else if (commentsRes) {
         setCommentaryList(commentsRes.data);
       }
-
-      setIsLoading(false);
     };
 
-    fetchData();
+    // A failed request must not leave the spinner on forever.
+    fetchData()
+      .catch((err) => console.error('Error loading video page', err))
+      .finally(() => setIsLoading(false));
     window.scrollTo(0, 0);
   }, [userString, videoId]);
 

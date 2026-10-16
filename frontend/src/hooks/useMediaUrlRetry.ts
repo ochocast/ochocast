@@ -48,6 +48,12 @@ export function useMediaUrlRetry(videoId: string | undefined): {
         window.clearTimeout(timer);
         wake();
       };
+      // Resolved early by cancelRef so a dropped load returns at once.
+      const wait = (ms: number) =>
+        new Promise<void>((resolve) => {
+          wake = resolve;
+          timer = window.setTimeout(resolve, ms);
+        });
       setUnavailableFor(null);
 
       for (let attempt = 0; ; attempt++) {
@@ -58,10 +64,7 @@ export function useMediaUrlRetry(videoId: string | undefined): {
           setUnavailableFor(id);
           return null;
         }
-        await new Promise<void>((resolve) => {
-          wake = resolve;
-          timer = window.setTimeout(resolve, MEDIA_RETRY_DELAYS_MS[attempt]);
-        });
+        await wait(MEDIA_RETRY_DELAYS_MS[attempt]);
         if (cancelled) return null;
       }
     },
