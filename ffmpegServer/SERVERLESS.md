@@ -88,9 +88,12 @@ TRANSCODING_DISPATCH_SECRET=<même secret dispatch que le backend>
 TRANSCODING_CALLBACK_SECRET=<même secret callback que le backend>
 TRANSCODING_JOB_TIMEOUT_MS=3000000
 TRANSCODING_MAX_SOURCE_BYTES=1073741824
-TRANSCODING_MAX_DURATION_SECONDS=1200
 TRANSCODING_WORK_DIR=/work/transcoding
-FFMPEG_THREADS=2
+# 6 vCPU / 12 288 Mo, image à décodage unique : estimations, voir « Performance et coût »
+TRANSCODING_MAX_DURATION_SECONDS=3600
+FFMPEG_THREADS=4
+# Optionnel : fichiers HLS uploadés en parallèle (8 par défaut)
+TRANSCODING_UPLOAD_CONCURRENCY=8
 STOCK_SERVER_URL=https://s3.fr-par.scw.cloud
 STOCK_REGION=fr-par
 STOCK_CLIENT_ID=<clé S3>
@@ -101,7 +104,7 @@ STOCK_MINIATURE_BUCKET=<bucket miniatures de cet environnement>
 
 Le backend doit être joignable par le worker et autoriser les callbacks via son ingress. Les routes applicatives vérifient le secret dans `X-Transcoding-Token`, sans le faire passer par la validation JWT Keycloak. Si le container backend est lui-même privé au niveau Scaleway IAM, configurer également l'accès réseau/IAM correspondant dans ops (l'en-tête applicatif seul ne remplace pas l'authentification de la plateforme).
 
-Les fichiers vidéo et l'audio FLAC sont téléchargés/uploadés en flux. Les pièces jointes sont limitées à 8 MiB pour la miniature et 4 MiB pour les sous-titres ; le message de queue est limité à 64 KiB. Le staging configure une limite source de 1 GiB, identique à `UPLOAD_MAX_BYTES` du backend. Le worker conserve un défaut de 5 GiB si cette variable est absente ; fournir la valeur explicitement et ajuster les deux limites ensemble après mesure du disque, de la RAM et du temps de traitement. Les trois encodages HLS restent parallèles.
+Les fichiers vidéo et l'audio FLAC sont téléchargés/uploadés en flux. Les pièces jointes sont limitées à 8 MiB pour la miniature et 4 MiB pour les sous-titres ; le message de queue est limité à 64 KiB. Le staging configure une limite source de 1 GiB, identique à `UPLOAD_MAX_BYTES` du backend. Le worker conserve un défaut de 5 GiB si cette variable est absente ; fournir la valeur explicitement et ajuster les deux limites ensemble après mesure du disque, de la RAM et du temps de traitement. Un seul processus FFmpeg décode la source **une fois** et encode les trois rendus en parallèle (une sortie HLS par rendu, mêmes options qu'avant : codecs, débits, mise à l'échelle, images clés forcées toutes les 5 s et alignées entre les rendus pour l'ABR, segments de 5 s ; noms inchangés `<id>/360p.m3u8`, `360p<N>.ts`… `master.m3u8`). `FFMPEG_THREADS` est le nombre de threads de **chaque** encodeur x264 (par rendu), soit 3 × `FFMPEG_THREADS` threads d'encodage. Les playlists et segments sont ensuite uploadés `TRANSCODING_UPLOAD_CONCURRENCY` à la fois (8 par défaut, entier strictement positif, vérifié avant l'encodage), `master.m3u8` en dernier, une fois tous les autres fichiers écrits. Après un échec ou un abandon (échéance, arrêt), aucun nouvel upload ne démarre, les uploads en cours se terminent ou sont annulés, puis la première erreur est remontée. Voir « Performance et coût ».
 
 `/work/transcoding` doit disposer de suffisamment de disque pour la source, les trois rendus HLS et l'audio FLAC. Ne pas le remplacer par `/tmp` sur le sandbox Scaleway v2 : ce dernier est en RAM. Les fichiers temporaires sont isolés par invocation et nettoyés après traitement.
 
@@ -130,17 +133,15 @@ Pour rejouer un job définitif après correction : `UPDATE transcoding_job SET s
 
 Avec la queue active, `POST /api/recordings/publish` publie directement depuis la source un enregistrement plus lourd que `UPLOAD_MAX_BYTES` (que le worker refuserait) : statut `ready` immédiat, aucun job, comme en mode désactivé (pas de miniature générée). L'extension doit être lisible telle quelle. Les uploads multipart sont déjà refusés au-delà de `UPLOAD_MAX_BYTES` à leur création. Un enregistrement sous cette taille mais plus long que `TRANSCODING_MAX_DURATION_SECONDS` suit le repli ci-dessus. Cette route charge toujours le fichier entier en mémoire du backend (comportement existant).
 
-### Choix de `TRANSCODING_MAX_DURATION_SECONDS` (1200 s par défaut)
+### Performance et coût
 
-Mesure locale du 2026-10-15 (Apple M5 Pro, FFmpeg Homebrew 9.0.2) de la commande exacte du worker (trois rendus en parallèle, `-preset fast`, `-threads 2`) sur des clips synthétiques de 120 s :
+Dimensionnement staging : **6 vCPU / 12 288 Mo** (maximum Scaleway), requête limitée à 60 min, `TRANSCODING_JOB_TIMEOUT_MS` à 3000 s. Les chiffres ci-dessous sont des **estimations** (grille tarifaire Scaleway et hypothèses de vitesse), **pas des mesures**. Les confirmer en chronométrant une vraie vidéo d'1 h en staging : écart entre `Starting transcoding job` et `Job completed successfully` dans les logs du worker (encodage seul : `Starting HLS transcoding...` → `Master playlist created`).
 
-| Source (H.264 + AAC) | Temps CPU total | CPU·s par seconde de vidéo |
-| --- | --- | --- |
-| 1080p30, 8 Mbit/s, image bruitée (pire cas) | 148,9 s | 1,24 |
-| 1080p30, 6 Mbit/s, mire nette | 109,0 s | 0,91 |
-| 720p30, 2,5 Mbit/s, image bruitée (proche d'un enregistrement live) | 92,2 s | 0,77 |
+- **Coût** : Scaleway facture la taille allouée × la durée (0,00001 €/vCPU·s, 0,000002 €/Go·s), soit ≈ 0,000085 €/s, ≈ 0,30 € par heure de worker. Hypothèse : 14 à 45 min de traitement par heure de vidéo selon la résolution et le contenu de la source, soit **≈ 0,07 à 0,23 € de calcul par heure de vidéo**. Le palier gratuit mensuel (200 000 vCPU·s et 400 000 Go·s) couvre ≈ 9 h de worker, soit ≈ 12 à 38 h de vidéo. Le démarrage et l'inactivité de l'instance avant sa mise à zéro s'y ajoutent : à vérifier sur la facture du staging.
+- **`FFMPEG_THREADS=4`** : threads de **chaque** encodeur x264, soit 3 × 4 threads d'encodage, plus le décodage et la mise à l'échelle (threads automatiques de FFmpeg). Les trois rendus avancent au rythme du 720p (≈ 59 % des pixels encodés), à qui il faut environ 3,5 vCPU : à 2, il plafonne vers 2 vCPU et le worker n'occupe qu'environ 4 vCPU sur 6 ; à 4, les 6 vCPU sont occupés, ce que la facturation à la durée récompense.
+- **`TRANSCODING_MAX_DURATION_SECONDS=3600`** : permet de chronométrer une vidéo d'1 h. Dans l'hypothèse haute (45 min par heure de vidéo), elle demande ≈ 2700 s d'encodage + ≈ 200 s de téléchargement, uploads et FLAC, soit ≈ 2900 s sur 3000 ; dans l'hypothèse basse, ≈ 1000 s. Au-delà de la durée (`duration_exceeded`) ou de l'échéance (`deadline_exceeded`), la vidéo est lue depuis sa source. Après la mesure, viser 80 % du budget : `TRANSCODING_MAX_DURATION_SECONDS` ≈ 2400 × 3600 / T, où T est la durée totale mesurée (en s) pour 1 h de vidéo.
 
-Extrapolation prudente vers 2 vCPU : un vCPU Scaleway compté **3 fois** plus lent qu'un cœur du Mac (la mesure mêle cœurs performance et efficacité). Pire cas : 1,24 × 3 / 2 ≈ 1,9 s d'encodage par seconde de vidéo. 1200 s de vidéo ≈ 2230 s d'encodage + ~150 s de téléchargement et d'uploads (≤ 1 GiB de source, ~730 segments HLS, FLAC), soit ≈ 2400 s : 80 % du budget de 3000 s. Un enregistrement 720p typique demande ≈ 1,2 s par seconde, soit ≈ 1550 s. Au-delà, ou si le budget est malgré tout dépassé (`deadline_exceeded`), la vidéo est lue depuis sa source. Ne relever la valeur qu'après mesure en staging (écart entre `Starting transcoding job` et `Job completed successfully` dans les logs) ou avec plus de vCPU ; la garder sous ~40 % de `TRANSCODING_JOB_TIMEOUT_MS` sur 2 vCPU.
+Ces valeurs supposent l'image à décodage unique. Le défaut du code (1200 s, `FFMPEG_THREADS=2`) correspond à l'ancien dimensionnement à 2 vCPU.
 
 ### Audio extrait
 
@@ -149,7 +150,7 @@ Quand la source a une piste audio, le worker écrit `<id>/audio.flac` (FLAC 16 b
 ### Ordre de déploiement
 
 1. **Backend d'abord** (Argo). Il accepte les champs `permanent`/`reason`, acquitte les jobs définitifs et applique `TRANSCODING_MAX_ATTEMPTS` dans `claim`. Le worker actuel n'envoie pas ces champs et traite déjà la réponse `completed` : il reste compatible. Les enregistrements au-delà de `UPLOAD_MAX_BYTES` sont publiés depuis leur source dès ce déploiement.
-2. **Puis l'image du worker** (digest dans le module Terraform `ffmpeg-serverless`). `TRANSCODING_MAX_DURATION_SECONDS` vaut 1200 s si le module ne la fournit pas.
+2. **Puis l'image du worker** (digest dans le module Terraform `ffmpeg-serverless`). `TRANSCODING_MAX_DURATION_SECONDS` vaut 1200 s si le module ne la fournit pas. Sur 6 vCPU, fournir `FFMPEG_THREADS=4` et `TRANSCODING_MAX_DURATION_SECONDS=3600` avec cette image (voir « Performance et coût »).
 
 Si le worker est déployé avant le backend, l'ancien backend refuse les nouveaux champs (`400`, `forbidNonWhitelisted`) : le worker renvoie alors un échec simple, puis acquitte le message. Les échecs définitifs ne sont donc pas rejoués, mais une vidéo trop longue passe `failed` au lieu d'être lue depuis sa source. Le même comportement s'applique après un rollback du backend seul.
 
