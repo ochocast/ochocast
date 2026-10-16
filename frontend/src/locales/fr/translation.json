@@ -442,7 +442,7 @@
   "processingFailureTooLarge": "Le fichier envoyé est trop volumineux.",
   "processingFailureTooLargeAdvice": "Compressez la vidéo (ou réduisez sa résolution), puis publiez-la à nouveau.",
   "processingFailureNotPlayable": "La vidéo est trop longue pour être préparée, et son format ne peut pas être lu tel quel.",
-  "processingFailureNotPlayableAdvice": "Convertissez-la en MP4, puis publiez-la à nouveau.",
+  "processingFailureNotPlayableAdvice": "Convertissez-la en MP4 avec une vidéo H.264, puis publiez-la à nouveau.",
   "processingFailureTemporary": "Un problème temporaire a empêché la préparation de la vidéo.",
   "processingFailureTemporaryAdvice": "Publiez-la à nouveau, ou contactez le support si le problème persiste.",
   "thumbnailProcessingBadge": "En cours de traitement",

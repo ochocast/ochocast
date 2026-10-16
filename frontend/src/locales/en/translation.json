@@ -442,7 +442,7 @@
   "processingFailureTooLarge": "The uploaded file is too large.",
   "processingFailureTooLargeAdvice": "Compress the video (or lower its resolution), then publish it again.",
   "processingFailureNotPlayable": "The video is too long to be prepared, and its format cannot be played as is.",
-  "processingFailureNotPlayableAdvice": "Convert it to MP4, then publish it again.",
+  "processingFailureNotPlayableAdvice": "Convert it to MP4 with H.264 video, then publish it again.",
   "processingFailureTemporary": "A temporary problem prevented the video from being prepared.",
   "processingFailureTemporaryAdvice": "Publish it again, or contact support if the problem persists.",
   "thumbnailProcessingBadge": "Processing",
