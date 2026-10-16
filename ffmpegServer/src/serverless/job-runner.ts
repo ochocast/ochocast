@@ -1,4 +1,5 @@
 import {
+  PermanentJobError,
   VideoTranscodingJob,
   VideoTranscodingResult,
 } from '../types/job.types';
@@ -23,7 +24,13 @@ export class JobRunner {
     const abort = () => controller.abort();
     shutdownSignal.addEventListener('abort', abort, { once: true });
     if (shutdownSignal.aborted) abort();
-    const timer = setTimeout(abort, this.timeoutMs);
+    // Only the deadline is permanent: an aborted shutdown is retried elsewhere.
+    let deadlineExceeded = false;
+    const timer = setTimeout(() => {
+      deadlineExceeded = !controller.signal.aborted;
+      abort();
+    }, this.timeoutMs);
+    let encodingStarted = false;
     let result: VideoTranscodingResult;
     try {
       if (
@@ -34,7 +41,13 @@ export class JobRunner {
           'Backend lease must exceed job timeout by at least 30 seconds',
         );
       }
-      result = await this.processor.processJob(claim.job, controller.signal);
+      result = await this.processor.processJob(
+        claim.job,
+        controller.signal,
+        () => {
+          encodingStarted = true;
+        },
+      );
     } catch (error) {
       result = {
         jobId: job.jobId,
@@ -45,13 +58,36 @@ export class JobRunner {
           -2000,
         ),
         processedAt: Date.now(),
+        ...(error instanceof PermanentJobError
+          ? { permanent: true, reason: error.reason }
+          : {}),
       };
     } finally {
       clearTimeout(timer);
       shutdownSignal.removeEventListener('abort', abort);
     }
+    if (!result.success && deadlineExceeded && !result.permanent) {
+      const deadline = `Transcoding deadline exceeded (${Math.round(this.timeoutMs / 1000)} s)`;
+      // While encoding, the same video would exceed it again. Before (a stalled
+      // S3 read, a slow probe) another attempt can succeed, and the final
+      // miniature and subtitle the source fallback relies on may not exist yet.
+      result = encodingStarted
+        ? {
+            ...result,
+            error: deadline,
+            permanent: true,
+            reason: 'deadline_exceeded',
+          }
+        : { ...result, error: `${deadline} before encoding started` };
+    }
     // Do not acknowledge the trigger until the backend has durably stored the result.
     await this.backend.complete(job.jobId, claim.leaseToken, result);
+    if (result.permanent) {
+      console.warn(
+        `Transcoding job ${job.jobId} failed permanently (${result.reason}); message acknowledged`,
+      );
+      return;
+    }
     if (!result.success)
       throw new HttpError(503, 'Transcoding failed; job can be retried');
   }

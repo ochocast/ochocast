@@ -7,8 +7,24 @@ import { extname } from 'path';
 import { VIDEO_CONTENT_TYPES } from 'src/queue/transcoding-plan';
 
 // Only transcoder output is HLS. A source file (served when transcoding is
-// disabled) keeps a presigned URL, even if it is named .m3u8 or .ts.
+// disabled or the video was too long to transcode) keeps a presigned URL, even
+// if it is named .m3u8 or .ts.
 const isHls = (mediaId: string) => mediaId.endsWith('/master.m3u8');
+
+// The browser fetches a source by byte ranges from this one URL for the whole
+// playback: twice the duration plus an hour leaves room for pauses and seeks.
+// A source published without transcoding (a long recording) has no known
+// duration. SigV4 rejects a presigned URL valid for more than 7 days.
+const SOURCE_URL_MARGIN_SECONDS = 3600;
+const SOURCE_URL_UNKNOWN_DURATION_SECONDS = 24 * 3600;
+const SOURCE_URL_MAX_SECONDS = 7 * 24 * 3600;
+const sourceUrlExpiry = (duration?: number | null): number =>
+  typeof duration === 'number' && Number.isFinite(duration) && duration > 0
+    ? Math.min(
+        SOURCE_URL_MAX_SECONDS,
+        2 * Math.ceil(duration) + SOURCE_URL_MARGIN_SECONDS,
+      )
+    : SOURCE_URL_UNKNOWN_DURATION_SECONDS;
 
 export class GetMediaUsecase {
   constructor(
@@ -45,8 +61,9 @@ export class GetMediaUsecase {
         ) || 'application/octet-stream',
     });
 
-    // Générer une URL signée valable pour une durée limitée (par exemple 1 heure)
-    return getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
+    return getSignedUrl(this.s3Client, command, {
+      expiresIn: sourceUrlExpiry(videos[0].duration),
+    });
   }
 
   async getContent(

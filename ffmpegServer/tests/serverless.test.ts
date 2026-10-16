@@ -9,6 +9,7 @@ import { JobRunner } from '../src/serverless/job-runner';
 import { BackendClient } from '../src/serverless/backend-client';
 import { ScalewayQueuesClient } from '../../backend/src/queue/scaleway-queues.client';
 import {
+  PermanentJobError,
   VideoTranscodingJob,
   VideoTranscodingResult,
 } from '../src/types/job.types';
@@ -217,32 +218,183 @@ test('failed encoding is reported and the trigger is not acknowledged', async ()
   assert.equal(failure?.error, 'invalid video');
 });
 
-test('the processing deadline aborts the work and releases the lease through a failure callback', async () => {
-  let released = false;
+const untilAborted = {
+  processJob: async (_job: VideoTranscodingJob, signal: AbortSignal) =>
+    new Promise<VideoTranscodingResult>((_resolve, reject) => {
+      signal.addEventListener(
+        'abort',
+        () => reject(new Error('This operation was aborted')),
+        { once: true },
+      );
+    }),
+};
+
+test('a deadline once encoding started is a permanent failure: stored, then acknowledged', async () => {
+  let failure: VideoTranscodingResult | undefined;
   const runner = new JobRunner(
     {
       claim: async () => claim(),
       complete: async (_id, _token, received) => {
-        released = !received.success;
+        failure = received;
       },
     },
     {
-      processJob: async (_job, signal) =>
-        new Promise((_resolve, reject) => {
-          signal.addEventListener(
-            'abort',
-            () => reject(new Error('deadline exceeded')),
-            { once: true },
-          );
-        }),
+      processJob: async (incoming, signal, onEncodingStarted) => {
+        onEncodingStarted?.();
+        return untilAborted.processJob(incoming, signal);
+      },
     },
     10,
   );
+  // Another run would hit the same deadline: the trigger must not retry it.
+  await runner.run(job, new AbortController().signal);
+  assert.equal(failure?.success, false);
+  assert.equal(failure?.permanent, true);
+  assert.equal(failure?.reason, 'deadline_exceeded');
+  assert.match(failure?.error || '', /deadline/);
+});
+
+test('a deadline before encoding started (stalled download or probe) stays retryable', async () => {
+  let failure: VideoTranscodingResult | undefined;
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        failure = received;
+      },
+    },
+    untilAborted,
+    10,
+  );
+  // A stall is transient: another attempt can get past it.
   await assert.rejects(
     runner.run(job, new AbortController().signal),
     /Transcoding failed/,
   );
-  assert.equal(released, true);
+  assert.equal(failure?.success, false);
+  assert.equal(failure?.permanent, undefined);
+  assert.equal(failure?.reason, undefined);
+  assert.match(failure?.error || '', /deadline exceeded .*before encoding/);
+});
+
+test('a shutdown abort releases the lease but stays retryable', async () => {
+  let failure: VideoTranscodingResult | undefined;
+  const shutdown = new AbortController();
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        failure = received;
+      },
+    },
+    {
+      processJob: async (incoming, signal) => {
+        setImmediate(() => shutdown.abort());
+        return untilAborted.processJob(incoming, signal);
+      },
+    },
+    60000,
+  );
+  await assert.rejects(runner.run(job, shutdown.signal), /Transcoding failed/);
+  assert.equal(failure?.success, false);
+  assert.equal(failure?.permanent, undefined);
+});
+
+test('a permanent failure result is stored and acknowledged without retry', async () => {
+  const permanent: VideoTranscodingResult = {
+    ...result,
+    success: false,
+    duration: 0,
+    error: 'Source has no video stream',
+    permanent: true,
+    reason: 'invalid_source',
+  };
+  let stored: VideoTranscodingResult | undefined;
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        stored = received;
+      },
+    },
+    { processJob: async () => permanent },
+    1000,
+  );
+  await runner.run(job, new AbortController().signal);
+  assert.deepEqual(stored, permanent);
+});
+
+test('a thrown permanent error (source too large) is reported as permanent and acknowledged', async () => {
+  let stored: VideoTranscodingResult | undefined;
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        stored = received;
+      },
+    },
+    {
+      processJob: async () => {
+        throw new PermanentJobError(
+          'source_too_large',
+          'Source exceeds configured size limit',
+        );
+      },
+    },
+    1000,
+  );
+  await runner.run(job, new AbortController().signal);
+  assert.equal(stored?.success, false);
+  assert.equal(stored?.permanent, true);
+  assert.equal(stored?.reason, 'source_too_large');
+  assert.equal(stored?.error, 'Source exceeds configured size limit');
+});
+
+test('a backend predating permanent failures (400) receives a plain failure instead', async (t) => {
+  const bodies: Array<{ result: VideoTranscodingResult }> = [];
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      bodies.push(body);
+      // forbidNonWhitelisted: an older backend refuses unknown result fields.
+      const known = [
+        'jobId',
+        'videoId',
+        'success',
+        'duration',
+        'subtitle_id',
+        'error',
+        'processedAt',
+      ];
+      return new Response('{}', {
+        status: Object.keys(body.result).every((key) => known.includes(key))
+          ? 200
+          : 400,
+      });
+    },
+  );
+  t.mock.method(console, 'warn', () => {});
+  const client = new BackendClient('http://backend/api', secret);
+  const plainFailure = { ...result, success: false, error: 'too long' };
+  // A permanent failure, and a transient one after the probe (S3 outage).
+  for (const extra of [
+    {
+      permanent: true,
+      reason: 'duration_exceeded',
+      sourceCodecsPlayable: true,
+    },
+    { sourceCodecsPlayable: false },
+  ] as const) {
+    bodies.length = 0;
+    await client.complete(job.jobId, randomUUID(), {
+      ...plainFailure,
+      ...extra,
+    });
+    assert.equal(bodies.length, 2);
+    assert.deepEqual(bodies[1].result, plainFailure);
+  }
 });
 
 test('backend client retries transient callbacks, but rejects an expired lease', async (t) => {

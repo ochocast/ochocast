@@ -16,34 +16,99 @@ import {
   VideoTranscodingJob,
   VideoTranscodingResult,
   HLS_VARIANTS,
+  PermanentJobError,
 } from '../types/job.types';
 import { S3_CONFIG } from '../config/s3.config';
 import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 
+// What browsers decode in an mp4, mov or webm source without transcoding:
+// 8-bit 4:2:0 video, and audio they play in these containers. HEVC (the
+// iPhone default), 10-bit, 4:2:2/4:4:4 or ProRes sources are left out.
+const BROWSER_VIDEO_CODECS = new Set(['h264', 'vp8', 'vp9', 'av1']);
+const BROWSER_PIXEL_FORMATS = new Set(['yuv420p', 'yuvj420p']);
+const BROWSER_AUDIO_CODECS = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac']);
+
+interface ProbedStream {
+  codec_type?: string;
+  codec_name?: string;
+  pix_fmt?: string;
+  disposition?: { attached_pic?: number };
+}
+
+/** HLS files uploaded at once (TRANSCODING_UPLOAD_CONCURRENCY, default 8). */
+const uploadConcurrency = (): number => {
+  const value = Number(process.env.TRANSCODING_UPLOAD_CONCURRENCY || 8);
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error('Invalid TRANSCODING_UPLOAD_CONCURRENCY');
+  return value;
+};
+
 export class TranscodingService {
   constructor(
     private s3Client: S3Client,
     private signal?: AbortSignal,
+    // Called once the final attachments are written, just before encoding.
+    private onEncodingStarted?: () => void,
   ) {}
 
   /**
-   * Get video duration in seconds
+   * Duration in seconds of a source with a video stream (0 when its container
+   * does not record it), and whether browsers decode its codecs as is: a
+   * video too long to transcode is played from its source only then.
+   * Another attempt cannot read a source FFprobe rejects.
    */
-  async getVideoDuration(inputPath: string): Promise<number> {
-    const { stdout } = await this.runProcess(
-      process.env.FFPROBE_PATH || 'ffprobe',
-      [
-        '-v',
-        'error',
-        '-show_entries',
-        'format=duration',
-        '-of',
-        'default=noprint_wrappers=1:nokey=1',
-        inputPath,
-      ],
+  async probeSource(
+    inputPath: string,
+  ): Promise<{ duration: number; codecsPlayable: boolean }> {
+    let stdout: string;
+    try {
+      ({ stdout } = await this.runProcess(
+        process.env.FFPROBE_PATH || 'ffprobe',
+        [
+          '-v',
+          'error',
+          '-show_entries',
+          'stream=codec_type,codec_name,pix_fmt:stream_disposition=attached_pic:format=duration',
+          '-of',
+          'json',
+          inputPath,
+        ],
+        // One entry per stream: a source with dozens of subtitle tracks or
+        // attachments exceeds the default 8 KiB, and truncated JSON fails.
+        1024 * 1024,
+      ));
+    } catch (error) {
+      // Aborted, killed or missing binary: not the source's fault, retryable.
+      if (typeof (error as { exitCode?: unknown }).exitCode !== 'number')
+        throw error;
+      throw new PermanentJobError(
+        'invalid_source',
+        `Unreadable video source: ${(error as Error).message}`.slice(0, 2000),
+      );
+    }
+    const { streams = [], format } = JSON.parse(stdout) as {
+      streams?: ProbedStream[];
+      format?: { duration?: string };
+    };
+    if (!streams.some((stream) => stream.codec_type === 'video'))
+      throw new PermanentJobError(
+        'invalid_source',
+        'Source has no video stream',
+      );
+    // A cover image (attached picture) is not the video the player shows.
+    const video = streams.find(
+      (stream) =>
+        stream.codec_type === 'video' && !stream.disposition?.attached_pic,
     );
-    return Math.floor(Number.parseFloat(stdout) || 0);
+    const audio = streams.find((stream) => stream.codec_type === 'audio');
+    return {
+      duration: Math.floor(Number.parseFloat(format?.duration || '') || 0),
+      codecsPlayable:
+        BROWSER_VIDEO_CODECS.has(video?.codec_name ?? '') &&
+        BROWSER_PIXEL_FORMATS.has(video?.pix_fmt ?? '') &&
+        (!audio || BROWSER_AUDIO_CODECS.has(audio.codec_name ?? '')),
+    };
   }
 
   /**
@@ -68,59 +133,13 @@ export class TranscodingService {
   }
 
   /**
-   * Transcode a single HLS variant
-   */
-  async transcodeVariant(
-    inputPath: string,
-    outputDir: string,
-    resolution: string,
-    bitrate: string,
-    name: string,
-    hasAudio: boolean,
-  ): Promise<void> {
-    const outputOptions = [
-      '-y',
-      '-i',
-      inputPath,
-      '-c:v',
-      'libx264',
-      '-b:v',
-      bitrate,
-      '-vf',
-      `scale=${resolution}:force_original_aspect_ratio=decrease,pad=${resolution}:(ow-iw)/2:(oh-ih)/2`,
-      '-pix_fmt',
-      'yuv420p',
-      '-preset',
-      'fast',
-      '-threads',
-      process.env.FFMPEG_THREADS || '2',
-      '-sc_threshold',
-      '0',
-      '-force_key_frames',
-      'expr:gte(t,n_forced*5)',
-      '-hls_time',
-      '5',
-      '-hls_playlist_type',
-      'vod',
-      '-hls_flags',
-      'independent_segments',
-      '-hls_segment_type',
-      'mpegts',
-    ];
-
-    if (hasAudio) {
-      outputOptions.push('-c:a', 'aac', '-ar', '48000', '-b:a', '128k');
-    } else {
-      outputOptions.push('-an');
-    }
-
-    outputOptions.push(path.join(outputDir, `${name}.m3u8`));
-    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', outputOptions);
-    console.log(`  ${name} completed`);
-  }
-
-  /**
-   * Transcode video to HLS format with multiple quality variants
+   * Transcode video to HLS format with multiple quality variants. One FFmpeg
+   * process decodes the source once and feeds one output per rendition, each
+   * with its own scaling, encoders and HLS muxer (<name>.m3u8, <name><N>.ts).
+   * Keyframes are forced every 5 s with scene cuts disabled, so the renditions
+   * share their segment boundaries (ABR switching). FFMPEG_THREADS is the
+   * thread count of EACH x264 encoder: 3 x FFMPEG_THREADS encoding threads,
+   * plus FFmpeg's automatic decoding and scaling threads.
    */
   async transcodeVideoHLS(inputPath: string, outputDir: string): Promise<void> {
     console.log('Starting HLS transcoding...');
@@ -128,22 +147,48 @@ export class TranscodingService {
     const hasAudioTrack = await this.hasAudio(inputPath);
     console.log(`   Audio: ${hasAudioTrack ? 'Yes' : 'No'}`);
 
-    // Transcode all variants in parallel for speed
-    const outcomes = await Promise.allSettled(
-      HLS_VARIANTS.map((variant) =>
-        this.transcodeVariant(
-          inputPath,
-          outputDir,
-          variant.scale,
-          variant.bitrate,
-          variant.name,
-          hasAudioTrack,
-        ),
-      ),
+    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
+      '-y',
+      '-i',
+      inputPath,
+      ...HLS_VARIANTS.flatMap((variant) => [
+        '-c:v',
+        'libx264',
+        '-b:v',
+        variant.bitrate,
+        '-vf',
+        `scale=${variant.scale}:force_original_aspect_ratio=decrease,pad=${variant.scale}:(ow-iw)/2:(oh-ih)/2`,
+        '-pix_fmt',
+        'yuv420p',
+        '-preset',
+        'fast',
+        '-threads',
+        process.env.FFMPEG_THREADS || '2',
+        '-sc_threshold',
+        '0',
+        '-force_key_frames',
+        'expr:gte(t,n_forced*5)',
+        '-hls_time',
+        '5',
+        '-hls_playlist_type',
+        'vod',
+        '-hls_flags',
+        'independent_segments',
+        '-hls_segment_type',
+        'mpegts',
+        ...(hasAudioTrack
+          ? ['-c:a', 'aac', '-ar', '48000', '-b:a', '128k']
+          : ['-an']),
+        // Source subtitle/data tracks would add files the proxy never serves,
+        // and a bitmap subtitle would fail every rendition.
+        '-sn',
+        '-dn',
+        path.join(outputDir, `${variant.name}.m3u8`),
+      ]),
+    ]);
+    console.log(
+      `  ${HLS_VARIANTS.map((variant) => variant.name).join(', ')} completed`,
     );
-    // Wait for every encoder before removing the working directory on failure.
-    const failed = outcomes.find((outcome) => outcome.status === 'rejected');
-    if (failed?.status === 'rejected') throw failed.reason;
 
     // Create master playlist
     const masterPlaylistContent = [
@@ -197,16 +242,19 @@ export class TranscodingService {
   }
 
   /**
-   * Extract audio track to WAV format
+   * Extract the audio track to FLAC: losslessly compressed 16-bit PCM with the
+   * same samples as the former WAV (44.1 kHz stereo), typically half its size.
    */
-  async extractAudioWav(inputPath: string, outputPath: string): Promise<void> {
+  async extractAudioFlac(inputPath: string, outputPath: string): Promise<void> {
     await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
       '-y',
       '-i',
       inputPath,
       '-vn',
       '-acodec',
-      'pcm_s16le',
+      'flac',
+      '-sample_fmt',
+      's16',
       '-ar',
       '44100',
       '-ac',
@@ -248,30 +296,55 @@ export class TranscodingService {
   }
 
   /**
-   * Upload all HLS files to S3
+   * Upload all HLS files to S3, TRANSCODING_UPLOAD_CONCURRENCY (8) at a time,
+   * and master.m3u8 last, once every file it references is stored. After a
+   * failure or an abort no upload starts, and the uploads in flight settle
+   * before the first error is thrown.
    */
   async uploadHLSFiles(hlsDir: string, videoId: string): Promise<number> {
+    const concurrency = uploadConcurrency();
     console.log('Uploading HLS segments to S3...');
-    let fileCount = 0;
-
+    const master = path.join(hlsDir, 'master.m3u8');
+    const files: string[] = [];
+    let hasMaster = false;
     for await (const filePath of this.walk(hlsDir)) {
-      const relativePath = path.relative(hlsDir, filePath);
-      const contentType = filePath.endsWith('.m3u8')
-        ? 'application/vnd.apple.mpegurl'
-        : 'video/mp2t';
+      if (filePath === master) hasMaster = true;
+      else files.push(filePath);
+    }
+    files.sort();
 
+    let fileCount = 0;
+    const upload = async (filePath: string) => {
       await this.uploadFile(
         filePath,
         S3_CONFIG.mediaBucket,
-        `${videoId}/${relativePath}`,
-        contentType,
+        `${videoId}/${path.relative(hlsDir, filePath)}`,
+        filePath.endsWith('.m3u8')
+          ? 'application/vnd.apple.mpegurl'
+          : 'video/mp2t',
       );
-
       fileCount++;
       if (fileCount % 10 === 0) {
         console.log(`   Uploaded ${fileCount} files...`);
       }
-    }
+    };
+
+    let next = 0;
+    let failure: { error: unknown } | undefined;
+    const worker = async () => {
+      while (!failure && next < files.length) {
+        try {
+          await upload(files[next++]);
+        } catch (error) {
+          failure ??= { error };
+        }
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, files.length) }, worker),
+    );
+    if (failure) throw failure.error;
+    if (hasMaster) await upload(master);
 
     console.log(`Uploaded ${fileCount} HLS files`);
     return fileCount;
@@ -308,7 +381,9 @@ export class TranscodingService {
         : path.join(workDir, 'input.mp4');
     const hlsOutputDir = path.join(workDir, 'hls');
     const tempMiniaturePath = path.join(workDir, 'miniature.jpg');
-    const tempAudioPath = path.join(workDir, 'audio.wav');
+    const tempAudioPath = path.join(workDir, 'audio.flac');
+    let duration = 0;
+    let sourceCodecsPlayable: boolean | undefined;
 
     try {
       console.log(`\nStarting transcoding job: ${job.jobId}`);
@@ -320,31 +395,15 @@ export class TranscodingService {
         await writeFile(tempInputPath, videoBuffer);
       await mkdir(hlsOutputDir, { recursive: true });
 
-      // Get video duration
-      const duration = await this.getVideoDuration(tempInputPath);
+      // Get video duration; an unreadable source fails permanently
+      ({ duration, codecsPlayable: sourceCodecsPlayable } =
+        await this.probeSource(tempInputPath));
       console.log(`   Duration: ${duration}s`);
 
-      // Transcode to HLS
-      await this.transcodeVideoHLS(tempInputPath, hlsOutputDir);
-
-      // Upload HLS files
-      await this.uploadHLSFiles(hlsOutputDir, job.videoId);
-
-      // Extract and upload WAV audio when the source has an audio track
-      const hasAudioTrack = await this.hasAudio(tempInputPath);
-      const audioKey = `${job.videoId}/audio.wav`;
       let generatedSubtitleId: string | undefined;
-      if (hasAudioTrack) {
-        await this.extractAudioWav(tempInputPath, tempAudioPath);
-        await this.uploadFile(
-          tempAudioPath,
-          S3_CONFIG.mediaBucket,
-          audioKey,
-          'audio/wav',
-        );
-        console.log(`WAV audio uploaded: ${audioKey}`);
-      }
 
+      // Final attachments first: a video too long to transcode is then played
+      // from its source with them (see the backend's source fallback).
       // Process and upload miniature
       await this.processMiniature(
         miniatureBuffer,
@@ -374,6 +433,42 @@ export class TranscodingService {
         );
         console.log(`Subtitle uploaded: ${job.subtitle_id}`);
         generatedSubtitleId = job.subtitle_id;
+      }
+
+      const maxDuration = Number(
+        process.env.TRANSCODING_MAX_DURATION_SECONDS || 1200,
+      );
+      if (!Number.isSafeInteger(maxDuration) || maxDuration <= 0)
+        throw new Error('Invalid TRANSCODING_MAX_DURATION_SECONDS');
+      if (duration > maxDuration)
+        throw new PermanentJobError(
+          'duration_exceeded',
+          `Video duration ${duration} s exceeds TRANSCODING_MAX_DURATION_SECONDS (${maxDuration} s)`,
+        );
+
+      // A misconfiguration must not cost a whole encode before failing.
+      uploadConcurrency();
+
+      // Transcode to HLS. From here a deadline means the video is too long to
+      // transcode, not a stall: the runner reports it permanent.
+      this.onEncodingStarted?.();
+      await this.transcodeVideoHLS(tempInputPath, hlsOutputDir);
+
+      // Upload HLS files
+      await this.uploadHLSFiles(hlsOutputDir, job.videoId);
+
+      // Extract and upload FLAC audio when the source has an audio track
+      const hasAudioTrack = await this.hasAudio(tempInputPath);
+      const audioKey = `${job.videoId}/audio.flac`;
+      if (hasAudioTrack) {
+        await this.extractAudioFlac(tempInputPath, tempAudioPath);
+        await this.uploadFile(
+          tempAudioPath,
+          S3_CONFIG.mediaBucket,
+          audioKey,
+          'audio/flac',
+        );
+        console.log(`FLAC audio uploaded: ${audioKey}`);
       }
 
       const sourceObjects = [
@@ -429,12 +524,16 @@ export class TranscodingService {
         jobId: job.jobId,
         success: false,
         videoId: job.videoId,
-        duration: 0,
+        duration,
         subtitle_id: null,
         error: (error instanceof Error ? error.message : String(error)).slice(
           -2000,
         ),
         processedAt: Date.now(),
+        ...(error instanceof PermanentJobError
+          ? { permanent: true, reason: error.reason }
+          : {}),
+        ...(sourceCodecsPlayable !== undefined ? { sourceCodecsPlayable } : {}),
       };
     } finally {
       await this.cleanup([workDir]);
@@ -496,6 +595,8 @@ export class TranscodingService {
   private runProcess(
     command: string,
     args: string[],
+    // Tail of stdout kept; the probe's JSON needs it whole.
+    maxStdout = 8192,
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       this.signal?.throwIfAborted();
@@ -513,7 +614,7 @@ export class TranscodingService {
       let processError: Error | undefined;
       child.stdout.on(
         'data',
-        (chunk) => (stdout = (stdout + chunk.toString()).slice(-8192)),
+        (chunk) => (stdout = (stdout + chunk.toString()).slice(-maxStdout)),
       );
       child.stderr.on(
         'data',
@@ -526,7 +627,12 @@ export class TranscodingService {
         if (processError) reject(processError);
         else if (code === 0) resolve({ stdout, stderr });
         else
-          reject(new Error(`${command} exited with code ${code}: ${stderr}`));
+          reject(
+            Object.assign(
+              new Error(`${command} exited with code ${code}: ${stderr}`),
+              { exitCode: code },
+            ),
+          );
       });
     });
   }

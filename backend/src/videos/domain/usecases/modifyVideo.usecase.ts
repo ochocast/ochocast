@@ -11,6 +11,15 @@ import type { Express } from 'express';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import sharp = require('sharp');
+
+// Set by the upload and the transcoding pipeline, never by the owner's form.
+const SERVER_OWNED_FIELDS = [
+  'media_id',
+  'duration',
+  'transcoding_status',
+  'transcoding_error',
+] as const;
+
 export class ModifyVideoUsecase {
   constructor(
     @Inject('VideoGateway')
@@ -74,6 +83,15 @@ export class ModifyVideoUsecase {
     video.comments = JSON.parse(video.comments.toString());
     video.tags = JSON.parse(video.tags.toString());
     video.internal_speakers = JSON.parse(video.internal_speakers.toString());
-    return await this.videoGateway.modifyVideo(video);
+    // Left out of the update, so the stored values stay, even one written
+    // while a new miniature uploads. The form echoes the values its page
+    // loaded: saved after the source fallback, a stale media_id would point the
+    // video at a playlist never written. A forged key or duration would be
+    // presigned.
+    const update: Partial<VideoObject> & Pick<VideoObject, 'id'> = {
+      ...video,
+    };
+    for (const field of SERVER_OWNED_FIELDS) delete update[field];
+    return await this.videoGateway.modifyVideo(update);
   }
 }

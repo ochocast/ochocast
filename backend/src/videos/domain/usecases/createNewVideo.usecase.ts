@@ -1,4 +1,4 @@
-import { BadRequestException, Inject } from '@nestjs/common';
+import { BadRequestException, Inject, Logger } from '@nestjs/common';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuid } from 'uuid';
@@ -14,9 +14,12 @@ import {
   VIDEO_CONTENT_TYPES,
   planVideoMedia,
   prepareMiniature,
+  uploadMaxBytes,
 } from 'src/queue/transcoding-plan';
 
 export class CreateNewVideoUsecase {
+  private readonly logger = new Logger(CreateNewVideoUsecase.name);
+
   constructor(
     @Inject('VideoGateway') private readonly videoGateway: IVideoGateway,
     @Inject('s3Client') private readonly s3Client: S3Client,
@@ -41,24 +44,24 @@ export class CreateNewVideoUsecase {
         .toLowerCase()
         .replace(/[^.a-z0-9]/g, '') || '.video';
     const sourceType = VIDEO_CONTENT_TYPES.get(originalExtension.slice(1));
+    // A long recording above the worker's source limit would fail there: it is
+    // published from its source, as without a queue.
+    const transcode =
+      this.queueService.enabled && file.buffer.length <= uploadMaxBytes();
     // Without transcoding the source itself is published: only video containers.
-    if (
-      !this.queueService.enabled &&
-      !PLAYABLE_AS_IS.has(originalExtension.slice(1))
-    )
+    if (!transcode && !PLAYABLE_AS_IS.has(originalExtension.slice(1)))
       throw new BadRequestException('Unsupported video format');
+    if (this.queueService.enabled && !transcode)
+      this.logger.warn(
+        `Recording ${videoId} (${file.buffer.length} bytes) exceeds UPLOAD_MAX_BYTES: published from its source without transcoding`,
+      );
     const originalKey = `${videoId}/source/original${originalExtension}`;
     const subtitle = this.prepareSubtitle(subtitleFile);
-    const thumbnail = await prepareMiniature(
-      miniatureFile,
-      this.queueService.enabled,
-    );
-    const plan = planVideoMedia(
-      videoId,
-      originalKey,
-      this.queueService.enabled,
-      { miniature: !!thumbnail, subtitle: !!subtitle },
-    );
+    const thumbnail = await prepareMiniature(miniatureFile, transcode);
+    const plan = planVideoMedia(videoId, originalKey, transcode, {
+      miniature: !!thumbnail,
+      subtitle: !!subtitle,
+    });
     const creator =
       typeof videoToCreate.creator === 'string'
         ? ({ id: videoToCreate.creator } as any)
@@ -126,7 +129,7 @@ export class CreateNewVideoUsecase {
 
       const savedVideo = await this.videoGateway.createNewVideo(video);
       // Without a queue the recording is already playable from its source.
-      if (!this.queueService.enabled) return savedVideo;
+      if (!transcode) return savedVideo;
       const job: VideoTranscodingJob = {
         jobId: uuid(),
         videoId,
