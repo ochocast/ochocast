@@ -22,6 +22,20 @@ import { S3_CONFIG } from '../config/s3.config';
 import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
 
+// What browsers decode in an mp4, mov or webm source without transcoding:
+// 8-bit 4:2:0 video, and audio they play in these containers. HEVC (the
+// iPhone default), 10-bit, 4:2:2/4:4:4 or ProRes sources are left out.
+const BROWSER_VIDEO_CODECS = new Set(['h264', 'vp8', 'vp9', 'av1']);
+const BROWSER_PIXEL_FORMATS = new Set(['yuv420p', 'yuvj420p']);
+const BROWSER_AUDIO_CODECS = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac']);
+
+interface ProbedStream {
+  codec_type?: string;
+  codec_name?: string;
+  pix_fmt?: string;
+  disposition?: { attached_pic?: number };
+}
+
 /** HLS files uploaded at once (TRANSCODING_UPLOAD_CONCURRENCY, default 8). */
 const uploadConcurrency = (): number => {
   const value = Number(process.env.TRANSCODING_UPLOAD_CONCURRENCY || 8);
@@ -40,9 +54,13 @@ export class TranscodingService {
 
   /**
    * Duration in seconds of a source with a video stream (0 when its container
-   * does not record it). Another attempt cannot read a source FFprobe rejects.
+   * does not record it), and whether browsers decode its codecs as is: a
+   * video too long to transcode is played from its source only then.
+   * Another attempt cannot read a source FFprobe rejects.
    */
-  async probeSource(inputPath: string): Promise<number> {
+  async probeSource(
+    inputPath: string,
+  ): Promise<{ duration: number; codecsPlayable: boolean }> {
     let stdout: string;
     try {
       ({ stdout } = await this.runProcess(
@@ -50,14 +68,15 @@ export class TranscodingService {
         [
           '-v',
           'error',
-          '-select_streams',
-          'v',
           '-show_entries',
-          'stream=codec_type:format=duration',
+          'stream=codec_type,codec_name,pix_fmt:stream_disposition=attached_pic:format=duration',
           '-of',
-          'default=noprint_wrappers=1',
+          'json',
           inputPath,
         ],
+        // One entry per stream: a source with dozens of subtitle tracks or
+        // attachments exceeds the default 8 KiB, and truncated JSON fails.
+        1024 * 1024,
       ));
     } catch (error) {
       // Aborted, killed or missing binary: not the source's fault, retryable.
@@ -68,14 +87,28 @@ export class TranscodingService {
         `Unreadable video source: ${(error as Error).message}`.slice(0, 2000),
       );
     }
-    const lines = stdout.split('\n').map((line) => line.trim());
-    if (!lines.includes('codec_type=video'))
+    const { streams = [], format } = JSON.parse(stdout) as {
+      streams?: ProbedStream[];
+      format?: { duration?: string };
+    };
+    if (!streams.some((stream) => stream.codec_type === 'video'))
       throw new PermanentJobError(
         'invalid_source',
         'Source has no video stream',
       );
-    const duration = lines.find((line) => line.startsWith('duration='));
-    return Math.floor(Number.parseFloat(duration?.slice(9) || '') || 0);
+    // A cover image (attached picture) is not the video the player shows.
+    const video = streams.find(
+      (stream) =>
+        stream.codec_type === 'video' && !stream.disposition?.attached_pic,
+    );
+    const audio = streams.find((stream) => stream.codec_type === 'audio');
+    return {
+      duration: Math.floor(Number.parseFloat(format?.duration || '') || 0),
+      codecsPlayable:
+        BROWSER_VIDEO_CODECS.has(video?.codec_name ?? '') &&
+        BROWSER_PIXEL_FORMATS.has(video?.pix_fmt ?? '') &&
+        (!audio || BROWSER_AUDIO_CODECS.has(audio.codec_name ?? '')),
+    };
   }
 
   /**
@@ -350,6 +383,7 @@ export class TranscodingService {
     const tempMiniaturePath = path.join(workDir, 'miniature.jpg');
     const tempAudioPath = path.join(workDir, 'audio.flac');
     let duration = 0;
+    let sourceCodecsPlayable: boolean | undefined;
 
     try {
       console.log(`\nStarting transcoding job: ${job.jobId}`);
@@ -362,7 +396,8 @@ export class TranscodingService {
       await mkdir(hlsOutputDir, { recursive: true });
 
       // Get video duration; an unreadable source fails permanently
-      duration = await this.probeSource(tempInputPath);
+      ({ duration, codecsPlayable: sourceCodecsPlayable } =
+        await this.probeSource(tempInputPath));
       console.log(`   Duration: ${duration}s`);
 
       let generatedSubtitleId: string | undefined;
@@ -498,6 +533,7 @@ export class TranscodingService {
         ...(error instanceof PermanentJobError
           ? { permanent: true, reason: error.reason }
           : {}),
+        ...(sourceCodecsPlayable !== undefined ? { sourceCodecsPlayable } : {}),
       };
     } finally {
       await this.cleanup([workDir]);
@@ -559,6 +595,8 @@ export class TranscodingService {
   private runProcess(
     command: string,
     args: string[],
+    // Tail of stdout kept; the probe's JSON needs it whole.
+    maxStdout = 8192,
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       this.signal?.throwIfAborted();
@@ -576,7 +614,7 @@ export class TranscodingService {
       let processError: Error | undefined;
       child.stdout.on(
         'data',
-        (chunk) => (stdout = (stdout + chunk.toString()).slice(-8192)),
+        (chunk) => (stdout = (stdout + chunk.toString()).slice(-maxStdout)),
       );
       child.stderr.on(
         'data',

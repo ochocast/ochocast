@@ -69,13 +69,18 @@ export class BackendClient {
       }
       // A backend predating permanent failures rejects their fields (400):
       // store a plain failure instead. Deploy the backend first to keep them.
-      if (response.status === 400 && result.permanent) {
+      // sourceCodecsPlayable also comes with transient failures after the probe.
+      if (
+        response.status === 400 &&
+        (result.permanent || result.sourceCodecsPlayable !== undefined)
+      ) {
         console.warn(
           `Backend rejected permanent failure fields for job ${jobId}; storing a plain failure`,
         );
         const plain = { ...result };
         delete plain.permanent;
         delete plain.reason;
+        delete plain.sourceCodecsPlayable;
         return this.complete(jobId, leaseToken, plain);
       }
       if (response.status < 500)

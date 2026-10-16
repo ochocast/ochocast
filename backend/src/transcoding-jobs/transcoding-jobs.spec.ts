@@ -226,11 +226,10 @@ describe('Transcoding job leases', () => {
         originalKey: `${payload.videoId}/source/original.mp4`,
       };
       await service.claim(payload.jobId, payload.videoId);
-      await service.complete(
-        payload.jobId,
-        stored.leaseToken,
-        permanent(reason, 'too long', 5400),
-      );
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...permanent(reason, 'too long', 5400),
+        sourceCodecsPlayable: true,
+      });
       expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
         media_id: `${payload.videoId}/source/original.mp4`,
         transcoding_status: 'ready',
@@ -262,6 +261,27 @@ describe('Transcoding job leases', () => {
         'Video duration 5400 s exceeds the limit; a .mkv source cannot be played without transcoding',
     });
   });
+
+  // false: HEVC, 10-bit... as probed. Absent: a worker that did not probe.
+  it.each([false, undefined])(
+    'fails a too long .mov whose codecs browsers cannot decode (sourceCodecsPlayable: %s)',
+    async (sourceCodecsPlayable) => {
+      stored.payload = {
+        ...payload,
+        originalKey: `${payload.videoId}/source/original.mov`,
+      };
+      await service.claim(payload.jobId, payload.videoId);
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...permanent('deadline_exceeded', 'Transcoding deadline exceeded'),
+        sourceCodecsPlayable,
+      });
+      expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+        transcoding_status: 'failed',
+        transcoding_error:
+          'Transcoding deadline exceeded; the source codecs cannot be played without transcoding',
+      });
+    },
+  );
 
   // 410, not 404: the worker must tell a deleted job from a missing route.
   it('reports a deleted job as gone on claim and result', async () => {
@@ -388,6 +408,18 @@ describe('Internal transcoding HTTP API', () => {
     );
     await send({ permanent: 'yes' }).expect(400);
     await send({ reason: 'x'.repeat(65) }).expect(400);
+    jobs.complete.mockClear();
+    await send({
+      permanent: true,
+      reason: 'deadline_exceeded',
+      sourceCodecsPlayable: false,
+    }).expect(200);
+    expect(jobs.complete).toHaveBeenCalledWith(
+      payload.jobId,
+      expect.any(String),
+      expect.objectContaining({ sourceCodecsPlayable: false }),
+    );
+    await send({ sourceCodecsPlayable: 'true' }).expect(400);
   });
 
   it('answers 410 Gone for a deleted job on claim and result', async () => {
