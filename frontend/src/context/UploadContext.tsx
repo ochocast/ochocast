@@ -40,7 +40,7 @@ export interface UploadNotification {
   uploadId?: string; // Pour le retry
 }
 
-export interface UploadContextType {
+interface UploadContextType {
   uploads: UploadItem[];
   isPanelOpen: boolean;
   notifications: UploadNotification[];
@@ -55,8 +55,7 @@ export interface UploadContextType {
   getUploadById: (id: string) => UploadItem | undefined;
 }
 
-// Exported for Storybook stories, which provide a mock value.
-export const UploadContext = createContext<UploadContextType | null>(null);
+const UploadContext = createContext<UploadContextType | null>(null);
 
 const UPLOADS_STORAGE_KEY = 'ochocast_uploads';
 const PANEL_STATE_KEY = 'ochocast_upload_panel_open';

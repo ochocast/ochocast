@@ -33,11 +33,3 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {},
 };
-
-export const Processing: Story = {
-  args: { transcodingStatus: 'pending' },
-};
-
-export const FailedForTheCreator: Story = {
-  args: { transcodingStatus: 'failed', isOwner: true },
-};
