@@ -115,6 +115,14 @@ describe('Transcoding job leases', () => {
       error: 'temporary error',
     });
     expect(stored.status).toBe('failed');
+    expect(stored.result.error).toBe('temporary error');
+    // Only failures marked so are retried: older rows have no marker.
+    expect(stored.result.retryable).toBe(true);
+    // A retry is still possible: the video must not look failed meanwhile.
+    expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+      transcoding_status: 'pending',
+      transcoding_error: null,
+    });
     await service.complete(payload.jobId, stored.leaseToken, {
       ...result,
       success: false,
@@ -157,10 +165,13 @@ describe('Transcoding job leases', () => {
       permanent('invalid_source', 'Source has no video stream'),
     );
     expect(stored.status).toBe('failed');
+    // Only a reason code reaches the video row; the raw error stays on the job.
     expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
       transcoding_status: 'failed',
-      transcoding_error: 'Source has no video stream',
+      transcoding_error: 'invalid_source',
     });
+    expect(stored.result.error).toBe('Source has no video stream');
+    expect(stored.result.retryable).toBeUndefined();
     expect(await service.claim(payload.jobId, payload.videoId)).toEqual({
       status: 'completed',
     });
@@ -179,12 +190,13 @@ describe('Transcoding job leases', () => {
       expect.objectContaining({
         success: false,
         permanent: true,
+        reason: 'max_attempts',
         error: 'Transcoding abandoned after 10 attempts',
       }),
     );
     expect(update).toHaveBeenCalledWith(VideoEntity, payload.videoId, {
       transcoding_status: 'failed',
-      transcoding_error: 'Transcoding abandoned after 10 attempts',
+      transcoding_error: 'max_attempts',
     });
     // The next redelivery is acknowledged from the stored permanent failure.
     update.mockClear();
@@ -258,10 +270,54 @@ describe('Transcoding job leases', () => {
     );
     expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
       transcoding_status: 'failed',
-      transcoding_error:
-        'Video duration 5400 s exceeds the limit; a .mkv source cannot be played without transcoding',
+      transcoding_error: 'duration_exceeded',
     });
+    expect(stored.result.error).toBe('Video duration 5400 s exceeds the limit');
   });
+
+  it('fails the video for good when the last allowed attempt fails', async () => {
+    stored.attempts = 9;
+    await service.claim(payload.jobId, payload.videoId);
+    expect(stored.attempts).toBe(10);
+    await service.complete(payload.jobId, stored.leaseToken, {
+      ...result,
+      success: false,
+      error: 'ffmpeg exited with code 1: /tmp/job/stderr tail',
+    });
+    expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+      transcoding_status: 'failed',
+      transcoding_error: 'max_attempts',
+    });
+    // Final like claim's abandonment, while keeping the worker's raw error.
+    expect(stored.result).toEqual(
+      expect.objectContaining({
+        success: false,
+        permanent: true,
+        reason: 'max_attempts',
+        error: 'ffmpeg exited with code 1: /tmp/job/stderr tail',
+      }),
+    );
+    expect(stored.result.retryable).toBeUndefined();
+    update.mockClear();
+    expect(await service.claim(payload.jobId, payload.videoId)).toEqual({
+      status: 'completed',
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, 'disk_on_fire'])(
+    'stores unknown, never the raw error, for a permanent failure with reason %s',
+    async (reason) => {
+      await service.claim(payload.jobId, payload.videoId);
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...permanent(reason, 'TRANSCODING_SECRET leaked in /tmp/x'),
+      });
+      expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+        transcoding_status: 'failed',
+        transcoding_error: 'unknown',
+      });
+    },
+  );
 
   // 410, not 404: the worker must tell a deleted job from a missing route.
   it('reports a deleted job as gone on claim and result', async () => {
@@ -388,6 +444,8 @@ describe('Internal transcoding HTTP API', () => {
     );
     await send({ permanent: 'yes' }).expect(400);
     await send({ reason: 'x'.repeat(65) }).expect(400);
+    // Whether another attempt runs is the backend's decision alone.
+    await send({ retryable: true }).expect(400);
   });
 
   it('answers 410 Gone for a deleted job on claim and result', async () => {

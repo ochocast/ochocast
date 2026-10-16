@@ -187,6 +187,14 @@ describe('Upload maintenance with and without a transcoding queue', () => {
       const [[where, params]] = calls.where;
       expect(where).toContain("job.status = 'processing'");
       expect(where).toContain("job.status = 'pending'");
+      // A failure marked retryable whose message may be dead-lettered, after
+      // the same delay as a lost pending job. Permanent failures, and those an
+      // older backend recorded without the marker, are final.
+      expect(where).toContain(
+        "(job.status = 'failed' AND job.result->>'retryable' = 'true'" +
+          " AND (job.payload->>'timestamp')::bigint < :pendingCutoff)",
+      );
+      expect(where).not.toContain("job.result->>'permanent'");
       // Recordings have no upload row: NOT EXISTS keeps them candidates.
       expect(where).toMatch(
         /NOT EXISTS \(SELECT 1 FROM video_upload u WHERE u\.id = job\.id AND u\.state = 'uploaded'\)/,
@@ -215,7 +223,11 @@ describe('Upload maintenance with and without a transcoding queue', () => {
 
     it('republishes a lost pending job with a fresh timestamp', async () => {
       stale = [
-        job({ id: 'lost', payload: { jobId: 'lost', timestamp: 1 } as any }),
+        job({
+          id: 'lost',
+          videoId: 'video',
+          payload: { jobId: 'lost', timestamp: 1 } as any,
+        }),
       ];
       await service(true).maintain();
       expect(publishRegisteredJob).toHaveBeenCalledWith({
@@ -229,6 +241,84 @@ describe('Upload maintenance with and without a transcoding queue', () => {
           payload: { jobId: 'lost', timestamp: now },
         }),
       );
+      // Will run again: a video an older backend failed when the first
+      // publication of a recording failed is pending again.
+      expect(manager.update).toHaveBeenCalledWith(
+        VideoEntity,
+        { id: 'video', transcoding_status: 'failed' },
+        { transcoding_status: 'pending', transcoding_error: null },
+      );
+    });
+
+    it('republishes a retryable failed job and keeps its video pending', async () => {
+      stale = [
+        job({
+          id: 'retry',
+          videoId: 'video',
+          status: 'failed',
+          attempts: 2,
+          leaseToken: 'token',
+          payload: { jobId: 'retry', timestamp: 1 } as any,
+          result: {
+            jobId: 'retry',
+            videoId: 'video',
+            success: false,
+            duration: 0,
+            error: 'temporary',
+            processedAt: 1,
+            retryable: true,
+          },
+        }),
+      ];
+      await service(true).maintain();
+      expect(publishRegisteredJob).toHaveBeenCalledWith({
+        jobId: 'retry',
+        timestamp: now,
+      });
+      expect(manager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'retry',
+          status: 'pending',
+          attempts: 2,
+          leaseToken: null,
+          payload: { jobId: 'retry', timestamp: now },
+        }),
+      );
+      // Conditional: its video is normally pending already.
+      expect(manager.update).toHaveBeenCalledWith(
+        VideoEntity,
+        { id: 'video', transcoding_status: 'failed' },
+        { transcoding_status: 'pending', transcoding_error: null },
+      );
+    });
+
+    it('abandons a retryable failed job whose attempts are exhausted', async () => {
+      process.env.TRANSCODING_MAX_ATTEMPTS = '3';
+      stale = [
+        job({
+          id: 'spent',
+          videoId: 'video',
+          status: 'failed',
+          attempts: 3,
+          result: { retryable: true } as any,
+        }),
+      ];
+      await service(true).maintain();
+      expect(publishRegisteredJob).not.toHaveBeenCalled();
+      expect(manager.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'spent',
+          status: 'failed',
+          result: expect.objectContaining({
+            permanent: true,
+            reason: 'max_attempts',
+          }),
+        }),
+      );
+      expect(manager.update).toHaveBeenCalledWith(VideoEntity, 'video', {
+        transcoding_status: 'failed',
+        transcoding_error: 'max_attempts',
+      });
     });
 
     it('republishes a processing job whose lease expired long ago', async () => {
@@ -274,12 +364,19 @@ describe('Upload maintenance with and without a transcoding queue', () => {
           id: 'doomed',
           status: 'failed',
           leaseExpiresAt: null,
-          result: expect.objectContaining({ success: false, error }),
+          // Final like claim's abandonment: redeliveries are acknowledged.
+          result: expect.objectContaining({
+            success: false,
+            error,
+            permanent: true,
+            reason: 'max_attempts',
+          }),
         }),
       );
+      // Only the reason code reaches the public video row.
       expect(manager.update).toHaveBeenCalledWith(VideoEntity, 'video', {
         transcoding_status: 'failed',
-        transcoding_error: error,
+        transcoding_error: 'max_attempts',
       });
     });
 

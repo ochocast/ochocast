@@ -24,4 +24,9 @@ export interface VideoTranscodingResult {
   permanent?: boolean;
   /** Why it is permanent, e.g. duration_exceeded (see SOURCE_PLAYBACK_REASONS). */
   reason?: string;
+  /**
+   * Set by the backend only, never accepted from a worker: another attempt
+   * will run. A failure without it is final (see isFinalFailure).
+   */
+  retryable?: boolean;
 }
