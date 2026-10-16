@@ -997,17 +997,99 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
       const error = 'Transcoding abandoned after 10 attempts';
       const row = await jobRow(doomed.jobId);
       expect(row.status).toBe('failed');
-      expect(row.result).toMatchObject({ success: false, error });
+      expect(row.result).toMatchObject({
+        success: false,
+        error,
+        permanent: true,
+        reason: 'max_attempts',
+      });
       expect(published(doomed.jobId)).toEqual([]);
       expect(
         await db.manager.findOneByOrFail(VideoEntity, { id: doomed.videoId }),
       ).toMatchObject({
         transcoding_status: 'failed',
-        transcoding_error: error,
+        transcoding_error: 'max_attempts',
       });
       // Final: later sweeps leave it alone.
       await service.maintain();
       expect((await jobRow(doomed.jobId)).status).toBe('failed');
+      expect(published(doomed.jobId)).toEqual([]);
+    });
+
+    it('republishes a failure marked retryable whose redeliveries ran out, never a final one', async () => {
+      const failure = (id: string, fields: Record<string, unknown>) => ({
+        jobId: id,
+        videoId: id,
+        success: false,
+        duration: 0,
+        error: 'worker error',
+        processedAt: Date.now() - lostFor,
+        ...fields,
+      });
+      const failedJob = async (
+        fields: Record<string, unknown>,
+        age = lostFor,
+      ) => {
+        const job = await staleJob(
+          'queued',
+          { status: 'failed', attempts: 1 },
+          age,
+        );
+        await db.manager.update(TranscodingJobEntity, job.jobId, {
+          result: failure(job.jobId, fields),
+        });
+        return job;
+      };
+      const videoOf = (job: VideoTranscodingJob) =>
+        db.manager.findOneByOrFail(VideoEntity, { id: job.videoId });
+      const retryable = await failedJob({ retryable: true });
+      const permanent = await failedJob({
+        permanent: true,
+        reason: 'invalid_source',
+      });
+      // As main left any failure, an invalid source among them: no marker.
+      const legacy = await failedJob({});
+      await db.manager.update(VideoEntity, legacy.videoId, {
+        transcoding_status: 'failed',
+        transcoding_error: 'ffmpeg exited with code 1',
+      });
+      const recent = await failedJob({ retryable: true }, 60_000);
+      await service.maintain();
+      const row = await jobRow(retryable.jobId);
+      expect(row).toMatchObject({ status: 'pending', attempts: 1 });
+      expect(published(retryable.jobId)).toEqual([[row.payload]]);
+      expect(await videoOf(retryable)).toMatchObject({
+        transcoding_status: 'pending',
+        transcoding_error: null,
+      });
+      for (const final of [permanent, legacy]) {
+        expect(published(final.jobId)).toEqual([]);
+        expect((await jobRow(final.jobId)).status).toBe('failed');
+      }
+      expect(await videoOf(legacy)).toMatchObject({
+        transcoding_status: 'failed',
+      });
+      // Its message may still be redelivered: wait the re-dispatch delay.
+      expect(published(recent.jobId)).toEqual([]);
+    });
+
+    it('restores the video of a recording failed by an older backend when its job is republished', async () => {
+      // Its first publication failed after registration: the job is pending.
+      const recording = await staleJob(null);
+      await db.manager.update(VideoEntity, recording.videoId, {
+        transcoding_status: 'failed',
+        transcoding_error: 'getaddrinfo ENOTFOUND queue',
+      });
+      await service.maintain();
+      expect(published(recording.jobId)).toHaveLength(1);
+      expect(
+        await db.manager.findOneByOrFail(VideoEntity, {
+          id: recording.videoId,
+        }),
+      ).toMatchObject({
+        transcoding_status: 'pending',
+        transcoding_error: null,
+      });
     });
 
     it('leaves uploads still waiting for their first publication to re-dispatch', async () => {

@@ -70,19 +70,15 @@ describe('Scaleway queue publishing', () => {
     expect(new QueueService({} as TranscodingJobsService).enabled).toBe(false);
   });
 
-  it('persists the job before publishing a signed Scaleway message', async () => {
-    let registered = false;
-    const jobs = {
-      register: jest.fn(async () => {
-        registered = true;
-      }),
-    };
+  // Two steps: once registered, a failed publication is republished later.
+  it('persists a job, then publishes it as a signed Scaleway message', async () => {
+    const jobs = { register: jest.fn().mockResolvedValue(undefined) };
     const sendMessage = jest
       .spyOn(ScalewayQueuesClient.prototype, 'sendMessage')
       .mockImplementation(async (_queueUrl, message) => {
-        expect(registered).toBe(true);
         const envelope = JSON.parse(message);
         expect(envelope.job).toEqual(job);
+        expect(envelope.signature).toMatch(/^[0-9a-f]{64}$/);
       });
     const service = new QueueService(jobs as unknown as TranscodingJobsService);
     const job = {
@@ -91,7 +87,10 @@ describe('Scaleway queue publishing', () => {
       originalKey: 'video/source.mp4',
     } as VideoTranscodingJob;
     expect(service.enabled).toBe(true);
-    await service.publishJob(job);
+    await service.registerJob(job);
+    expect(jobs.register).toHaveBeenCalledWith(job);
+    expect(sendMessage).not.toHaveBeenCalled();
+    await service.publishRegisteredJob(job);
     expect(sendMessage).toHaveBeenCalledTimes(1);
   });
 
@@ -171,7 +170,7 @@ describe('Scaleway queue publishing', () => {
     );
     const service = new QueueService(jobs as unknown as TranscodingJobsService);
     const job = { jobId: 'job-1' } as VideoTranscodingJob;
-    await expect(service.publishJob(job)).rejects.toBeInstanceOf(
+    await expect(service.registerJob(job)).rejects.toBeInstanceOf(
       TranscodingDisabledError,
     );
     await expect(service.publishRegisteredJob(job)).rejects.toBeInstanceOf(
@@ -215,7 +214,7 @@ describe('Scaleway queue publishing', () => {
     const service = new QueueService(jobs as unknown as TranscodingJobsService);
     const job = { jobId: 'job-1', videoId: 'video-1' } as VideoTranscodingJob;
 
-    await service.publishJob(job);
+    await service.publishRegisteredJob(job);
     await new Promise((resolve) => setImmediate(resolve));
     expect(bridge).toHaveBeenCalledTimes(1);
     expect(bridge.mock.calls[0][0].queueUrl).toBe(
@@ -255,8 +254,8 @@ describe('Scaleway queue publishing', () => {
     } as unknown as TranscodingJobsService);
 
     await Promise.all([
-      service.publishJob({ jobId: 'job-1' } as VideoTranscodingJob),
-      service.publishJob({ jobId: 'job-2' } as VideoTranscodingJob),
+      service.publishRegisteredJob({ jobId: 'job-1' } as VideoTranscodingJob),
+      service.publishRegisteredJob({ jobId: 'job-2' } as VideoTranscodingJob),
     ]);
     await new Promise((resolve) => setImmediate(resolve));
     expect(bridge).toHaveBeenCalledTimes(1);
@@ -282,7 +281,7 @@ describe('Scaleway queue publishing', () => {
     } as unknown as TranscodingJobsService);
 
     await expect(
-      service.publishJob({ jobId: 'job-1' } as VideoTranscodingJob),
+      service.publishRegisteredJob({ jobId: 'job-1' } as VideoTranscodingJob),
     ).rejects.toThrow('publish failed');
     await new Promise((resolve) => setImmediate(resolve));
     expect(bridge).not.toHaveBeenCalled();
@@ -311,7 +310,9 @@ describe('Scaleway queue publishing', () => {
       register: jest.fn().mockResolvedValue(undefined),
     } as unknown as TranscodingJobsService);
 
-    await service.publishJob({ jobId: 'job-1' } as VideoTranscodingJob);
+    await service.publishRegisteredJob({
+      jobId: 'job-1',
+    } as VideoTranscodingJob);
     await new Promise((resolve) => setImmediate(resolve));
     expect(sendMessage).toHaveBeenCalledTimes(1);
     expect(bridge).not.toHaveBeenCalled();
@@ -338,7 +339,9 @@ describe('Scaleway queue publishing', () => {
       register: jest.fn().mockResolvedValue(undefined),
     } as unknown as TranscodingJobsService);
 
-    await service.publishJob({ jobId: 'job-1' } as VideoTranscodingJob);
+    await service.publishRegisteredJob({
+      jobId: 'job-1',
+    } as VideoTranscodingJob);
     await new Promise((resolve) => setImmediate(resolve));
     expect(sendMessage).toHaveBeenCalledTimes(1);
     expect(bridge).toHaveBeenCalledTimes(1);

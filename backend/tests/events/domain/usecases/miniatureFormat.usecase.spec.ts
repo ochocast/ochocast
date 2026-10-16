@@ -9,7 +9,7 @@ import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { QueueService } from 'src/queue/queue.service';
 import { S3Client } from '@aws-sdk/client-s3';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import sharp = require('sharp');
 
 jest.mock('@aws-sdk/lib-storage', () => ({
@@ -22,13 +22,14 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
   let usecase: CreateNewVideoUsecase;
   let videoGateway: jest.Mocked<IVideoGateway>;
   let queueService: Pick<QueueService, 'enabled'> &
-    jest.Mocked<Pick<QueueService, 'publishJob'>>;
+    jest.Mocked<Pick<QueueService, 'registerJob' | 'publishRegisteredJob'>>;
+  let s3Client: ReturnType<typeof mock<S3Client>>;
   const build = async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CreateNewVideoUsecase,
         { provide: 'VideoGateway', useValue: videoGateway },
-        { provide: 's3Client', useValue: mock<S3Client>() },
+        { provide: 's3Client', useValue: s3Client },
         { provide: QueueService, useValue: queueService },
       ],
     }).compile();
@@ -38,10 +39,12 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
   beforeEach(async () => {
     (Upload as unknown as jest.Mock).mockClear();
     videoGateway = mock<IVideoGateway>();
+    s3Client = mock<S3Client>();
     // Declare enabled explicitly: a mock without it takes the disabled path.
     queueService = {
       enabled: true,
-      publishJob: jest.fn().mockResolvedValue(undefined),
+      registerJob: jest.fn().mockResolvedValue(undefined),
+      publishRegisteredJob: jest.fn().mockResolvedValue(undefined),
     };
     videoGateway.createNewVideo.mockImplementation(async (video) => video);
     usecase = await build();
@@ -93,7 +96,7 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
         }),
       }),
     );
-    expect(queueService.publishJob).toHaveBeenCalledWith(
+    expect(queueService.registerJob).toHaveBeenCalledWith(
       expect.objectContaining({
         videoId: result.id,
         originalKey: expect.stringMatching(/\/source\/original\.mov$/),
@@ -102,6 +105,52 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
         ),
       }),
     );
+    const [[registered]] = queueService.registerJob.mock.calls;
+    expect(queueService.publishRegisteredJob).toHaveBeenCalledWith(registered);
+    expect(queueService.registerJob.mock.invocationCallOrder[0]).toBeLessThan(
+      queueService.publishRegisteredJob.mock.invocationCallOrder[0],
+    );
+  });
+
+  describe('when the queue refuses the recording job', () => {
+    let warn: jest.SpyInstance;
+    beforeEach(() => {
+      warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+    });
+    afterEach(() => warn.mockRestore());
+
+    // Transient: reconciliation republishes the registered job later.
+    it('keeps the recording pending once its job is registered', async () => {
+      queueService.publishRegisteredJob.mockRejectedValue(
+        new Error('getaddrinfo ENOTFOUND sqs.fr-par.scaleway.com'),
+      );
+      const result = await usecase.execute(dto, videoFile);
+      expect(result.transcoding_status).toBe('pending');
+      expect(result.transcoding_error).toBeUndefined();
+      expect(videoGateway.modifyVideo).not.toHaveBeenCalled();
+      // The source stays for the republished job.
+      expect(s3Client.send).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('ENOTFOUND'));
+    });
+
+    // Nothing would ever transcode it: final, with a reason code only.
+    it('fails the recording with a reason code when its job cannot be registered', async () => {
+      queueService.registerJob.mockRejectedValue(
+        new Error('duplicate key value violates "PK_transcoding_job"'),
+      );
+      await expect(usecase.execute(dto, videoFile)).rejects.toThrow(
+        'duplicate key',
+      );
+      expect(queueService.publishRegisteredJob).not.toHaveBeenCalled();
+      expect(videoGateway.modifyVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          transcoding_status: 'failed',
+          transcoding_error: 'unknown',
+        }),
+      );
+      // Its row still references the stored source.
+      expect(s3Client.send).not.toHaveBeenCalled();
+    });
   });
 
   describe('when transcoding is disabled', () => {
@@ -118,7 +167,11 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
     beforeEach(async () => {
       process.env.STOCK_MEDIA_BUCKET = 'media';
       process.env.STOCK_MINIATURE_BUCKET = 'miniature';
-      queueService = { enabled: false, publishJob: jest.fn() };
+      queueService = {
+        enabled: false,
+        registerJob: jest.fn(),
+        publishRegisteredJob: jest.fn(),
+      };
       disabled = await build();
     });
     afterEach(() => {
@@ -158,7 +211,7 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
       ]);
       const [, [{ params }]] = (Upload as unknown as jest.Mock).mock.calls;
       expect((await sharp(params.Body).metadata()).format).toBe('jpeg');
-      expect(queueService.publishJob).not.toHaveBeenCalled();
+      expect(queueService.registerJob).not.toHaveBeenCalled();
       expect(videoGateway.modifyVideo).not.toHaveBeenCalled();
     });
 
@@ -226,14 +279,14 @@ describe('CreateNewVideoUsecase - asynchronous transcoding', () => {
       const result = await usecase.execute(dto, recording);
       expect(result.transcoding_status).toBe('ready');
       expect(result.media_id).toBe(`${result.id}/source/original.mp4`);
-      expect(queueService.publishJob).not.toHaveBeenCalled();
+      expect(queueService.registerJob).not.toHaveBeenCalled();
     });
 
     it('still queues a recording at the limit', async () => {
       process.env.UPLOAD_MAX_BYTES = String(recording.buffer.length);
       const result = await usecase.execute(dto, recording);
       expect(result.transcoding_status).toBe('pending');
-      expect(queueService.publishJob).toHaveBeenCalled();
+      expect(queueService.publishRegisteredJob).toHaveBeenCalled();
     });
 
     it('refuses it when browsers cannot play the source as is', async () => {

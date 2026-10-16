@@ -26,4 +26,9 @@ export interface VideoTranscodingResult {
   reason?: string;
   /** Whether browsers decode the probed source's codecs as is. */
   sourceCodecsPlayable?: boolean;
+  /**
+   * Set by the backend only, never accepted from a worker: another attempt
+   * will run. A failure without it is final (see isFinalFailure).
+   */
+  retryable?: boolean;
 }

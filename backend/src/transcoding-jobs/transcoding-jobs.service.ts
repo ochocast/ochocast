@@ -15,6 +15,13 @@ import {
 import { PLAYABLE_AS_IS } from '../queue/transcoding-plan';
 import { VideoEntity } from '../videos/infra/gateways/entities/video.entity';
 import { TranscodingJobEntity } from './transcoding-job.entity';
+import {
+  abandonedResult,
+  finalFailureReason,
+  recordedFailure,
+  transcodingLeaseSeconds,
+  transcodingMaxAttempts,
+} from './transcoding-outcome';
 
 // Too long to transcode in the worker's limits: the source is played instead.
 export const SOURCE_PLAYBACK_REASONS = new Set([
@@ -25,21 +32,10 @@ export const SOURCE_PLAYBACK_REASONS = new Set([
 @Injectable()
 export class TranscodingJobsService {
   private readonly logger = new Logger(TranscodingJobsService.name);
-  private readonly leaseSeconds = Number(
-    process.env.TRANSCODING_LEASE_SECONDS || 3600,
-  );
-  private readonly maxAttempts = Number(
-    process.env.TRANSCODING_MAX_ATTEMPTS || 10,
-  );
+  private readonly leaseSeconds = transcodingLeaseSeconds();
+  private readonly maxAttempts = transcodingMaxAttempts();
 
-  constructor(private readonly dataSource: DataSource) {
-    if (!Number.isInteger(this.leaseSeconds) || this.leaseSeconds < 60) {
-      throw new Error('TRANSCODING_LEASE_SECONDS must be an integer >= 60');
-    }
-    if (!Number.isInteger(this.maxAttempts) || this.maxAttempts < 1) {
-      throw new Error('TRANSCODING_MAX_ATTEMPTS must be a positive integer');
-    }
-  }
+  constructor(private readonly dataSource: DataSource) {}
 
   async register(
     job: VideoTranscodingJob,
@@ -90,26 +86,16 @@ export class TranscodingJobsService {
       }
       // Bounds the runs of a job that keeps failing, whatever redelivers it.
       if (job.attempts >= this.maxAttempts) {
-        const error = `Transcoding abandoned after ${job.attempts} attempts`;
         job.status = 'failed';
         job.leaseToken = null;
         job.leaseExpiresAt = null;
-        job.result = {
-          jobId: job.id,
-          videoId: job.videoId,
-          success: false,
-          duration: 0,
-          error,
-          processedAt: Date.now(),
-          permanent: true,
-          reason: 'max_attempts',
-        };
+        job.result = abandonedResult(job, Date.now());
         await repository.save(job);
         await manager.update(VideoEntity, job.videoId, {
           transcoding_status: 'failed',
-          transcoding_error: error,
+          transcoding_error: finalFailureReason(job.result.reason),
         });
-        this.logger.warn(`Transcoding job ${job.id}: ${error}`);
+        this.logger.warn(`Transcoding job ${job.id}: ${job.result.error}`);
         return { status: 'completed' as const };
       }
       job.status = 'processing';
@@ -160,7 +146,9 @@ export class TranscodingJobsService {
         throw new ConflictException('Transcoding lease expired or replaced');
       }
       job.status = result.success ? 'ready' : 'failed';
-      job.result = result;
+      job.result = result.success
+        ? result
+        : recordedFailure(result, job.attempts, this.maxAttempts);
       job.leaseExpiresAt = null;
       // Retain this attempt's token to acknowledge a repeated failure callback.
       await repository.save(job);
@@ -176,31 +164,42 @@ export class TranscodingJobsService {
                 ? { subtitle_id: result.subtitle_id }
                 : {}),
             }
-          : this.failedVideo(job, result),
+          : this.failedVideo(job),
       );
     });
   }
 
-  private failedVideo(
-    job: TranscodingJobEntity,
-    result: VideoTranscodingResult,
-  ): Partial<VideoEntity> {
-    const error = result.error || 'Transcoding failed';
-    if (!result.permanent || !SOURCE_PLAYBACK_REASONS.has(result.reason))
-      return { transcoding_status: 'failed', transcoding_error: error };
+  // The raw worker error stays in job.result: the video only gets a reason code.
+  private failedVideo(job: TranscodingJobEntity): Partial<VideoEntity> {
+    const result = job.result;
+    // Another attempt will run: until it ends the video is still processing.
+    if (result.retryable)
+      return { transcoding_status: 'pending', transcoding_error: null };
+    const failed: Partial<VideoEntity> = {
+      transcoding_status: 'failed',
+      transcoding_error: finalFailureReason(result.reason),
+    };
+    if (!SOURCE_PLAYBACK_REASONS.has(result.reason)) {
+      this.logger.warn(
+        `Transcoding job ${job.id} failed for good (${failed.transcoding_error}): ${result.error}`,
+      );
+      return failed;
+    }
     const extension = extname(job.payload.originalKey).slice(1).toLowerCase();
-    if (!PLAYABLE_AS_IS.has(extension))
-      return {
-        transcoding_status: 'failed',
-        transcoding_error: `${error}; a .${extension} source cannot be played without transcoding`,
-      };
+    if (!PLAYABLE_AS_IS.has(extension)) {
+      this.logger.warn(
+        `Transcoding job ${job.id} (${result.reason}): a .${extension} source cannot be played without transcoding`,
+      );
+      return failed;
+    }
     // Its container is not enough: browsers may lack the codec (HEVC, 10-bit)
     // and the player would stay silent. Unknown (not probed) counts as no.
-    if (result.sourceCodecsPlayable !== true)
-      return {
-        transcoding_status: 'failed',
-        transcoding_error: `${error}; the source codecs cannot be played without transcoding`,
-      };
+    if (result.sourceCodecsPlayable !== true) {
+      this.logger.warn(
+        `Transcoding job ${job.id} (${result.reason}): the source codecs cannot be played without transcoding`,
+      );
+      return failed;
+    }
     // As with transcoding disabled: the retained source, through a presigned
     // URL. The worker already wrote the final miniature and subtitle.
     this.logger.warn(

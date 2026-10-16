@@ -26,6 +26,10 @@ import {
 } from 'src/queue/transcoding-plan';
 import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
+import {
+  abandonedResult,
+  finalFailureReason,
+} from 'src/transcoding-jobs/transcoding-outcome';
 import { VideoGateway } from '../infra/gateways/video.gateway';
 
 export function validateParts(s: VideoUpload, parts: StoredPart[]) {
@@ -459,8 +463,10 @@ export class UploadsService {
     for (const s of pending) await this.dispatch(s.id);
   }
 
-  // Jobs whose message was lost or dead-lettered: never claimed, or claimed by
-  // a worker that died. Uploads still 'uploaded' are left to re-dispatch, and
+  // Jobs whose message was lost or dead-lettered: never claimed, claimed by a
+  // worker that died, or failed with an error marked retryable whose
+  // redeliveries ran out. Failures an older backend recorded carry no marker
+  // and stay final. Uploads still 'uploaded' are left to re-dispatch, and
   // recordings, which have no upload row, are included.
   private async reconcileJobs() {
     await this.db.transaction(async (m) => {
@@ -471,7 +477,9 @@ export class UploadsService {
         .setOnLocked('skip_locked')
         .where(
           "((job.status = 'processing' AND job.leaseExpiresAt < :leaseCutoff)" +
-            " OR (job.status = 'pending' AND (job.payload->>'timestamp')::bigint < :pendingCutoff))" +
+            " OR (job.status = 'pending' AND (job.payload->>'timestamp')::bigint < :pendingCutoff)" +
+            " OR (job.status = 'failed' AND job.result->>'retryable' = 'true'" +
+            " AND (job.payload->>'timestamp')::bigint < :pendingCutoff))" +
             " AND NOT EXISTS (SELECT 1 FROM video_upload u WHERE u.id = job.id AND u.state = 'uploaded')",
           {
             leaseCutoff: new Date(now - 10 * 60_000),
@@ -485,22 +493,15 @@ export class UploadsService {
         job.leaseToken = null;
         job.leaseExpiresAt = null;
         if (job.attempts >= this.maxAttempts) {
-          const error = `Transcoding abandoned after ${job.attempts} attempts`;
+          // Final like claim's abandonment: later deliveries are acknowledged.
           job.status = 'failed';
-          job.result = {
-            jobId: job.id,
-            videoId: job.videoId,
-            success: false,
-            duration: 0,
-            error,
-            processedAt: now,
-          };
+          job.result = abandonedResult(job, now);
           await m.save(job);
           await m.update(VideoEntity, job.videoId, {
             transcoding_status: 'failed',
-            transcoding_error: error,
+            transcoding_error: finalFailureReason(job.result.reason),
           });
-          this.logger.warn(`Transcoding job ${job.id}: ${error}`);
+          this.logger.warn(`Transcoding job ${job.id}: ${job.result.error}`);
           continue;
         }
         const payload = { ...job.payload, timestamp: now };
@@ -517,6 +518,13 @@ export class UploadsService {
         job.status = 'pending';
         job.payload = payload;
         await m.save(job);
+        // It will run again: a video an older backend failed meanwhile, e.g.
+        // when a recording's first publication failed, is pending again.
+        await m.update(
+          VideoEntity,
+          { id: job.videoId, transcoding_status: 'failed' },
+          { transcoding_status: 'pending', transcoding_error: null },
+        );
         this.logger.log(`Transcoding job ${job.id} republished`);
       }
     });
