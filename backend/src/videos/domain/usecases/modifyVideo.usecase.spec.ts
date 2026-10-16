@@ -1,8 +1,20 @@
+import sharp = require('sharp');
 import { VideoGateway } from 'src/videos/infra/gateways/video.gateway';
 import { ModifyVideoDto } from 'src/videos/infra/controllers/dto/modify-video.dto';
 import { ModifyVideoUsecase } from './modifyVideo.usecase';
 
-describe('Editing a video never overwrites its media or transcoding state', () => {
+// Objects the use case puts in the buckets.
+const mockUploads: Array<{ Key: string }> = [];
+jest.mock('@aws-sdk/lib-storage', () => ({
+  Upload: class {
+    constructor({ params }: { params: { Key: string } }) {
+      mockUploads.push(params);
+    }
+    done = async () => ({});
+  },
+}));
+
+describe('Editing a video never overwrites its stored keys or transcoding state', () => {
   const owner = { id: 'owner', email: 'owner@example.com' };
   let rows: Map<string, any>;
   // Runs once the use case has read the video, before it saves the edit.
@@ -70,6 +82,7 @@ describe('Editing a video never overwrites its media or transcoding state', () =
   beforeEach(() => {
     rows = new Map();
     afterRead = undefined;
+    mockUploads.length = 0;
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
@@ -161,5 +174,68 @@ describe('Editing a video never overwrites its media or transcoding state', () =
       transcoding_status: 'pending',
       transcoding_error: null,
     });
+  });
+
+  // The subtitle is presigned in the media bucket, next to every source.
+  it.each([
+    ['the key of another video source', 'another-video/source/original.mp4'],
+    // The settings page sends the name of a picked file it never uploads.
+    ['the name of a subtitle file the edit does not upload', 'subtitles.srt'],
+  ])('keeps the stored subtitle when the form sends %s', async (_, sent) => {
+    rows.set('video', storedVideo({ subtitle_id: 'subtitle-video.vtt' }));
+
+    await usecase().execute(form({ subtitle_id: sent }), owner.email);
+
+    expect(rows.get('video')).toMatchObject({
+      title: 'New title',
+      subtitle_id: 'subtitle-video.vtt',
+    });
+  });
+
+  it('keeps a video without subtitles without any once edited', async () => {
+    rows.set('video', storedVideo({ subtitle_id: null }));
+
+    // The settings page posts the null it loaded, as a multipart string.
+    await usecase().execute(form({ subtitle_id: 'null' }), owner.email);
+
+    expect(rows.get('video')).toMatchObject({
+      title: 'New title',
+      subtitle_id: null,
+    });
+  });
+
+  it('ignores a miniature key sent by the owner', async () => {
+    rows.set('video', storedVideo({ miniature_id: 'miniature-video.jpg' }));
+
+    await usecase().execute(
+      form({ miniature_id: 'another-video/source/miniature-original' }),
+      owner.email,
+    );
+
+    expect(rows.get('video')).toMatchObject({
+      title: 'New title',
+      miniature_id: 'miniature-video.jpg',
+    });
+  });
+
+  it('points the video at the miniature it uploaded, not a key sent with it', async () => {
+    rows.set('video', storedVideo({ miniature_id: 'miniature-video.jpg' }));
+    const image = await sharp({
+      create: { width: 8, height: 8, channels: 3, background: '#00ccff' },
+    })
+      .png()
+      .toBuffer();
+
+    await usecase().execute(
+      form({ miniature_id: 'another-video/source/miniature-original' }),
+      owner.email,
+      [{ fieldname: 'miniature', buffer: image } as Express.Multer.File],
+    );
+
+    expect(mockUploads).toHaveLength(1);
+    const uploaded = mockUploads[0].Key;
+    expect(uploaded).not.toBe('another-video/source/miniature-original');
+    expect(uploaded).not.toBe('miniature-video.jpg');
+    expect(rows.get('video').miniature_id).toBe(uploaded);
   });
 });
