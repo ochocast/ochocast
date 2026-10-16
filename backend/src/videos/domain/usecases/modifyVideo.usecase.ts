@@ -12,12 +12,15 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import sharp = require('sharp');
 
-// Set by the upload and the transcoding pipeline, never by the owner's form.
+// Set by the uploads and the transcoding pipeline, never by the owner's form:
+// a miniature replaced here gets the key this use case wrote.
 const SERVER_OWNED_FIELDS = [
   'media_id',
   'duration',
   'transcoding_status',
   'transcoding_error',
+  'miniature_id',
+  'subtitle_id',
 ] as const;
 
 export class ModifyVideoUsecase {
@@ -49,9 +52,10 @@ export class ModifyVideoUsecase {
 
     // Gérer un éventuel nouveau fichier de miniature
     const miniatureFile = files?.find((file) => file.fieldname === 'miniature');
+    let miniature_id: string | undefined;
 
     if (miniatureFile) {
-      const miniature_id = `miniature${Date.now()}.jpg`;
+      miniature_id = `miniature${Date.now()}.jpg`;
 
       // Redimensionner/comprimer la miniature comme lors de la création
       const processedBuffer = await sharp(miniatureFile.buffer)
@@ -73,9 +77,6 @@ export class ModifyVideoUsecase {
       });
 
       await miniatureUpload.done();
-
-      // Met à jour l'id de miniature pour cette vidéo
-      video.miniature_id = miniature_id;
     }
 
     video.updatedAt = new Date();
@@ -87,11 +88,13 @@ export class ModifyVideoUsecase {
     // while a new miniature uploads. The form echoes the values its page
     // loaded: saved after the source fallback, a stale media_id would point the
     // video at a playlist never written. A forged key or duration would be
-    // presigned.
+    // presigned. The subtitle it sends is a file it never uploads, or "null".
     const update: Partial<VideoObject> & Pick<VideoObject, 'id'> = {
       ...video,
     };
     for (const field of SERVER_OWNED_FIELDS) delete update[field];
+    // Met à jour l'id de miniature pour cette vidéo
+    if (miniature_id) update.miniature_id = miniature_id;
     return await this.videoGateway.modifyVideo(update);
   }
 }
