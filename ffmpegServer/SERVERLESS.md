@@ -35,7 +35,10 @@ TRANSCODING_DISPATCH_SECRET=<secret aléatoire de 32 caractères minimum>
 TRANSCODING_CALLBACK_SECRET=<autre secret aléatoire de 32 caractères minimum>
 TRANSCODING_LEASE_SECONDS=3600
 UPLOAD_MAX_BYTES=1073741824
+PUBLIC_API_URL=https://<domaine public>/api
 ```
+
+Avec `scaleway`, le backend refuse de démarrer sans `PUBLIC_API_URL` en https : les URL des playlists HLS seraient sinon construites en `http://` derrière l'ingress qui termine TLS, et bloquées par le navigateur (contenu mixte). Seul `NODE_ENV=development` (pont local de `npm run local:queue-config`, page et API en http) en est dispensé.
 
 Le backend publie uniquement vers Scaleway Queues (ou ElasticMQ avec `local` en développement). Une configuration de queue incomplète empêche le démarrage ; sans fournisseur, le transcodage est désactivé (voir ci-dessous).
 Les credentials Queues sont distincts des credentials Object Storage.
@@ -149,7 +152,7 @@ Quand la source a une piste audio, le worker écrit `<id>/audio.flac` (FLAC 16 b
 
 ### Ordre de déploiement
 
-1. **Backend d'abord** (Argo). Il accepte les champs `permanent`/`reason`, acquitte les jobs définitifs et applique `TRANSCODING_MAX_ATTEMPTS` dans `claim`. Le worker actuel n'envoie pas ces champs et traite déjà la réponse `completed` : il reste compatible. Les enregistrements au-delà de `UPLOAD_MAX_BYTES` sont publiés depuis leur source dès ce déploiement.
+1. **Backend d'abord** (Argo). Prérequis : `PUBLIC_API_URL` en https dans son environnement, sans quoi il refuse de démarrer avec `scaleway` (staging : `values-staging.yaml` ; prod : à ajouter avant d'activer la queue). Il accepte les champs `permanent`/`reason`, acquitte les jobs définitifs et applique `TRANSCODING_MAX_ATTEMPTS` dans `claim`. Le worker actuel n'envoie pas ces champs et traite déjà la réponse `completed` : il reste compatible. Les enregistrements au-delà de `UPLOAD_MAX_BYTES` sont publiés depuis leur source dès ce déploiement.
 2. **Puis l'image du worker** (digest dans le module Terraform `ffmpeg-serverless`). `TRANSCODING_MAX_DURATION_SECONDS` vaut 1200 s si le module ne la fournit pas. Sur 6 vCPU, fournir `FFMPEG_THREADS=4` et `TRANSCODING_MAX_DURATION_SECONDS=3600` avec cette image (voir « Performance et coût »).
 
 Si le worker est déployé avant le backend, l'ancien backend refuse les nouveaux champs (`400`, `forbidNonWhitelisted`) : le worker renvoie alors un échec simple, puis acquitte le message. Les échecs définitifs ne sont donc pas rejoués, mais une vidéo trop longue passe `failed` au lieu d'être lue depuis sa source. Le même comportement s'applique après un rollback du backend seul.
