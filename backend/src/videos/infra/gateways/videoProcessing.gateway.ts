@@ -20,7 +20,6 @@ export class VideoProcessingGateway implements IVideoProcessingGateway {
         id: true,
         transcoding_status: true,
         transcoding_error: true,
-        media_id: true,
         createdAt: true,
       },
     });

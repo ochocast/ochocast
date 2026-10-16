@@ -14,15 +14,12 @@ export interface VideoProcessingStatus {
   since: string | null;
   /** Only for a final failure; never the raw worker error. */
   reason: FinalFailureReason | null;
-  /** Ready through its source (no HLS renditions). */
-  playedFromSource: boolean;
 }
 
 /** The video columns the processing state is derived from. */
 export interface ProcessingVideo {
   transcoding_status: 'pending' | 'ready' | 'failed';
   transcoding_error: string | null;
-  media_id: string;
   createdAt: Date;
 }
 

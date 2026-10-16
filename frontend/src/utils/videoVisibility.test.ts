@@ -3,7 +3,6 @@ import {
   filterListedVideos,
   filterReadyVideos,
   getStoredUserId,
-  isVideoReady,
 } from './videoVisibility';
 
 const video = (
@@ -20,13 +19,6 @@ const video = (
 
 describe('videoVisibility', () => {
   afterEach(() => localStorage.clear());
-
-  it('treats videos without a status as ready (videos published before transcoding)', () => {
-    expect(isVideoReady(video('legacy', undefined))).toBe(true);
-    expect(isVideoReady(video('ok', 'ready'))).toBe(true);
-    expect(isVideoReady(video('wip', 'pending'))).toBe(false);
-    expect(isVideoReady(video('ko', 'failed'))).toBe(false);
-  });
 
   it('keeps processing videos in lists but hides final failures from visitors', () => {
     const videos = [

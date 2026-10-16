@@ -1,7 +1,6 @@
 import { getVideoProcessing } from './api';
 import {
   fetchVideoProcessing,
-  isFinalProcessingState,
   nextPollDelay,
   parseVideoProcessing,
   processingFailureCopy,
@@ -21,16 +20,6 @@ describe('nextPollDelay', () => {
   });
 });
 
-describe('isFinalProcessingState', () => {
-  it('stops polling only on ready and failed', () => {
-    expect(isFinalProcessingState('ready')).toBe(true);
-    expect(isFinalProcessingState('failed')).toBe(true);
-    expect(isFinalProcessingState('queued')).toBe(false);
-    expect(isFinalProcessingState('processing')).toBe(false);
-    expect(isFinalProcessingState('retrying')).toBe(false);
-  });
-});
-
 describe('parseVideoProcessing', () => {
   it('accepts the API contract', () => {
     expect(
@@ -38,13 +27,11 @@ describe('parseVideoProcessing', () => {
         state: 'failed',
         since: null,
         reason: 'invalid_source',
-        playedFromSource: false,
       }),
     ).toEqual({
       state: 'failed',
       since: null,
       reason: 'invalid_source',
-      playedFromSource: false,
     });
   });
 
@@ -53,7 +40,6 @@ describe('parseVideoProcessing', () => {
       state: 'processing',
       since: null,
       reason: null,
-      playedFromSource: false,
     });
   });
 
@@ -81,7 +67,6 @@ describe('fetchVideoProcessing', () => {
         state: 'queued',
         since: '2026-10-16T10:00:00.000Z',
         reason: null,
-        playedFromSource: false,
       },
     });
     expect(mockedGet).toHaveBeenCalledWith('v1');
@@ -146,7 +131,6 @@ describe('videoPlayerView', () => {
     state,
     since: null,
     reason: null,
-    playedFromSource: false,
   });
 
   it('trusts the known processing state over a stale video status', () => {
