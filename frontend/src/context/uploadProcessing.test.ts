@@ -32,7 +32,6 @@ describe('processingUploadUpdate', () => {
     state: state as 'queued',
     since: null,
     reason,
-    playedFromSource: false,
   });
 
   it('completes the upload once the video is ready', () => {

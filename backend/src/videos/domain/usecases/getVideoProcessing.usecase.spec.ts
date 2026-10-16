@@ -10,7 +10,6 @@ describe('Processing state of a video (GET /videos/:id/processing)', () => {
   const video = (fields: Partial<ProcessingVideo> = {}): ProcessingVideo => ({
     transcoding_status: 'pending',
     transcoding_error: null,
-    media_id: 'video/master.m3u8',
     createdAt,
     ...fields,
   });
@@ -29,7 +28,6 @@ describe('Processing state of a video (GET /videos/:id/processing)', () => {
   const state = (fields: Record<string, unknown>) => ({
     since: null,
     reason: null,
-    playedFromSource: false,
     ...fields,
   });
 
@@ -49,27 +47,10 @@ describe('Processing state of a video (GET /videos/:id/processing)', () => {
   });
 
   describe('ready', () => {
-    it('is ready with HLS renditions, without reading the job', async () => {
+    it('is ready without reading the job', async () => {
       given(video({ transcoding_status: 'ready' }));
       expect(await run()).toEqual(state({ state: 'ready' }));
       expect(gateway.findJob).not.toHaveBeenCalled();
-    });
-
-    it('flags a video played from its source', async () => {
-      given(
-        video({
-          transcoding_status: 'ready',
-          media_id: 'video/source/original.mp4',
-        }),
-        job({
-          status: 'failed',
-          attempts: 1,
-          result: { permanent: true, reason: 'duration_exceeded' },
-        }),
-      );
-      expect(await run()).toEqual(
-        state({ state: 'ready', playedFromSource: true }),
-      );
     });
   });
 

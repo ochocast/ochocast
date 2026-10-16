@@ -32,8 +32,6 @@ export interface VideoProcessing {
   since: string | null;
   /** Final failure reason code, only when state is failed. */
   reason: string | null;
-  /** Ready by playing the uploaded source instead of HLS renditions. */
-  playedFromSource: boolean;
 }
 
 export interface User {

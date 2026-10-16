@@ -14,9 +14,6 @@ import {
   VideoProcessingStatus,
 } from '../videoProcessing';
 
-// Only transcoder output is HLS; anything else is played from its source.
-const isHls = (mediaId: string) => mediaId.endsWith('/master.m3u8');
-
 const status = (
   state: ProcessingState,
   fields: Partial<VideoProcessingStatus> = {},
@@ -24,7 +21,6 @@ const status = (
   state,
   since: null,
   reason: null,
-  playedFromSource: false,
   ...fields,
 });
 
@@ -44,8 +40,7 @@ export class GetVideoProcessingUsecase {
   async execute(id: string, now = Date.now()): Promise<VideoProcessingStatus> {
     const video = await this.gateway.findVideo(id);
     if (!video) throw new NotFoundException('Video not found');
-    if (video.transcoding_status === 'ready')
-      return status('ready', { playedFromSource: !isHls(video.media_id) });
+    if (video.transcoding_status === 'ready') return status('ready');
     const job = await this.gateway.findJob(id);
     if (job && isFinalFailure(job, this.maxAttempts))
       return status('failed', { reason: this.finalReason(job) });

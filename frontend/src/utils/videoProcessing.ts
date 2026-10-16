@@ -47,7 +47,6 @@ export const parseVideoProcessing = (data: unknown): VideoProcessing | null => {
     state: body.state as VideoProcessingState,
     since: typeof body.since === 'string' ? body.since : null,
     reason: typeof body.reason === 'string' ? body.reason : null,
-    playedFromSource: body.playedFromSource === true,
   };
 };
 

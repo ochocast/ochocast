@@ -58,7 +58,6 @@ describe('GET /api/videos/:id/processing', () => {
       state: 'processing',
       since: '2026-10-16T11:50:00.000Z',
       reason: null,
-      playedFromSource: false,
     };
     processing.execute.mockResolvedValue(body);
     const response = await request(app.getHttpServer())

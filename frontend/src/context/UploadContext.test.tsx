@@ -10,7 +10,7 @@ const mockedGet = getVideoProcessing as jest.Mock;
 const reply = (state: string, reason: string | null = null) => ({
   ok: true,
   status: 200,
-  data: { state, since: null, reason, playedFromSource: false },
+  data: { state, since: null, reason },
 });
 
 const flushPromises = async () => {

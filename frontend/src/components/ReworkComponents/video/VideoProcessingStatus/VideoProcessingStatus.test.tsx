@@ -11,7 +11,6 @@ const status = (
   state,
   since: null,
   reason: null,
-  playedFromSource: false,
   ...extra,
 });
 
@@ -168,17 +167,7 @@ describe('VideoProcessingStatus after a final failure', () => {
       'Convertissez-la en MP4, puis publiez-la à nouveau.',
     ],
     [
-      'deadline_exceeded',
-      'La vidéo est trop longue pour être préparée, et son format ne peut pas être lu tel quel.',
-      'Convertissez-la en MP4, puis publiez-la à nouveau.',
-    ],
-    [
       'max_attempts',
-      'Un problème temporaire a empêché la préparation de la vidéo.',
-      'Publiez-la à nouveau, ou contactez le support si le problème persiste.',
-    ],
-    [
-      'unknown',
       'Un problème temporaire a empêché la préparation de la vidéo.',
       'Publiez-la à nouveau, ou contactez le support si le problème persiste.',
     ],

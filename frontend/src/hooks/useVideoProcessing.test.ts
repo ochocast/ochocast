@@ -9,7 +9,7 @@ const mockedGet = getVideoProcessing as jest.Mock;
 const reply = (state: string, extra: Record<string, unknown> = {}) => ({
   ok: true,
   status: 200,
-  data: { state, since: null, reason: null, playedFromSource: false, ...extra },
+  data: { state, since: null, reason: null, ...extra },
 });
 
 const flushPromises = async () => {
@@ -100,7 +100,6 @@ describe('useVideoProcessing', () => {
       state: 'processing',
       since: '2026-10-16T10:00:00.000Z',
       reason: null,
-      playedFromSource: false,
     });
 
     await advance(10000);
