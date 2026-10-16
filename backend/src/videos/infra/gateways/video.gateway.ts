@@ -229,7 +229,9 @@ export class VideoGateway implements IVideoGateway {
     } while (continuationToken);
   }
 
-  async modifyVideo(video: VideoObject): Promise<VideoObject> {
+  async modifyVideo(
+    video: Partial<VideoObject> & Pick<VideoObject, 'id'>,
+  ): Promise<VideoObject> {
     const existingVideo = await this.videosRepository.findOneBy({
       id: video.id,
     });
