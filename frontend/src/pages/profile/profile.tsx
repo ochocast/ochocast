@@ -13,6 +13,10 @@ import {
 } from '../../utils/api';
 
 import { User, Video } from '../../utils/VideoProperties';
+import {
+  filterListedVideos,
+  getStoredUserId,
+} from '../../utils/videoVisibility';
 
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbnail';
@@ -140,6 +144,9 @@ const Profile: FC<ProfileProps> = () => {
   const isCurrentUser = userString
     ? JSON.parse(userString).id === currentUser?.id
     : false;
+  // Failed videos stay visible to their creator only.
+  const viewerId = getStoredUserId();
+  const listedVideos = filterListedVideos(videos, viewerId);
 
   return (
     <div className={style.videos}>
@@ -177,8 +184,8 @@ const Profile: FC<ProfileProps> = () => {
         </div>
 
         <div className={style.video_row} data-cards-per-row={cardsPerRow}>
-          {videos.length > 0 ? (
-            videos.map((video) => (
+          {listedVideos.length > 0 ? (
+            listedVideos.map((video) => (
               <Thumbnail
                 key={video.id}
                 Id={video.id}
@@ -198,6 +205,8 @@ const Profile: FC<ProfileProps> = () => {
                 showEditButton={isCurrentUser}
                 cropTags={true}
                 duration={video.duration}
+                transcodingStatus={video.transcoding_status}
+                isOwner={!!viewerId && video.creator?.id === viewerId}
               />
             ))
           ) : (

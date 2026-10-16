@@ -117,6 +117,9 @@ export const findUsers = (user) => api.get(`/users/find?value=${user}`);
 export const searchVideos = (data) => api.get(`/videos/searchvideo/${data}`);
 export const getVideoSuggestions = (id) =>
   api.get(`/videos/videoSuggestions/${id}`);
+// Public: anonymous visitors poll it while a video is being processed.
+export const getVideoProcessing = (videoId) =>
+  publicApi.get(`/videos/${encodeURIComponent(videoId)}/processing`);
 export const incrementVideoViews = (videoId) =>
   publicApi.post(`/videos/${videoId}/views`);
 

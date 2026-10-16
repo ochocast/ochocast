@@ -33,6 +33,10 @@ export interface PreviewMinitureProps {
   onTagClick?: (tag: string) => void;
   cropTags?: boolean;
   duration?: number;
+  /** Processing videos get a badge; final failures one for their owner only. */
+  transcodingStatus?: 'pending' | 'ready' | 'failed';
+  /** Defaults to comparing the signed-in user with creatorId. */
+  isOwner?: boolean;
   translations?: Partial<PreviewMinitureTranslations>;
 }
 
@@ -149,6 +153,16 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
   const isCreator = user?.id && props.creatorId && user.id === props.creatorId;
   const canEdit = props.showEditButton || isCreator;
+  const isOwner = props.isOwner ?? !!isCreator;
+  const statusBadge =
+    props.transcodingStatus === 'pending'
+      ? {
+          label: t('thumbnailProcessingBadge'),
+          className: styles.statusPending,
+        }
+      : props.transcodingStatus === 'failed' && isOwner
+        ? { label: t('thumbnailFailedBadge'), className: styles.statusFailed }
+        : null;
 
   const toggleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -362,20 +376,28 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           />
         </div>
 
-        <div className={styles.viewsContainer}>
-          <img
-            className={styles.viewIcon}
-            src={ViewIcon}
-            alt={translations.viewsLabel}
-          />
-          <div className={styles.viewValue}>
-            {props.views !== undefined && props.views > 0
-              ? props.views
-              : translations.noViewsLabel}
+        {/* Not watchable yet: its status matters more than its views. */}
+        {statusBadge ? (
+          <div className={`${styles.statusBadge} ${statusBadge.className}`}>
+            <span className={styles.statusDot} aria-hidden="true" />
+            <span className={styles.statusLabel}>{statusBadge.label}</span>
           </div>
-        </div>
+        ) : (
+          <div className={styles.viewsContainer}>
+            <img
+              className={styles.viewIcon}
+              src={ViewIcon}
+              alt={translations.viewsLabel}
+            />
+            <div className={styles.viewValue}>
+              {props.views !== undefined && props.views > 0
+                ? props.views
+                : translations.noViewsLabel}
+            </div>
+          </div>
+        )}
 
-        {props.duration && (
+        {!!props.duration && (
           <div className={styles.timeContainer}>
             <div className={styles.timeValue}>
               {formatDuration(props.duration)}

@@ -1,5 +1,5 @@
 // videoMedia.tsx
-import React, { useEffect, useState, FC, useRef } from 'react';
+import React, { useCallback, useEffect, useState, FC, useRef } from 'react';
 import styles from './videoMedia.module.css';
 import ReactMarkdown from 'react-markdown';
 import { default as _ReactPlayer } from 'react-player/lazy';
@@ -16,7 +16,20 @@ import {
   incrementVideoViews,
 } from '../../utils/api';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { CommentObject, User, Video } from '../../utils/VideoProperties';
+import {
+  CommentObject,
+  User,
+  Video,
+  VideoProcessing,
+} from '../../utils/VideoProperties';
+import {
+  filterReadyVideos,
+  getStoredUserId,
+} from '../../utils/videoVisibility';
+import { useVideoProcessing } from '../../hooks/useVideoProcessing';
+import { urlFrom, useMediaUrlRetry } from '../../hooks/useMediaUrlRetry';
+import { videoPlayerView } from '../../utils/videoProcessing';
+import VideoProcessingStatus from '../../components/ReworkComponents/video/VideoProcessingStatus/VideoProcessingStatus';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
 import Tag from '../../components/ReworkComponents/generic/Tag/Tag';
@@ -67,6 +80,15 @@ interface QualityOption {
   level: number;
   label: string;
 }
+
+/** Suggestions and the end-screen next video must be playable right away. */
+const playableSuggestions = (response?: {
+  ok: boolean;
+  data?: unknown;
+}): Video[] =>
+  response?.ok && Array.isArray(response.data)
+    ? filterReadyVideos(response.data as Video[]).slice(0, 3)
+    : [];
 
 const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
   const parentComments = comments.filter((c) => c.parentid === null);
@@ -180,9 +202,7 @@ const VideoMedia: FC = () => {
             }
 
             const suggestionsRes = await getVideoSuggestions(currentVideoId);
-            if (suggestionsRes) {
-              setSuggestedVideos(suggestionsRes.data.slice(0, 3));
-            }
+            setSuggestedVideos(playableSuggestions(suggestionsRes));
           }
         }
       } catch (err) {
@@ -277,23 +297,18 @@ const VideoMedia: FC = () => {
           getLikedComments(),
         ]);
 
-      if (videoRes) {
-        const currentVideo = videoRes.data[0];
-        setVideo(currentVideo);
-
+      const currentVideo: Video | undefined = videoRes?.ok
+        ? videoRes.data?.[0]
+        : undefined;
+      setVideo(currentVideo);
+      if (currentVideo) {
         const suggestionsRes = await getVideoSuggestions(currentVideo.id);
-        if (suggestionsRes) {
-          setSuggestedVideos(suggestionsRes.data.slice(0, 3));
-        }
+        setSuggestedVideos(playableSuggestions(suggestionsRes));
       }
 
-      if (mediaRes) setUrl(mediaRes.data);
-
-      if (subtitleRes && subtitleRes.data) {
-        setSubtitleUrl(subtitleRes.data);
-      } else {
-        setSubtitleUrl(null);
-      }
+      // Not playable yet while processing: the player waits for a real URL.
+      setUrl(urlFrom(mediaRes) ?? '');
+      setSubtitleUrl(urlFrom(subtitleRes));
 
       if (commentsRes && likedCommentsRes) {
         const likedComments = Array.isArray(likedCommentsRes.data)
@@ -322,32 +337,84 @@ const VideoMedia: FC = () => {
     window.scrollTo(0, 0);
   }, [userString, videoId]);
 
+  const latestVideoIdRef = useRef(videoId);
   useEffect(() => {
-    if (video?.transcoding_status !== 'pending' || !videoId) return;
+    latestVideoIdRef.current = videoId;
+  }, [videoId]);
 
-    const poll = window.setInterval(async () => {
-      const videoResponse = await getVideo(videoId);
-      const refreshedVideo = videoResponse?.data?.[0] as Video | undefined;
-      if (!refreshedVideo) return;
-      setVideo(refreshedVideo);
+  const { unavailable: mediaUnavailable, load: loadMediaUrl } =
+    useMediaUrlRetry(videoId);
 
-      if (refreshedVideo.transcoding_status === 'ready') {
-        const [mediaResponse, subtitleResponse] = await Promise.all([
-          getMedia(videoId),
-          getSubtitle(videoId),
-        ]);
-        if (mediaResponse?.data) setUrl(mediaResponse.data);
-        setSubtitleUrl(subtitleResponse?.data || null);
+  const handleProcessingFinal = useCallback(
+    async (status: VideoProcessing, processedId: string) => {
+      if (status.state === 'failed') {
+        setVideo((prev) =>
+          prev?.id === processedId
+            ? { ...prev, transcoding_status: 'failed' }
+            : prev,
+        );
+        return;
       }
-    }, 3000);
 
-    return () => window.clearInterval(poll);
-  }, [video?.transcoding_status, videoId]);
+      // A media error right after ready is retried, then explained.
+      const [videoResponse, mediaUrl, subtitleResponse] = await Promise.all([
+        getVideo(processedId),
+        loadMediaUrl(processedId),
+        getSubtitle(processedId),
+      ]);
+      if (latestVideoIdRef.current !== processedId) return;
+
+      const refreshed: Video | undefined = videoResponse?.ok
+        ? videoResponse.data?.[0]
+        : undefined;
+      // Set together: the player only appears along with a playable URL.
+      setUrl(mediaUrl ?? '');
+      setSubtitleUrl(urlFrom(subtitleResponse));
+      setVideo((prev) =>
+        prev?.id === processedId
+          ? { ...prev, ...refreshed, transcoding_status: 'ready' }
+          : prev,
+      );
+    },
+    [loadMediaUrl],
+  );
+
+  // A ready video whose first media request failed gets the same retries.
+  const isReady = video?.transcoding_status === 'ready';
+  useEffect(() => {
+    if (isLoading || !isReady || url || !videoId) return;
+    let active = true;
+    loadMediaUrl(videoId).then((mediaUrl) => {
+      if (active && mediaUrl) setUrl(mediaUrl);
+    });
+    return () => {
+      active = false;
+    };
+  }, [isLoading, isReady, url, videoId, loadMediaUrl]);
+
+  const retryMediaUrl = async () => {
+    if (!videoId) return;
+    const mediaUrl = await loadMediaUrl(videoId);
+    if (mediaUrl) setUrl(mediaUrl);
+  };
+
+  const viewerId = getStoredUserId();
+  const isVideoCreator =
+    !!viewerId && !!video?.creator && video.creator.id === viewerId;
+  // Visitors only need to follow pending videos; a failed video's reason is
+  // for its creator.
+  const followProcessing =
+    video?.transcoding_status === 'pending' ||
+    (video?.transcoding_status === 'failed' && isVideoCreator);
+  const { status: processing } = useVideoProcessing(currentVideoId, {
+    enabled: followProcessing,
+    onFinal: handleProcessingFinal,
+  });
 
   useEffect(() => {
     const renewSignedUrl = async () => {
-      const url_response = await getMedia(videoId);
-      if (url_response) setUrl(url_response.data);
+      const renewedUrl = urlFrom(await getMedia(videoId));
+      if (renewedUrl) setUrl(renewedUrl);
     };
 
     const ms = (linkExpirationTime - renewalThreshold) * 1000;
@@ -574,6 +641,7 @@ const VideoMedia: FC = () => {
     ? JSON.parse(backendUser)?.id || null
     : null;
   const canEdit = currentUserId === video.creator.id;
+  const playerView = videoPlayerView(video.transcoding_status, processing);
 
   const handleProfileClick = () => {
     const uname = video.creator?.username || video.creator.firstName;
@@ -587,10 +655,33 @@ const VideoMedia: FC = () => {
         <main className={styles.mainColumn}>
           {/* Player */}
           <div className={styles.playerWrapper}>
-            {video.transcoding_status === 'pending' ? (
-              <LoadingCircle />
-            ) : video.transcoding_status === 'failed' ? (
-              <p>{video.transcoding_error || 'Video transcoding failed'}</p>
+            {playerView !== 'player' ? (
+              <VideoProcessingStatus
+                status={processing}
+                failed={playerView === 'failed'}
+                isCreator={canEdit}
+              />
+            ) : !url ? (
+              <div className={styles.playerLoading}>
+                {mediaUnavailable ? (
+                  <div className={styles.playerError} role="alert">
+                    <p className={styles.playerErrorMessage}>
+                      {t('videoMediaUnavailable')}
+                    </p>
+                    <Button
+                      type={ButtonType.primary}
+                      label={t('retry')}
+                      onClick={retryMediaUrl}
+                    />
+                  </div>
+                ) : (
+                  <span
+                    className={styles.playerSpinner}
+                    role="status"
+                    aria-label={t('videoMediaLoading')}
+                  />
+                )}
+              </div>
             ) : (
               <>
                 <ReactPlayer
