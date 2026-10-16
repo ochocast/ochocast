@@ -436,6 +436,8 @@ test('one FFmpeg process decodes the source once and encodes the three rendition
         '48000',
         '-b:a',
         '128k',
+        '-sn',
+        '-dn',
         path.join(output, `${variant.name}.m3u8`),
       ]),
     ]);
@@ -549,6 +551,47 @@ test('a source without audio produces video-only renditions in the same layout',
         await ffprobeStreams(path.join(output, `${variant.name}.m3u8`)),
         [`h264 ${variant.resolution}`],
       );
+  });
+});
+
+test('a subtitle track in the source never reaches the HLS renditions', async () => {
+  await withDirectory(async (directory) => {
+    const plain = path.join(directory, 'plain.mp4');
+    const srt = path.join(directory, 'track.srt');
+    const input = path.join(directory, 'input.mp4');
+    const output = path.join(directory, 'hls');
+    await mkdir(output);
+    await clip(plain, true, 2);
+    await writeFile(srt, '1\n00:00:00,000 --> 00:00:01,500\nHello\n');
+    await ffmpeg(
+      '-i',
+      plain,
+      '-i',
+      srt,
+      '-map',
+      '0',
+      '-map',
+      '1',
+      '-c',
+      'copy',
+      '-c:s',
+      'mov_text',
+      input,
+    );
+    await new TranscodingService({} as S3Client).transcodeVideoHLS(
+      input,
+      output,
+    );
+    assert.deepEqual(
+      (await readdir(output)).sort(),
+      [
+        'master.m3u8',
+        ...['360p', '480p', '720p'].flatMap((name) => [
+          `${name}.m3u8`,
+          `${name}0.ts`,
+        ]),
+      ].sort(),
+    );
   });
 });
 

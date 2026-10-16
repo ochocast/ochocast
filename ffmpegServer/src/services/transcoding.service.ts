@@ -146,6 +146,10 @@ export class TranscodingService {
         ...(hasAudioTrack
           ? ['-c:a', 'aac', '-ar', '48000', '-b:a', '128k']
           : ['-an']),
+        // Source subtitle/data tracks would add files the proxy never serves,
+        // and a bitmap subtitle would fail every rendition.
+        '-sn',
+        '-dn',
         path.join(outputDir, `${variant.name}.m3u8`),
       ]),
     ]);
