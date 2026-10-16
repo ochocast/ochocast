@@ -359,29 +359,42 @@ test('a backend predating permanent failures (400) receives a plain failure inst
       const body = JSON.parse(String(init.body));
       bodies.push(body);
       // forbidNonWhitelisted: an older backend refuses unknown result fields.
+      const known = [
+        'jobId',
+        'videoId',
+        'success',
+        'duration',
+        'subtitle_id',
+        'error',
+        'processedAt',
+      ];
       return new Response('{}', {
-        status: 'permanent' in body.result ? 400 : 200,
+        status: Object.keys(body.result).every((key) => known.includes(key))
+          ? 200
+          : 400,
       });
     },
   );
   t.mock.method(console, 'warn', () => {});
-  await new BackendClient('http://backend/api', secret).complete(
-    job.jobId,
-    randomUUID(),
+  const client = new BackendClient('http://backend/api', secret);
+  const plainFailure = { ...result, success: false, error: 'too long' };
+  // A permanent failure, and a transient one after the probe (S3 outage).
+  for (const extra of [
     {
-      ...result,
-      success: false,
-      error: 'too long',
       permanent: true,
       reason: 'duration_exceeded',
+      sourceCodecsPlayable: true,
     },
-  );
-  assert.equal(bodies.length, 2);
-  assert.deepEqual(bodies[1].result, {
-    ...result,
-    success: false,
-    error: 'too long',
-  });
+    { sourceCodecsPlayable: false },
+  ] as const) {
+    bodies.length = 0;
+    await client.complete(job.jobId, randomUUID(), {
+      ...plainFailure,
+      ...extra,
+    });
+    assert.equal(bodies.length, 2);
+    assert.deepEqual(bodies[1].result, plainFailure);
+  }
 });
 
 test('backend client retries transient callbacks, but rejects an expired lease', async (t) => {

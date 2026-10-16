@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readdir,
@@ -53,7 +54,10 @@ test('real FFmpeg generates three HLS variants, a thumbnail and a FLAC', async (
     ]);
     const service = new TranscodingService(s3);
     assert.equal(await service.hasAudio(input), true);
-    assert.equal(await service.probeSource(input), 2);
+    assert.deepEqual(await service.probeSource(input), {
+      duration: 2,
+      codecsPlayable: true,
+    });
     await service.transcodeVideoHLS(input, output);
     const master = await readFile(path.join(output, 'master.m3u8'), 'utf8');
     for (const variant of ['360p', '480p', '720p']) {
@@ -169,7 +173,7 @@ test('unreadable inputs and inputs without video are permanent invalid sources',
     );
     await writeFile(garbage, 'not a video');
     const service = new TranscodingService({} as S3Client);
-    assert.equal(await service.probeSource(video), 2);
+    assert.equal((await service.probeSource(video)).duration, 2);
     await assert.rejects(service.probeSource(garbage), invalidSource);
     await assert.rejects(service.probeSource(audioOnly), invalidSource);
     // A missing binary is a deployment problem, not the source: still retryable.
@@ -177,6 +181,192 @@ test('unreadable inputs and inputs without video are permanent invalid sources',
     await assert.rejects(
       service.probeSource(video),
       (error: unknown) => !(error instanceof PermanentJobError),
+    );
+  });
+});
+
+test('the probe tells whether browsers decode the source as is', async () => {
+  await withDirectory(async (directory) => {
+    const h264 = ['-c:v', 'libx264', '-pix_fmt', 'yuv420p'];
+    const source = async (
+      name: string,
+      video: string[],
+      audio = ['-c:a', 'aac'],
+    ) => {
+      const file = path.join(directory, name);
+      await ffmpeg(
+        '-f',
+        'lavfi',
+        '-i',
+        'testsrc2=s=64x64:r=10',
+        '-f',
+        'lavfi',
+        '-i',
+        'sine',
+        '-t',
+        '1',
+        ...video,
+        ...audio,
+        file,
+      );
+      return file;
+    };
+    const cover = path.join(directory, 'cover.png');
+    await ffmpeg(
+      '-f',
+      'lavfi',
+      '-i',
+      'color=c=red:s=32x32',
+      '-frames:v',
+      '1',
+      cover,
+    );
+    const withCover = path.join(directory, 'with-cover.mp4');
+    await ffmpeg(
+      '-i',
+      await source('h264-aac.mp4', h264),
+      '-i',
+      cover,
+      '-map',
+      '0',
+      '-map',
+      '1',
+      '-c',
+      'copy',
+      '-c:v:1',
+      'mjpeg',
+      '-disposition:v:1',
+      'attached_pic',
+      withCover,
+    );
+    const service = new TranscodingService({} as S3Client);
+    const playable = async (file: string) =>
+      (await service.probeSource(file)).codecsPlayable;
+
+    assert.equal(await playable(path.join(directory, 'h264-aac.mp4')), true);
+    // Smoke test only: FFmpeg's muxer lists the cover after the video.
+    assert.equal(await playable(withCover), true);
+    assert.equal(
+      await playable(await source('h264-silent.mp4', h264, ['-an'])),
+      true,
+    );
+    assert.equal(
+      await playable(
+        await source(
+          'vp9-opus.webm',
+          [
+            '-c:v',
+            'libvpx-vp9',
+            '-deadline',
+            'realtime',
+            '-pix_fmt',
+            'yuv420p',
+          ],
+          ['-c:a', 'libopus'],
+        ),
+      ),
+      true,
+    );
+    // The iPhone default: Chrome on Linux and many Firefox setups cannot decode it.
+    assert.equal(
+      await playable(
+        await source('hevc.mov', [
+          '-c:v',
+          'libx265',
+          '-x265-params',
+          'log-level=error',
+          '-tag:v',
+          'hvc1',
+          '-pix_fmt',
+          'yuv420p',
+        ]),
+      ),
+      false,
+    );
+    assert.equal(
+      await playable(
+        await source('h264-444.mp4', [
+          '-c:v',
+          'libx264',
+          '-pix_fmt',
+          'yuv444p',
+        ]),
+      ),
+      false,
+    );
+    assert.equal(
+      await playable(await source('mpeg4.mp4', ['-c:v', 'mpeg4'])),
+      false,
+    );
+    assert.equal(
+      await playable(await source('h264-pcm.mov', h264, ['-c:a', 'pcm_s16le'])),
+      false,
+    );
+  });
+});
+
+test('the probe judges the main video, even after a cover image listed first', async (t) => {
+  // FFmpeg's mp4 muxer always lists a cover last; other tools may not.
+  await withDirectory(async (directory) => {
+    const ffprobe = path.join(directory, 'ffprobe');
+    const output = {
+      streams: [
+        {
+          codec_name: 'mjpeg',
+          codec_type: 'video',
+          pix_fmt: 'yuvj444p',
+          disposition: { attached_pic: 1 },
+        },
+        {
+          codec_name: 'h264',
+          codec_type: 'video',
+          pix_fmt: 'yuv420p',
+          disposition: { attached_pic: 0 },
+        },
+        {
+          codec_name: 'aac',
+          codec_type: 'audio',
+          disposition: { attached_pic: 0 },
+        },
+      ],
+      format: { duration: '3.500000' },
+    };
+    await writeFile(
+      ffprobe,
+      `#!/bin/sh\ncat <<'JSON'\n${JSON.stringify(output)}\nJSON\n`,
+    );
+    await chmod(ffprobe, 0o755);
+    setEnv(t, 'FFPROBE_PATH', ffprobe);
+    assert.deepEqual(
+      await new TranscodingService({} as S3Client).probeSource('source.mp4'),
+      { duration: 3, codecsPlayable: true },
+    );
+  });
+});
+
+test('the probe reads a source with many streams (multi-language subtitles)', async () => {
+  await withDirectory(async (directory) => {
+    const video = path.join(directory, 'video.mp4');
+    const subtitle = path.join(directory, 'subtitle.srt');
+    const source = path.join(directory, 'source.mkv');
+    await clip(video);
+    await writeFile(subtitle, '1\n00:00:00,000 --> 00:00:01,000\nHello\n');
+    // 60 subtitle tracks: the probe output is well above 8 KiB.
+    await ffmpeg(
+      '-i',
+      video,
+      '-i',
+      subtitle,
+      '-map',
+      '0',
+      ...Array.from({ length: 60 }, () => ['-map', '1']).flat(),
+      '-c',
+      'copy',
+      source,
+    );
+    assert.deepEqual(
+      await new TranscodingService({} as S3Client).probeSource(source),
+      { duration: 2, codecsPlayable: true },
     );
   });
 });
@@ -210,6 +400,7 @@ test('a video above TRANSCODING_MAX_DURATION_SECONDS publishes its attachments, 
     assert.equal(result.permanent, true);
     assert.equal(result.reason, 'duration_exceeded');
     assert.equal(result.duration, 2);
+    assert.equal(result.sourceCodecsPlayable, true);
     assert.match(result.error || '', /TRANSCODING_MAX_DURATION_SECONDS/);
     // The backend then plays the source: its final miniature and subtitle exist.
     assert.deepEqual(uploads.sort(), [

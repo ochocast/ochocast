@@ -194,6 +194,13 @@ export class TranscodingJobsService {
         transcoding_status: 'failed',
         transcoding_error: `${error}; a .${extension} source cannot be played without transcoding`,
       };
+    // Its container is not enough: browsers may lack the codec (HEVC, 10-bit)
+    // and the player would stay silent. Unknown (not probed) counts as no.
+    if (result.sourceCodecsPlayable !== true)
+      return {
+        transcoding_status: 'failed',
+        transcoding_error: `${error}; the source codecs cannot be played without transcoding`,
+      };
     // As with transcoding disabled: the retained source, through a presigned
     // URL. The worker already wrote the final miniature and subtitle.
     this.logger.warn(

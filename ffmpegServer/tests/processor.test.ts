@@ -277,7 +277,10 @@ function untilDeadline(this: unknown) {
 }
 
 test('a deadline while the final attachments upload (stalled S3 PUT) stays retryable', async (t) => {
-  t.mock.method(TranscodingService.prototype, 'probeSource', async () => 2);
+  t.mock.method(TranscodingService.prototype, 'probeSource', async () => ({
+    duration: 2,
+    codecsPlayable: true,
+  }));
   t.mock.method(
     TranscodingService.prototype,
     'processMiniature',
@@ -309,7 +312,10 @@ test('a deadline while the final attachments upload (stalled S3 PUT) stays retry
 });
 
 test('a deadline during encoding is permanent, once the final miniature and subtitle are written', async (t) => {
-  t.mock.method(TranscodingService.prototype, 'probeSource', async () => 2);
+  t.mock.method(TranscodingService.prototype, 'probeSource', async () => ({
+    duration: 2,
+    codecsPlayable: false,
+  }));
   t.mock.method(
     TranscodingService.prototype,
     'processMiniature',
@@ -346,6 +352,8 @@ test('a deadline during encoding is permanent, once the final miniature and subt
   assert.equal(stored?.permanent, true);
   assert.equal(stored?.reason, 'deadline_exceeded');
   assert.equal(stored?.duration, 2);
+  // The backend plays the source only if browsers decode its codecs.
+  assert.equal(stored?.sourceCodecsPlayable, false);
   // The backend then plays the source with these final attachments.
   assert.deepEqual(writtenBeforeEncoding?.sort(), [
     'image.jpg',

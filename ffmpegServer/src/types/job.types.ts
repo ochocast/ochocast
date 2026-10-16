@@ -44,6 +44,11 @@ export interface VideoTranscodingResult {
   /** Stored, then acknowledged: the trigger does not retry this failure. */
   permanent?: boolean;
   reason?: PermanentFailureReason;
+  /**
+   * Set on a failure once the source was probed: whether browsers decode its
+   * codecs as is. The source fallback requires it.
+   */
+  sourceCodecsPlayable?: boolean;
 }
 
 export interface HLSVariant {

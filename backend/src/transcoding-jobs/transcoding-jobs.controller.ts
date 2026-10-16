@@ -81,6 +81,9 @@ export class TranscodingResultDto {
   @IsString()
   @MaxLength(64)
   reason?: string;
+  @IsOptional()
+  @IsBoolean()
+  sourceCodecsPlayable?: boolean;
 }
 
 export class CompleteTranscodingDto {

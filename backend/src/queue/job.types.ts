@@ -24,4 +24,6 @@ export interface VideoTranscodingResult {
   permanent?: boolean;
   /** Why it is permanent, e.g. duration_exceeded (see SOURCE_PLAYBACK_REASONS). */
   reason?: string;
+  /** Whether browsers decode the probed source's codecs as is. */
+  sourceCodecsPlayable?: boolean;
 }
