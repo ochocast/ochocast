@@ -105,7 +105,7 @@ STOCK_MEDIA_BUCKET=<bucket media de cet environnement>
 STOCK_MINIATURE_BUCKET=<bucket miniatures de cet environnement>
 ```
 
-Le worker refuse de démarrer si `TRANSCODING_MAX_DURATION_SECONDS`, `TRANSCODING_UPLOAD_CONCURRENCY` ou `FFMPEG_THREADS` est invalide (entier positif attendu), comme pour `TRANSCODING_JOB_TIMEOUT_MS` : sinon chaque job échouerait après le téléchargement de sa source, puis serait rejoué.
+Le worker refuse de démarrer si `TRANSCODING_MAX_SOURCE_BYTES`, `TRANSCODING_MAX_DURATION_SECONDS`, `TRANSCODING_UPLOAD_CONCURRENCY` ou `FFMPEG_THREADS` est invalide (entier positif attendu), comme pour `TRANSCODING_JOB_TIMEOUT_MS` : sinon chaque job échouerait après le téléchargement de sa source, puis serait rejoué.
 
 Le backend doit être joignable par le worker et autoriser les callbacks via son ingress. Les routes applicatives vérifient le secret dans `X-Transcoding-Token`, sans le faire passer par la validation JWT Keycloak. Si le container backend est lui-même privé au niveau Scaleway IAM, configurer également l'accès réseau/IAM correspondant dans ops (l'en-tête applicatif seul ne remplace pas l'authentification de la plateforme).
 
@@ -119,7 +119,7 @@ Le worker distingue deux catégories d'échec :
 
 | Catégorie | Cas | Résultat envoyé au backend | Réponse au trigger |
 | --- | --- | --- | --- |
-| Transitoire | S3 ou backend indisponible (une requête S3 muette 120 s échoue et le SDK la rejoue), arrêt du container (SIGTERM), erreur FFmpeg pendant l'encodage, configuration invalide lue par job (`TRANSCODING_MAX_SOURCE_BYTES`), binaire absent ; `TRANSCODING_JOB_TIMEOUT_MS` atteint **avant** l'encodage (lecture S3 bloquée, probe lente, upload de la miniature ou des sous-titres) ou **après un encodage court** (moins de la moitié du budget : envoi HLS ou FLAC bloqué) | `success: false` | `503` : le message est rejoué |
+| Transitoire | S3 ou backend indisponible (une requête S3 restée 120 s sans réponse, upload compris, échoue et le SDK la rejoue ; un téléchargement bloqué après ses en-têtes attend l'échéance), arrêt du container (SIGTERM), erreur FFmpeg pendant l'encodage, binaire absent ; `TRANSCODING_JOB_TIMEOUT_MS` atteint **avant** l'encodage (lecture S3 bloquée, probe lente, upload de la miniature ou des sous-titres) ou **après un encodage court** (moins de la moitié du budget : envoi HLS ou FLAC bloqué) | `success: false` | `503` : le message est rejoué |
 | Définitif | `source_too_large` : source au-delà de `TRANSCODING_MAX_SOURCE_BYTES` (ou miniature/sous-titres au-delà de 8/4 MiB) ; `invalid_source` : FFprobe refuse la source, ou elle n'a aucun flux vidéo ; `duration_exceeded` : durée au-delà de `TRANSCODING_MAX_DURATION_SECONDS` ; `deadline_exceeded` : `TRANSCODING_JOB_TIMEOUT_MS` atteint **pendant** l'encodage, ou après un encodage qui a pris au moins la moitié du budget (ses sorties n'y tiennent plus ; miniature et sous-titres finaux déjà écrits) | `success: false`, `permanent: true`, `reason` | `200` une fois le résultat enregistré : pas de rejeu |
 
 Côté backend :

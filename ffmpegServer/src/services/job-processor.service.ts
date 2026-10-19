@@ -15,7 +15,7 @@ import {
   VideoTranscodingJob,
   VideoTranscodingResult,
 } from '../types/job.types';
-import { TranscodingService } from './transcoding.service';
+import { maxSourceBytes, TranscodingService } from './transcoding.service';
 
 export class JobProcessorService {
   constructor(private readonly s3: S3Client) {}
@@ -34,11 +34,7 @@ export class JobProcessorService {
     const directory = await mkdtemp(path.join(root, 'source-'));
     try {
       const input = path.join(directory, 'input');
-      const maxBytes = Number(
-        process.env.TRANSCODING_MAX_SOURCE_BYTES || 5 * 1024 ** 3,
-      );
-      if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
-        throw new Error('Invalid TRANSCODING_MAX_SOURCE_BYTES');
+      const maxBytes = maxSourceBytes();
       await this.download(
         S3_CONFIG.mediaBucket,
         job.originalKey,

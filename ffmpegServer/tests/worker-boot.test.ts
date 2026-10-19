@@ -29,6 +29,7 @@ for (const [name, value] of [
   ['TRANSCODING_MAX_DURATION_SECONDS', '3600s'],
   ['TRANSCODING_UPLOAD_CONCURRENCY', '0'],
   ['FFMPEG_THREADS', 'four'],
+  ['TRANSCODING_MAX_SOURCE_BYTES', '1GiB'],
 ]) {
   test(`the worker refuses to boot with an invalid ${name}, before any job`, () => {
     const worker = boot({ [name]: value });
