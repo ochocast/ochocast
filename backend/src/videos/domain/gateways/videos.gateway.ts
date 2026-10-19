@@ -6,7 +6,7 @@ export interface IVideoGateway {
   createNewVideo: (video: VideoObject) => Promise<VideoObject>;
   getVideos: (filter: any) => Promise<VideoObject[]>;
   getVideosAdmin: (filter: any) => Promise<VideoObject[]>;
-  /** Copies the given fields onto the stored video; others keep their value. */
+  /** Writes only the given fields; the others keep their stored value. */
   modifyVideo(
     video: Partial<VideoObject> & Pick<VideoObject, 'id'>,
   ): Promise<VideoObject>;
