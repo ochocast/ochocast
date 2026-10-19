@@ -465,7 +465,8 @@ export class UploadsService {
 
   // Jobs whose message was lost or dead-lettered: never claimed, claimed by a
   // worker that died, or failed with an error marked retryable whose
-  // redeliveries ran out. Failures an older backend recorded carry no marker
+  // redeliveries ran out, counted from the failure (its message may still be
+  // redelivered right after it, whenever it was published). Failures an older backend recorded carry no marker
   // and stay final. Uploads still 'uploaded' are left to re-dispatch, and
   // recordings, which have no upload row, are included.
   private async reconcileJobs() {
@@ -479,7 +480,7 @@ export class UploadsService {
           "((job.status = 'processing' AND job.leaseExpiresAt < :leaseCutoff)" +
             " OR (job.status = 'pending' AND (job.payload->>'timestamp')::bigint < :pendingCutoff)" +
             " OR (job.status = 'failed' AND job.result->>'retryable' = 'true'" +
-            " AND (job.payload->>'timestamp')::bigint < :pendingCutoff))" +
+            " AND (job.result->>'processedAt')::bigint < :pendingCutoff))" +
             " AND NOT EXISTS (SELECT 1 FROM video_upload u WHERE u.id = job.id AND u.state = 'uploaded')",
           {
             leaseCutoff: new Date(now - 10 * 60_000),

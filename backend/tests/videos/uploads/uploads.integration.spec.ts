@@ -1017,26 +1017,28 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     });
 
     it('republishes a failure marked retryable whose redeliveries ran out, never a final one', async () => {
-      const failure = (id: string, fields: Record<string, unknown>) => ({
+      const failure = (
+        id: string,
+        fields: Record<string, unknown>,
+        failedFor: number,
+      ) => ({
         jobId: id,
         videoId: id,
         success: false,
         duration: 0,
         error: 'worker error',
-        processedAt: Date.now() - lostFor,
+        processedAt: Date.now() - failedFor,
         ...fields,
       });
+      // Published lostFor ago (the message may be dead-lettered by now), and
+      // failed failedFor ago.
       const failedJob = async (
         fields: Record<string, unknown>,
-        age = lostFor,
+        failedFor = lostFor,
       ) => {
-        const job = await staleJob(
-          'queued',
-          { status: 'failed', attempts: 1 },
-          age,
-        );
+        const job = await staleJob('queued', { status: 'failed', attempts: 1 });
         await db.manager.update(TranscodingJobEntity, job.jobId, {
-          result: failure(job.jobId, fields),
+          result: failure(job.jobId, fields, failedFor),
         });
         return job;
       };
@@ -1069,8 +1071,10 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
       expect(await videoOf(legacy)).toMatchObject({
         transcoding_status: 'failed',
       });
-      // Its message may still be redelivered: wait the re-dispatch delay.
+      // Published long ago but failed a minute ago: its message may still be
+      // redelivered, so the delay counts from the failure, not the publication.
       expect(published(recent.jobId)).toEqual([]);
+      expect((await jobRow(recent.jobId)).status).toBe('failed');
     });
 
     it('restores the video of a recording failed by an older backend when its job is republished', async () => {

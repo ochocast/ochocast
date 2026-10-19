@@ -187,12 +187,13 @@ describe('Upload maintenance with and without a transcoding queue', () => {
       const [[where, params]] = calls.where;
       expect(where).toContain("job.status = 'processing'");
       expect(where).toContain("job.status = 'pending'");
-      // A failure marked retryable whose message may be dead-lettered, after
-      // the same delay as a lost pending job. Permanent failures, and those an
-      // older backend recorded without the marker, are final.
+      // A failure marked retryable whose message may be dead-lettered, the
+      // same delay after the failure (not the publication) as a lost pending
+      // job. Permanent failures, and those an older backend recorded without
+      // the marker, are final.
       expect(where).toContain(
         "(job.status = 'failed' AND job.result->>'retryable' = 'true'" +
-          " AND (job.payload->>'timestamp')::bigint < :pendingCutoff)",
+          " AND (job.result->>'processedAt')::bigint < :pendingCutoff)",
       );
       expect(where).not.toContain("job.result->>'permanent'");
       // Recordings have no upload row: NOT EXISTS keeps them candidates.
