@@ -3,9 +3,11 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-// An S3 request (upload or source download) that receives or sends nothing
-// for this long fails, and the SDK retries it, instead of hanging until the
-// job deadline. requestTimeout would only log in this SDK version.
+// An S3 request still waiting for its response this long after the socket
+// went idle (an upload or a request left unanswered) fails, and the SDK
+// retries it, instead of hanging until the job deadline. A download whose body
+// stalls after its headers is not covered: that is before encoding, where the
+// job deadline is retried. requestTimeout would only log in this SDK version.
 const S3_IDLE_TIMEOUT_MS = 120000;
 
 export function createS3Client(idleTimeoutMs = S3_IDLE_TIMEOUT_MS): S3Client {

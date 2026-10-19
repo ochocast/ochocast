@@ -52,6 +52,16 @@ const maxDurationSeconds = (): number => {
   return value;
 };
 
+/** Largest source downloaded (TRANSCODING_MAX_SOURCE_BYTES, default 5 GiB). */
+export const maxSourceBytes = (): number => {
+  const value = Number(
+    process.env.TRANSCODING_MAX_SOURCE_BYTES || 5 * 1024 ** 3,
+  );
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error('Invalid TRANSCODING_MAX_SOURCE_BYTES');
+  return value;
+};
+
 /** Threads of each x264 encoder (FFMPEG_THREADS, default 2). */
 const ffmpegThreads = (): string => {
   const value = process.env.FFMPEG_THREADS || '2';
@@ -64,6 +74,7 @@ const ffmpegThreads = (): string => {
  * otherwise fail each job after its download, and be retried as transient.
  */
 export const checkTranscodingSettings = (): void => {
+  maxSourceBytes();
   uploadConcurrency();
   maxDurationSeconds();
   ffmpegThreads();
@@ -479,8 +490,9 @@ export class TranscodingService {
       // A misconfiguration must not cost a whole encode before failing.
       uploadConcurrency();
 
-      // Transcode to HLS. From here a deadline means the video is too long to
-      // transcode, not a stall: the runner reports it permanent.
+      // Transcode to HLS. A deadline during the encode, or after one that used
+      // half the budget or more, means the video is too long to transcode: the
+      // runner reports it permanent. After a shorter encode it is retried.
       this.onEncodingStarted?.();
       await this.transcodeVideoHLS(tempInputPath, hlsOutputDir, probe.hasAudio);
       this.onEncodingFinished?.();
