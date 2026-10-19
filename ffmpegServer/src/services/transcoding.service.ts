@@ -44,12 +44,39 @@ const uploadConcurrency = (): number => {
   return value;
 };
 
+/** Longest video encoded (TRANSCODING_MAX_DURATION_SECONDS, default 1200 s). */
+const maxDurationSeconds = (): number => {
+  const value = Number(process.env.TRANSCODING_MAX_DURATION_SECONDS || 1200);
+  if (!Number.isSafeInteger(value) || value <= 0)
+    throw new Error('Invalid TRANSCODING_MAX_DURATION_SECONDS');
+  return value;
+};
+
+/** Threads of each x264 encoder (FFMPEG_THREADS, default 2). */
+const ffmpegThreads = (): string => {
+  const value = process.env.FFMPEG_THREADS || '2';
+  if (!/^[1-9][0-9]*$/.test(value)) throw new Error('Invalid FFMPEG_THREADS');
+  return value;
+};
+
+/**
+ * Settings read by every job. Checked at boot: an invalid value would
+ * otherwise fail each job after its download, and be retried as transient.
+ */
+export const checkTranscodingSettings = (): void => {
+  uploadConcurrency();
+  maxDurationSeconds();
+  ffmpegThreads();
+};
+
 export class TranscodingService {
   constructor(
     private s3Client: S3Client,
     private signal?: AbortSignal,
     // Called once the final attachments are written, just before encoding.
     private onEncodingStarted?: () => void,
+    // Called once the HLS encode returned, before its outputs are uploaded.
+    private onEncodingFinished?: () => void,
   ) {}
 
   /**
@@ -60,7 +87,7 @@ export class TranscodingService {
    */
   async probeSource(
     inputPath: string,
-  ): Promise<{ duration: number; codecsPlayable: boolean }> {
+  ): Promise<{ duration: number; codecsPlayable: boolean; hasAudio: boolean }> {
     let stdout: string;
     try {
       ({ stdout } = await this.runProcess(
@@ -104,6 +131,7 @@ export class TranscodingService {
     const audio = streams.find((stream) => stream.codec_type === 'audio');
     return {
       duration: Math.floor(Number.parseFloat(format?.duration || '') || 0),
+      hasAudio: !!audio,
       codecsPlayable:
         BROWSER_VIDEO_CODECS.has(video?.codec_name ?? '') &&
         BROWSER_PIXEL_FORMATS.has(video?.pix_fmt ?? '') &&
@@ -141,10 +169,16 @@ export class TranscodingService {
    * thread count of EACH x264 encoder: 3 x FFMPEG_THREADS encoding threads,
    * plus FFmpeg's automatic decoding and scaling threads.
    */
-  async transcodeVideoHLS(inputPath: string, outputDir: string): Promise<void> {
+  async transcodeVideoHLS(
+    inputPath: string,
+    outputDir: string,
+    // Known from probeSource in a job; probed here otherwise.
+    hasAudio?: boolean,
+  ): Promise<void> {
     console.log('Starting HLS transcoding...');
 
-    const hasAudioTrack = await this.hasAudio(inputPath);
+    const hasAudioTrack = hasAudio ?? (await this.hasAudio(inputPath));
+    const threads = ffmpegThreads();
     console.log(`   Audio: ${hasAudioTrack ? 'Yes' : 'No'}`);
 
     await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
@@ -163,7 +197,7 @@ export class TranscodingService {
         '-preset',
         'fast',
         '-threads',
-        process.env.FFMPEG_THREADS || '2',
+        threads,
         '-sc_threshold',
         '0',
         '-force_key_frames',
@@ -396,8 +430,8 @@ export class TranscodingService {
       await mkdir(hlsOutputDir, { recursive: true });
 
       // Get video duration; an unreadable source fails permanently
-      ({ duration, codecsPlayable: sourceCodecsPlayable } =
-        await this.probeSource(tempInputPath));
+      const probe = await this.probeSource(tempInputPath);
+      ({ duration, codecsPlayable: sourceCodecsPlayable } = probe);
       console.log(`   Duration: ${duration}s`);
 
       let generatedSubtitleId: string | undefined;
@@ -435,11 +469,7 @@ export class TranscodingService {
         generatedSubtitleId = job.subtitle_id;
       }
 
-      const maxDuration = Number(
-        process.env.TRANSCODING_MAX_DURATION_SECONDS || 1200,
-      );
-      if (!Number.isSafeInteger(maxDuration) || maxDuration <= 0)
-        throw new Error('Invalid TRANSCODING_MAX_DURATION_SECONDS');
+      const maxDuration = maxDurationSeconds();
       if (duration > maxDuration)
         throw new PermanentJobError(
           'duration_exceeded',
@@ -452,15 +482,15 @@ export class TranscodingService {
       // Transcode to HLS. From here a deadline means the video is too long to
       // transcode, not a stall: the runner reports it permanent.
       this.onEncodingStarted?.();
-      await this.transcodeVideoHLS(tempInputPath, hlsOutputDir);
+      await this.transcodeVideoHLS(tempInputPath, hlsOutputDir, probe.hasAudio);
+      this.onEncodingFinished?.();
 
       // Upload HLS files
       await this.uploadHLSFiles(hlsOutputDir, job.videoId);
 
       // Extract and upload FLAC audio when the source has an audio track
-      const hasAudioTrack = await this.hasAudio(tempInputPath);
       const audioKey = `${job.videoId}/audio.flac`;
-      if (hasAudioTrack) {
+      if (probe.hasAudio) {
         await this.extractAudioFlac(tempInputPath, tempAudioPath);
         await this.uploadFile(
           tempAudioPath,

@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { createServer, IncomingMessage } from 'node:http';
 import { createS3Client } from './config/s3.config';
 import { JobProcessorService } from './services/job-processor.service';
+import { checkTranscodingSettings } from './services/transcoding.service';
 import { BackendClient } from './serverless/backend-client';
 import { HttpError, parseJobEnvelope } from './serverless/job-envelope';
 import { JobRunner } from './serverless/job-runner';
@@ -125,6 +126,7 @@ function main() {
   const timeoutMs = Number(process.env.TRANSCODING_JOB_TIMEOUT_MS || 3000000);
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3300000)
     throw new Error('Invalid TRANSCODING_JOB_TIMEOUT_MS (1000..3300000)');
+  checkTranscodingSettings();
   const s3 = createS3Client();
   const runner = new JobRunner(
     new BackendClient(backendUrl, callbackSecret),

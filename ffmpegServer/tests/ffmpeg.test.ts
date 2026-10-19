@@ -57,6 +57,7 @@ test('real FFmpeg generates three HLS variants, a thumbnail and a FLAC', async (
     assert.deepEqual(await service.probeSource(input), {
       duration: 2,
       codecsPlayable: true,
+      hasAudio: true,
     });
     await service.transcodeVideoHLS(input, output);
     const master = await readFile(path.join(output, 'master.m3u8'), 'utf8');
@@ -339,7 +340,7 @@ test('the probe judges the main video, even after a cover image listed first', a
     setEnv(t, 'FFPROBE_PATH', ffprobe);
     assert.deepEqual(
       await new TranscodingService({} as S3Client).probeSource('source.mp4'),
-      { duration: 3, codecsPlayable: true },
+      { duration: 3, codecsPlayable: true, hasAudio: true },
     );
   });
 });
@@ -366,7 +367,7 @@ test('the probe reads a source with many streams (multi-language subtitles)', as
     );
     assert.deepEqual(
       await new TranscodingService({} as S3Client).probeSource(source),
-      { duration: 2, codecsPlayable: true },
+      { duration: 2, codecsPlayable: true, hasAudio: true },
     );
   });
 });
@@ -444,6 +445,35 @@ test('a full job uploads lossless FLAC audio, never WAV', async (t) => {
       false,
     );
     assert.match(flacSamples, /^MD5=[0-9a-f]{32}/);
+  });
+});
+
+test('a full job probes its source once', async (t) => {
+  t.mock.method(
+    TranscodingService.prototype as unknown as Uploads,
+    'uploadFile',
+    async () => {},
+  );
+  await withDirectory(async (directory) => {
+    const input = path.join(directory, 'input.mp4');
+    const calls = path.join(directory, 'ffprobe-calls');
+    const ffprobe = path.join(directory, 'counting-ffprobe');
+    await clip(input);
+    await writeFile(
+      ffprobe,
+      `#!/bin/sh\necho call >> '${calls}'\nexec ${process.env.FFPROBE_PATH || 'ffprobe'} "$@"\n`,
+    );
+    await chmod(ffprobe, 0o755);
+    setEnv(t, 'FFPROBE_PATH', ffprobe);
+    const result = await new TranscodingService({} as S3Client).processJob(
+      fixtureJob,
+      input,
+      undefined,
+      undefined,
+      true,
+    );
+    assert.equal(result.success, true, result.error);
+    assert.equal((await readFile(calls, 'utf8')).trim().split('\n').length, 1);
   });
 });
 

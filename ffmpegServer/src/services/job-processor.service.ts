@@ -24,6 +24,7 @@ export class JobProcessorService {
     job: VideoTranscodingJob,
     signal: AbortSignal,
     onEncodingStarted?: () => void,
+    onEncodingFinished?: () => void,
   ): Promise<VideoTranscodingResult> {
     const checkpointKey = `${job.videoId}/_transcoding/${job.jobId}/result.json`;
     const cached = await this.readCheckpoint(checkpointKey, job, signal);
@@ -73,6 +74,7 @@ export class JobProcessorService {
         this.s3,
         signal,
         onEncodingStarted,
+        onEncodingFinished,
       ).processJob(job, input, miniature, subtitle, true);
       if (result.success) {
         // Durable checkpoint: a lost callback can be retried without encoding again.

@@ -254,6 +254,69 @@ test('a deadline once encoding started is a permanent failure: stored, then ackn
   assert.match(failure?.error || '', /deadline/);
 });
 
+test('a deadline after a short encode (a stalled upload) stays retryable', async () => {
+  let failure: VideoTranscodingResult | undefined;
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        failure = received;
+      },
+    },
+    {
+      processJob: async (
+        incoming,
+        signal,
+        onEncodingStarted,
+        onEncodingFinished,
+      ) => {
+        onEncodingStarted?.();
+        onEncodingFinished?.();
+        // An upload that hangs until the deadline: another attempt can pass it.
+        return untilAborted.processJob(incoming, signal);
+      },
+    },
+    200,
+  );
+  await assert.rejects(
+    runner.run(job, new AbortController().signal),
+    /Transcoding failed/,
+  );
+  assert.equal(failure?.permanent, undefined);
+  assert.equal(failure?.reason, undefined);
+  assert.match(failure?.error || '', /deadline exceeded .*after encoding/);
+});
+
+test('a deadline after an encode that used most of the budget is permanent', async () => {
+  let failure: VideoTranscodingResult | undefined;
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        failure = received;
+      },
+    },
+    {
+      processJob: async (
+        incoming,
+        signal,
+        onEncodingStarted,
+        onEncodingFinished,
+      ) => {
+        onEncodingStarted?.();
+        // The encode alone takes 150 of the 200 ms: the outputs no longer fit.
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        onEncodingFinished?.();
+        return untilAborted.processJob(incoming, signal);
+      },
+    },
+    200,
+  );
+  await runner.run(job, new AbortController().signal);
+  assert.equal(failure?.permanent, true);
+  assert.equal(failure?.reason, 'deadline_exceeded');
+});
+
 test('a deadline before encoding started (stalled download or probe) stays retryable', async () => {
   let failure: VideoTranscodingResult | undefined;
   const runner = new JobRunner(
