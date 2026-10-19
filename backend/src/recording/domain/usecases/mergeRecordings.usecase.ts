@@ -3,6 +3,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
@@ -10,14 +11,15 @@ import { IRecordingRepositoryGateway } from '../gateways/recording-repository.ga
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
-import { QueueService } from 'src/queue/queue.service';
+import { IMergeJobDispatcher } from '../gateways/merge-job-dispatcher.gateway';
 import { RecordingObject } from '../recording';
 
 /**
  * US-3 — Merge several unlisted segments of a track into a single merged
- * recording. The merge is created as `unlisted` + `processing`; the ffmpeg
- * worker produces the concatenated file and reports back. Source segments are
- * kept unlisted. Organizer-only.
+ * recording. The merge is created as `unlisted` + `processing` and sent to
+ * the merge queue; the merge worker produces the concatenated file and reports
+ * back through its callbacks. Source segments are kept unlisted.
+ * Organizer-only.
  */
 @Injectable()
 export class MergeRecordingsUsecase {
@@ -30,7 +32,8 @@ export class MergeRecordingsUsecase {
     private userGateway: IUserGateway,
     @Inject('EventGateway')
     private eventGateway: IEventGateway,
-    private queueService: QueueService,
+    @Inject('MergeJobDispatcher')
+    private mergeJobDispatcher: IMergeJobDispatcher,
   ) {}
 
   async execute(
@@ -40,6 +43,11 @@ export class MergeRecordingsUsecase {
   ): Promise<RecordingObject> {
     if (!Array.isArray(segmentIds) || segmentIds.length < 2) {
       throw new BadRequestException('A merge requires at least two segments');
+    }
+    if (!this.mergeJobDispatcher.enabled) {
+      throw new ServiceUnavailableException(
+        'Merging is not available on this environment',
+      );
     }
 
     const tracks = await this.trackGateway.getTracks({ id: trackId });
@@ -102,14 +110,22 @@ export class MergeRecordingsUsecase {
 
     const saved = await this.recordingRepository.createRecording(merged);
 
-    await this.queueService.publishMergeJob({
-      jobId: uuid(),
-      recordingId: mergedId,
-      trackId,
-      sourceKeys: selected.map((r) => r.mediaId),
-      targetKey,
-      timestamp: Date.now(),
-    });
+    try {
+      await this.mergeJobDispatcher.dispatch({
+        jobId: uuid(),
+        recordingId: mergedId,
+        trackId,
+        sourceKeys: selected.map((r) => r.mediaId),
+        targetKey,
+        timestamp: Date.now(),
+      });
+    } catch {
+      // Not queued: show the montage as failed so the organizer can go back.
+      await this.recordingRepository.updateRecording(mergedId, {
+        status: 'failed',
+      });
+      throw new ServiceUnavailableException('The merge could not be started');
+    }
 
     return saved;
   }

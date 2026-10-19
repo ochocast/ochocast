@@ -1,3 +1,5 @@
+import { VideoUpload } from './uploads/upload.entity';
+import { UploadsModule } from './uploads/uploads.module';
 import { Module } from '@nestjs/common';
 import { VideosController } from './infra/controllers/videos.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -20,16 +22,16 @@ import { searchVideoAdminUseCase } from './domain/usecases/searchVideoAdmin.usec
 import { RestoreVideoUsecase } from './domain/usecases/restoreVideo.usecase';
 import { IncrementVideoViewsUsecase } from './domain/usecases/incrementVideoViews.usecase';
 import { QueueModule } from 'src/queue/queue.module';
-import { TranscodingResultConsumer } from './transcoding-result.consumer';
 
 // import { GetUsersUsecase } from 'src/users/domain/usecases/getUsers.usecase';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([VideoEntity]),
+    TypeOrmModule.forFeature([VideoEntity, VideoUpload]),
     S3Module,
     UsersModule,
     QueueModule,
+    UploadsModule,
   ],
   controllers: [VideosController],
   providers: [
@@ -51,7 +53,6 @@ import { TranscodingResultConsumer } from './transcoding-result.consumer';
     GetSuggestionsUsecase,
     searchVideoAdminUseCase,
     IncrementVideoViewsUsecase,
-    TranscodingResultConsumer,
     // GetUsersUsecase,
   ],
   exports: [CreateNewVideoUsecase, 'VideoGateway'],

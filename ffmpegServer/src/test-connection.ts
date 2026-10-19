@@ -1,9 +1,8 @@
 import 'dotenv/config';
 import { createS3Client } from './config/s3.config';
-import { QueueService } from './services/queue.service';
 
 async function testConnections() {
-  console.log('Testing connections...\n');
+  console.log('Testing Object Storage connection...\n');
 
   // Test S3
   console.log('Testing S3/Minio connection...');
@@ -22,25 +21,7 @@ async function testConnections() {
     );
   }
 
-  console.log('');
-
-  // Test RabbitMQ
-  console.log('Testing RabbitMQ connection...');
-  try {
-    const queueService = new QueueService();
-    await queueService.connect();
-
-    console.log('RabbitMQ connected');
-
-    await queueService.close();
-  } catch (error: unknown) {
-    console.error(
-      'RabbitMQ connection failed:',
-      error instanceof Error ? error.message : String(error),
-    );
-  }
-
-  console.log('\nConnection tests completed');
+  console.log('\nObject Storage check completed');
 }
 
 testConnections();

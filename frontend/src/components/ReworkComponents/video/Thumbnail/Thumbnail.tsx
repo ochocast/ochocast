@@ -185,12 +185,14 @@ const Thumbnail = (props: PreviewMinitureProps) => {
       if (props.Id) {
         try {
           const url = await getMiniature(props.Id);
-          // TODO: rework this condition
-          if (url?.data.includes('miniatureundefined')) {
+          if (
+            typeof url?.data === 'string' &&
+            url.data.includes('miniatureundefined')
+          ) {
             return;
           }
           setMiniatureUrl(
-            url?.data ||
+            (typeof url?.data === 'string' ? url.data : null) ||
               fallbackMiniatureUrl ||
               '/branding/exemple/image_tuile_event.png',
           );
@@ -323,6 +325,16 @@ const Thumbnail = (props: PreviewMinitureProps) => {
           className={styles.imageTuileEventIcon}
           alt={props.title}
           src={props.imageSrc === undefined ? miniatureURL : props.imageSrc}
+          onError={(event) => {
+            const fallback =
+              fallbackMiniatureUrl || '/branding/exemple/image_tuile_event.png';
+            if (
+              event.currentTarget.src !==
+              new URL(fallback, window.location.href).href
+            ) {
+              event.currentTarget.src = fallback;
+            }
+          }}
         />
         {canEdit && (
           <div className={styles.editContainer}>

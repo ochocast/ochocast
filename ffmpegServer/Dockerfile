@@ -1,9 +1,6 @@
 # Build stage
 FROM node:22-alpine AS builder
 
-# Install FFmpeg
-RUN apk add --no-cache ffmpeg
-
 WORKDIR /app
 
 # Copy package files
@@ -36,12 +33,16 @@ RUN npm ci --omit=dev
 # Copy built application from builder
 COPY --from=builder /app/dist ./dist
 
-# Create temp directory for transcoding
-RUN mkdir -p /tmp/transcoding && chmod 777 /tmp/transcoding
+# /tmp is RAM-backed on Scaleway sandbox v2. Use ephemeral disk instead.
+RUN mkdir -p /work/transcoding && chown node:node /work/transcoding
 
 # Environment variables
 ENV NODE_ENV=production
-ENV WORKER_CONCURRENCY=1
+ENV PORT=8080
+ENV TRANSCODING_WORK_DIR=/work/transcoding
+USER node
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s CMD node -e "fetch('http://127.0.0.1:' + process.env.PORT + '/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # Run the worker
-CMD ["node", "dist/worker.js"]
+CMD ["node", "dist/http-worker.js"]

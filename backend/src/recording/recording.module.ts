@@ -28,7 +28,10 @@ import { MarkRecordingPublishedUsecase } from './domain/usecases/markRecordingPu
 import { SetRecordingArmedUsecase } from './domain/usecases/setRecordingArmed.usecase';
 import { HandleLiveEventUsecase } from './domain/usecases/handleLiveEvent.usecase';
 import { GetRecordingStatusUsecase } from './domain/usecases/getRecordingStatus.usecase';
-import { MergeResultConsumer } from './infra/merge-result.consumer';
+import { RecordingMergeJobEntity } from './infra/merge-jobs/recording-merge-job.entity';
+import { RecordingMergeJobsService } from './infra/merge-jobs/recording-merge-jobs.service';
+import { RecordingMergeJobsController } from './infra/merge-jobs/recording-merge-jobs.controller';
+import { RecordingMergeDispatcher } from './infra/merge-jobs/recording-merge-dispatcher';
 import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
 import { S3Module } from 'src/s3.module';
@@ -39,12 +42,17 @@ import { S3Module } from 'src/s3.module';
       RecordingEntity,
       RecordingErrorEntity,
       PublicationRequestEntity,
+      RecordingMergeJobEntity,
     ]),
     VideosModule,
     S3Module,
     forwardRef(() => TracksModule),
   ],
-  controllers: [RecordingController, PublicationRequestController],
+  controllers: [
+    RecordingController,
+    PublicationRequestController,
+    RecordingMergeJobsController,
+  ],
   providers: [
     {
       provide: 'RecordingVMGateway',
@@ -81,7 +89,11 @@ import { S3Module } from 'src/s3.module';
     AcceptPublicationRequestUsecase,
     RefusePublicationRequestUsecase,
     CancelPublicationRequestUsecase,
-    MergeResultConsumer,
+    RecordingMergeJobsService,
+    {
+      provide: 'MergeJobDispatcher',
+      useClass: RecordingMergeDispatcher,
+    },
   ],
   exports: [
     'RecordingVMGateway',

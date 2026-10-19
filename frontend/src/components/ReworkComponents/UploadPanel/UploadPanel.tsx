@@ -1,3 +1,7 @@
+import {
+  cancelStoredUpload,
+  uploadControls,
+} from '../../../utils/uploadService';
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -54,7 +58,6 @@ interface UploadItemCardProps {
   item: UploadItem;
   onRemove: (id: string) => void;
   onView: (videoId: string) => void;
-  onRetry: (id: string) => void;
   onGoToUploadPage: () => void;
 }
 
@@ -62,10 +65,11 @@ const UploadItemCard: React.FC<UploadItemCardProps> = ({
   item,
   onRemove,
   onView,
-  onRetry,
   onGoToUploadPage,
 }) => {
   const { t } = useTranslation();
+  const { updateUpload } = useUploadContext();
+  const controls = uploadControls.get(item.id);
 
   const getProgressFillClass = () => {
     switch (item.status) {
@@ -142,15 +146,67 @@ const UploadItemCard: React.FC<UploadItemCardProps> = ({
             {t('viewVideo')}
           </button>
         )}
-        {item.status === 'error' && (
+        {controls &&
+          item.status !== 'processing' &&
+          item.status !== 'completed' && (
+            <div className={styles.errorActions}>
+              <button
+                className={styles.retryButton}
+                onClick={() =>
+                  item.status === 'uploading'
+                    ? controls.pause()
+                    : controls.resume()
+                }
+              >
+                {item.status === 'uploading' ? 'Mettre en pause' : 'Reprendre'}
+              </button>
+              <button
+                className={styles.retryButton}
+                onClick={() => {
+                  void controls
+                    .cancel()
+                    .then(() => onRemove(item.id))
+                    .catch((error) =>
+                      updateUpload(item.id, {
+                        status: 'error',
+                        errorMessage: error.message,
+                      }),
+                    );
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          )}
+        {item.status === 'error' && !controls && (
           <div className={styles.errorActions}>
-            <button
-              className={styles.retryButton}
-              onClick={() => onGoToUploadPage()}
-              title={t('goToUploadPage')}
-            >
-              {t('goToUploadPage')}
-            </button>
+            {!item.videoId && (
+              <>
+                <button
+                  className={styles.retryButton}
+                  onClick={() => onGoToUploadPage()}
+                  title={t('goToUploadPage')}
+                >
+                  {t('goToUploadPage')}
+                </button>
+                {item.sessionId && (
+                  <button
+                    className={styles.retryButton}
+                    onClick={() => {
+                      void cancelStoredUpload(item.sessionId!)
+                        .then(() => onRemove(item.id))
+                        .catch((error) =>
+                          updateUpload(item.id, {
+                            errorMessage: error.message,
+                          }),
+                        );
+                    }}
+                  >
+                    Annuler l’envoi
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
       </div>
@@ -207,7 +263,6 @@ const UploadPanel: React.FC = () => {
     clearCompleted,
     togglePanel,
     closePanel,
-    retryUpload,
   } = useUploadContext();
   const { user } = useUser();
   const publicationRequests = usePublicationRequests(!!user);
@@ -238,10 +293,6 @@ const UploadPanel: React.FC = () => {
       state: { publicationRequestId: id },
     });
     closePanel();
-  };
-
-  const handleRetry = (id: string) => {
-    retryUpload(id);
   };
 
   // Ne pas afficher si aucun upload ni demande de publication
@@ -305,7 +356,6 @@ const UploadPanel: React.FC = () => {
                 item={item}
                 onRemove={removeUpload}
                 onView={handleViewVideo}
-                onRetry={handleRetry}
                 onGoToUploadPage={handleGoToUploadPage}
               />
             ))

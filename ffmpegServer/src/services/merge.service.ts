@@ -1,9 +1,11 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
-import * as path from 'path';
-import { tmpdir } from 'os';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import * as path from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 import { S3_CONFIG } from '../config/s3.config';
 
@@ -14,40 +16,55 @@ const TARGET_HEIGHT = 720;
 const TARGET_FPS = 30;
 
 /**
- * US-3 (pass 2) — Robust concatenation of recording segments.
+ * US-3 — Robust concatenation of recording segments.
  *
  * WebRTC-origin MP4 files carry non-monotonic / offset timestamps and may
  * differ in resolution or audio presence. A plain `-c copy` concat therefore
- * produces a broken output (wrong duration, dropped frames). To fix this each
- * segment is first re-encoded to a canonical format (fixed resolution, constant
- * frame rate, regenerated timestamps, a guaranteed audio track), then the
- * uniform segments are concatenated with the concat demuxer.
+ * produces a broken output (wrong duration, dropped frames). Each segment is
+ * first re-encoded to a canonical format (fixed resolution, constant frame
+ * rate, regenerated timestamps, a guaranteed audio track), then the uniform
+ * segments are concatenated with the concat demuxer.
+ *
+ * Runs in the serverless merge worker: files live under TRANSCODING_WORK_DIR
+ * (not /tmp, which is RAM on Scaleway), downloads are streamed and capped by
+ * TRANSCODING_MAX_SOURCE_BYTES (all segments together), and `signal` stops
+ * every download, ffmpeg process and upload on timeout or shutdown.
  */
 export class MergeService {
-  constructor(private s3Client: S3Client) {}
+  constructor(private readonly s3Client: S3Client) {}
 
   async merge(
     sourceKeys: string[],
     targetKey: string,
+    signal: AbortSignal,
   ): Promise<{ duration: number }> {
-    const workDir = await mkdtemp(path.join(tmpdir(), 'merge-'));
+    const root = process.env.TRANSCODING_WORK_DIR || tmpdir();
+    await mkdir(root, { recursive: true });
+    const workDir = await mkdtemp(path.join(root, 'merge-'));
     try {
-      // 1. Download every source segment (in parallel).
-      const rawFiles = await Promise.all(
-        sourceKeys.map(async (key, i) => {
-          const buffer = await this.downloadFromS3(key);
-          const localPath = path.join(workDir, `raw-${i}.mp4`);
-          await writeFile(localPath, buffer);
-          return localPath;
-        }),
+      const maxBytes = Number(
+        process.env.TRANSCODING_MAX_SOURCE_BYTES || 5 * 1024 ** 3,
       );
+      if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
+        throw new Error('Invalid TRANSCODING_MAX_SOURCE_BYTES');
+
+      // 1. Download every source segment, one after the other, within one
+      //    shared size budget.
+      const budget = { remaining: maxBytes };
+      const rawFiles: string[] = [];
+      for (let i = 0; i < sourceKeys.length; i++) {
+        const localPath = path.join(workDir, `raw-${i}.mp4`);
+        await this.download(sourceKeys[i], localPath, budget, signal);
+        rawFiles.push(localPath);
+      }
 
       // 2. Normalize each segment to the canonical format (sequential: each
       //    re-encode is CPU-bound and the worker handles one job at a time).
       const normalized: string[] = [];
       for (let i = 0; i < rawFiles.length; i++) {
         const out = path.join(workDir, `norm-${i}.mp4`);
-        await this.normalize(rawFiles[i], out);
+        await this.normalize(rawFiles[i], out, signal);
+        await rm(rawFiles[i], { force: true }); // keep disk usage low
         normalized.push(out);
       }
 
@@ -58,33 +75,28 @@ export class MergeService {
         normalized.map((f) => `file '${f.replace(/'/g, "'\\''")}'`).join('\n'),
       );
       const outputPath = path.join(workDir, 'merged.mp4');
-      await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
-        '-y',
-        '-f',
-        'concat',
-        '-safe',
-        '0',
-        '-i',
-        listPath,
-        '-c',
-        'copy',
-        '-movflags',
-        '+faststart',
-        outputPath,
-      ]);
+      await this.runProcess(
+        process.env.FFMPEG_PATH || 'ffmpeg',
+        [
+          '-y',
+          '-f',
+          'concat',
+          '-safe',
+          '0',
+          '-i',
+          listPath,
+          '-c',
+          'copy',
+          '-movflags',
+          '+faststart',
+          outputPath,
+        ],
+        signal,
+      );
 
       // 4. Probe duration and upload (streamed).
-      const duration = await this.getDuration(outputPath);
-      await new Upload({
-        client: this.s3Client,
-        params: {
-          Bucket: S3_CONFIG.mediaBucket,
-          Key: targetKey,
-          Body: createReadStream(outputPath),
-          ContentType: 'video/mp4',
-        },
-      }).done();
-
+      const duration = await this.getDuration(outputPath, signal);
+      await this.upload(targetKey, outputPath, signal);
       return { duration };
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(
@@ -99,10 +111,12 @@ export class MergeService {
    * a stereo AAC audio track (a silent one is synthesized if the segment has no
    * audio, so every normalized segment has the same stream layout).
    */
-  private async normalize(input: string, output: string): Promise<void> {
-    const hasAudio = await this.hasAudio(input);
-    const ffmpeg = process.env.FFMPEG_PATH || 'ffmpeg';
-
+  private async normalize(
+    input: string,
+    output: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const hasAudio = await this.hasAudio(input, signal);
     const args = ['-y', '-fflags', '+genpts', '-i', input];
     if (!hasAudio) {
       args.push(
@@ -137,13 +151,15 @@ export class MergeService {
       '-ac',
       '2',
     );
+    if (process.env.FFMPEG_THREADS)
+      args.push('-threads', process.env.FFMPEG_THREADS);
     if (!hasAudio) args.push('-shortest');
     args.push(output);
 
-    await this.runProcess(ffmpeg, args);
+    await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', args, signal);
   }
 
-  private async hasAudio(input: string): Promise<boolean> {
+  private async hasAudio(input: string, signal: AbortSignal): Promise<boolean> {
     try {
       const { stdout } = await this.runProcess(
         process.env.FFPROBE_PATH || 'ffprobe',
@@ -158,27 +174,78 @@ export class MergeService {
           'csv=p=0',
           input,
         ],
+        signal,
       );
       return stdout.trim() !== '';
-    } catch {
+    } catch (error) {
+      signal.throwIfAborted();
       return false;
     }
   }
 
-  private async downloadFromS3(key: string): Promise<Buffer> {
+  private async download(
+    key: string,
+    destination: string,
+    budget: { remaining: number },
+    signal: AbortSignal,
+  ): Promise<void> {
     const response = await this.s3Client.send(
       new GetObjectCommand({ Bucket: S3_CONFIG.mediaBucket, Key: key }),
+      { abortSignal: signal },
     );
-    const stream = response.Body as NodeJS.ReadableStream;
-    return new Promise((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      stream.on('data', (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-      stream.on('error', reject);
-      stream.on('end', () => resolve(Buffer.concat(chunks)));
+    const body = response.Body as Readable;
+    if (!body) throw new Error('Missing S3 object body');
+    if ((response.ContentLength || 0) > budget.remaining) {
+      body.destroy();
+      throw new Error('Segments exceed configured size limit');
+    }
+    const limiter = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        budget.remaining -= chunk.length;
+        callback(
+          budget.remaining < 0
+            ? new Error('Segments exceed configured size limit')
+            : null,
+          chunk,
+        );
+      },
     });
+    await pipeline(body, limiter, createWriteStream(destination), { signal });
   }
 
-  private async getDuration(inputPath: string): Promise<number> {
+  private async upload(
+    key: string,
+    file: string,
+    signal: AbortSignal,
+  ): Promise<void> {
+    signal.throwIfAborted();
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal.addEventListener('abort', abort, { once: true });
+    const body = createReadStream(file);
+    // Read errors reject the upload below; an unhandled stream error would kill the worker.
+    body.on('error', () => undefined);
+    try {
+      await new Upload({
+        client: this.s3Client,
+        params: {
+          Bucket: S3_CONFIG.mediaBucket,
+          Key: key,
+          Body: body,
+          ContentType: 'video/mp4',
+        },
+        abortController: controller,
+      }).done();
+    } finally {
+      signal.removeEventListener('abort', abort);
+      body.destroy();
+    }
+  }
+
+  private async getDuration(
+    inputPath: string,
+    signal: AbortSignal,
+  ): Promise<number> {
     try {
       const { stdout } = await this.runProcess(
         process.env.FFPROBE_PATH || 'ffprobe',
@@ -191,9 +258,11 @@ export class MergeService {
           'default=noprint_wrappers=1:nokey=1',
           inputPath,
         ],
+        signal,
       );
       return Math.floor(Number.parseFloat(stdout) || 0);
     } catch {
+      signal.throwIfAborted();
       return 0;
     }
   }
@@ -201,13 +270,19 @@ export class MergeService {
   private runProcess(
     command: string,
     args: string[],
+    signal: AbortSignal,
   ): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
-      const child = spawn(command, args);
+      signal.throwIfAborted();
+      const child = spawn(command, args, { signal, killSignal: 'SIGKILL' });
       let stdout = '';
       let stderr = '';
       child.stdout.on('data', (d) => (stdout += d.toString()));
-      child.stderr.on('data', (d) => (stderr += d.toString()));
+      // Keep only the tail: ffmpeg is verbose and the error message is at the end.
+      child.stderr.on(
+        'data',
+        (d) => (stderr = (stderr + d.toString()).slice(-4000)),
+      );
       child.on('error', reject);
       child.on('close', (code) => {
         if (code === 0) resolve({ stdout, stderr });

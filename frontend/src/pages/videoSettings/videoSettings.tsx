@@ -737,41 +737,52 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     navigate('/videos');
 
-    uploadVideoWithProgress(form, {
-      onProgress: (progress: number) => {
-        updateUpload(uploadId, {
-          progress,
-          status: progress === 100 ? 'processing' : 'uploading',
-        });
+    uploadVideoWithProgress(
+      form,
+      {
+        onSession: (sessionId) => updateUpload(uploadId, { sessionId }),
+        onPause: () =>
+          updateUpload(uploadId, {
+            status: 'error',
+            errorMessage: 'Envoi en pause. Vous pouvez le reprendre.',
+          }),
+        onProgress: (progress: number) => {
+          updateUpload(uploadId, {
+            progress,
+            status: 'uploading',
+          });
+        },
+        // The finalized upload returns its id, which is also the new video id.
+        onComplete: (response: { id: string }) => {
+          updateUpload(uploadId, {
+            progress: 100,
+            status: 'completed',
+            videoId: undefined,
+          });
+          // US-6: the speaker accepted the request by publishing it.
+          // US-4: otherwise the source recording is now published; take it
+          // out of the unlisted working set (best-effort).
+          if (reviewedRequest) {
+            acceptPublicationRequest(reviewedRequest.id, response.id)
+              .then(() =>
+                window.dispatchEvent(new Event(PUBLICATION_REQUESTS_CHANGED)),
+              )
+              .catch(() => undefined);
+          } else if (recordingSourceId) {
+            markRecordingPublished(recordingSourceId, response.id).catch(
+              () => undefined,
+            );
+          }
+        },
+        onError: (error: string) => {
+          updateUpload(uploadId, {
+            status: 'error',
+            errorMessage: error,
+          });
+        },
       },
-      onComplete: (response: { id: string }) => {
-        updateUpload(uploadId, {
-          progress: 100,
-          status: 'completed',
-          videoId: response.id,
-        });
-        // US-6: the speaker accepted the request by publishing it.
-        // US-4: otherwise the source recording is now published; take it out
-        // of the unlisted working set (best-effort).
-        if (reviewedRequest) {
-          acceptPublicationRequest(reviewedRequest.id, response.id)
-            .then(() =>
-              window.dispatchEvent(new Event(PUBLICATION_REQUESTS_CHANGED)),
-            )
-            .catch(() => undefined);
-        } else if (recordingSourceId) {
-          markRecordingPublished(recordingSourceId, response.id).catch(
-            () => undefined,
-          );
-        }
-      },
-      onError: (error: string) => {
-        updateUpload(uploadId, {
-          status: 'error',
-          errorMessage: error,
-        });
-      },
-    });
+      uploadId,
+    );
   };
 
   const handleArchiveClick = () => {
