@@ -38,7 +38,12 @@ export function useMediaUrlRetry(videoId: string | undefined): {
   const loadedRef = useRef(new Set<string>());
   const cancel = useCallback(() => cancelRef.current(), []);
 
-  useEffect(() => cancel, [videoId, cancel]);
+  // The page stays mounted across videos: on each new one, every video may
+  // load again, a video seen before included.
+  useEffect(() => {
+    loadedRef.current.clear();
+    return cancel;
+  }, [videoId, cancel]);
 
   const load = useCallback(
     async (id: string) => {

@@ -184,4 +184,20 @@ describe('useMediaUrlRetry', () => {
     expect(outcome).toEqual({ settled: true, url: URL_OK.data });
     expect(mockedGetMedia).toHaveBeenCalledTimes(1);
   });
+  it('loads a video again once the page moved to another video and back', async () => {
+    mockedGetMedia.mockResolvedValue(URL_OK);
+    // VideoMedia stays mounted across /video/:videoId: the hook sees new ids.
+    const { result, rerender } = renderHook(({ id }) => useMediaUrlRetry(id), {
+      initialProps: { id: 'v1' },
+    });
+    await startLoad(result.current.load);
+    rerender({ id: 'v2' });
+    rerender({ id: 'v1' });
+    mockedGetMedia.mockClear();
+
+    const again = await startLoad(result.current.loadOnce);
+
+    expect(mockedGetMedia).toHaveBeenCalledWith('v1');
+    expect(again).toEqual({ settled: true, url: URL_OK.data });
+  });
 });
