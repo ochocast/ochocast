@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"whip-server/pkg/controlauth"
 
 	bootstrap "whip-server/deploy"
 	"whip-server/internal/autoscaler"
@@ -37,23 +38,29 @@ func main() {
 		log.Printf("[CP] on-demand autoscaler disabled: %v", err)
 	}
 
-	// Register HTTP handlers with CORS middleware
+	// Register HTTP handlers with CORS middleware. With SFU_CONTROL_TOKEN set, the internal
+	// endpoints (workers, backend, recorder) require it; browsers and OBS use the others.
+	if controlauth.Enabled() {
+		log.Println("[CP] internal endpoints protected by SFU_CONTROL_TOKEN")
+	} else {
+		log.Println("[CP] WARNING: SFU_CONTROL_TOKEN is empty, internal endpoints are open (development only)")
+	}
 	http.HandleFunc("/health", corsMiddleware(handleHealth))
-	http.HandleFunc("/control/register_sfu", corsMiddleware(cp.HandleRegisterSFU))
-	http.HandleFunc("/control/heartbeat", corsMiddleware(cp.HandleHeartbeat))
-	http.HandleFunc("/control/join_host", corsMiddleware(cp.HandleJoinHost))
-	http.HandleFunc("/control/join_viewer", corsMiddleware(cp.HandleJoinViewer))
-	http.HandleFunc("/control/topology", corsMiddleware(cp.HandleGetTopology))
-	http.HandleFunc("/control/operator_status", corsMiddleware(cp.HandleOperatorStatus))
-	http.HandleFunc("/room/create", corsMiddleware(cp.HandleCreateRoom))
+	http.HandleFunc("/control/register_sfu", corsMiddleware(controlauth.Require(cp.HandleRegisterSFU)))
+	http.HandleFunc("/control/heartbeat", corsMiddleware(controlauth.Require(cp.HandleHeartbeat)))
+	http.HandleFunc("/control/join_host", corsMiddleware(controlauth.Require(cp.HandleJoinHost)))
+	http.HandleFunc("/control/join_viewer", corsMiddleware(controlauth.Require(cp.HandleJoinViewer)))
+	http.HandleFunc("/control/topology", corsMiddleware(controlauth.Require(cp.HandleGetTopology)))
+	http.HandleFunc("/control/operator_status", corsMiddleware(controlauth.Require(cp.HandleOperatorStatus)))
+	http.HandleFunc("/room/create", corsMiddleware(controlauth.Require(cp.HandleCreateRoom)))
 	http.HandleFunc("/room/exists", corsMiddleware(cp.HandleRoomExists))
 	http.HandleFunc("/room/status", corsMiddleware(cp.HandleRoomStatus)) // Poll provisioning -> ready/failed
 	http.HandleFunc("/room/viewers", corsMiddleware(cp.HandleRoomViewerCount))
-	http.HandleFunc("/whip", corsMiddleware(cp.HandleWHIP))                   // Proxy WHIP to ingestion SFU
-	http.HandleFunc("/viewer", corsMiddleware(cp.HandleViewer))               // Proxy viewer to optimal SFU
-	http.HandleFunc("/recorder", corsMiddleware(cp.HandleRecorder))           // Return ingestion SFU for recorder
-	http.HandleFunc("/stream-status", corsMiddleware(cp.HandleStreamStatus))  // Check stream status
-	http.HandleFunc("/whip/resource/", corsMiddleware(cp.HandleWHIPResource)) // Terminate a WHIP publishing session
+	http.HandleFunc("/whip", corsMiddleware(cp.HandleWHIP))                              // Proxy WHIP to ingestion SFU
+	http.HandleFunc("/viewer", corsMiddleware(cp.HandleViewer))                          // Proxy viewer to optimal SFU
+	http.HandleFunc("/recorder", corsMiddleware(controlauth.Require(cp.HandleRecorder))) // Return ingestion SFU for recorder
+	http.HandleFunc("/stream-status", corsMiddleware(cp.HandleStreamStatus))             // Check stream status
+	http.HandleFunc("/whip/resource/", corsMiddleware(cp.HandleWHIPResource))            // Terminate a WHIP publishing session
 
 	log.Printf("Control Plane listening on :%s", port)
 	log.Printf("Configuration: maxFanout=%d, rebalanceThreshold=%.2f", maxFanout, rebalanceThreshold)
@@ -140,6 +147,7 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		TURNServer:      os.Getenv("TURN_SERVER"),
 		TURNUsername:    os.Getenv("TURN_USERNAME"),
 		TURNPassword:    os.Getenv("TURN_PASSWORD"),
+		ControlToken:    controlauth.Token(),
 	}
 	if err := workerBootstrap.Validate(); err != nil {
 		return fmt.Errorf("worker bootstrap config: %w", err)
@@ -158,7 +166,7 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		},
 	})
 	cp.SetProvisioner(prov)
-	http.Handle("/metrics", prov.MetricsHandler())
+	http.Handle("/metrics", controlauth.Require(prov.MetricsHandler().ServeHTTP))
 
 	ctx := context.Background()
 	go prov.Run(ctx) // startup-timeout reaping (task 4.3)

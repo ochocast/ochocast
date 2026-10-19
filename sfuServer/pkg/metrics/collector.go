@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"whip-server/internal/models"
@@ -40,6 +41,16 @@ type Collector struct {
 	collectionCount int64
 	// ⚡ CPU MEASUREMENT: Track /proc/stat for real CPU usage (not goroutine-based)
 	lastCPU cpuStats
+	// draining is reported in every heartbeat once the worker starts shutting down.
+	draining atomic.Bool
+}
+
+// SetDraining marks the worker as shutting down and tells the control plane at once.
+func (c *Collector) SetDraining() {
+	c.draining.Store(true)
+	if c.controlPlaneURL != "" {
+		c.collectAndSend()
+	}
 }
 
 // NewCollector creates a new metrics collector
@@ -169,6 +180,7 @@ func (c *Collector) collectMetrics() *models.SFUMetrics {
 		Timestamp:     time.Now(),
 		RoomStats:     roomStats,
 		GCCount:       gcCount,
+		Draining:      c.draining.Load(),
 	}
 }
 

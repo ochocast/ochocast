@@ -11,14 +11,11 @@ import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
 import { Logger, Optional } from '@nestjs/common';
 import { ChatService } from './core/chat.service';
+import { corsOrigins } from '../common/cors';
 
 @WebSocketGateway({
   cors: {
-    origin: [
-      'http://localhost:3000',
-      //'https://prod-frontend.s3-website.fr-par.scw.cloud',
-      'https://demo.ochocast.fr',
-    ],
+    origin: corsOrigins(),
     methods: ['GET', 'POST'],
     credentials: true,
   },
