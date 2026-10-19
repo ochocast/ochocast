@@ -3,7 +3,7 @@ import { VideoObject } from '../../domain/video';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Not, Repository } from 'typeorm';
 import { VideoEntity } from './entities/video.entity';
-import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
+import { resolveTags } from 'src/tags/infra/gateways/resolve-tags';
 import {
   S3Client,
   DeleteObjectCommand,
@@ -41,7 +41,10 @@ export class VideoGateway implements IVideoGateway {
       throw new Error(`Creator not found: ${creatorId}`);
     }
 
-    const tags = await this.resolveTags(videoDetails.tags);
+    const tags = await resolveTags(
+      this.videosRepository.manager,
+      videoDetails.tags,
+    );
     const internal_speakers = await this.resolveInternalSpeakers(
       videoDetails.internal_speakers,
     );
@@ -178,7 +181,12 @@ export class VideoGateway implements IVideoGateway {
       this.videosRepository.create({
         ...video,
         ...(video.tags !== undefined
-          ? { tags: await this.resolveTags(video.tags) }
+          ? {
+              tags: await resolveTags(
+                this.videosRepository.manager,
+                video.tags,
+              ),
+            }
           : {}),
         ...(video.internal_speakers !== undefined
           ? {
@@ -190,52 +198,6 @@ export class VideoGateway implements IVideoGateway {
       }),
     );
     return await this.videosRepository.findOneBy({ id: video.id });
-  }
-
-  /**
-   * Stored tags for a client list, found by id or case-insensitive name, and
-   * new ones created from a trimmed name only. Tags are saved with cascade:
-   * a client object would update the shared row and its links to others'
-   * videos, so none reaches the save.
-   */
-  private async resolveTags(raw: unknown): Promise<TagEntity[]> {
-    const tagsRepository =
-      this.videosRepository.manager.getRepository(TagEntity);
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const uniqueTags = new Map<string, TagEntity>();
-    for (const rawTag of Array.isArray(parsed) ? parsed : []) {
-      const tagId = rawTag?.id;
-      const tagName =
-        typeof rawTag?.name === 'string' ? rawTag.name.trim() : '';
-
-      let resolvedTag: TagEntity | null = null;
-
-      if (tagId) {
-        resolvedTag = await tagsRepository.findOneBy({ id: tagId });
-      }
-
-      if (!resolvedTag && tagName) {
-        resolvedTag = await tagsRepository
-          .createQueryBuilder('tag')
-          .where('LOWER(tag.name) = LOWER(:name)', { name: tagName })
-          .getOne();
-      }
-
-      if (!resolvedTag && tagName) {
-        resolvedTag = await tagsRepository.save(
-          new TagEntity({
-            name: tagName,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }),
-        );
-      }
-
-      if (resolvedTag) {
-        uniqueTags.set(resolvedTag.id, resolvedTag);
-      }
-    }
-    return Array.from(uniqueTags.values());
   }
 
   /** Stored users for a client list of speakers; unknown ids are dropped. */

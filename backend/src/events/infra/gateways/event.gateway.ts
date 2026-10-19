@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import { EventEntity } from './entities/event.entity';
 import { toEventObject } from 'src/common/mapper/event.mapper';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
-import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
+import { resolveTags } from 'src/tags/infra/gateways/resolve-tags';
 import { TrackEntity } from 'src/tracks/infra/gateways/entities/track.entity';
 
 export class EventGateway implements IEventGateway {
@@ -17,14 +17,10 @@ export class EventGateway implements IEventGateway {
   ) {}
 
   async createNewEvent(eventDetails: EventObject): Promise<EventObject> {
-    let tags: TagEntity[] = [];
-    if (typeof eventDetails.tags === 'string') {
-      tags = JSON.parse(eventDetails.tags).map(
-        (tag: any) => new TagEntity(tag),
-      );
-    } else if (Array.isArray(eventDetails.tags)) {
-      tags = eventDetails.tags.map((tag: any) => new TagEntity(tag));
-    }
+    const tags = await resolveTags(
+      this.eventsRepository.manager,
+      eventDetails.tags,
+    );
 
     let tracks: TrackEntity[] = [];
     if (Array.isArray(eventDetails.tracks)) {
@@ -90,15 +86,10 @@ export class EventGateway implements IEventGateway {
     event.closed = eventDetails.closed;
     event.imageSlug = eventDetails.imageSlug;
 
-    let tags: TagEntity[] = [];
-    if (typeof eventDetails.tags === 'string') {
-      tags = JSON.parse(eventDetails.tags).map(
-        (tag: any) => new TagEntity(tag),
-      );
-    } else if (Array.isArray(eventDetails.tags)) {
-      tags = eventDetails.tags.map((tag: any) => new TagEntity(tag));
-    }
-    event.tags = tags;
+    event.tags = await resolveTags(
+      this.eventsRepository.manager,
+      eventDetails.tags,
+    );
 
     // Update subscribers relationship
     event.usersSubscribe = await Promise.all(

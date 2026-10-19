@@ -22,7 +22,9 @@ export class EventEntity {
   @Column()
   description: string;
 
-  @ManyToMany(() => TagEntity, { cascade: true })
+  // No cascade: tags are resolved and created before an event is saved, and a
+  // cascade would let a client tag object update the shared tag row.
+  @ManyToMany(() => TagEntity)
   @JoinTable()
   tags: TagEntity[];
 
