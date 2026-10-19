@@ -30,7 +30,8 @@ export class JobRunner {
       deadlineExceeded = !controller.signal.aborted;
       abort();
     }, this.timeoutMs);
-    let encodingStarted = false;
+    let encodingStartedAt: number | undefined;
+    let encodingFinishedAt: number | undefined;
     let result: VideoTranscodingResult;
     try {
       if (
@@ -45,7 +46,10 @@ export class JobRunner {
         claim.job,
         controller.signal,
         () => {
-          encodingStarted = true;
+          encodingStartedAt = Date.now();
+        },
+        () => {
+          encodingFinishedAt = Date.now();
         },
       );
     } catch (error) {
@@ -68,17 +72,30 @@ export class JobRunner {
     }
     if (!result.success && deadlineExceeded && !result.permanent) {
       const deadline = `Transcoding deadline exceeded (${Math.round(this.timeoutMs / 1000)} s)`;
-      // While encoding, the same video would exceed it again. Before (a stalled
-      // S3 read, a slow probe) another attempt can succeed, and the final
-      // miniature and subtitle the source fallback relies on may not exist yet.
-      result = encodingStarted
-        ? {
-            ...result,
-            error: deadline,
-            permanent: true,
-            reason: 'deadline_exceeded',
-          }
-        : { ...result, error: `${deadline} before encoding started` };
+      // The same video would exceed it again while encoding, or after an encode
+      // that used half the budget or more: its outputs no longer fit. Before
+      // encoding (a stalled S3 read, a slow probe) or after a short encode (a
+      // stalled upload), another attempt can succeed; before encoding, the
+      // final miniature and subtitle the source fallback relies on may not
+      // exist yet either.
+      const encoding =
+        encodingStartedAt !== undefined && encodingFinishedAt === undefined;
+      const longEncode =
+        encodingStartedAt !== undefined &&
+        encodingFinishedAt !== undefined &&
+        encodingFinishedAt - encodingStartedAt >= this.timeoutMs / 2;
+      result =
+        encoding || longEncode
+          ? {
+              ...result,
+              error: deadline,
+              permanent: true,
+              reason: 'deadline_exceeded',
+            }
+          : {
+              ...result,
+              error: `${deadline} ${encodingStartedAt === undefined ? 'before encoding started' : 'after encoding'}`,
+            };
     }
     // Do not acknowledge the trigger until the backend has durably stored the result.
     await this.backend.complete(job.jobId, claim.leaseToken, result);

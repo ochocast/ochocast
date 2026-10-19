@@ -311,6 +311,48 @@ test('a deadline while the final attachments upload (stalled S3 PUT) stays retry
   assert.equal(encode.mock.callCount(), 0);
 });
 
+test('a deadline while the HLS upload stalls after a short encode stays retryable', async (t) => {
+  t.mock.method(TranscodingService.prototype, 'probeSource', async () => ({
+    duration: 2,
+    codecsPlayable: true,
+  }));
+  t.mock.method(
+    TranscodingService.prototype,
+    'processMiniature',
+    async () => {},
+  );
+  t.mock.method(
+    TranscodingService.prototype as unknown as {
+      uploadFile: () => Promise<void>;
+    },
+    'uploadFile',
+    async () => {},
+  );
+  t.mock.method(
+    TranscodingService.prototype,
+    'transcodeVideoHLS',
+    async () => {},
+  );
+  t.mock.method(
+    TranscodingService.prototype as unknown as {
+      uploadHLSFiles: () => Promise<void>;
+    },
+    'uploadHLSFiles',
+    untilDeadline,
+  );
+  t.mock.method(console, 'error', () => {});
+  let stored: VideoTranscodingResult | undefined;
+  await assert.rejects(
+    leasedRunner(sourceS3, (result) => (stored = result), 200).run(
+      withAttachments,
+      new AbortController().signal,
+    ),
+    /can be retried/,
+  );
+  assert.equal(stored?.permanent, undefined);
+  assert.match(stored?.error || '', /after encoding/);
+});
+
 test('a deadline during encoding is permanent, once the final miniature and subtitle are written', async (t) => {
   t.mock.method(TranscodingService.prototype, 'probeSource', async () => ({
     duration: 2,
