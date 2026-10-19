@@ -30,15 +30,19 @@ const fetchMediaUrl = async (videoId: string): Promise<string | null> => {
 export function useMediaUrlRetry(videoId: string | undefined): {
   unavailable: boolean;
   load: (videoId: string) => Promise<string | null>;
+  /** Like load, unless a load already ran for this video: resolves null. */
+  loadOnce: (videoId: string) => Promise<string | null>;
 } {
   const [unavailableFor, setUnavailableFor] = useState<string | null>(null);
   const cancelRef = useRef<() => void>(() => undefined);
+  const loadedRef = useRef(new Set<string>());
   const cancel = useCallback(() => cancelRef.current(), []);
 
   useEffect(() => cancel, [videoId, cancel]);
 
   const load = useCallback(
     async (id: string) => {
+      loadedRef.current.add(id);
       cancel();
       let cancelled = false;
       let timer: number | undefined;
@@ -71,5 +75,14 @@ export function useMediaUrlRetry(videoId: string | undefined): {
     [cancel],
   );
 
-  return { unavailable: !!videoId && unavailableFor === videoId, load };
+  const loadOnce = useCallback(
+    async (id: string) => (loadedRef.current.has(id) ? null : load(id)),
+    [load],
+  );
+
+  return {
+    unavailable: !!videoId && unavailableFor === videoId,
+    load,
+    loadOnce,
+  };
 }

@@ -164,7 +164,7 @@ describe('VideoProcessingStatus after a final failure', () => {
     [
       'duration_exceeded',
       'La vidéo est trop longue pour être préparée, et son format ne peut pas être lu tel quel.',
-      'Convertissez-la en MP4 avec une vidéo H.264, puis publiez-la à nouveau.',
+      'Convertissez-la en MP4 (vidéo H.264 8 bits, audio AAC), puis publiez-la à nouveau.',
     ],
     [
       'max_attempts',

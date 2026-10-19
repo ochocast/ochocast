@@ -155,4 +155,33 @@ describe('useMediaUrlRetry', () => {
     expect(outcome).toEqual({ settled: true, url: null });
     expect(mockedGetMedia).toHaveBeenCalledTimes(1);
   });
+  it('loadOnce starts no second series once a load ran for the video', async () => {
+    mockedGetMedia.mockResolvedValue(SERVER_ERROR);
+    const { result } = renderHook(() => useMediaUrlRetry('v1'));
+    const first = await startLoad(result.current.load);
+    await advance(2000);
+    await advance(5000);
+    await advance(10000);
+    expect(first).toEqual({ settled: true, url: null });
+    expect(result.current.unavailable).toBe(true);
+    expect(mockedGetMedia).toHaveBeenCalledTimes(4);
+
+    // E.g. the page then marks the video ready without a URL.
+    const again = await startLoad(result.current.loadOnce);
+
+    expect(again).toEqual({ settled: true, url: null });
+    expect(mockedGetMedia).toHaveBeenCalledTimes(4);
+    // The error and its Retry button stay on screen.
+    expect(result.current.unavailable).toBe(true);
+  });
+
+  it('loadOnce loads a video no load ran for', async () => {
+    mockedGetMedia.mockResolvedValue(URL_OK);
+    const { result } = renderHook(() => useMediaUrlRetry('v1'));
+
+    const outcome = await startLoad(result.current.loadOnce);
+
+    expect(outcome).toEqual({ settled: true, url: URL_OK.data });
+    expect(mockedGetMedia).toHaveBeenCalledTimes(1);
+  });
 });

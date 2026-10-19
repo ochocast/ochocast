@@ -344,8 +344,11 @@ const VideoMedia: FC = () => {
     latestVideoIdRef.current = videoId;
   }, [videoId]);
 
-  const { unavailable: mediaUnavailable, load: loadMediaUrl } =
-    useMediaUrlRetry(videoId);
+  const {
+    unavailable: mediaUnavailable,
+    load: loadMediaUrl,
+    loadOnce: loadMediaUrlOnce,
+  } = useMediaUrlRetry(videoId);
 
   const handleProcessingFinal = useCallback(
     async (status: VideoProcessing, processedId: string) => {
@@ -381,18 +384,19 @@ const VideoMedia: FC = () => {
     [loadMediaUrl],
   );
 
-  // A ready video whose first media request failed gets the same retries.
+  // A ready video whose first media request failed gets the same retries,
+  // once: after the processing panel's own tries, its error stays shown.
   const isReady = video?.transcoding_status === 'ready';
   useEffect(() => {
     if (isLoading || !isReady || url || !videoId) return;
     let active = true;
-    loadMediaUrl(videoId).then((mediaUrl) => {
+    loadMediaUrlOnce(videoId).then((mediaUrl) => {
       if (active && mediaUrl) setUrl(mediaUrl);
     });
     return () => {
       active = false;
     };
-  }, [isLoading, isReady, url, videoId, loadMediaUrl]);
+  }, [isLoading, isReady, url, videoId, loadMediaUrlOnce]);
 
   const retryMediaUrl = async () => {
     if (!videoId) return;
