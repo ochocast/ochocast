@@ -23,9 +23,8 @@ export class VideoGateway implements IVideoGateway {
   async createNewVideo(videoDetails: VideoObject): Promise<VideoObject> {
     console.log(videoDetails);
 
-    const entityManager = this.videosRepository.manager;
-    const tagsRepository = entityManager.getRepository(TagEntity);
-    const usersRepository = entityManager.getRepository(UserEntity);
+    const usersRepository =
+      this.videosRepository.manager.getRepository(UserEntity);
 
     // Normalize creator relation and ensure it exists.
     const creatorId =
@@ -42,72 +41,10 @@ export class VideoGateway implements IVideoGateway {
       throw new Error(`Creator not found: ${creatorId}`);
     }
 
-    // Parse les tags s'ils sont au format JSON
-    const parsedTags =
-      typeof videoDetails.tags === 'string'
-        ? JSON.parse(videoDetails.tags)
-        : Array.isArray(videoDetails.tags)
-          ? videoDetails.tags
-          : [];
-
-    const uniqueTags = new Map<string, TagEntity>();
-
-    for (const rawTag of parsedTags) {
-      const tagId = rawTag?.id;
-      const tagName =
-        typeof rawTag?.name === 'string' ? rawTag.name.trim() : '';
-
-      let resolvedTag: TagEntity | null = null;
-
-      if (tagId) {
-        resolvedTag = await tagsRepository.findOneBy({ id: tagId });
-      }
-
-      if (!resolvedTag && tagName) {
-        resolvedTag = await tagsRepository
-          .createQueryBuilder('tag')
-          .where('LOWER(tag.name) = LOWER(:name)', { name: tagName })
-          .getOne();
-      }
-
-      if (!resolvedTag && tagName) {
-        resolvedTag = await tagsRepository.save(
-          new TagEntity({
-            name: tagName,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }),
-        );
-      }
-
-      if (resolvedTag) {
-        uniqueTags.set(resolvedTag.id, resolvedTag);
-      }
-    }
-
-    const tags = Array.from(uniqueTags.values());
-
-    // Parse les internal_speakers s'ils sont au format JSON
-    const parsedInternalSpeakers =
-      typeof videoDetails.internal_speakers === 'string'
-        ? JSON.parse(videoDetails.internal_speakers)
-        : Array.isArray(videoDetails.internal_speakers)
-          ? videoDetails.internal_speakers
-          : [];
-
-    const uniqueInternalSpeakers = new Map<string, UserEntity>();
-
-    for (const rawUser of parsedInternalSpeakers) {
-      const userId = rawUser?.id;
-      if (!userId) continue;
-
-      const resolvedUser = await usersRepository.findOneBy({ id: userId });
-      if (resolvedUser) {
-        uniqueInternalSpeakers.set(resolvedUser.id, resolvedUser);
-      }
-    }
-
-    const internal_speakers = Array.from(uniqueInternalSpeakers.values());
+    const tags = await this.resolveTags(videoDetails.tags);
+    const internal_speakers = await this.resolveInternalSpeakers(
+      videoDetails.internal_speakers,
+    );
 
     const video: VideoEntity = new VideoEntity({
       ...videoDetails,
@@ -237,8 +174,86 @@ export class VideoGateway implements IVideoGateway {
     }
     // Only the given columns are written (TypeORM skips undefined ones): a
     // column changed since, such as a transcoding result, keeps its value.
-    await this.videosRepository.save(this.videosRepository.create(video));
+    await this.videosRepository.save(
+      this.videosRepository.create({
+        ...video,
+        ...(video.tags !== undefined
+          ? { tags: await this.resolveTags(video.tags) }
+          : {}),
+        ...(video.internal_speakers !== undefined
+          ? {
+              internal_speakers: await this.resolveInternalSpeakers(
+                video.internal_speakers,
+              ),
+            }
+          : {}),
+      }),
+    );
     return await this.videosRepository.findOneBy({ id: video.id });
+  }
+
+  /**
+   * Stored tags for a client list, found by id or case-insensitive name, and
+   * new ones created from a trimmed name only. Tags are saved with cascade:
+   * a client object would update the shared row and its links to others'
+   * videos, so none reaches the save.
+   */
+  private async resolveTags(raw: unknown): Promise<TagEntity[]> {
+    const tagsRepository =
+      this.videosRepository.manager.getRepository(TagEntity);
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const uniqueTags = new Map<string, TagEntity>();
+    for (const rawTag of Array.isArray(parsed) ? parsed : []) {
+      const tagId = rawTag?.id;
+      const tagName =
+        typeof rawTag?.name === 'string' ? rawTag.name.trim() : '';
+
+      let resolvedTag: TagEntity | null = null;
+
+      if (tagId) {
+        resolvedTag = await tagsRepository.findOneBy({ id: tagId });
+      }
+
+      if (!resolvedTag && tagName) {
+        resolvedTag = await tagsRepository
+          .createQueryBuilder('tag')
+          .where('LOWER(tag.name) = LOWER(:name)', { name: tagName })
+          .getOne();
+      }
+
+      if (!resolvedTag && tagName) {
+        resolvedTag = await tagsRepository.save(
+          new TagEntity({
+            name: tagName,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        );
+      }
+
+      if (resolvedTag) {
+        uniqueTags.set(resolvedTag.id, resolvedTag);
+      }
+    }
+    return Array.from(uniqueTags.values());
+  }
+
+  /** Stored users for a client list of speakers; unknown ids are dropped. */
+  private async resolveInternalSpeakers(raw: unknown): Promise<UserEntity[]> {
+    const usersRepository =
+      this.videosRepository.manager.getRepository(UserEntity);
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const uniqueInternalSpeakers = new Map<string, UserEntity>();
+    for (const rawUser of Array.isArray(parsed) ? parsed : []) {
+      const userId = rawUser?.id;
+      if (!userId) continue;
+
+      const resolvedUser = await usersRepository.findOneBy({ id: userId });
+      if (resolvedUser) {
+        uniqueInternalSpeakers.set(resolvedUser.id, resolvedUser);
+      }
+    }
+    return Array.from(uniqueInternalSpeakers.values());
   }
 
   async searchVideo(filter: any): Promise<VideoObject[]> {

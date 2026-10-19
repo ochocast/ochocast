@@ -1,6 +1,7 @@
 import sharp = require('sharp');
 import { VideoGateway } from 'src/videos/infra/gateways/video.gateway';
 import { ModifyVideoDto } from 'src/videos/infra/controllers/dto/modify-video.dto';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { ModifyVideoUsecase } from './modifyVideo.usecase';
 
 // Objects the use case puts in the buckets.
@@ -27,6 +28,35 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
     return value;
   };
 
+  // Tags and users the gateway resolves the form's lists against.
+  let tags: Map<string, any>;
+  let users: Map<string, any>;
+  const tagsRepository = {
+    findOneBy: async ({ id }: any) => tags.get(id) ?? null,
+    createQueryBuilder: () => {
+      let name = '';
+      const query = {
+        where: (_sql: string, params: { name: string }) => {
+          name = params.name;
+          return query;
+        },
+        getOne: async () =>
+          [...tags.values()].find(
+            (tag) => tag.name.toLowerCase() === name.toLowerCase(),
+          ) ?? null,
+      };
+      return query;
+    },
+    save: async (tag: any) => {
+      const saved = { ...tag, id: tag.id ?? `tag-${tags.size + 1}` };
+      tags.set(saved.id, saved);
+      return saved;
+    },
+  };
+  const usersRepository = {
+    findOneBy: async ({ id }: any) => users.get(id) ?? null,
+  };
+
   // The real gateway, over an in-memory table that saves like TypeORM: only
   // the columns the saved entity defines are written.
   const usecase = () =>
@@ -44,6 +74,10 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
           findOneBy: async ({ id }: any) =>
             loaded(rows.has(id) ? { ...rows.get(id) } : null),
           existsBy: async ({ id }: any) => loaded(rows.has(id)),
+          manager: {
+            getRepository: (entity: unknown) =>
+              entity === TagEntity ? tagsRepository : usersRepository,
+          },
           create: (fields: any) => ({ ...fields }),
           save: async (row: any) => {
             const defined = Object.fromEntries(
@@ -96,6 +130,18 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
     afterRead = undefined;
     afterLoad = undefined;
     mockUploads.length = 0;
+    tags = new Map([
+      [
+        'tag',
+        {
+          id: 'tag',
+          name: 'Tag',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      ],
+    ]);
+    users = new Map([['speaker', { id: 'speaker', firstName: 'Ada' }]]);
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
@@ -208,6 +254,51 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
       internal_speakers: [{ id: 'speaker' }],
       external_speakers: 'Ada Lovelace',
     });
+  });
+
+  // Tags are saved with cascade: a client object would update the shared tag
+  // row and its links to other videos.
+  it('saves only stored or new tags: a forged name or video list reaches no tag', async () => {
+    rows.set('video', storedVideo({}));
+
+    await usecase().execute(
+      form({
+        tags: JSON.stringify([
+          { id: 'tag', name: 'Renamed', videos: [{ id: 'another-video' }] },
+          {
+            name: '  Fresh ',
+            videos: [{ id: 'another-video' }],
+            createdAt: '2000-01-01T00:00:00.000Z',
+          },
+          { id: 'unknown-tag' },
+        ]),
+      }),
+      owner.email,
+    );
+
+    const saved = rows.get('video').tags;
+    expect(saved).toHaveLength(2);
+    expect(saved[0]).toBe(tags.get('tag'));
+    expect(tags.get('tag').name).toBe('Tag');
+    expect(saved[1]).toMatchObject({ name: 'Fresh' });
+    expect(saved[1].createdAt).not.toEqual('2000-01-01T00:00:00.000Z');
+    for (const tag of saved) expect(tag.videos).toBeUndefined();
+  });
+
+  it('saves only stored users as internal speakers', async () => {
+    rows.set('video', storedVideo({}));
+
+    await usecase().execute(
+      form({
+        internal_speakers: JSON.stringify([
+          { id: 'speaker', firstName: 'Forged' },
+          { id: 'nobody' },
+        ]),
+      }),
+      owner.email,
+    );
+
+    expect(rows.get('video').internal_speakers).toEqual([users.get('speaker')]);
   });
 
   it('ignores the columns the settings form does not edit', async () => {
