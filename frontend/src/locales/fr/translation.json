@@ -500,5 +500,6 @@
   "Selected tags": "Tags sélectionnés",
   "Selected users": "Utilisateurs sélectionnés",
   "Selected dates": "Dates sélectionnées",
-  "Delete all": "Tout effacer"
+  "Delete all": "Tout effacer",
+  "backendLoginFailed": "Impossible de se connecter au serveur OchoCast."
 }
