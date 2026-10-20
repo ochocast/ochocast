@@ -61,9 +61,10 @@ export class UpdateEventUsecase {
         }),
       );
       existingEvent.imageSlug = newSlug;
-    } else if (eventUpdate.imageSlug) {
-      existingEvent.imageSlug = eventUpdate.imageSlug;
     }
+    // Without a file the stored miniature stays: GET /events/miniature/:id
+    // presigns imageSlug in the miniatures bucket, so a key sent by the client
+    // would expose any object there (the settings page never sends one).
 
     if (eventUpdate.name !== undefined) existingEvent.name = eventUpdate.name;
     if (eventUpdate.description !== undefined)
