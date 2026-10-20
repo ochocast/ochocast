@@ -9,7 +9,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
-import { Inject, Logger, Optional } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { ChatService } from './core/chat.service';
 import { corsOrigins } from '../common/cors';
 import { SocketAuthService } from './socket-auth.service';

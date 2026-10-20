@@ -39,9 +39,11 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     this.logger.log(`SFU discovery response: ${JSON.stringify(cpData)}`);
 
     // Step 2: Start recording with the discovered SFU URL and key
+    // The recorder only answers callers holding the control token, and finds the live's
+    // worker through the control plane itself.
     const response = await fetch(`${this.vmUrl}/recording/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...controlPlaneHeaders() },
       body: JSON.stringify({
         room_id: config.roomId,
         room_key: cpData.room_key,
@@ -66,7 +68,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
     const response = await fetch(`${this.vmUrl}/recording/stop`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...controlPlaneHeaders() },
       body: JSON.stringify({ room_id: roomId }),
     });
 
@@ -86,6 +88,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   }> {
     const response = await fetch(`${this.vmUrl}/recording/status`, {
       method: 'GET',
+      headers: controlPlaneHeaders(),
     });
 
     if (!response.ok) {
