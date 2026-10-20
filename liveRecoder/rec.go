@@ -99,7 +99,7 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 // CheckStreamStatus checks if the stream is active in the room
 func (rs *RecordingSession) CheckStreamStatus() (bool, error) {
 	url := fmt.Sprintf("%s/stream-status?room_id=%s", rs.sfuBaseURL, rs.roomID)
-	resp, err := http.Get(url)
+	resp, err := sfuClient.Get(url)
 	if err != nil {
 		return false, fmt.Errorf("failed to check stream status: %w", err)
 	}
@@ -206,7 +206,7 @@ func (rs *RecordingSession) StartRecording() error {
 	}
 	log.Printf("Recorder URL: %s", recorderURL)
 
-	resp, err := http.Post(recorderURL, "application/sdp",
+	resp, err := sfuClient.Post(recorderURL, "application/sdp",
 		bytes.NewReader([]byte(pc.LocalDescription().SDP)))
 	if err != nil {
 		return fmt.Errorf("failed to send offer to SFU: %w", err)

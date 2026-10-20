@@ -12,6 +12,8 @@ import { GetTrackByIdUsecase } from './domain/usecases/getTrackById.usecase';
 import { CloseTrackUsecase } from './domain/usecases/closeTrack.usecase';
 import { EventGateway } from 'src/events/infra/gateways/event.gateway';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
+import { LiveRoomUsecase } from './domain/usecases/liveRoom.usecase';
+import { LiveRoomGateway } from './infra/gateways/live-room.gateway';
 
 @Module({
   imports: [TypeOrmModule.forFeature([TrackEntity, UserEntity, EventEntity])],
@@ -33,7 +35,12 @@ import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
     GetTrackByIdUsecase,
     UpdateTrackUsecase,
     DeleteTrackUsecase,
+    {
+      provide: 'LiveRoomGateway',
+      useClass: LiveRoomGateway,
+    },
     CloseTrackUsecase,
+    LiveRoomUsecase,
   ],
   exports: ['TrackGateway', 'EventGateway'],
 })

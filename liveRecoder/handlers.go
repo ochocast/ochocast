@@ -34,6 +34,10 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !controlTokenValid(r) {
+		http.Error(w, "missing or invalid control token", http.StatusUnauthorized)
+		return
+	}
 
 	var req StartRecordingRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -46,16 +50,17 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "room_id is required", http.StatusBadRequest)
 		return
 	}
-	if req.SfuURL == "" {
-		http.Error(w, "sfu_url is required", http.StatusBadRequest)
+	// The worker and the room key come from the control plane, not from the caller (the
+	// request's sfu_url and room_key are ignored).
+	sfuURL, roomKey, err := discoverIngestion(req.RoomID)
+	if err != nil {
+		http.Error(w, "Cannot find the live: "+err.Error(), http.StatusBadGateway)
 		return
 	}
 
-	// Use default output dir if not specified
-	outputDir := req.OutputDir
-	if outputDir == "" {
-		outputDir = s.defaultOutput
-	}
+	// Recordings go to the configured directory and are published to the configured backend:
+	// output_dir and backend_url in requests are ignored.
+	outputDir := s.defaultOutput
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -66,18 +71,14 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create new recording session
-	// Use server env vars for auth config, allow request to override backend_url and track_id
+	// Create new recording session with the server's auth config
 	backendURL := s.backendURL
-	if req.BackendURL != "" {
-		backendURL = req.BackendURL
-	}
 
 	session, err := NewRecordingSession(RecordingConfig{
 		EventID:              req.RoomID,
 		RoomID:               req.RoomID,
-		RoomKey:              req.RoomKey,
-		SfuBaseURL:           req.SfuURL,
+		RoomKey:              roomKey,
+		SfuBaseURL:           sfuURL,
 		OutputDir:            outputDir,
 		BackendURL:           backendURL,
 		TrackID:              req.TrackID,
@@ -121,6 +122,10 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !controlTokenValid(r) {
+		http.Error(w, "missing or invalid control token", http.StatusUnauthorized)
 		return
 	}
 
@@ -208,6 +213,10 @@ func (s *RecordingServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !controlTokenValid(r) {
+		http.Error(w, "missing or invalid control token", http.StatusUnauthorized)
 		return
 	}
 

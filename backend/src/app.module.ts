@@ -16,6 +16,7 @@ import { ChatModule } from './chat/chat.module';
 import { PollsModule } from './polls/polls.module';
 import { RecordingModule } from './recording/recording.module';
 import { QueueModule } from './queue/queue.module';
+import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
@@ -46,5 +47,6 @@ import { QueueModule } from './queue/queue.module';
     RecordingModule,
     QueueModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}

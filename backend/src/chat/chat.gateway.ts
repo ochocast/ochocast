@@ -9,16 +9,26 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
-import { Logger, Optional } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { ChatService } from './core/chat.service';
+import { corsOrigins } from '../common/cors';
+import { SocketAuthService } from './socket-auth.service';
+import { IUserGateway } from '../users/domain/gateways/users.gateway';
+import { ITrackGateway } from '../tracks/domain/gateways/tracks.gateway';
+import { IEventGateway } from '../events/domain/gateways/events.gateway';
+import { UserObject } from '../users/domain/user';
+
+// Who is behind a socket: set at connection from the Keycloak token the client sends
+// (socket.io "auth.token"). Without a valid token the socket can only read.
+interface ChatUser {
+  id: string;
+  name: string;
+  user: UserObject;
+}
 
 @WebSocketGateway({
   cors: {
-    origin: [
-      'http://localhost:3000',
-      //'https://prod-frontend.s3-website.fr-par.scw.cloud',
-      'https://demo.ochocast.fr',
-    ],
+    origin: corsOrigins(),
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -29,10 +39,48 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly socketAuth: SocketAuthService,
+    @Inject('UserGateway') private readonly userGateway: IUserGateway,
+    @Inject('TrackGateway') private readonly trackGateway: ITrackGateway,
+    @Inject('EventGateway') private readonly eventGateway: IEventGateway,
+  ) {}
 
-  handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+  async handleConnection(client: Socket) {
+    const email = await this.socketAuth.emailFromToken(
+      client.handshake?.auth?.token,
+    );
+    const user = email ? await this.userGateway.getUserByEmail(email) : null;
+    if (user) {
+      client.data.user = {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`.trim() || user.username,
+        user,
+      } as ChatUser;
+    }
+    this.logger.log(
+      `Client connected: ${client.id} (${user ? user.id : 'anonymous, read-only'})`,
+    );
+  }
+
+  // The signed-in user of the socket, or null after telling the client why.
+  private signedIn(client: Socket): ChatUser | null {
+    const user = client.data?.user as ChatUser | undefined;
+    if (!user) {
+      client.emit('error', { message: 'Sign in to take part in the chat' });
+      return null;
+    }
+    return user;
+  }
+
+  // Speakers of the track and the event's creator moderate its chat and run its polls.
+  private async isSpeaker(user: ChatUser, trackId: string): Promise<boolean> {
+    const tracks = await this.trackGateway.getTracks({ id: trackId });
+    if (tracks.length === 0) return false;
+    if (tracks[0].canBeEditBy(user.user)) return true;
+    const event = await this.eventGateway.getEventById(tracks[0].eventId);
+    return !!event?.canBeEditBy(user.user);
   }
 
   handleDisconnect(client: Socket) {
@@ -44,7 +92,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { trackId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { trackId, username } = data;
+    const { trackId } = data;
+    const username = (client.data?.user as ChatUser | undefined)?.name;
     client.join(trackId);
     this.logger.log(
       `Client ${client.id} (${username}) joined track room: ${trackId}`,
@@ -54,11 +103,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const existingMessages = await this.chatService.getTrackMessages(trackId);
     client.emit('messageHistory', existingMessages);
 
-    // Notify others in the room
-    client.to(trackId).emit('userJoined', {
-      username,
-      timestamp: new Date(),
-    });
+    // Notify others in the room (signed-in users only: the name comes from their account)
+    if (username) {
+      client.to(trackId).emit('userJoined', {
+        username,
+        timestamp: new Date(),
+      });
+    }
   }
 
   @SubscribeMessage('leaveTrackRoom')
@@ -66,17 +117,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { trackId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { trackId, username } = data;
+    const { trackId } = data;
+    const username = (client.data?.user as ChatUser | undefined)?.name;
     client.leave(trackId);
     this.logger.log(
       `Client ${client.id} (${username}) left track room: ${trackId}`,
     );
 
-    // Notify others in the room
-    client.to(trackId).emit('userLeft', {
-      username,
-      timestamp: new Date(),
-    });
+    if (username) {
+      client.to(trackId).emit('userLeft', {
+        username,
+        timestamp: new Date(),
+      });
+    }
   }
 
   @SubscribeMessage('sendMessage')
@@ -85,6 +138,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId } = messageDto;
+    const user = this.signedIn(client);
+    if (!user) return;
+    // The author is the signed-in user, whatever the message claims.
+    messageDto.userId = user.id;
+    messageDto.username = user.name;
 
     // Add timestamp
     messageDto.timestamp = new Date();
@@ -115,8 +173,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.error(
         `Failed to save message for track ${trackId}: ${error.message}`,
       );
-      // Still broadcast the message even if save fails to maintain real-time experience
-      this.server.to(trackId).emit('receiveMessage', messageDto);
+      client.emit('error', { message: 'Failed to send message' });
     }
   }
 
@@ -131,7 +188,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, isSpeaker } = data;
+    const { messageId, trackId } = data;
+    const user = this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
       // Get the message to check ownership
@@ -143,7 +203,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       // Check if user can delete: own message OR is speaker
-      if (message.userId !== userId && !isSpeaker) {
+      if (
+        message.userId !== userId &&
+        !(await this.isSpeaker(user, message.trackId ?? trackId))
+      ) {
         this.logger.warn(
           `User ${userId} not authorized to delete message ${messageId}`,
         );
@@ -181,7 +244,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, newContent } = data;
+    const { messageId, trackId, newContent } = data;
+    const user = this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
       // Get the message to check ownership
@@ -249,7 +315,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, emoji } = data;
+    const { messageId, trackId, emoji } = data;
+    const user = this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
       // Add the reaction
@@ -284,7 +353,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, emoji } = data;
+    const { messageId, trackId, emoji } = data;
+    const user = this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
       // Remove the reaction
@@ -314,6 +386,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId, poll } = data;
+    const user = this.signedIn(client);
+    if (!user || !(await this.isSpeaker(user, trackId))) return;
     this.logger.log(`Poll created in track ${trackId}`);
     // Broadcast poll creation to all clients in the track room
     this.server.to(trackId).emit('pollCreated', poll);
@@ -325,6 +399,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId, poll } = data;
+    if (!this.signedIn(client)) return;
     this.logger.log(`Poll answered in track ${trackId}, poll ${poll.id}`);
     // Broadcast poll update to all clients in the track room
     this.server.to(trackId).emit('pollAnswered', poll);
@@ -336,6 +411,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId, pollId } = data;
+    const user = this.signedIn(client);
+    if (!user || !(await this.isSpeaker(user, trackId))) return;
     this.logger.log(`Poll closed in track ${trackId}, poll ${pollId}`);
     // Broadcast poll closure to all clients in the track room
     this.server.to(trackId).emit('pollClosed', { pollId });
