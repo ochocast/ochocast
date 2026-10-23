@@ -274,12 +274,16 @@ const VideoMedia: FC = () => {
   };
 
   useEffect(() => {
+    // The page stays mounted from one video to the next: answers for a video
+    // the viewer already left must not land on the one shown now.
+    let cancelled = false;
     const fetchData = async () => {
       setIsLoading(true);
 
       const backendUser = userString ? JSON.parse(userString) : null;
 
       const userResponse = await getUsers();
+      if (cancelled) return;
       const users: User[] = userResponse.data.users || [];
       const user = backendUser
         ? users.find((u) => u.id === backendUser.id)
@@ -293,6 +297,7 @@ const VideoMedia: FC = () => {
           getComments(videoId),
           getLikedComments(),
         ]);
+      if (cancelled) return;
 
       const currentVideo: Video | undefined = videoRes?.ok
         ? videoRes.data?.[0]
@@ -300,6 +305,7 @@ const VideoMedia: FC = () => {
       setVideo(currentVideo);
       if (currentVideo) {
         const suggestionsRes = await getVideoSuggestions(currentVideo.id);
+        if (cancelled) return;
         setSuggestedVideos(playableSuggestions(suggestionsRes));
       }
 
@@ -329,8 +335,13 @@ const VideoMedia: FC = () => {
     // A failed request must not leave the spinner on forever.
     fetchData()
       .catch((err) => console.error('Error loading video page', err))
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
     window.scrollTo(0, 0);
+    return () => {
+      cancelled = true;
+    };
   }, [userString, videoId]);
 
   const latestVideoIdRef = useRef(videoId);
