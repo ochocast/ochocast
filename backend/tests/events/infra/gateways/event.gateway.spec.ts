@@ -97,18 +97,33 @@ describe('Event tags are stored tags or new ones, never client objects', () => {
     ]);
   });
 
-  it.each([
-    ['a JSON string', JSON.stringify(forged)],
-    ['an array', forged],
-  ])('creating an event resolves tags sent as %s', async (_, tagList) => {
-    await gateway().createNewEvent(event(tagList));
+  it('creating an event resolves its tags', async () => {
+    await gateway().createNewEvent(event(forged));
 
     expectResolved(saved[0].tags);
   });
 
   it('updating an event resolves its tags', async () => {
-    await gateway().updateEvent(event(JSON.stringify(forged)));
+    await gateway().updateEvent(event(forged));
 
     expectResolved(saved[0].tags);
   });
+
+  // The use cases parse and cap the form's list (parseTagList): a raw string
+  // here would skip that check.
+  it.each([
+    [
+      'creating',
+      (tagList: unknown) => gateway().createNewEvent(event(tagList)),
+    ],
+    ['updating', (tagList: unknown) => gateway().updateEvent(event(tagList))],
+  ])(
+    '%s an event refuses a list the caller did not parse, before creating any tag',
+    async (_, write) => {
+      await expect(write(JSON.stringify(forged))).rejects.toThrow();
+
+      expect(saved).toHaveLength(0);
+      expect([...tags.keys()]).toEqual(['tag']);
+    },
+  );
 });

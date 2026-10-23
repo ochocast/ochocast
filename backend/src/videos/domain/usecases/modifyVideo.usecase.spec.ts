@@ -60,36 +60,38 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
 
   // The real gateway, over an in-memory table that saves like TypeORM: only
   // the columns the saved entity defines are written.
+  const gateway = () =>
+    new VideoGateway(
+      {
+        find: async ({ where }: any) => {
+          const found = [...rows.values()]
+            .filter((row) => row.id === where.id && !row.archived)
+            .map((row) => ({ ...row }));
+          afterRead?.();
+          afterRead = undefined;
+          return found;
+        },
+        findOneBy: async ({ id }: any) =>
+          loaded(rows.has(id) ? { ...rows.get(id) } : null),
+        existsBy: async ({ id }: any) => loaded(rows.has(id)),
+        manager: {
+          getRepository: (entity: unknown) =>
+            entity === TagEntity ? tagsRepository : usersRepository,
+        },
+        create: (fields: any) => ({ ...fields }),
+        save: async (row: any) => {
+          const defined = Object.fromEntries(
+            Object.entries(row).filter(([, value]) => value !== undefined),
+          );
+          rows.set(row.id, { ...rows.get(row.id), ...defined });
+          return row;
+        },
+      } as any,
+      {} as any,
+    );
   const usecase = () =>
     new ModifyVideoUsecase(
-      new VideoGateway(
-        {
-          find: async ({ where }: any) => {
-            const found = [...rows.values()]
-              .filter((row) => row.id === where.id && !row.archived)
-              .map((row) => ({ ...row }));
-            afterRead?.();
-            afterRead = undefined;
-            return found;
-          },
-          findOneBy: async ({ id }: any) =>
-            loaded(rows.has(id) ? { ...rows.get(id) } : null),
-          existsBy: async ({ id }: any) => loaded(rows.has(id)),
-          manager: {
-            getRepository: (entity: unknown) =>
-              entity === TagEntity ? tagsRepository : usersRepository,
-          },
-          create: (fields: any) => ({ ...fields }),
-          save: async (row: any) => {
-            const defined = Object.fromEntries(
-              Object.entries(row).filter(([, value]) => value !== undefined),
-            );
-            rows.set(row.id, { ...rows.get(row.id), ...defined });
-            return row;
-          },
-        } as any,
-        {} as any,
-      ),
+      gateway(),
       { getUserByEmail: async () => owner } as any,
       {} as any,
     );
@@ -301,6 +303,28 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
 
     expect(rows.get('video').internal_speakers).toEqual([users.get('speaker')]);
   });
+
+  // The use case parses and caps the form's lists (parseVideoLists): a raw
+  // string reaching the gateway would skip that check.
+  it.each([
+    ['tags', { tags: JSON.stringify([{ name: 'Fresh' }]) }],
+    [
+      'internal speakers',
+      { internal_speakers: JSON.stringify([{ id: 'speaker' }]) },
+    ],
+  ])(
+    'the gateway refuses %s the caller did not parse, before saving anything',
+    async (_, fields) => {
+      rows.set('video', storedVideo({}));
+
+      await expect(
+        gateway().modifyVideo({ id: 'video', ...fields } as any),
+      ).rejects.toThrow();
+
+      expect(rows.get('video')).toEqual(storedVideo({}));
+      expect([...tags.keys()]).toEqual(['tag']);
+    },
+  );
 
   // The same limits as the upload's, which creates a video with these lists.
   it.each([

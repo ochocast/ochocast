@@ -200,13 +200,22 @@ export class VideoGateway implements IVideoGateway {
     return await this.videosRepository.findOneBy({ id: video.id });
   }
 
-  /** Stored users for a client list of speakers; unknown ids are dropped. */
-  private async resolveInternalSpeakers(raw: unknown): Promise<UserEntity[]> {
+  /**
+   * Stored users for a client list of speakers; unknown ids are dropped. The
+   * list comes parsed and capped by the use case (`parseVideoLists`).
+   */
+  private async resolveInternalSpeakers(
+    list: readonly ({ id?: string } | null | undefined)[] | null | undefined,
+  ): Promise<UserEntity[]> {
+    if (list != null && !Array.isArray(list)) {
+      throw new Error(
+        'Internal speakers must be parsed and capped before they are resolved',
+      );
+    }
     const usersRepository =
       this.videosRepository.manager.getRepository(UserEntity);
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     const uniqueInternalSpeakers = new Map<string, UserEntity>();
-    for (const rawUser of Array.isArray(parsed) ? parsed : []) {
+    for (const rawUser of list ?? []) {
       const userId = rawUser?.id;
       if (!userId) continue;
 

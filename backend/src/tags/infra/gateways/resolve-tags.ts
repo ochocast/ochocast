@@ -1,21 +1,29 @@
 import { EntityManager } from 'typeorm';
 import { TagEntity } from './entities/tag.entity';
 
+/** A client tag entry: only its id and name are read. */
+type RawTag = { id?: string; name?: unknown } | null | undefined;
+
 /**
  * Stored tags for a client list, found by id or case-insensitive name, and
  * new ones created from a trimmed name only; unknown ids are dropped. A
  * client object never reaches a save: through a cascade, or the tag's
  * inverse relation to videos, it would rename a shared tag or rewrite other
  * videos' links.
+ *
+ * The list comes parsed and capped by the use case (`parseTagList`,
+ * `parseVideoLists`): a raw form string is refused, not parsed here.
  */
 export async function resolveTags(
   manager: EntityManager,
-  raw: unknown,
+  list: readonly RawTag[] | null | undefined,
 ): Promise<TagEntity[]> {
+  if (list != null && !Array.isArray(list)) {
+    throw new Error('Tags must be parsed and capped before they are resolved');
+  }
   const tagsRepository = manager.getRepository(TagEntity);
-  const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
   const uniqueTags = new Map<string, TagEntity>();
-  for (const rawTag of Array.isArray(parsed) ? parsed : []) {
+  for (const rawTag of list ?? []) {
     const tagId = rawTag?.id;
     const tagName = typeof rawTag?.name === 'string' ? rawTag.name.trim() : '';
 
