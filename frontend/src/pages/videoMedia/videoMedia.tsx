@@ -8,7 +8,6 @@ import {
   createComment,
   getComments,
   getLikedComments,
-  getMedia,
   getSubtitle,
   getUsers,
   getVideo,
@@ -25,9 +24,10 @@ import {
 import {
   filterReadyVideos,
   getStoredUserId,
+  isVideoReady,
 } from '../../utils/videoVisibility';
 import { useVideoProcessing } from '../../hooks/useVideoProcessing';
-import { urlFrom, useMediaUrlRetry } from '../../hooks/useMediaUrlRetry';
+import { urlFrom, useVideoMediaUrl } from '../../hooks/useVideoMediaUrl';
 import { videoPlayerView } from '../../utils/videoProcessing';
 import VideoProcessingStatus from '../../components/ReworkComponents/video/VideoProcessingStatus/VideoProcessingStatus';
 import NotFoundPage from '../notFound/notFound';
@@ -59,8 +59,6 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
-const linkExpirationTime = 3600;
-const renewalThreshold = 300;
 const PERSONA_IMAGE = '/branding/persona.png';
 
 interface HlsLevel {
@@ -133,7 +131,6 @@ const VideoMedia: FC = () => {
   }>({});
 
   const { videoId } = useParams();
-  const [url, setUrl] = useState<string>('');
   const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<Video>();
   const [suggestedVideos, setSuggestedVideos] = useState<Video[]>([]);
@@ -289,10 +286,9 @@ const VideoMedia: FC = () => {
         : null;
       setCurrentUser(user || null);
 
-      const [videoRes, mediaRes, subtitleRes, commentsRes, likedCommentsRes] =
+      const [videoRes, subtitleRes, commentsRes, likedCommentsRes] =
         await Promise.all([
           getVideo(videoId),
-          getMedia(videoId),
           getSubtitle(videoId),
           getComments(videoId),
           getLikedComments(),
@@ -307,8 +303,6 @@ const VideoMedia: FC = () => {
         setSuggestedVideos(playableSuggestions(suggestionsRes));
       }
 
-      // Not playable yet while processing: the player waits for a real URL.
-      setUrl(urlFrom(mediaRes) ?? '');
       setSubtitleUrl(urlFrom(subtitleRes));
 
       if (commentsRes && likedCommentsRes) {
@@ -344,12 +338,6 @@ const VideoMedia: FC = () => {
     latestVideoIdRef.current = videoId;
   }, [videoId]);
 
-  const {
-    unavailable: mediaUnavailable,
-    load: loadMediaUrl,
-    loadOnce: loadMediaUrlOnce,
-  } = useMediaUrlRetry(videoId);
-
   const handleProcessingFinal = useCallback(
     async (status: VideoProcessing, processedId: string) => {
       if (status.state === 'failed') {
@@ -361,10 +349,8 @@ const VideoMedia: FC = () => {
         return;
       }
 
-      // A media error right after ready is retried, then explained.
-      const [videoResponse, mediaUrl, subtitleResponse] = await Promise.all([
+      const [videoResponse, subtitleResponse] = await Promise.all([
         getVideo(processedId),
-        loadMediaUrl(processedId),
         getSubtitle(processedId),
       ]);
       if (latestVideoIdRef.current !== processedId) return;
@@ -372,37 +358,25 @@ const VideoMedia: FC = () => {
       const refreshed: Video | undefined = videoResponse?.ok
         ? videoResponse.data?.[0]
         : undefined;
-      // Set together: the player only appears along with a playable URL.
-      setUrl(mediaUrl ?? '');
       setSubtitleUrl(urlFrom(subtitleResponse));
+      // Ready: useVideoMediaUrl loads the media, with its retries.
       setVideo((prev) =>
         prev?.id === processedId
           ? { ...prev, ...refreshed, transcoding_status: 'ready' }
           : prev,
       );
     },
-    [loadMediaUrl],
+    [],
   );
 
-  // A ready video whose first media request failed gets the same retries,
-  // once: after the processing panel's own tries, its error stays shown.
-  const isReady = video?.transcoding_status === 'ready';
-  useEffect(() => {
-    if (isLoading || !isReady || url || !videoId) return;
-    let active = true;
-    loadMediaUrlOnce(videoId).then((mediaUrl) => {
-      if (active && mediaUrl) setUrl(mediaUrl);
-    });
-    return () => {
-      active = false;
-    };
-  }, [isLoading, isReady, url, videoId, loadMediaUrlOnce]);
-
-  const retryMediaUrl = async () => {
-    if (!videoId) return;
-    const mediaUrl = await loadMediaUrl(videoId);
-    if (mediaUrl) setUrl(mediaUrl);
-  };
+  // Only the video this page shows, once its own data has loaded: the state of
+  // the previous video never asks for, nor cancels, this one's media.
+  const mediaReady = !!video && video.id === videoId && isVideoReady(video);
+  const {
+    url,
+    unavailable: mediaUnavailable,
+    retry: retryMediaUrl,
+  } = useVideoMediaUrl(videoId, mediaReady);
 
   const viewerId = getStoredUserId();
   const isVideoCreator =
@@ -416,17 +390,6 @@ const VideoMedia: FC = () => {
     enabled: followProcessing,
     onFinal: handleProcessingFinal,
   });
-
-  useEffect(() => {
-    const renewSignedUrl = async () => {
-      const renewedUrl = urlFrom(await getMedia(videoId));
-      if (renewedUrl) setUrl(renewedUrl);
-    };
-
-    const ms = (linkExpirationTime - renewalThreshold) * 1000;
-    const id = window.setTimeout(renewSignedUrl, ms);
-    return () => window.clearTimeout(id);
-  }, [videoId]);
 
   const handleReplyClick = (index: number) => {
     const parent = commentaryList.filter((c) => c.parentid === null)[index];
