@@ -26,8 +26,10 @@ export class JobRunner {
     if (shutdownSignal.aborted) abort();
     // Only the deadline is permanent: an aborted shutdown is retried elsewhere.
     let deadlineExceeded = false;
+    let deadlineAt = 0;
     const timer = setTimeout(() => {
       deadlineExceeded = !controller.signal.aborted;
+      deadlineAt = Date.now();
       abort();
     }, this.timeoutMs);
     let encodingStartedAt: number | undefined;
@@ -72,30 +74,34 @@ export class JobRunner {
     }
     if (!result.success && deadlineExceeded && !result.permanent) {
       const deadline = `Transcoding deadline exceeded (${Math.round(this.timeoutMs / 1000)} s)`;
-      // The same video would exceed it again while encoding, or after an encode
-      // that used half the budget or more: its outputs no longer fit. Before
-      // encoding (a stalled S3 read, a slow probe) or after a short encode (a
-      // stalled upload), another attempt can succeed; before encoding, the
-      // final miniature and subtitle the source fallback relies on may not
-      // exist yet either.
-      const encoding =
-        encodingStartedAt !== undefined && encodingFinishedAt === undefined;
+      // An encode that ran for half the budget or more, whether it finished or
+      // the deadline cut it, would not fit next time either: the video is too
+      // long to transcode. Before encoding (a stalled S3 read, a slow probe),
+      // during an encode that started late, or after a short encode (a stalled
+      // upload), another attempt can succeed; before encoding, the final
+      // miniature and subtitle the source fallback relies on may not exist yet
+      // either.
       const longEncode =
         encodingStartedAt !== undefined &&
-        encodingFinishedAt !== undefined &&
-        encodingFinishedAt - encodingStartedAt >= this.timeoutMs / 2;
-      result =
-        encoding || longEncode
-          ? {
-              ...result,
-              error: deadline,
-              permanent: true,
-              reason: 'deadline_exceeded',
-            }
-          : {
-              ...result,
-              error: `${deadline} ${encodingStartedAt === undefined ? 'before encoding started' : 'after encoding'}`,
-            };
+        (encodingFinishedAt ?? deadlineAt) - encodingStartedAt >=
+          this.timeoutMs / 2;
+      const stage =
+        encodingStartedAt === undefined
+          ? 'before encoding started'
+          : encodingFinishedAt === undefined
+            ? 'during encoding, which started late'
+            : 'after encoding';
+      result = longEncode
+        ? {
+            ...result,
+            error: deadline,
+            permanent: true,
+            reason: 'deadline_exceeded',
+          }
+        : {
+            ...result,
+            error: `${deadline} ${stage}`,
+          };
     }
     // Do not acknowledge the trigger until the backend has durably stored the result.
     await this.backend.complete(job.jobId, claim.leaseToken, result);

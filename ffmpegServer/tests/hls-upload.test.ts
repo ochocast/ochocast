@@ -25,9 +25,21 @@ const fakeS3 = async (
     peak: 0,
     puts: [] as Put[],
     finished: [] as string[],
+    deleted: [] as string[],
   };
   const prefix = `/${S3_CONFIG.mediaBucket}/`;
   const server = createServer(async (request, response) => {
+    // DeleteObjects: POST /<bucket>?delete with the keys in an XML body.
+    if (request.method === 'POST' && (request.url || '').includes('?delete')) {
+      let body = '';
+      for await (const chunk of request) body += chunk;
+      for (const [, key] of body.matchAll(/<Key>([^<]+)<\/Key>/g))
+        state.deleted.push(key);
+      response
+        .writeHead(200, { 'Content-Type': 'application/xml' })
+        .end('<DeleteResult></DeleteResult>');
+      return;
+    }
     const key = decodeURIComponent(
       (request.url || '').split('?')[0].slice(prefix.length),
     );
@@ -132,6 +144,7 @@ test('HLS files upload TRANSCODING_UPLOAD_CONCURRENCY at a time, the master last
   assert.equal(master?.key, 'video/master.m3u8');
   assert.equal(master?.activeAtStart, 1, 'nothing else in flight');
   assert.equal(state.finished.indexOf('video/master.m3u8'), files.length - 1);
+  assert.deepEqual(state.deleted, []);
   for (const { key, contentType } of state.puts)
     assert.equal(
       contentType,
@@ -211,5 +224,49 @@ test('an abort stops HLS uploads, in flight and pending, and never publishes the
   assert.equal(
     state.puts.some(({ key }) => key === 'video/master.m3u8'),
     false,
+  );
+});
+
+// Otherwise they stay in the bucket: a retry uploads them again, and a video
+// played from its source never serves them.
+test('a failed HLS upload deletes the renditions it started, never the master', async (t) => {
+  setEnv(t, 'TRANSCODING_UPLOAD_CONCURRENCY', '4');
+  t.mock.method(console, 'log', () => {});
+  const { state, upload } = await run(t, 8, async (key, request, response) => {
+    if (key === 'video/360p3.ts') {
+      response
+        .writeHead(403, { 'Content-Type': 'application/xml' })
+        .end(
+          '<Error><Code>AccessDenied</Code><Message>denied</Message></Error>',
+        );
+      return;
+    }
+    await ok(key, request, response);
+  });
+  await assert.rejects(upload, { name: 'AccessDenied' });
+  assert.deepEqual(
+    [...state.deleted].sort(),
+    state.puts.map(({ key }) => key).sort(),
+  );
+  assert.equal(state.deleted.includes('video/master.m3u8'), false);
+});
+
+test('an aborted HLS upload (job deadline) deletes the renditions it started', async (t) => {
+  setEnv(t, 'TRANSCODING_UPLOAD_CONCURRENCY', '4');
+  t.mock.method(console, 'log', () => {});
+  const controller = new AbortController();
+  const { state, upload } = await run(
+    t,
+    8,
+    () => new Promise<void>(() => {}),
+    controller.signal,
+  );
+  const waitUntil = Date.now() + 2000;
+  while (state.puts.length < 4 && Date.now() < waitUntil) await sleep(5);
+  controller.abort();
+  await assert.rejects(upload, { name: 'AbortError' });
+  assert.deepEqual(
+    [...state.deleted].sort(),
+    state.puts.map(({ key }) => key).sort(),
   );
 });

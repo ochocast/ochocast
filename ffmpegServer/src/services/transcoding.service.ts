@@ -1,4 +1,8 @@
-import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  DeleteObjectsCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import {
   mkdir,
@@ -99,9 +103,9 @@ export class TranscodingService {
   async probeSource(
     inputPath: string,
   ): Promise<{ duration: number; codecsPlayable: boolean; hasAudio: boolean }> {
-    let stdout: string;
+    let probed: { streams?: ProbedStream[]; format?: { duration?: string } };
     try {
-      ({ stdout } = await this.runProcess(
+      const { stdout } = await this.runProcess(
         process.env.FFPROBE_PATH || 'ffprobe',
         [
           '-v',
@@ -115,20 +119,23 @@ export class TranscodingService {
         // One entry per stream: a source with dozens of subtitle tracks or
         // attachments exceeds the default 8 KiB, and truncated JSON fails.
         1024 * 1024,
-      ));
+      );
+      // Only the tail of a larger output is kept: it no longer parses, and
+      // another attempt would read the same source.
+      probed = JSON.parse(stdout);
     } catch (error) {
       // Aborted, killed or missing binary: not the source's fault, retryable.
-      if (typeof (error as { exitCode?: unknown }).exitCode !== 'number')
+      if (
+        !(error instanceof SyntaxError) &&
+        typeof (error as { exitCode?: unknown }).exitCode !== 'number'
+      )
         throw error;
       throw new PermanentJobError(
         'invalid_source',
         `Unreadable video source: ${(error as Error).message}`.slice(0, 2000),
       );
     }
-    const { streams = [], format } = JSON.parse(stdout) as {
-      streams?: ProbedStream[];
-      format?: { duration?: string };
-    };
+    const { streams = [], format } = probed;
     if (!streams.some((stream) => stream.codec_type === 'video'))
       throw new PermanentJobError(
         'invalid_source',
@@ -359,11 +366,14 @@ export class TranscodingService {
     files.sort();
 
     let fileCount = 0;
+    const started: string[] = [];
     const upload = async (filePath: string) => {
+      const key = `${videoId}/${path.relative(hlsDir, filePath)}`;
+      started.push(key);
       await this.uploadFile(
         filePath,
         S3_CONFIG.mediaBucket,
-        `${videoId}/${path.relative(hlsDir, filePath)}`,
+        key,
         filePath.endsWith('.m3u8')
           ? 'application/vnd.apple.mpegurl'
           : 'video/mp2t',
@@ -388,11 +398,45 @@ export class TranscodingService {
     await Promise.all(
       Array.from({ length: Math.min(concurrency, files.length) }, worker),
     );
-    if (failure) throw failure.error;
-    if (hasMaster) await upload(master);
+    try {
+      if (failure) throw failure.error;
+      if (hasMaster) await upload(master);
+    } catch (error) {
+      // A partial set is never served: a retry uploads it again, and a video
+      // played from its source (deadline after a long encode) never reads it.
+      await this.deletePartialUpload(started);
+      throw error;
+    }
 
     console.log(`Uploaded ${fileCount} HLS files`);
     return fileCount;
+  }
+
+  /**
+   * Best effort, in batches of 1000 keys, with its own timeout: the job's
+   * signal may already be aborted, and the lease outlives the job deadline by
+   * at least 30 s.
+   */
+  private async deletePartialUpload(keys: string[]): Promise<void> {
+    for (let start = 0; start < keys.length; start += 1000) {
+      try {
+        await this.s3Client.send(
+          new DeleteObjectsCommand({
+            Bucket: S3_CONFIG.mediaBucket,
+            Delete: {
+              Objects: keys.slice(start, start + 1000).map((Key) => ({ Key })),
+              Quiet: true,
+            },
+          }),
+          { abortSignal: AbortSignal.timeout(10000) },
+        );
+      } catch (error) {
+        console.warn(
+          `Could not delete ${keys.length} partial HLS files: ${(error as Error).message}`,
+        );
+        return;
+      }
+    }
   }
 
   /**
@@ -490,17 +534,9 @@ export class TranscodingService {
       // A misconfiguration must not cost a whole encode before failing.
       uploadConcurrency();
 
-      // Transcode to HLS. A deadline during the encode, or after one that used
-      // half the budget or more, means the video is too long to transcode: the
-      // runner reports it permanent. After a shorter encode it is retried.
-      this.onEncodingStarted?.();
-      await this.transcodeVideoHLS(tempInputPath, hlsOutputDir, probe.hasAudio);
-      this.onEncodingFinished?.();
-
-      // Upload HLS files
-      await this.uploadHLSFiles(hlsOutputDir, job.videoId);
-
-      // Extract and upload FLAC audio when the source has an audio track
+      // Extract and upload FLAC audio when the source has an audio track. Done
+      // before the encode: a deadline after the HLS upload would otherwise
+      // count as a long encode and discard a finished HLS set.
       const audioKey = `${job.videoId}/audio.flac`;
       if (probe.hasAudio) {
         await this.extractAudioFlac(tempInputPath, tempAudioPath);
@@ -512,6 +548,16 @@ export class TranscodingService {
         );
         console.log(`FLAC audio uploaded: ${audioKey}`);
       }
+
+      // Transcode to HLS. A deadline during the encode, or after one that used
+      // half the budget or more, means the video is too long to transcode: the
+      // runner reports it permanent. After a shorter encode it is retried.
+      this.onEncodingStarted?.();
+      await this.transcodeVideoHLS(tempInputPath, hlsOutputDir, probe.hasAudio);
+      this.onEncodingFinished?.();
+
+      // Upload HLS files
+      await this.uploadHLSFiles(hlsOutputDir, job.videoId);
 
       const sourceObjects = [
         { bucket: S3_CONFIG.mediaBucket, key: job.originalKey },

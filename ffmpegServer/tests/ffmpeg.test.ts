@@ -345,6 +345,20 @@ test('the probe judges the main video, even after a cover image listed first', a
   });
 });
 
+// runProcess keeps only the tail of an oversized output: it no longer parses.
+test('a probe output that is not valid JSON is a permanent invalid source', async (t) => {
+  await withDirectory(async (directory) => {
+    const ffprobe = path.join(directory, 'ffprobe');
+    await writeFile(ffprobe, `#!/bin/sh\necho '"codec_type": "video"}]}'\n`);
+    await chmod(ffprobe, 0o755);
+    setEnv(t, 'FFPROBE_PATH', ffprobe);
+    await assert.rejects(
+      new TranscodingService({} as S3Client).probeSource('source.mp4'),
+      invalidSource,
+    );
+  });
+});
+
 test('the probe reads a source with many streams (multi-language subtitles)', async () => {
   await withDirectory(async (directory) => {
     const video = path.join(directory, 'video.mp4');
@@ -445,6 +459,30 @@ test('a full job uploads lossless FLAC audio, never WAV', async (t) => {
       false,
     );
     assert.match(flacSamples, /^MD5=[0-9a-f]{32}/);
+  });
+});
+
+// A deadline after the HLS upload would otherwise discard a finished,
+// playable HLS set: the FLAC is stored while the encode has not started.
+test('the FLAC audio is stored before encoding starts', async (t) => {
+  const events: string[] = [];
+  t.mock.method(
+    TranscodingService.prototype as unknown as Uploads,
+    'uploadFile',
+    async (_file: string, _bucket: string, key: string) => {
+      events.push(`upload ${key}`);
+    },
+  );
+  await withDirectory(async (directory) => {
+    const input = path.join(directory, 'input.mp4');
+    await clip(input);
+    const result = await new TranscodingService({} as S3Client, undefined, () =>
+      events.push('encoding started'),
+    ).processJob(fixtureJob, input, undefined, undefined, true);
+    assert.equal(result.success, true, result.error);
+    const flac = events.indexOf('upload video/audio.flac');
+    assert.ok(flac >= 0, events.join(', '));
+    assert.ok(flac < events.indexOf('encoding started'), events.join(', '));
   });
 });
 

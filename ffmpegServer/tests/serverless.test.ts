@@ -254,6 +254,34 @@ test('a deadline once encoding started is a permanent failure: stored, then ackn
   assert.match(failure?.error || '', /deadline/);
 });
 
+test('a deadline during an encode that started late stays retryable', async () => {
+  let failure: VideoTranscodingResult | undefined;
+  const runner = new JobRunner(
+    {
+      claim: async () => claim(),
+      complete: async (_id, _token, received) => {
+        failure = received;
+      },
+    },
+    {
+      processJob: async (incoming, signal, onEncodingStarted) => {
+        // A slow download used 150 of the 200 ms: the encode may fit next time.
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        onEncodingStarted?.();
+        return untilAborted.processJob(incoming, signal);
+      },
+    },
+    200,
+  );
+  await assert.rejects(
+    runner.run(job, new AbortController().signal),
+    /Transcoding failed/,
+  );
+  assert.equal(failure?.permanent, undefined);
+  assert.equal(failure?.reason, undefined);
+  assert.match(failure?.error || '', /deadline exceeded .*during encoding/);
+});
+
 test('a deadline after a short encode (a stalled upload) stays retryable', async () => {
   let failure: VideoTranscodingResult | undefined;
   const runner = new JobRunner(
