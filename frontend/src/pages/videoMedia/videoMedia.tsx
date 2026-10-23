@@ -46,8 +46,6 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
-const linkExpirationTime = 3600;
-const renewalThreshold = 300;
 const PERSONA_IMAGE = '/branding/persona.png';
 
 interface HlsLevel {
@@ -343,17 +341,6 @@ const VideoMedia: FC = () => {
 
     return () => window.clearInterval(poll);
   }, [video?.transcoding_status, videoId]);
-
-  useEffect(() => {
-    const renewSignedUrl = async () => {
-      const url_response = await getMedia(videoId);
-      if (url_response) setUrl(url_response.data);
-    };
-
-    const ms = (linkExpirationTime - renewalThreshold) * 1000;
-    const id = window.setTimeout(renewSignedUrl, ms);
-    return () => window.clearTimeout(id);
-  }, [videoId]);
 
   const handleReplyClick = (index: number) => {
     const parent = commentaryList.filter((c) => c.parentid === null)[index];

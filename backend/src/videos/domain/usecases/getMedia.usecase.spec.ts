@@ -25,6 +25,7 @@ describe('HLS public content with retained transcoding sources', () => {
     'source/original.mp4',
     'source/original.ts',
     '_transcoding/job/result.json',
+    'audio.flac',
     'audio.wav',
     '../other/master.m3u8',
   ])('does not proxy private object %s', async (key) => {
@@ -48,9 +49,9 @@ describe('HLS public content with retained transcoding sources', () => {
 
 describe('Source playback when transcoding is disabled', () => {
   const send = jest.fn();
-  const sourceVideo = (media_id: string) => ({
+  const sourceVideo = (media_id: string, duration?: number | null) => ({
     getVideos: async () => [
-      { id: 'video', media_id, transcoding_status: 'ready' },
+      { id: 'video', media_id, transcoding_status: 'ready', duration },
     ],
   });
   const signer = new S3Client({
@@ -108,6 +109,29 @@ describe('Source playback when transcoding is disabled', () => {
       expect(url).toContain('X-Amz-Signature=');
       // The stored type of an older object can never turn it into a page.
       expect(new URL(url).searchParams.get('response-content-type')).toBe(type);
+    },
+  );
+
+  // The browser fetches byte ranges from this one URL for the whole playback:
+  // a video too long to transcode must not get a 403 after an hour.
+  it.each([
+    ['a 10-minute video', 600, 2 * 600 + 3600],
+    ['a 3-hour video played from its source', 3 * 3600, 2 * 3 * 3600 + 3600],
+    ['a fractional duration', 4000.4, 2 * 4001 + 3600],
+    ['a long recording of unknown duration', null, 24 * 3600],
+    ['an unset duration', undefined, 24 * 3600],
+    ['a zero duration', 0, 24 * 3600],
+    ['a duration beyond the 7-day SigV4 limit', 10 * 24 * 3600, 604800],
+  ])(
+    'keeps the source URL of %s valid for its playback',
+    async (_case, duration, expires) => {
+      const url = await new GetMediaUsecase(
+        sourceVideo('video/source/original.mp4', duration) as any,
+        signer,
+      ).execute('video', 'http://api.test/api');
+      expect(Number(new URL(url).searchParams.get('X-Amz-Expires'))).toBe(
+        expires,
+      );
     },
   );
 
