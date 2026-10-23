@@ -14,6 +14,7 @@ import { IEventGateway } from '../gateways/events.gateway';
 import { EventObject } from '../event';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { EventDataDto } from 'src/events/infra/controllers/dto/event-data.dto';
+import { parseTagList } from 'src/common/formList';
 
 export class UpdateEventUsecase {
   constructor(
@@ -41,6 +42,12 @@ export class UpdateEventUsecase {
     const existingEvent = await this.eventGateway.getEventById(eventId);
     if (!existingEvent) throw new NotFoundException('Event not found');
     if (!existingEvent.canBeEditBy(user)) throw new UnauthorizedException();
+    // Checked before the stored miniature is replaced; a list the form leaves
+    // out keeps the stored one.
+    const tags =
+      eventUpdate.tags !== undefined
+        ? (parseTagList(eventUpdate.tags) as EventObject['tags'])
+        : undefined;
     if (file) {
       if (existingEvent.imageSlug && existingEvent.imageSlug !== 'imageSlug') {
         await this.s3Client.send(
@@ -72,7 +79,7 @@ export class UpdateEventUsecase {
       existingEvent.startDate = eventUpdate.startDate;
     if (eventUpdate.endDate !== undefined)
       existingEvent.endDate = eventUpdate.endDate;
-    if (eventUpdate.tags !== undefined) existingEvent.tags = eventUpdate.tags;
+    if (tags !== undefined) existingEvent.tags = tags;
     return await this.eventGateway.updateEvent(existingEvent);
   }
 }

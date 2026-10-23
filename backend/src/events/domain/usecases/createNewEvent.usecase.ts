@@ -10,6 +10,7 @@ import { tmpdir } from 'os';
 import { Upload } from '@aws-sdk/lib-storage';
 import { readFile, unlink } from 'node:fs/promises';
 import sharp = require('sharp');
+import { parseTagList } from 'src/common/formList';
 
 export class CreateNewEventUsecase {
   constructor(
@@ -25,6 +26,8 @@ export class CreateNewEventUsecase {
   ): Promise<EventObject> {
     const user = await this.userGateway.getUserByEmail(currentUserEmail);
     if (!user) throw new NotFoundException('User not found');
+    // Checked before the miniature is processed or uploaded.
+    const tags = parseTagList(eventToCreate.tags) as EventObject['tags'];
     let miniature_id = '';
     if (miniatureFile) {
       miniature_id = `miniature${Date.now()}.jpg`;
@@ -36,7 +39,7 @@ export class CreateNewEventUsecase {
       uuid(),
       eventToCreate.name,
       eventToCreate.description,
-      eventToCreate.tags,
+      tags,
       eventToCreate.startDate,
       eventToCreate.endDate,
       false,

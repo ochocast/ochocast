@@ -2,7 +2,11 @@ import { UpdateEventUsecase } from 'src/events/domain/usecases/updateEvent.useca
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { EventObject } from 'src/events/domain/event';
-import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnauthorizedException,
+  NotFoundException,
+} from '@nestjs/common';
 import { UserObject } from 'src/users/domain/user';
 import { EventDataDto } from 'src/events/infra/controllers/dto/event-data.dto';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
@@ -183,6 +187,60 @@ describe('UpdateEventUsecase', () => {
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(1);
     expect(result).toEqual(eventUpdated);
   });
+
+  it('should parse the tags of a multipart form, sent as a JSON string', async () => {
+    const result = await updateEventUsecase.execute(
+      eventId,
+      {
+        ...dataToUpdate,
+        tags: JSON.stringify([{ name: 'tag2' }]),
+      } as unknown as EventDataDto,
+      file,
+      creatorEmail,
+    );
+
+    expect(result.tags).toEqual([{ name: 'tag2' }]);
+  });
+
+  /*
+    Error case : invalid tags
+   */
+
+  it.each([
+    [
+      'more than 100 tags',
+      Array.from({ length: 101 }, (_, i) => ({ name: `tag${i}` })),
+    ],
+    ['malformed JSON', '[{"name":'],
+    ['tags that are not a list', '{"name":"tag1"}'],
+  ])(
+    'should reject %s with a 400, before touching the miniature or the event',
+    async (_case, tags) => {
+      const s3Client = { send: jest.fn() };
+      const usecase = new UpdateEventUsecase(
+        eventGatewayMock,
+        userGatewayMock,
+        s3Client as any,
+      );
+      const miniature = {
+        originalname: 'new.jpg',
+        buffer: Buffer.from('jpeg'),
+        mimetype: 'image/jpeg',
+      } as Express.Multer.File;
+
+      await expect(
+        usecase.execute(
+          eventId,
+          { ...dataToUpdate, tags } as unknown as EventDataDto,
+          miniature,
+          creatorEmail,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(s3Client.send).not.toHaveBeenCalled();
+      expect(eventGatewayMock.updateEvent).not.toHaveBeenCalled();
+    },
+  );
 
   /*
     Error case : DB Error 

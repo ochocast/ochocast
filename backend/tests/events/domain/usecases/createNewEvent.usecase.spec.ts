@@ -4,7 +4,7 @@ import { EventDataDto } from '../../../../src/events/infra/controllers/dto/event
 import { EventObject } from 'src/events/domain/event';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { UserObject } from 'src/users/domain/user';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 
 jest.mock('uuid', () => ({
@@ -134,6 +134,61 @@ describe('CreateNewEventUsecase', () => {
 
     expect(eventGatewayMock.createNewEvent).toHaveBeenCalledTimes(1);
   });
+
+  it('should parse the tags of a multipart form, sent as a JSON string', async () => {
+    const createdEvent = await createNewEventUsecase.execute(
+      creator.email,
+      {
+        ...createEventDto,
+        tags: JSON.stringify([{ name: 'tag1' }]),
+      } as unknown as EventDataDto,
+      null,
+    );
+
+    expect(createdEvent.tags).toEqual([{ name: 'tag1' }]);
+  });
+
+  it('should accept up to 100 tags', async () => {
+    const tags = Array.from({ length: 100 }, (_, i) => ({ name: `tag${i}` }));
+
+    const createdEvent = await createNewEventUsecase.execute(
+      creator.email,
+      { ...createEventDto, tags } as unknown as EventDataDto,
+      null,
+    );
+
+    expect(createdEvent.tags).toHaveLength(100);
+  });
+
+  /*
+    Error case : invalid tags
+   */
+
+  it.each([
+    [
+      'more than 100 tags',
+      Array.from({ length: 101 }, (_, i) => ({ name: `tag${i}` })),
+    ],
+    ['malformed JSON', '[{"name":'],
+    ['tags that are not a list', '{"name":"tag1"}'],
+  ])(
+    'should reject %s with a 400, before the miniature is processed',
+    async (_case, tags) => {
+      const miniature = {
+        buffer: Buffer.from('not an image'),
+      } as Express.Multer.File;
+
+      await expect(
+        createNewEventUsecase.execute(
+          creator.email,
+          { ...createEventDto, tags } as unknown as EventDataDto,
+          miniature,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(eventGatewayMock.createNewEvent).not.toHaveBeenCalled();
+    },
+  );
 
   /*
     Error case : DB fail
