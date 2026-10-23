@@ -179,16 +179,16 @@ describe('useVideoMediaUrl', () => {
     expect(mockedGetMedia).toHaveBeenCalledTimes(1);
   });
 
-  it('renews the signed URL before it expires, while the video stays on screen', async () => {
-    mockedGetMedia
-      .mockResolvedValueOnce(URL_V1)
-      .mockResolvedValueOnce({ ...URL_V1, data: 'https://cdn/v1/renewed' });
+  // A new URL would reload the player from the start, mid-playback; the
+  // playlist was resolved when the video was opened.
+  it('keeps the URL of a video that stays on screen, without asking again', async () => {
+    mockedGetMedia.mockResolvedValue(URL_V1);
     const { result } = render({ id: 'v1', ready: true });
     await settle();
 
-    await advance(55 * 60 * 1000);
+    await advance(2 * 60 * 60 * 1000);
 
-    expect(mockedGetMedia).toHaveBeenCalledTimes(2);
-    expect(result.current.url).toBe('https://cdn/v1/renewed');
+    expect(mockedGetMedia).toHaveBeenCalledTimes(1);
+    expect(result.current.url).toBe(URL_V1.data);
   });
 });
