@@ -160,11 +160,17 @@ const VideoMedia: FC = () => {
 
   const currentVideoId = video?.id;
 
+  // Like fetchData below: answers for a video the viewer already left must not
+  // land on the one shown now.
   useEffect(() => {
+    let cancelled = false;
+    // Not the previous video's flag while this one's is loading.
+    setIsFavorite(false);
     const checkFavorite = async () => {
       try {
         if (currentVideoId) {
           const fav = await isVideoFavorite(currentVideoId);
+          if (cancelled) return;
           setIsFavorite(!!fav);
         }
       } catch (err) {
@@ -172,34 +178,42 @@ const VideoMedia: FC = () => {
       }
     };
     checkFavorite();
+    return () => {
+      cancelled = true;
+    };
   }, [currentVideoId]);
 
   useEffect(() => {
+    let cancelled = false;
     const incrementViews = async () => {
       try {
         if (currentVideoId) {
           const viewedVideosKey = 'viewedVideos';
-          const viewedVideos = JSON.parse(
-            sessionStorage.getItem(viewedVideosKey) || '[]',
-          );
+          const readViewedVideos = (): string[] =>
+            JSON.parse(sessionStorage.getItem(viewedVideosKey) || '[]');
 
-          if (!viewedVideos.includes(currentVideoId)) {
+          if (!readViewedVideos().includes(currentVideoId)) {
             const result = await incrementVideoViews(currentVideoId);
-            viewedVideos.push(currentVideoId);
+            // Counted even if the viewer has left; read again, since another
+            // video may have been recorded meanwhile.
             sessionStorage.setItem(
               viewedVideosKey,
-              JSON.stringify(viewedVideos),
+              JSON.stringify([...readViewedVideos(), currentVideoId]),
             );
+            if (cancelled) return;
 
             if (result?.data) {
+              // The next video may be set in the same render, before the
+              // cleanup above has run.
               setVideo((prevVideo) =>
-                prevVideo
+                prevVideo?.id === currentVideoId
                   ? { ...prevVideo, views: result.data.views }
                   : prevVideo,
               );
             }
 
             const suggestionsRes = await getVideoSuggestions(currentVideoId);
+            if (cancelled) return;
             setSuggestedVideos(playableSuggestions(suggestionsRes));
           }
         }
@@ -208,6 +222,9 @@ const VideoMedia: FC = () => {
       }
     };
     incrementViews();
+    return () => {
+      cancelled = true;
+    };
   }, [currentVideoId]);
 
   const toggleFavorite = async (e: React.MouseEvent) => {
