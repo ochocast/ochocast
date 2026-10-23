@@ -423,7 +423,7 @@ export class TranscodingService {
     budgetMs = 10000,
   ): Promise<void> {
     const signal = AbortSignal.timeout(budgetMs);
-    // The SDK only rejects an aborted request once its response arrives: the
+    // The SDK retries an aborted request with backoff before it rejects: the
     // budget is enforced by racing each request against it.
     const expired = new Promise<never>((_resolve, reject) => {
       const fail = () => reject(signal.reason);
@@ -454,8 +454,8 @@ export class TranscodingService {
       console.warn(
         `Could not delete the partial HLS upload (${keys.length} files): ${(error as Error).message}`,
       );
-      return;
     }
+    // Including those refused before a later batch failed.
     if (refused.length)
       console.warn(
         `Could not delete ${refused.length} partial HLS file(s): ${refused.slice(0, 5).join(', ')}`,

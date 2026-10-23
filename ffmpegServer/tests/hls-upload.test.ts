@@ -29,6 +29,8 @@ const fakeS3 = async (
     // What DeleteObjects answers, and after how long.
     deleteResult: '<DeleteResult></DeleteResult>',
     deleteDelayMs: 0,
+    // Per request, in order, before falling back to deleteDelayMs.
+    deleteDelays: [] as number[],
   };
   const prefix = `/${S3_CONFIG.mediaBucket}/`;
   const server = createServer(async (request, response) => {
@@ -38,7 +40,7 @@ const fakeS3 = async (
       for await (const chunk of request) body += chunk;
       for (const [, key] of body.matchAll(/<Key>([^<]+)<\/Key>/g))
         state.deleted.push(key);
-      await sleep(state.deleteDelayMs);
+      await sleep(state.deleteDelays.shift() ?? state.deleteDelayMs);
       if (!response.destroyed)
         response
           .writeHead(200, { 'Content-Type': 'application/xml' })
@@ -313,16 +315,39 @@ test('the cleanup of a partial upload stops at its budget, across batches', asyn
   const warn = t.mock.method(console, 'warn', () => {});
   const s3 = await fakeS3(ok);
   t.after(() => s3.close());
-  s3.state.deleteDelayMs = 300;
+  // Each batch fits the budget, both together do not: about 1200 ms with one
+  // budget, 2000 ms with one each. 500 ms of slack on either side.
+  s3.state.deleteDelayMs = 1000;
   const keys = Array.from({ length: 1500 }, (_, index) => `video/${index}.ts`);
   const started = Date.now();
   await (
     new TranscodingService(s3.client) as unknown as {
       deletePartialUpload(keys: string[], budgetMs: number): Promise<void>;
     }
-  ).deletePartialUpload(keys, 400);
+  ).deletePartialUpload(keys, 1200);
   const elapsed = Date.now() - started;
-  // Two batches of 300 ms each would take 600 ms.
-  assert.ok(elapsed < 520, `cleanup took ${elapsed} ms`);
+  assert.ok(elapsed < 1700, `cleanup took ${elapsed} ms`);
   assert.equal(warn.mock.callCount(), 1);
+});
+
+test('keys refused in an earlier batch are logged when a later batch times out', async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const s3 = await fakeS3(ok);
+  t.after(() => s3.close());
+  s3.state.deleteResult =
+    '<DeleteResult><Error><Key>video/0.ts</Key><Code>AccessDenied</Code>' +
+    '<Message>denied</Message></Error></DeleteResult>';
+  // The first batch answers at once, the second after the budget.
+  s3.state.deleteDelays = [0, 1000];
+  const keys = Array.from({ length: 1500 }, (_, index) => `video/${index}.ts`);
+  await (
+    new TranscodingService(s3.client) as unknown as {
+      deletePartialUpload(keys: string[], budgetMs: number): Promise<void>;
+    }
+  ).deletePartialUpload(keys, 300);
+  const logged = warn.mock.calls.map((call) => String(call.arguments[0]));
+  assert.ok(
+    logged.some((line) => line.includes('video/0.ts (AccessDenied)')),
+    logged.join('\n'),
+  );
 });
