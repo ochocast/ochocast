@@ -79,6 +79,12 @@ interface QualityOption {
   label: string;
 }
 
+/**
+ * HLS goes through this stable API route (GetMediaUsecase); any other media
+ * URL is a presigned source, which expires.
+ */
+const isHlsRoute = (url: string) => url.includes('/videos/media-content/');
+
 /** Suggestions and the end-screen next video must be playable right away. */
 const playableSuggestions = (response?: {
   ok: boolean;
@@ -406,6 +412,48 @@ const VideoMedia: FC = () => {
     retry: retryMediaUrl,
   } = useVideoMediaUrl(videoId, mediaReady);
 
+  // A source URL is signed for twice the duration plus an hour: a page left
+  // open longer loses it mid-playback. A URL that played and then fails to
+  // load is renewed, and the new one resumes where it stopped. One that never
+  // played is broken, not expired: the viewer gets Retry instead of a loop.
+  const playedUrlRef = useRef<string | null>(null);
+  const resumeRef = useRef<{ videoId?: string; seconds: number } | null>(null);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const mediaFailed = mediaUnavailable || (!!url && url === failedUrl);
+
+  const handleMediaReady = (player: _ReactPlayer) => {
+    playedUrlRef.current = url;
+    const resume = resumeRef.current;
+    resumeRef.current = null;
+    if (resume && resume.videoId === videoId && resume.seconds > 0) {
+      player.seekTo(resume.seconds, 'seconds');
+    }
+    handlePlayerReady(player);
+  };
+
+  const handlePlayerError = () => {
+    const media = playerRef.current?.getInternalPlayer() as
+      | HTMLMediaElement
+      | null
+      | undefined;
+    // A play() the browser refused is reported too: only a failed load counts.
+    if (!url || isHlsRoute(url) || !media?.error) return;
+    if (playedUrlRef.current !== url) {
+      setFailedUrl(url);
+      return;
+    }
+    resumeRef.current = {
+      videoId,
+      seconds: playerRef.current?.getCurrentTime() ?? 0,
+    };
+    retryMediaUrl();
+  };
+
+  const retryMedia = () => {
+    setFailedUrl(null);
+    retryMediaUrl();
+  };
+
   const viewerId = getStoredUserId();
   const isVideoCreator =
     !!viewerId && !!video?.creator && video.creator.id === viewerId;
@@ -658,9 +706,9 @@ const VideoMedia: FC = () => {
                 failed={playerView === 'failed'}
                 isCreator={canEdit}
               />
-            ) : !url ? (
+            ) : !url || mediaFailed ? (
               <div className={styles.playerLoading}>
-                {mediaUnavailable ? (
+                {mediaFailed ? (
                   <div className={styles.playerError} role="alert">
                     <p className={styles.playerErrorMessage}>
                       {t('videoMediaUnavailable')}
@@ -668,7 +716,7 @@ const VideoMedia: FC = () => {
                     <Button
                       type={ButtonType.primary}
                       label={t('retry')}
-                      onClick={retryMediaUrl}
+                      onClick={retryMedia}
                     />
                   </div>
                 ) : (
@@ -694,7 +742,8 @@ const VideoMedia: FC = () => {
                   }}
                   onPause={() => setIsPlaying(false)}
                   onEnded={handleVideoEnded}
-                  onReady={handlePlayerReady}
+                  onReady={handleMediaReady}
+                  onError={handlePlayerError}
                   config={{
                     file: {
                       hlsOptions: {

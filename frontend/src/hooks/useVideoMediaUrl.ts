@@ -30,11 +30,12 @@ interface MediaUrlState {
 /**
  * The one owner of the media URL of the video a page shows. Once the video is
  * ready it loads the URL once (right away, then 2 s, 5 s and 10 s after a
- * network or server error, then `unavailable`). It never asks again for the
- * same video: a new URL makes the player reload from the start, and none is
- * needed (the HLS playlist goes through a stable API route, and a source is
- * signed for twice its duration plus an hour). Everything is tied to
- * `videoId`: on another video it starts over, and a request made for the
+ * network or server error, then `unavailable`). It never asks again on its
+ * own for the same video: a new URL makes the player reload from the start.
+ * The HLS playlist goes through a stable API route, and a source is signed
+ * for twice its duration plus an hour. `retry` starts over: after it gave up,
+ * or when the player lost an expired source (VideoMedia). Everything is tied
+ * to `videoId`: on another video it starts over, and a request made for the
  * previous one never reaches the next.
  */
 export function useVideoMediaUrl(

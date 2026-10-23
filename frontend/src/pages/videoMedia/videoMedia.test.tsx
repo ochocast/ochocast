@@ -47,13 +47,37 @@ jest.mock('react-markdown', () => ({
     jest.requireActual('react').createElement('div', null, children),
 }));
 
+// The player's last props and its handle: tests fire its events by hand.
+const mockPlayer = {
+  props: {} as {
+    url?: string;
+    onReady?: (player: unknown) => void;
+    onError?: (error: unknown) => void;
+  },
+  currentTime: 0,
+  // HTMLMediaElement.error: set once the element failed to load its URL.
+  mediaError: null as { code: number } | null,
+  seekTo: jest.fn(),
+  handle: {
+    getCurrentTime: () => mockPlayer.currentTime,
+    getInternalPlayer: (key?: string) =>
+      key === 'hls' ? null : { error: mockPlayer.mediaError },
+    seekTo: (...args: unknown[]) => mockPlayer.seekTo(...args),
+  },
+};
 jest.mock('react-player/lazy', () => {
-  const { createElement, forwardRef } = jest.requireActual('react');
+  const { createElement, forwardRef, useImperativeHandle } =
+    jest.requireActual('react');
   return {
     __esModule: true,
-    default: forwardRef(({ url }: { url: string }, _ref: unknown) =>
-      createElement('div', { 'data-testid': 'player', 'data-url': url }),
-    ),
+    default: forwardRef((props: { url: string }, ref: unknown) => {
+      mockPlayer.props = props;
+      useImperativeHandle(ref, () => mockPlayer.handle);
+      return createElement('div', {
+        'data-testid': 'player',
+        'data-url': props.url,
+      });
+    }),
   };
 });
 
@@ -109,6 +133,12 @@ const videoFor = (id: string) =>
   }) as unknown as Video;
 
 const found = (id: string) => ({ ok: true, status: 200, data: [videoFor(id)] });
+
+/** HLS goes through a stable API route; a source is presigned. */
+const hlsUrl = (id: string) =>
+  `https://ochocast.example/api/videos/media-content/${id}/master.m3u8`;
+const sourceUrl = (signature: number) =>
+  `https://bucket.example/A/source/original.mp4?X-Amz-Signature=${signature}`;
 
 /** Answers `mock(id)` with `answerFor(id)` only when the test says so. */
 const hold = (mock: jest.Mock, answerFor: (id: string) => unknown) => {
@@ -170,8 +200,11 @@ beforeEach(() => {
   (isVideoFavorite as jest.Mock).mockResolvedValue(false);
   mockedGetMedia.mockImplementation(async (id: string) => ({
     ok: true,
-    data: `https://cdn/${id}/master.m3u8`,
+    data: hlsUrl(id),
   }));
+  mockPlayer.props = {};
+  mockPlayer.currentTime = 0;
+  mockPlayer.mediaError = null;
   window.scrollTo = jest.fn();
   sessionStorage.clear();
   localStorage.clear();
@@ -192,7 +225,7 @@ describe('VideoMedia', () => {
     expect(screen.queryByText('Title A')).not.toBeInTheDocument();
     expect(screen.getByTestId('player')).toHaveAttribute(
       'data-url',
-      'https://cdn/B/master.m3u8',
+      hlsUrl('B'),
     );
     expect(mockedGetMedia).not.toHaveBeenCalledWith('A');
   });
@@ -217,7 +250,7 @@ describe('VideoMedia', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('player')).toHaveAttribute(
       'data-url',
-      'https://cdn/B/master.m3u8',
+      hlsUrl('B'),
     );
   });
 
@@ -325,5 +358,115 @@ describe('VideoMedia', () => {
         video: expect.objectContaining({ id: 'B', views: 0 }),
       }),
     );
+  });
+});
+
+// GetMediaUsecase signs a source URL for twice the duration plus an hour: a
+// page left open longer loses it mid-playback.
+describe('VideoMedia player recovery', () => {
+  const playerUrl = () => screen.getByTestId('player').getAttribute('data-url');
+  const openWithMedia = async (...urls: string[]) => {
+    mockedGetVideo.mockImplementation(async (id: string) => found(id));
+    urls.forEach((url) =>
+      mockedGetMedia.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        data: url,
+      }),
+    );
+    mockVideoId = 'A';
+    let rerender: (ui: React.ReactElement) => void = () => undefined;
+    await act(async () => {
+      ({ rerender } = render(<VideoMedia />));
+    });
+    return rerender;
+  };
+  const ready = () => act(() => mockPlayer.props.onReady?.(mockPlayer.handle));
+  /** The media element fails to load its URL (403 once a source expired). */
+  const loadFails = async () => {
+    mockPlayer.mediaError = { code: 2 };
+    await act(async () => {
+      mockPlayer.props.onError?.(new Event('error'));
+    });
+    mockPlayer.mediaError = null;
+  };
+
+  it('loads a new source URL once it expires, and resumes where it stopped', async () => {
+    await openWithMedia(sourceUrl(1), sourceUrl(2));
+    ready();
+    mockPlayer.currentTime = 754;
+
+    await loadFails();
+
+    expect(playerUrl()).toBe(sourceUrl(2));
+    expect(mockedGetMedia).toHaveBeenCalledTimes(2);
+    ready();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(754, 'seconds');
+  });
+
+  // A URL that never played is broken, not expired: asking again on every
+  // failure would loop.
+  it('shows Retry instead of asking again when a new URL fails before playing', async () => {
+    await openWithMedia(sourceUrl(1), sourceUrl(2), sourceUrl(3));
+    ready();
+    mockPlayer.currentTime = 754;
+    await loadFails();
+
+    await loadFails();
+
+    expect(mockedGetMedia).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('player')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "La vidéo n'a pas pu être chargée.",
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    });
+    expect(playerUrl()).toBe(sourceUrl(3));
+    ready();
+    expect(mockPlayer.seekTo).toHaveBeenCalledWith(754, 'seconds');
+  });
+
+  it("does not resume the next video at the previous one's position", async () => {
+    const rerender = await openWithMedia(sourceUrl(1), sourceUrl(2));
+    ready();
+    mockPlayer.currentTime = 754;
+    await loadFails();
+    // The new URL fails too: Retry is shown, and the viewer moves on.
+    await loadFails();
+
+    mockVideoId = 'B';
+    await act(async () => {
+      rerender(<VideoMedia />);
+    });
+    expect(playerUrl()).toBe(hlsUrl('B'));
+    ready();
+
+    expect(mockPlayer.seekTo).not.toHaveBeenCalled();
+  });
+
+  // react-player reports a play() the browser refused (autoplay) as an error.
+  it('keeps the URL when the player reports an error that is not a failed load', async () => {
+    await openWithMedia(sourceUrl(1), sourceUrl(2));
+    ready();
+
+    await act(async () => {
+      mockPlayer.props.onError?.(
+        new DOMException('Blocked', 'NotAllowedError'),
+      );
+    });
+
+    expect(playerUrl()).toBe(sourceUrl(1));
+    expect(mockedGetMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves an HLS stream to its player: its route does not expire', async () => {
+    await openWithMedia(hlsUrl('A'), hlsUrl('A'));
+    ready();
+
+    await loadFails();
+
+    expect(playerUrl()).toBe(hlsUrl('A'));
+    expect(mockedGetMedia).toHaveBeenCalledTimes(1);
   });
 });

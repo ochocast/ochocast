@@ -127,6 +127,24 @@ describe('useVideoMediaUrl', () => {
     expect(mockedGetMedia).toHaveBeenCalledTimes(5);
   });
 
+  // VideoMedia asks again when the player lost an expired source URL.
+  it('loads a new URL when asked again while one is shown', async () => {
+    mockedGetMedia.mockResolvedValueOnce(URL_V1).mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      data: 'https://cdn/v1-renewed',
+    });
+    const { result } = render({ id: 'v1', ready: true });
+    await settle();
+    expect(result.current.url).toBe(URL_V1.data);
+
+    act(() => result.current.retry());
+    await settle();
+
+    expect(result.current.url).toBe('https://cdn/v1-renewed');
+    expect(mockedGetMedia).toHaveBeenCalledTimes(2);
+  });
+
   // VideoMedia stays mounted across /video/:videoId.
   it('never shows a load of the previous video on the next one', async () => {
     let answerV1: (value: unknown) => void = () => undefined;
