@@ -30,6 +30,7 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
   };
 
   // Tags and users the gateway resolves the form's lists against.
+  const TAG_ID = '0b6f3c1e-5d2a-4f8b-9c7e-1a2b3c4d5e6f';
   let tags: Map<string, any>;
   let users: Map<string, any>;
   const tagsRepository = {
@@ -135,9 +136,9 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
     mockUploads.length = 0;
     tags = new Map([
       [
-        'tag',
+        TAG_ID,
         {
-          id: 'tag',
+          id: TAG_ID,
           name: 'Tag',
           createdAt: new Date('2026-01-01T00:00:00.000Z'),
           updatedAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -243,7 +244,7 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
 
     await usecase().execute(
       form({
-        tags: JSON.stringify([{ id: 'tag', name: 'Tag' }]),
+        tags: JSON.stringify([{ id: TAG_ID, name: 'Tag' }]),
         internal_speakers: JSON.stringify([{ id: 'speaker' }]),
         external_speakers: 'Ada Lovelace',
       }),
@@ -253,7 +254,7 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
     expect(rows.get('video')).toMatchObject({
       title: 'New title',
       description: 'New description',
-      tags: [{ id: 'tag', name: 'Tag' }],
+      tags: [{ id: TAG_ID, name: 'Tag' }],
       internal_speakers: [{ id: 'speaker' }],
       external_speakers: 'Ada Lovelace',
     });
@@ -267,13 +268,13 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
     await usecase().execute(
       form({
         tags: JSON.stringify([
-          { id: 'tag', name: 'Renamed', videos: [{ id: 'another-video' }] },
+          { id: TAG_ID, name: 'Renamed', videos: [{ id: 'another-video' }] },
           {
             name: '  Fresh ',
             videos: [{ id: 'another-video' }],
             createdAt: '2000-01-01T00:00:00.000Z',
           },
-          { id: 'unknown-tag' },
+          { id: '9d8c7b6a-5f4e-4d3c-8b2a-1f0e9d8c7b6a' },
         ]),
       }),
       owner.email,
@@ -281,8 +282,8 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
 
     const saved = rows.get('video').tags;
     expect(saved).toHaveLength(2);
-    expect(saved[0]).toBe(tags.get('tag'));
-    expect(tags.get('tag').name).toBe('Tag');
+    expect(saved[0]).toBe(tags.get(TAG_ID));
+    expect(tags.get(TAG_ID).name).toBe('Tag');
     expect(saved[1]).toMatchObject({ name: 'Fresh' });
     expect(saved[1].createdAt).not.toEqual('2000-01-01T00:00:00.000Z');
     for (const tag of saved) expect(tag.videos).toBeUndefined();
@@ -322,14 +323,14 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
       ).rejects.toThrow();
 
       expect(rows.get('video')).toEqual(storedVideo({}));
-      expect([...tags.keys()]).toEqual(['tag']);
+      expect([...tags.keys()]).toEqual([TAG_ID]);
     },
   );
 
   // The same limits as the upload's, which creates a video with these lists.
   it.each([
     ['tags that are not JSON', { tags: 'not json' }],
-    ['tags that are not a list', { tags: JSON.stringify({ id: 'tag' }) }],
+    ['tags that are not a list', { tags: JSON.stringify({ id: TAG_ID }) }],
     [
       'more than 100 tags',
       {
@@ -360,7 +361,7 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
   it('keeps the stored tags and speakers when the form leaves them out', async () => {
     rows.set(
       'video',
-      storedVideo({ tags: [tags.get('tag')], internal_speakers: [] }),
+      storedVideo({ tags: [tags.get(TAG_ID)], internal_speakers: [] }),
     );
 
     await usecase().execute(
@@ -370,7 +371,7 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
 
     expect(rows.get('video')).toMatchObject({
       title: 'New title',
-      tags: [tags.get('tag')],
+      tags: [tags.get(TAG_ID)],
     });
   });
 
