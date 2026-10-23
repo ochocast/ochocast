@@ -7,9 +7,16 @@ describe('Editing a video never overwrites its media or transcoding state', () =
   let rows: Map<string, any>;
   // Runs once the use case has read the video, before it saves the edit.
   let afterRead: (() => void) | undefined;
+  // Runs once the gateway has checked or loaded the row, before it saves.
+  let afterLoad: (() => void) | undefined;
+  const loaded = <T>(value: T) => {
+    afterLoad?.();
+    afterLoad = undefined;
+    return value;
+  };
 
-  // The real gateway, over an in-memory table: modifyVideo copies every field
-  // it receives onto the stored row, as it does with TypeORM.
+  // The real gateway, over an in-memory table that saves like TypeORM: only
+  // the columns the saved entity defines are written.
   const usecase = () =>
     new ModifyVideoUsecase(
       new VideoGateway(
@@ -23,9 +30,14 @@ describe('Editing a video never overwrites its media or transcoding state', () =
             return found;
           },
           findOneBy: async ({ id }: any) =>
-            rows.has(id) ? { ...rows.get(id) } : null,
+            loaded(rows.has(id) ? { ...rows.get(id) } : null),
+          existsBy: async ({ id }: any) => loaded(rows.has(id)),
+          create: (fields: any) => ({ ...fields }),
           save: async (row: any) => {
-            rows.set(row.id, { ...row });
+            const defined = Object.fromEntries(
+              Object.entries(row).filter(([, value]) => value !== undefined),
+            );
+            rows.set(row.id, { ...rows.get(row.id), ...defined });
             return row;
           },
         } as any,
@@ -70,6 +82,7 @@ describe('Editing a video never overwrites its media or transcoding state', () =
   beforeEach(() => {
     rows = new Map();
     afterRead = undefined;
+    afterLoad = undefined;
     jest.spyOn(console, 'log').mockImplementation(() => undefined);
   });
 
@@ -131,6 +144,82 @@ describe('Editing a video never overwrites its media or transcoding state', () =
       duration: 1500,
       transcoding_status: 'ready',
     });
+  });
+
+  it('keeps a transcoding result written between the gateway load and its save', async () => {
+    rows.set(
+      'video',
+      storedVideo({
+        media_id: 'video/master.m3u8',
+        duration: null,
+        transcoding_status: 'pending',
+        transcoding_error: null,
+      }),
+    );
+    afterLoad = () =>
+      Object.assign(rows.get('video'), {
+        media_id: 'video/source/original.mp4',
+        duration: 1500,
+        transcoding_status: 'ready',
+      });
+
+    await usecase().execute(
+      form({ media_id: 'video/master.m3u8' }),
+      owner.email,
+    );
+
+    expect(rows.get('video')).toMatchObject({
+      title: 'New title',
+      media_id: 'video/source/original.mp4',
+      duration: 1500,
+      transcoding_status: 'ready',
+    });
+  });
+
+  it('applies every field the settings form edits', async () => {
+    rows.set('video', storedVideo({}));
+
+    await usecase().execute(
+      form({
+        tags: JSON.stringify([{ id: 'tag', name: 'Tag' }]),
+        internal_speakers: JSON.stringify([{ id: 'speaker' }]),
+        external_speakers: 'Ada Lovelace',
+      }),
+      owner.email,
+    );
+
+    expect(rows.get('video')).toMatchObject({
+      title: 'New title',
+      description: 'New description',
+      tags: [{ id: 'tag', name: 'Tag' }],
+      internal_speakers: [{ id: 'speaker' }],
+      external_speakers: 'Ada Lovelace',
+    });
+  });
+
+  it('ignores the columns the settings form does not edit', async () => {
+    rows.set('video', storedVideo({}));
+
+    await usecase().execute(
+      form({
+        views: '1000000',
+        createdAt: JSON.stringify('2020-01-01T00:00:00.000Z'),
+        archived: 'true',
+        creator: 'someone-else',
+        comments: JSON.stringify([{ id: 'comment', content: 'Forged' }]),
+      }),
+      owner.email,
+    );
+
+    const stored = rows.get('video');
+    expect(stored).toMatchObject({
+      title: 'New title',
+      views: 0,
+      createdAt: new Date('2026-10-16T08:00:00.000Z'),
+      archived: false,
+      creator: owner,
+    });
+    expect(stored.comments).toBeUndefined();
   });
 
   it('ignores a media key, duration or transcoding state sent by the owner', async () => {

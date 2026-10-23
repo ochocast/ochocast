@@ -12,14 +12,6 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import sharp = require('sharp');
 
-// Set by the upload and the transcoding pipeline, never by the owner's form.
-const SERVER_OWNED_FIELDS = [
-  'media_id',
-  'duration',
-  'transcoding_status',
-  'transcoding_error',
-] as const;
-
 export class ModifyVideoUsecase {
   constructor(
     @Inject('VideoGateway')
@@ -49,9 +41,10 @@ export class ModifyVideoUsecase {
 
     // Gérer un éventuel nouveau fichier de miniature
     const miniatureFile = files?.find((file) => file.fieldname === 'miniature');
+    let miniature_id: string | undefined;
 
     if (miniatureFile) {
-      const miniature_id = `miniature${Date.now()}.jpg`;
+      miniature_id = `miniature${Date.now()}.jpg`;
 
       // Redimensionner/comprimer la miniature comme lors de la création
       const processedBuffer = await sharp(miniatureFile.buffer)
@@ -73,25 +66,22 @@ export class ModifyVideoUsecase {
       });
 
       await miniatureUpload.done();
-
-      // Met à jour l'id de miniature pour cette vidéo
-      video.miniature_id = miniature_id;
     }
 
-    video.updatedAt = new Date();
-    video.createdAt = new Date(JSON.parse(video.createdAt.toString()));
-    video.comments = JSON.parse(video.comments.toString());
-    video.tags = JSON.parse(video.tags.toString());
-    video.internal_speakers = JSON.parse(video.internal_speakers.toString());
-    // Left out of the update, so the stored values stay, even one written
-    // while a new miniature uploads. The form echoes the values its page
-    // loaded: saved after the source fallback, a stale media_id would point the
-    // video at a playlist never written. A forged key or duration would be
-    // presigned.
-    const update: Partial<VideoObject> & Pick<VideoObject, 'id'> = {
-      ...video,
-    };
-    for (const field of SERVER_OWNED_FIELDS) delete update[field];
-    return await this.videoGateway.modifyVideo(update);
+    // Only what the settings form edits. The rest belongs to the uploads, the
+    // transcoding pipeline or other routes: the form echoes the values its
+    // page loaded (a stale media_id would undo the source fallback, a forged
+    // key would be presigned), and views, dates or the creator are not its to
+    // change. A replaced miniature gets the key this use case uploaded.
+    return await this.videoGateway.modifyVideo({
+      id: existing.id,
+      title: video.title,
+      description: video.description,
+      tags: JSON.parse(video.tags.toString()),
+      internal_speakers: JSON.parse(video.internal_speakers.toString()),
+      external_speakers: video.external_speakers,
+      updatedAt: new Date(),
+      ...(miniature_id ? { miniature_id } : {}),
+    });
   }
 }
