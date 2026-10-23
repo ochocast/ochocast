@@ -31,6 +31,7 @@ import { S3MultipartStorage } from 'src/videos/uploads/multipart-storage';
 import { VideoUpload } from 'src/videos/uploads/upload.entity';
 import { VideoGateway } from 'src/videos/infra/gateways/video.gateway';
 import { VideoEntity } from 'src/videos/infra/gateways/entities/video.entity';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
@@ -201,6 +202,38 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
     expect(video.creator.email).toBe(owner);
     expect(video.transcoding_status).toBe('pending');
     expect(video.media_id).toBe(`${session.id}/master.m3u8`);
+  });
+  // VideoEntity.tags has no cascade: the gateway resolves and creates tags,
+  // and the save only writes the links.
+  it('links the stored and new tags of an upload, and never renames a tag', async () => {
+    const stored = await db.manager.save(
+      new TagEntity({
+        name: `Stored ${randomUUID()}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+    const fresh = `Fresh ${randomUUID()}`;
+    const session = await upload(1000);
+
+    await service.complete(session.id, owner, {
+      ...metadata,
+      tags: JSON.stringify([
+        { id: stored.id, name: 'Renamed' },
+        { name: ` ${fresh} ` },
+      ]),
+    });
+
+    const video = await db.manager.findOne(VideoEntity, {
+      where: { id: session.id },
+      relations: ['tags'],
+    });
+    expect(video.tags.map((tag) => tag.name).sort()).toEqual(
+      [stored.name, fresh].sort(),
+    );
+    expect(
+      (await db.manager.findOneByOrFail(TagEntity, { id: stored.id })).name,
+    ).toBe(stored.name);
   });
   it('rejects actual part size mismatch and missing parts', async () => {
     const session = await service.create(owner, {

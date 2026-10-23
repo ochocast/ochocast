@@ -33,7 +33,9 @@ export class VideoEntity {
   @Column()
   description: string;
 
-  @ManyToMany(() => TagEntity, (tag) => tag.videos, { cascade: true }) // cascade: true pour créer de nouveaux tags si nécessaire
+  // No cascade: the gateway resolves and creates tags before saving a video,
+  // and a cascade would let a client tag object update the shared tag row.
+  @ManyToMany(() => TagEntity, (tag) => tag.videos)
   @JoinTable() // Indique que cette entité gère la table de jointure
   tags: TagEntity[];
 
