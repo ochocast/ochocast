@@ -1,6 +1,7 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
+import { createReadStream } from 'node:fs';
 import { v4 as uuid } from 'uuid';
 import * as path from 'path';
 import { IRecordingRepositoryGateway } from '../gateways/recording-repository.gateway';
@@ -19,6 +20,9 @@ export interface CreateRecordingSegmentFromFileOptions {
  * This is what the recorder now calls (multipart file) instead of the old
  * direct-publish flow. The raw file is stored as-is (no transcoding yet — that
  * happens at merge/publish time); only the storage key is kept as `media_id`.
+ *
+ * The upload arrives on disk (`file.path`) and is streamed to S3 in parts, so
+ * memory stays constant whatever the length of the live.
  */
 @Injectable()
 export class CreateRecordingSegmentFromFileUsecase {
@@ -36,7 +40,7 @@ export class CreateRecordingSegmentFromFileUsecase {
     file: Express.Multer.File,
     options: CreateRecordingSegmentFromFileOptions = {},
   ): Promise<RecordingObject> {
-    if (!file?.buffer) {
+    if (!file?.path && !file?.buffer) {
       throw new Error('Missing recording segment file in upload payload');
     }
 
@@ -58,7 +62,7 @@ export class CreateRecordingSegmentFromFileUsecase {
       params: {
         Bucket: process.env.STOCK_MEDIA_BUCKET,
         Key: key,
-        Body: file.buffer,
+        Body: file.path ? createReadStream(file.path) : file.buffer,
         ContentType: file.mimetype || 'video/mp4',
       },
     }).done();

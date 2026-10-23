@@ -437,13 +437,10 @@ func (rs *RecordingSession) Stop() error {
 		sharedSecret := rs.sharedSecret
 
 		go func() {
-			if err := publishToBackend(backendURL, trackID, filePath, sharedSecret); err != nil {
-				log.Printf("[ERROR] Failed to publish recording to backend: %v", err)
+			if err := publishWithRetry(backendURL, trackID, filePath, sharedSecret); err != nil {
+				log.Printf("[ERROR] Failed to publish recording to backend, kept for %s at %s: %v", recordingRetention(), filePath, err)
 			} else {
 				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
-				if err := os.Remove(filePath); err != nil {
-					log.Printf("[WARN] Could not delete temp file %s: %v", filePath, err)
-				}
 			}
 		}()
 	}

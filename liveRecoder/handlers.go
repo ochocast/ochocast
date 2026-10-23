@@ -1,8 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 // setCORSHeaders sets CORS headers for cross-origin requests
@@ -248,56 +250,79 @@ func (s *RecordingServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-// publishToBackend sends the recorded MP4 file to the backend for auto-publication
+// Upload retries: a failed publish is retried, then the file is left to the
+// stale-recording cleanup (see cleanupStaleRecordings).
+var publishRetryDelays = []time.Duration{10 * time.Second, 30 * time.Second, 2 * time.Minute}
+
+// errPermanent marks a backend rejection that a retry cannot fix (4xx).
+type errPermanent struct{ error }
+
+// publishWithRetry publishes the segment, retrying network errors and 5xx
+// responses. The local file is deleted once the backend has accepted it.
+func publishWithRetry(backendURL, trackID, filePath, sharedSecret string) error {
+	var err error
+	for attempt := 0; ; attempt++ {
+		if err = publishToBackend(backendURL, trackID, filePath, sharedSecret); err == nil {
+			if rmErr := os.Remove(filePath); rmErr != nil {
+				log.Printf("[WARN] Could not delete temp file %s: %v", filePath, rmErr)
+			}
+			return nil
+		}
+		var permanent errPermanent
+		if errors.As(err, &permanent) || attempt >= len(publishRetryDelays) {
+			return err
+		}
+		log.Printf("[PUBLISH] Attempt %d failed (%v), retrying in %s", attempt+1, err, publishRetryDelays[attempt])
+		time.Sleep(publishRetryDelays[attempt])
+	}
+}
+
+// publishToBackend streams the recorded MP4 file to the backend. The multipart
+// body is produced while it is sent (io.Pipe), so memory stays constant
+// whatever the length of the live (about 2 GB per hour at 4.5 Mbit/s).
 func publishToBackend(backendURL, trackID, filePath, sharedSecret string) error {
 	log.Printf("[PUBLISH] Sending recording to backend: %s (track: %s)", backendURL, trackID)
 
-	// Open the MP4 file
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return errPermanent{fmt.Errorf("failed to open file: %w", err)}
 	}
 	defer file.Close()
 
-	// Get file info for logging
 	fileInfo, err := file.Stat()
 	if err != nil {
 		return fmt.Errorf("failed to get file info: %w", err)
 	}
 	log.Printf("[PUBLISH] File size: %.2f MB", float64(fileInfo.Size())/1024/1024)
 
-	// Create multipart form
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	body, writer := io.Pipe()
+	form := multipart.NewWriter(writer)
+	go func() {
+		writer.CloseWithError(func() error {
+			// Fields first, so the backend has them before the file.
+			if err := form.WriteField("trackId", trackID); err != nil {
+				return err
+			}
+			part, err := form.CreateFormFile("file", filepath.Base(filePath))
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(part, file); err != nil {
+				return fmt.Errorf("failed to stream file: %w", err)
+			}
+			return form.Close()
+		}())
+	}()
 
-	// Add the file
-	part, err := writer.CreateFormFile("file", filepath.Base(filePath))
-	if err != nil {
-		return fmt.Errorf("failed to create form file: %w", err)
-	}
-
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
-	}
-
-	// Add the trackId field
-	if err := writer.WriteField("trackId", trackID); err != nil {
-		return fmt.Errorf("failed to write trackId field: %w", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close multipart writer: %w", err)
-	}
-
-	// Send the request
 	// Raccordement US-1: recordings are now registered as unlisted segments
 	// instead of being auto-published as a public video.
 	publishURL := fmt.Sprintf("%s/api/recordings/segments", backendURL)
 	req, err := http.NewRequest("POST", publishURL, body)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+		body.Close()
+		return errPermanent{fmt.Errorf("failed to create request: %w", err)}
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", form.FormDataContentType())
 
 	// Add shared secret header (always required by the backend publish endpoint)
 	if sharedSecret != "" {
@@ -306,20 +331,56 @@ func publishToBackend(backendURL, trackID, filePath, sharedSecret string) error 
 
 	log.Printf("[PUBLISH] Sending POST to %s", publishURL)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := publishClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Read response
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("backend returned status %d: %s", resp.StatusCode, string(respBody))
+		err := fmt.Errorf("backend returned status %d: %s", resp.StatusCode, string(respBody))
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusRequestTimeout && resp.StatusCode != http.StatusTooManyRequests {
+			return errPermanent{err}
+		}
+		return err
 	}
 
 	log.Printf("[PUBLISH] Backend response: %s", string(respBody))
 	return nil
+}
+
+// publishClient bounds one upload attempt; a one-hour live is about 2 GB.
+var publishClient = &http.Client{Timeout: 30 * time.Minute}
+
+// cleanupStaleRecordings deletes recordings left in dir (failed uploads,
+// sessions without a track) once they are older than retention, so the disk
+// cannot fill up. Files being recorded are written continuously and stay fresh.
+func cleanupStaleRecordings(dir string, retention time.Duration) {
+	matches, err := filepath.Glob(filepath.Join(dir, "recording-*.mp4"))
+	if err != nil {
+		log.Printf("[CLEANUP] Cannot list %s: %v", dir, err)
+		return
+	}
+	for _, path := range matches {
+		info, err := os.Stat(path)
+		if err != nil || time.Since(info.ModTime()) < retention {
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			log.Printf("[CLEANUP] Could not delete %s: %v", path, err)
+			continue
+		}
+		log.Printf("[CLEANUP] Deleted stale recording %s (%.2f MB, last written %s)", path, float64(info.Size())/1024/1024, info.ModTime().Format(time.RFC3339))
+	}
+}
+
+// recordingRetention reads RECORDING_RETENTION_HOURS (default 24 h): the time
+// left to recover a recording whose upload failed before it is deleted.
+func recordingRetention() time.Duration {
+	if hours, err := strconv.Atoi(os.Getenv("RECORDING_RETENTION_HOURS")); err == nil && hours > 0 {
+		return time.Duration(hours) * time.Hour
+	}
+	return 24 * time.Hour
 }

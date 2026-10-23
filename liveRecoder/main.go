@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // loadDotEnv reads .env file and sets env vars (only if not already set)
@@ -69,6 +70,16 @@ func runHTTPServer(addr, outputDir string) {
 	log.Printf("Output directory: %s", outputDir)
 
 	server := NewRecordingServer(outputDir)
+
+	// Recordings are written to the OS temp dir (rec.go): sweep the ones left
+	// behind by failed uploads, at startup then every hour.
+	go func() {
+		retention := recordingRetention()
+		for {
+			cleanupStaleRecordings(os.TempDir(), retention)
+			time.Sleep(time.Hour)
+		}
+	}()
 
 	// Handle graceful shutdown
 	go func() {

@@ -38,6 +38,13 @@ import { RecordingSecretGuard } from '../guards/recording-secret.guard';
 import { SfuWebhookGuard } from '../guards/sfu-webhook.guard';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 import { isUUID } from 'class-validator';
+import { diskStorage } from 'multer';
+import { unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+
+// A segment covers a whole live (about 2 GB per hour at 4.5 Mbit/s): it is
+// written to disk, never buffered in memory, then streamed to S3.
+const SEGMENT_MAX_BYTES = 8 * 1024 ** 3;
 
 @ApiTags('Recording')
 @Controller('recordings')
@@ -107,12 +114,35 @@ export class RecordingController {
   @Public()
   @UseGuards(RecordingSecretGuard)
   @Post('segments')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) =>
+          cb(null, process.env.RECORDING_UPLOAD_DIR || tmpdir()),
+      }),
+      limits: { fileSize: SEGMENT_MAX_BYTES, files: 1 },
+    }),
+  )
   async createSegment(
     @UploadedFile() file: Express.Multer.File,
     @Body('trackId') trackId: string,
     @Body('problematic') problematic?: string,
     @Body('duration') duration?: string,
+  ): Promise<RecordingObject> {
+    try {
+      return await this.registerSegment(file, trackId, problematic, duration);
+    } finally {
+      // The temporary upload is removed whatever the outcome; the recorder
+      // keeps its own copy until the backend accepts the segment.
+      if (file?.path) await unlink(file.path).catch(() => undefined);
+    }
+  }
+
+  private async registerSegment(
+    file: Express.Multer.File,
+    trackId: string,
+    problematic?: string,
+    duration?: string,
   ): Promise<RecordingObject> {
     if (!file) {
       throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
@@ -140,6 +170,8 @@ export class RecordingController {
         },
       );
     } catch (error) {
+      // Keep client errors (unknown track…) as-is: the recorder does not retry them.
+      if (error instanceof HttpException) throw error;
       const msg = error instanceof Error ? error.message : String(error);
       throw new HttpException(
         `Failed to register recording segment: ${msg}`,
