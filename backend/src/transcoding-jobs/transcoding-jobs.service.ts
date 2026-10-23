@@ -28,9 +28,8 @@ export class TranscodingJobsService {
   private readonly leaseSeconds = Number(
     process.env.TRANSCODING_LEASE_SECONDS || 3600,
   );
-  private readonly maxAttempts = Number(
-    process.env.TRANSCODING_MAX_ATTEMPTS || 10,
-  );
+  /** Claims a job may use, for both claim() and the maintenance sweep. */
+  readonly maxAttempts = Number(process.env.TRANSCODING_MAX_ATTEMPTS || 10);
 
   constructor(private readonly dataSource: DataSource) {
     if (!Number.isInteger(this.leaseSeconds) || this.leaseSeconds < 60) {
@@ -90,26 +89,7 @@ export class TranscodingJobsService {
       }
       // Bounds the runs of a job that keeps failing, whatever redelivers it.
       if (job.attempts >= this.maxAttempts) {
-        const error = `Transcoding abandoned after ${job.attempts} attempts`;
-        job.status = 'failed';
-        job.leaseToken = null;
-        job.leaseExpiresAt = null;
-        job.result = {
-          jobId: job.id,
-          videoId: job.videoId,
-          success: false,
-          duration: 0,
-          error,
-          processedAt: Date.now(),
-          permanent: true,
-          reason: 'max_attempts',
-        };
-        await repository.save(job);
-        await manager.update(VideoEntity, job.videoId, {
-          transcoding_status: 'failed',
-          transcoding_error: error,
-        });
-        this.logger.warn(`Transcoding job ${job.id}: ${error}`);
+        await this.abandon(job, manager);
         return { status: 'completed' as const };
       }
       job.status = 'processing';
@@ -128,6 +108,33 @@ export class TranscodingJobsService {
         job: job.payload,
       };
     });
+  }
+
+  /**
+   * Fails a job that used all its attempts, and its video, for good: a later
+   * delivery of its message is acknowledged without running FFmpeg again.
+   */
+  async abandon(job: TranscodingJobEntity, manager: EntityManager) {
+    const error = `Transcoding abandoned after ${job.attempts} attempts`;
+    job.status = 'failed';
+    job.leaseToken = null;
+    job.leaseExpiresAt = null;
+    job.result = {
+      jobId: job.id,
+      videoId: job.videoId,
+      success: false,
+      duration: 0,
+      error,
+      processedAt: Date.now(),
+      permanent: true,
+      reason: 'max_attempts',
+    };
+    await manager.save(job);
+    await manager.update(VideoEntity, job.videoId, {
+      transcoding_status: 'failed',
+      transcoding_error: error,
+    });
+    this.logger.warn(`Transcoding job ${job.id}: ${error}`);
   }
 
   async complete(

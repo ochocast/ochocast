@@ -61,7 +61,11 @@ describe('Transcoding job leases', () => {
       }),
     };
     update = jest.fn();
-    const manager = { getRepository: () => repository, update };
+    const manager = {
+      getRepository: () => repository,
+      save: repository.save,
+      update,
+    };
     service = new TranscodingJobsService({
       transaction: (callback) => callback(manager),
     } as unknown as DataSource);
@@ -201,6 +205,7 @@ describe('Transcoding job leases', () => {
         transaction: (callback) =>
           callback({
             getRepository: () => ({ findOne, save: jest.fn() }),
+            save: jest.fn(),
             update,
           }),
       } as unknown as DataSource);
