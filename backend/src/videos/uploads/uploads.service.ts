@@ -15,6 +15,7 @@ import { isUUID } from 'class-validator';
 import { VideoUpload } from './upload.entity';
 import { MultipartStorage, StoredPart } from './multipart-storage';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import { VideoEntity } from '../infra/gateways/entities/video.entity';
 import { QueueService } from 'src/queue/queue.service';
 import { VideoTranscodingJob } from 'src/queue/job.types';
@@ -31,6 +32,7 @@ import {
   finalFailureReason,
 } from 'src/transcoding-jobs/transcoding-outcome';
 import { VideoGateway } from '../infra/gateways/video.gateway';
+import { parseVideoLists } from '../domain/videoLists';
 
 export function validateParts(s: VideoUpload, parts: StoredPart[]) {
   const count = Math.ceil(Number(s.size) / s.partSize);
@@ -251,20 +253,10 @@ export class UploadsService {
         fields.title.length > 500
       )
         throw new BadRequestException('Title required (max 500 characters)');
-      let tags, speakers;
-      try {
-        tags = JSON.parse(fields.tags || '[]');
-        speakers = JSON.parse(fields.internal_speakers || '[]');
-        if (
-          !Array.isArray(tags) ||
-          !Array.isArray(speakers) ||
-          tags.length > 100 ||
-          speakers.length > 100
-        )
-          throw new Error();
-      } catch {
-        throw new BadRequestException('Invalid tags or speakers');
-      }
+      const { tags, speakers } = parseVideoLists(
+        fields.tags,
+        fields.internal_speakers,
+      );
       const miniature = files.find((f) => f.fieldname === 'miniature');
       const subtitle = files.find((f) => f.fieldname === 'subtitle');
       let subtitleBuffer: Buffer;
@@ -322,8 +314,9 @@ export class UploadsService {
         subtitle_id: plan.subtitle_id,
         title: fields.title.trim(),
         description: String(fields.description || ''),
-        tags,
-        internal_speakers: speakers,
+        // Raw entries: createNewVideo resolves them against stored rows.
+        tags: tags as TagEntity[],
+        internal_speakers: speakers as UserEntity[],
         external_speakers: String(fields.external_speakers || ''),
         creator: { id: s.ownerId } as UserEntity,
         createdAt: new Date(),

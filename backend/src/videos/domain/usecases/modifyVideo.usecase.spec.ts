@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import sharp = require('sharp');
 import { VideoGateway } from 'src/videos/infra/gateways/video.gateway';
 import { ModifyVideoDto } from 'src/videos/infra/controllers/dto/modify-video.dto';
@@ -299,6 +300,54 @@ describe('Editing a video never overwrites its stored keys or transcoding state'
     );
 
     expect(rows.get('video').internal_speakers).toEqual([users.get('speaker')]);
+  });
+
+  // The same limits as the upload's, which creates a video with these lists.
+  it.each([
+    ['tags that are not JSON', { tags: 'not json' }],
+    ['tags that are not a list', { tags: JSON.stringify({ id: 'tag' }) }],
+    [
+      'more than 100 tags',
+      {
+        tags: JSON.stringify(
+          Array.from({ length: 101 }, (_, i) => ({ name: `Tag ${i}` })),
+        ),
+      },
+    ],
+    [
+      'more than 100 internal speakers',
+      {
+        internal_speakers: JSON.stringify(
+          Array.from({ length: 101 }, (_, i) => ({ id: `user-${i}` })),
+        ),
+      },
+    ],
+  ])('rejects %s with a 400, before saving anything', async (_, fields) => {
+    rows.set('video', storedVideo({}));
+
+    await expect(
+      usecase().execute(form(fields), owner.email),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(rows.get('video').title).toBe('Old title');
+    expect(tags.size).toBe(1);
+  });
+
+  it('keeps the stored tags and speakers when the form leaves them out', async () => {
+    rows.set(
+      'video',
+      storedVideo({ tags: [tags.get('tag')], internal_speakers: [] }),
+    );
+
+    await usecase().execute(
+      form({ tags: undefined, internal_speakers: undefined }),
+      owner.email,
+    );
+
+    expect(rows.get('video')).toMatchObject({
+      title: 'New title',
+      tags: [tags.get('tag')],
+    });
   });
 
   it('ignores the columns the settings form does not edit', async () => {

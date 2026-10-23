@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { IVideoGateway } from '../gateways/videos.gateway';
 import { VideoObject } from '../video';
+import { parseVideoLists } from '../videoLists';
 import { ModifyVideoDto } from 'src/videos/infra/controllers/dto/modify-video.dto';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import type { Express } from 'express';
@@ -38,6 +39,9 @@ export class ModifyVideoUsecase {
     if (!existing.creator || existing.creator.email !== user.email) {
       throw new UnauthorizedException('videonotallowmodify');
     }
+
+    // Checked before anything is uploaded or saved, with the upload's limits.
+    const lists = parseVideoLists(video.tags, video.internal_speakers);
 
     // Gérer un éventuel nouveau fichier de miniature
     const miniatureFile = files?.find((file) => file.fieldname === 'miniature');
@@ -77,8 +81,17 @@ export class ModifyVideoUsecase {
       id: existing.id,
       title: video.title,
       description: video.description,
-      tags: JSON.parse(video.tags.toString()),
-      internal_speakers: JSON.parse(video.internal_speakers.toString()),
+      // Raw entries, resolved against stored rows by the gateway; a list the
+      // form leaves out keeps the stored one.
+      ...(video.tags !== undefined
+        ? { tags: lists.tags as VideoObject['tags'] }
+        : {}),
+      ...(video.internal_speakers !== undefined
+        ? {
+            internal_speakers:
+              lists.speakers as VideoObject['internal_speakers'],
+          }
+        : {}),
       external_speakers: video.external_speakers,
       updatedAt: new Date(),
       ...(miniature_id ? { miniature_id } : {}),
