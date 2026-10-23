@@ -129,6 +129,19 @@ export class TranscodingJobsService {
               duration: result.duration,
               transcoding_status: 'ready',
               transcoding_error: null,
+              ...(result.has_audio !== undefined
+                ? { has_audio: result.has_audio }
+                : {}),
+              ...(result.audio_key !== undefined
+                ? { audio_key: result.audio_key }
+                : {}),
+              ...(result.subtitle_id
+                ? { transcription_status: 'ready' }
+                : result.has_audio === false
+                ? { transcription_status: 'no_audio' }
+                : result.audio_key
+                  ? { transcription_status: 'pending' }
+                  : {}),
               ...(result.subtitle_id !== undefined
                 ? { subtitle_id: result.subtitle_id }
                 : {}),

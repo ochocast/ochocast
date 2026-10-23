@@ -145,6 +145,16 @@ describe('Transcoding job leases', () => {
       service.complete(payload.jobId, randomUUID(), result),
     ).rejects.toBeInstanceOf(GoneException);
   });
+
+  it.each([
+    [true, 'audio.wav', 'pending'],
+    [false, null, 'no_audio'],
+  ])('persists audio availability for automatic transcription', async (has_audio, audio_key, status) => {
+    await service.claim(payload.jobId, payload.videoId);
+    await service.complete(payload.jobId, stored.leaseToken, { ...result, has_audio, audio_key });
+    expect(update).toHaveBeenLastCalledWith(expect.anything(), payload.videoId,
+      expect.objectContaining({ has_audio, audio_key, transcription_status: status }));
+  });
 });
 
 describe('Internal transcoding HTTP API', () => {

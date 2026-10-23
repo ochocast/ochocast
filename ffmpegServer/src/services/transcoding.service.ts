@@ -208,9 +208,9 @@ export class TranscodingService {
       '-acodec',
       'pcm_s16le',
       '-ar',
-      '44100',
+      '16000',
       '-ac',
-      '2',
+      '1',
       outputPath,
     ]);
   }
@@ -331,10 +331,11 @@ export class TranscodingService {
       await this.uploadHLSFiles(hlsOutputDir, job.videoId);
 
       // Extract and upload WAV audio when the source has an audio track
+      const extractAudio = process.env.TRANSCODING_EXTRACT_AUDIO !== 'false';
       const hasAudioTrack = await this.hasAudio(tempInputPath);
       const audioKey = `${job.videoId}/audio.wav`;
       let generatedSubtitleId: string | undefined;
-      if (hasAudioTrack) {
+      if (hasAudioTrack && extractAudio) {
         await this.extractAudioWav(tempInputPath, tempAudioPath);
         await this.uploadFile(
           tempAudioPath,
@@ -411,6 +412,8 @@ export class TranscodingService {
         success: true,
         videoId: job.videoId,
         duration,
+        has_audio: hasAudioTrack,
+        audio_key: hasAudioTrack && extractAudio ? audioKey : null,
         ...(generatedSubtitleId ? { subtitle_id: generatedSubtitleId } : {}),
         processedAt: Date.now(),
       };

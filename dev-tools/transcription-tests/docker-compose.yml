@@ -1,0 +1,44 @@
+# Isolated services: no application data, no Scaleway credentials or VM actions.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: transcription
+      POSTGRES_PASSWORD: transcription
+      POSTGRES_DB: transcription_test
+    ports:
+      - '127.0.0.1:25439:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U transcription']
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  minio:
+    build:
+      context: ../localMinio
+      dockerfile: Dockerfile.test
+    image: ochocast-transcription-test-minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: transcription
+      MINIO_ROOT_PASSWORD: transcription-test-only
+    ports:
+      - '127.0.0.1:29300:9000'
+  whisper:
+    build:
+      context: ../../ffmpegServer
+      dockerfile: Dockerfile.transcript
+      target: cpu
+    environment:
+      NODE_ENV: development
+      TRANSCRIPT_API_KEY: transcription-test-api-key-at-least-32-characters
+      TRANSCRIPT_ALLOWED_AUDIO_HOSTS: host.docker.internal,minio
+      LOCAL_WHISPER_MODEL: ${TRANSCRIPTION_TEST_MODEL:-tiny}
+    ports:
+      - '127.0.0.1:28082:8080'
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - whisper-models:/models
+volumes:
+  whisper-models:

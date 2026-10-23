@@ -1,0 +1,19 @@
+services:
+  transcript:
+    build:
+      context: .
+      dockerfile: Dockerfile.transcript
+      target: cpu
+    ports:
+      - '127.0.0.1:8082:8080'
+    environment:
+      NODE_ENV: development
+      TRANSCRIPT_API_KEY: ${TRANSCRIPT_API_KEY:?Set TRANSCRIPT_API_KEY}
+      TRANSCRIPT_ALLOWED_AUDIO_HOSTS: ${TRANSCRIPT_ALLOWED_AUDIO_HOSTS:-host.docker.internal,localhost,127.0.0.1}
+      LOCAL_WHISPER_MODEL: ${LOCAL_WHISPER_MODEL:-tiny}
+    volumes:
+      - transcript-models:/models
+    extra_hosts:
+      - host.docker.internal:host-gateway
+volumes:
+  transcript-models:

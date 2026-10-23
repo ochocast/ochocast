@@ -344,10 +344,28 @@ const VideoMedia: FC = () => {
     return () => window.clearInterval(poll);
   }, [video?.transcoding_status, videoId]);
 
+  // A nightly transcript can arrive while the viewer keeps the player open.
+  useEffect(() => {
+    if (!videoId || subtitleUrl || !['pending', 'processing', 'failed'].includes(video?.transcription_status || '')) return;
+    const poll = window.setInterval(async () => {
+      const response = await getVideo(videoId);
+      const refreshed = response?.data?.[0] as Video | undefined;
+      if (!refreshed) return;
+      setVideo(refreshed);
+      if (refreshed.subtitle_id) {
+        const subtitle = await getSubtitle(videoId);
+        setSubtitleUrl(subtitle?.data || null);
+      }
+    }, 15000);
+    return () => window.clearInterval(poll);
+  }, [videoId, subtitleUrl, video?.transcription_status]);
+
   useEffect(() => {
     const renewSignedUrl = async () => {
       const url_response = await getMedia(videoId);
       if (url_response) setUrl(url_response.data);
+      const subtitleResponse = await getSubtitle(videoId);
+      setSubtitleUrl(subtitleResponse?.data || null);
     };
 
     const ms = (linkExpirationTime - renewalThreshold) * 1000;

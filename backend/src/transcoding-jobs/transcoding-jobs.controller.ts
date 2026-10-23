@@ -62,6 +62,13 @@ export class TranscodingResultDto {
   @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
   duration: number;
+  @IsOptional()
+  @IsBoolean()
+  has_audio?: boolean;
+  @IsOptional()
+  @IsString()
+  @MaxLength(1024)
+  audio_key?: string | null;
   @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0)
   processedAt: number;
