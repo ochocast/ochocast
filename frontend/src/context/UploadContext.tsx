@@ -7,7 +7,7 @@ import React, {
   useEffect,
   useRef,
 } from 'react';
-import getEnv from '../utils/env';
+import { uploadApiBase } from '../utils/uploadService';
 
 export type UploadStatus =
   | 'pending'
@@ -24,6 +24,7 @@ export interface UploadItem {
   status: UploadStatus;
   errorMessage?: string;
   videoId?: string; // ID de la vidéo créée après succès
+  sessionId?: string;
   createdAt: Date;
   formData?: FormData; // Stocker les données pour retry
 }
@@ -49,7 +50,6 @@ interface UploadContextType {
   closePanel: () => void;
   togglePanel: () => void;
   dismissNotification: (id: string) => void;
-  retryUpload: (id: string) => void;
   getUploadById: (id: string) => UploadItem | undefined;
 }
 
@@ -105,7 +105,8 @@ const loadInitialState = (): {
           return {
             ...upload,
             status: 'error' as UploadStatus,
-            errorMessage: 'Upload interrompu (page rechargée)',
+            errorMessage:
+              'Envoi interrompu. Resélectionnez le même fichier pour reprendre les parties restantes.',
           };
         }
         // Les uploads en 'processing' restent en processing car le backend continue le traitement
@@ -129,6 +130,13 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<UploadNotification[]>([]);
   const previousUploadsRef = useRef<UploadItem[]>([]);
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const processingPollRef = useRef(
+    new Map<string, { nextAt: number; attempt: number }>(),
+  );
+  const uploadsRef = useRef(uploads);
+  useEffect(() => {
+    uploadsRef.current = uploads;
+  }, [uploads]);
 
   // Sauvegarder les uploads dans localStorage quand ils changent
   useEffect(() => {
@@ -142,91 +150,91 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   // Vérifier les vidéos en processing après un reload
   useEffect(() => {
+    let checking = false;
+    const controller = new AbortController();
     const checkProcessingVideos = async () => {
-      setUploads((currentUploads) => {
-        const processingUploads = currentUploads.filter(
-          (upload) => upload.status === 'processing',
+      if (checking) return;
+      checking = true;
+      try {
+        const processingUploads = uploadsRef.current.filter(
+          (upload) => upload.status === 'processing' && upload.videoId,
         );
-
-        if (processingUploads.length === 0) {
-          return currentUploads;
-        }
-
-        // Vérifier chaque vidéo en processing de manière asynchrone
-        processingUploads.forEach(async (upload) => {
+        for (const upload of processingUploads) {
+          const now = Date.now();
+          const poll = processingPollRef.current.get(upload.id) || {
+            nextAt: 0,
+            attempt: 0,
+          };
+          if (poll.nextAt > now) continue;
           try {
-            const baseUrl = `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}/api`;
+            const baseUrl = uploadApiBase();
             const userString = localStorage.getItem('backendUser');
             const user = userString ? JSON.parse(userString) : null;
-
             if (!user?.token) return;
-
-            let videoFound = false;
-            let videoData: { id: string } | null = null;
-
-            // Si on a le videoId, vérifier directement
-            if (upload.videoId) {
-              const response = await fetch(
-                `${baseUrl}/videos?id=${upload.videoId}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${user.token}`,
-                  },
-                },
-              );
-
-              if (response.ok) {
-                const data = await response.json();
-                if (data && data.length > 0) {
-                  videoFound = true;
-                  videoData = data[0];
-                }
-              }
+            const response = await fetch(
+              `${baseUrl}/videos?id=${upload.videoId}`,
+              {
+                headers: { Authorization: `Bearer ${user.token}` },
+                signal: controller.signal,
+              },
+            );
+            if (!response.ok) {
+              const delay = Math.min(5000 * 2 ** poll.attempt, 60000);
+              processingPollRef.current.set(upload.id, {
+                nextAt: now + delay,
+                attempt: poll.attempt + 1,
+              });
+              continue;
             }
-            // Sinon, chercher par titre
-            else if (upload.title) {
-              const response = await fetch(
-                `${baseUrl}/videos?title=${encodeURIComponent(upload.title)}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${user.token}`,
-                  },
-                },
-              );
-
-              if (response.ok) {
-                const data = await response.json();
-                if (data && data.length > 0) {
-                  videoFound = true;
-                  videoData = data[0];
-                }
-              }
-            }
-
-            // Si la vidéo est trouvée, la marquer comme terminée
-            if (videoFound && videoData !== null) {
-              const foundVideoId = videoData.id;
+            const video = (await response.json())?.[0];
+            if (
+              video?.transcoding_status === 'ready' ||
+              video?.transcoding_status === 'failed'
+            ) {
+              processingPollRef.current.delete(upload.id);
               setUploads((prev) =>
                 prev.map((u) =>
-                  u.id === upload.id
+                  u.id === upload.id && u.status === 'processing'
                     ? {
                         ...u,
-                        status: 'completed' as UploadStatus,
+                        status:
+                          video.transcoding_status === 'ready'
+                            ? 'completed'
+                            : 'error',
                         progress: 100,
-                        videoId: foundVideoId,
+                        errorMessage:
+                          video.transcoding_status === 'failed'
+                            ? 'Le traitement a échoué. Vous pouvez le relancer.'
+                            : undefined,
                       }
                     : u,
                 ),
               );
+            } else {
+              const delay = Math.min(5000 * 2 ** poll.attempt, 60000);
+              processingPollRef.current.set(upload.id, {
+                nextAt: now + delay,
+                attempt: poll.attempt + 1,
+              });
             }
           } catch (error) {
-            console.error('Error checking video status:', error);
-            // En cas d'erreur, on garde l'état processing
+            if (!controller.signal.aborted)
+              console.error('Error checking video status:', error);
+            const delay = Math.min(5000 * 2 ** poll.attempt, 60000);
+            processingPollRef.current.set(upload.id, {
+              nextAt: now + delay,
+              attempt: poll.attempt + 1,
+            });
           }
-        });
-
-        return currentUploads;
-      });
+        }
+        const activeIds = new Set(processingUploads.map((upload) => upload.id));
+        for (const uploadId of processingPollRef.current.keys()) {
+          if (!activeIds.has(uploadId))
+            processingPollRef.current.delete(uploadId);
+        }
+      } finally {
+        checking = false;
+      }
     };
 
     // Vérifier immédiatement au montage
@@ -238,6 +246,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     }, 5000);
 
     return () => {
+      controller.abort();
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
       }
@@ -338,23 +347,6 @@ export function UploadProvider({ children }: { children: ReactNode }) {
     [uploads],
   );
 
-  const retryUpload = useCallback((id: string) => {
-    // Reset the upload status to pending - the actual retry logic
-    // will be handled by the component that calls this
-    setUploads((prev) =>
-      prev.map((upload) =>
-        upload.id === id
-          ? {
-              ...upload,
-              status: 'pending' as UploadStatus,
-              progress: 0,
-              errorMessage: undefined,
-            }
-          : upload,
-      ),
-    );
-  }, []);
-
   return (
     <UploadContext.Provider
       value={{
@@ -369,7 +361,6 @@ export function UploadProvider({ children }: { children: ReactNode }) {
         closePanel,
         togglePanel,
         dismissNotification,
-        retryUpload,
         getUploadById,
       }}
     >

@@ -119,52 +119,91 @@ describe('VideosController - getVideosSuggestions', () => {
     );
   });
 
-  it('should preserve the global API prefix in HLS media URLs', async () => {
-    const previousPublicApiUrl = process.env.PUBLIC_API_URL;
-    delete process.env.PUBLIC_API_URL;
-
-    const getMediaUseCase = {
-      execute: jest
-        .fn()
-        .mockImplementation(
-          async (_id: string, apiBaseUrl: string) =>
-            `${apiBaseUrl}/videos/media-content/video-1/master.m3u8`,
-        ),
-    };
-    const mediaController = new VideosController(
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      getMediaUseCase as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-      {} as any,
-    );
-
-    const result = await mediaController.getMedia(
-      '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
-      {
+  describe('getMedia', () => {
+    const mediaId = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
+    let previousPublicApiUrl: string | undefined;
+    let getMediaUseCase: { execute: jest.Mock };
+    let mediaController: VideosController;
+    const requestWithHost = (host: string) =>
+      ({
         protocol: 'http',
-        originalUrl: '/api/videos/media/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        originalUrl: `/api/videos/media/${mediaId}`,
         get: (header: string) =>
-          header.toLowerCase() === 'host' ? 'localhost:3001' : undefined,
-      } as any,
-    );
+          header.toLowerCase() === 'host' ? host : undefined,
+      }) as any;
 
-    expect(result).toBe(
-      'http://localhost:3001/api/videos/media-content/video-1/master.m3u8',
-    );
-
-    if (previousPublicApiUrl === undefined) {
+    beforeEach(() => {
+      previousPublicApiUrl = process.env.PUBLIC_API_URL;
       delete process.env.PUBLIC_API_URL;
-    } else {
-      process.env.PUBLIC_API_URL = previousPublicApiUrl;
-    }
+      getMediaUseCase = {
+        execute: jest
+          .fn()
+          .mockImplementation(
+            async (id: string, apiBaseUrl: string) =>
+              `${apiBaseUrl}/videos/media-content/${id}/master.m3u8`,
+          ),
+      };
+      mediaController = new VideosController(
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        getMediaUseCase as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+        {} as any,
+      );
+    });
+
+    afterEach(() => {
+      if (previousPublicApiUrl === undefined) {
+        delete process.env.PUBLIC_API_URL;
+      } else {
+        process.env.PUBLIC_API_URL = previousPublicApiUrl;
+      }
+    });
+
+    it('should preserve the global API prefix in HLS media URLs', async () => {
+      const result = await mediaController.getMedia(
+        mediaId,
+        requestWithHost('localhost:3001'),
+      );
+
+      expect(result).toBe(
+        `http://localhost:3001/api/videos/media-content/${mediaId}/master.m3u8`,
+      );
+    });
+
+    it('should reject a non-UUID id with 400', async () => {
+      await expect(
+        mediaController.getMedia('video-1', requestWithHost('localhost:3001')),
+      ).rejects.toMatchObject({ status: 400, message: 'Id must be an UUID' });
+      expect(getMediaUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it('should reduce a malicious Host header to its origin', async () => {
+      await mediaController.getMedia(mediaId, requestWithHost('evil.com/x?'));
+
+      expect(getMediaUseCase.execute).toHaveBeenCalledWith(
+        mediaId,
+        'http://evil.com/api',
+      );
+    });
+
+    it('should prefer PUBLIC_API_URL over the Host header', async () => {
+      process.env.PUBLIC_API_URL = 'https://api.example.com/api/';
+
+      await mediaController.getMedia(mediaId, requestWithHost('evil.com'));
+
+      expect(getMediaUseCase.execute).toHaveBeenCalledWith(
+        mediaId,
+        'https://api.example.com/api',
+      );
+    });
   });
 });

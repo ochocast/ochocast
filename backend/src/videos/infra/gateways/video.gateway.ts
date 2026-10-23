@@ -1,7 +1,7 @@
 import { IVideoGateway } from '../../domain/gateways/videos.gateway';
 import { VideoObject } from '../../domain/video';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, IsNull, Not, Repository } from 'typeorm';
+import { Brackets, Not, Repository } from 'typeorm';
 import { VideoEntity } from './entities/video.entity';
 import { TagEntity } from 'src/tags/infra/gateways/entities/tag.entity';
 import {
@@ -27,6 +27,7 @@ export class VideoGateway implements IVideoGateway {
     const tagsRepository = entityManager.getRepository(TagEntity);
     const usersRepository = entityManager.getRepository(UserEntity);
 
+    // Normalize creator relation and ensure it exists.
     const creatorId =
       typeof (videoDetails as any).creator === 'string'
         ? (videoDetails as any).creator
@@ -41,6 +42,7 @@ export class VideoGateway implements IVideoGateway {
       throw new Error(`Creator not found: ${creatorId}`);
     }
 
+    // Parse les tags s'ils sont au format JSON
     const parsedTags =
       typeof videoDetails.tags === 'string'
         ? JSON.parse(videoDetails.tags)
@@ -85,6 +87,7 @@ export class VideoGateway implements IVideoGateway {
 
     const tags = Array.from(uniqueTags.values());
 
+    // Parse les internal_speakers s'ils sont au format JSON
     const parsedInternalSpeakers =
       typeof videoDetails.internal_speakers === 'string'
         ? JSON.parse(videoDetails.internal_speakers)
@@ -178,7 +181,15 @@ export class VideoGateway implements IVideoGateway {
       Key: video.miniature_id,
     });
     await this.s3Client.send(miniatureCommand);
+    // The HTTP worker retains this input for retries; permanent deletion removes it too.
+    await this.s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.STOCK_MINIATURE_BUCKET,
+        Key: `${video.id}/source/miniature-original`,
+      }),
+    );
 
+    // Delete subtitle file if it exists
     if (video.subtitle_id) {
       const subtitleCommand = new DeleteObjectCommand({
         Bucket: process.env.STOCK_MEDIA_BUCKET,
@@ -331,9 +342,10 @@ export class VideoGateway implements IVideoGateway {
         referenceTagNames.includes(tag),
       ).length;
       const sameUser = video.creator.id === referenceUserId ? 1 : 0;
-      const recencyScore = new Date(video.createdAt).getTime();
+      const recencyScore = new Date(video.createdAt).getTime(); // Timestamp = plus grand = plus récent
 
-      const score = commonTagsCount * 10 + sameUser * 5 + recencyScore / 1e13;
+      // Score pondéré : tags (x10), même user (x5), récence normalisée
+      const score = commonTagsCount * 10 + sameUser * 5 + recencyScore / 1e13; // légère normalisation
       return { video, score };
     });
 
@@ -343,17 +355,5 @@ export class VideoGateway implements IVideoGateway {
       .map((entry) => entry.video);
 
     return topVideos;
-  }
-
-  async getVideosWithoutSubtitle(): Promise<VideoObject[]> {
-    return this.videosRepository.find({
-      where: { subtitle_id: IsNull(), archived: false },
-      order: { createdAt: 'ASC' },
-      relations: ['tags', 'creator', 'comments', 'internal_speakers'],
-    });
-  }
-
-  async updateSubtitleId(videoId: string, subtitleId: string): Promise<void> {
-    await this.videosRepository.update(videoId, { subtitle_id: subtitleId });
   }
 }

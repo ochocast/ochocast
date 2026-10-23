@@ -23,6 +23,10 @@ test('create an event, publish it, and see it on the home page', async ({
   await page
     .locator('#suggestions_list_suggestionTag button', { hasText: '+' })
     .click();
+  // Creating and selecting the tag makes two API calls before updating the form.
+  await expect(
+    page.getByTestId('event-card').getByTestId('event-card-tag'),
+  ).toHaveText(tagName);
 
   const created = waitForCreatedEvent();
   await page.getByTestId('event-submit-button').click();

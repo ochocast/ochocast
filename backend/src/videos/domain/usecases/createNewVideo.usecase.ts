@@ -1,4 +1,4 @@
-import { Inject } from '@nestjs/common';
+import { BadRequestException, Inject } from '@nestjs/common';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuid } from 'uuid';
@@ -9,6 +9,12 @@ import { VideoObject } from '../video';
 import { CommentEntity } from 'src/comments/infra/gateways/entities/comment.entity';
 import { QueueService } from 'src/queue/queue.service';
 import { VideoTranscodingJob } from 'src/queue/job.types';
+import {
+  PLAYABLE_AS_IS,
+  VIDEO_CONTENT_TYPES,
+  planVideoMedia,
+  prepareMiniature,
+} from 'src/queue/transcoding-plan';
 
 export class CreateNewVideoUsecase {
   constructor(
@@ -34,13 +40,25 @@ export class CreateNewVideoUsecase {
         .extname(file.originalname)
         .toLowerCase()
         .replace(/[^.a-z0-9]/g, '') || '.video';
+    const sourceType = VIDEO_CONTENT_TYPES.get(originalExtension.slice(1));
+    // Without transcoding the source itself is published: only video containers.
+    if (
+      !this.queueService.enabled &&
+      !PLAYABLE_AS_IS.has(originalExtension.slice(1))
+    )
+      throw new BadRequestException('Unsupported video format');
     const originalKey = `${videoId}/source/original${originalExtension}`;
-    const miniatureSourceKey = miniatureFile
-      ? `${videoId}/source/miniature-original`
-      : undefined;
-    const miniatureId = `miniature-${videoId}.jpg`;
-
-    const subtitle = this.prepareSubtitle(subtitleFile, videoId);
+    const subtitle = this.prepareSubtitle(subtitleFile);
+    const thumbnail = await prepareMiniature(
+      miniatureFile,
+      this.queueService.enabled,
+    );
+    const plan = planVideoMedia(
+      videoId,
+      originalKey,
+      this.queueService.enabled,
+      { miniature: !!thumbnail, subtitle: !!subtitle },
+    );
     const creator =
       typeof videoToCreate.creator === 'string'
         ? ({ id: videoToCreate.creator } as any)
@@ -48,8 +66,8 @@ export class CreateNewVideoUsecase {
 
     const video = new VideoObject(
       videoId,
-      `${videoId}/master.m3u8`,
-      miniatureId,
+      plan.media_id,
+      plan.miniature_id,
       videoToCreate.title,
       videoToCreate.description,
       videoToCreate.tags,
@@ -61,9 +79,9 @@ export class CreateNewVideoUsecase {
       0,
       [new CommentEntity(null)],
       false,
-      subtitle?.id,
+      plan.subtitle_id,
       undefined,
-      'pending',
+      plan.transcoding_status,
     );
 
     const uploadedObjects: Array<{ bucket: string; key: string }> = [];
@@ -72,50 +90,53 @@ export class CreateNewVideoUsecase {
         process.env.STOCK_MEDIA_BUCKET,
         originalKey,
         file.buffer,
-        file.mimetype || 'application/octet-stream',
+        // Typed from the extension: the client's type is never stored.
+        sourceType || 'application/octet-stream',
       );
       uploadedObjects.push({
         bucket: process.env.STOCK_MEDIA_BUCKET,
         key: originalKey,
       });
 
-      if (miniatureFile && miniatureSourceKey) {
+      if (thumbnail) {
         await this.upload(
           process.env.STOCK_MINIATURE_BUCKET,
-          miniatureSourceKey,
-          miniatureFile.buffer,
-          miniatureFile.mimetype || 'application/octet-stream',
+          plan.miniatureKey,
+          thumbnail.body,
+          thumbnail.contentType,
         );
         uploadedObjects.push({
           bucket: process.env.STOCK_MINIATURE_BUCKET,
-          key: miniatureSourceKey,
+          key: plan.miniatureKey,
         });
       }
 
       if (subtitle) {
         await this.upload(
           process.env.STOCK_MEDIA_BUCKET,
-          subtitle.sourceKey,
-          subtitle.buffer,
+          plan.subtitleKey,
+          subtitle,
           'text/vtt',
         );
         uploadedObjects.push({
           bucket: process.env.STOCK_MEDIA_BUCKET,
-          key: subtitle.sourceKey,
+          key: plan.subtitleKey,
         });
       }
 
       const savedVideo = await this.videoGateway.createNewVideo(video);
+      // Without a queue the recording is already playable from its source.
+      if (!this.queueService.enabled) return savedVideo;
       const job: VideoTranscodingJob = {
         jobId: uuid(),
         videoId,
         originalFileName: file.originalname,
         originalKey,
-        miniatureSourceKey,
-        subtitleSourceKey: subtitle?.sourceKey,
+        miniatureSourceKey: plan.miniatureKey,
+        subtitleSourceKey: plan.subtitleKey,
         media_id: video.media_id,
         miniature_id: video.miniature_id,
-        subtitle_id: subtitle?.id,
+        subtitle_id: video.subtitle_id,
         title: video.title,
         timestamp: now,
       };
@@ -167,8 +188,7 @@ export class CreateNewVideoUsecase {
 
   private prepareSubtitle(
     file: Express.Multer.File | undefined,
-    videoId: string,
-  ): { id: string; sourceKey: string; buffer: Buffer } | undefined {
+  ): Buffer | undefined {
     if (!file) return undefined;
     const extension = path.extname(file.originalname).toLowerCase();
     if (!['.srt', '.vtt'].includes(extension)) {
@@ -186,11 +206,6 @@ export class CreateNewVideoUsecase {
         : normalized.startsWith('WEBVTT')
           ? `${normalized}\n`
           : `WEBVTT\n\n${normalized}\n`;
-    const id = `subtitle-${videoId}.vtt`;
-    return {
-      id,
-      sourceKey: `${videoId}/source/${id}`,
-      buffer: Buffer.from(vtt, 'utf8'),
-    };
+    return Buffer.from(vtt, 'utf8');
   }
 }
