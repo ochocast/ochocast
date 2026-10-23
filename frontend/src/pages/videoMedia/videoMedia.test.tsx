@@ -18,6 +18,7 @@ import VideoMedia from './videoMedia';
 // driven by hand, like a navigation between /video/A and /video/B.
 let mockVideoId = 'A';
 jest.mock('react-router-dom', () => ({
+  Link: ({ children }: { children: React.ReactNode }) => children,
   useLocation: () => ({ pathname: `/video/${mockVideoId}`, state: null }),
   useNavigate: () => jest.fn(),
   useParams: () => ({ videoId: mockVideoId }),
@@ -169,8 +170,12 @@ describe('VideoMedia', () => {
 
     await answer('A');
 
+    // Neither A's page nor B's "not found": B is still loading.
     expect(screen.queryByText('Title A')).not.toBeInTheDocument();
     expect(screen.queryByTestId('player')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: '404 - Page introuvable' }),
+    ).not.toBeInTheDocument();
 
     await answer('B');
 
