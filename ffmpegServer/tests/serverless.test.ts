@@ -221,11 +221,9 @@ test('failed encoding is reported and the trigger is not acknowledged', async ()
 const untilAborted = {
   processJob: async (_job: VideoTranscodingJob, signal: AbortSignal) =>
     new Promise<VideoTranscodingResult>((_resolve, reject) => {
-      signal.addEventListener(
-        'abort',
-        () => reject(new Error('This operation was aborted')),
-        { once: true },
-      );
+      const aborted = () => reject(new Error('This operation was aborted'));
+      if (signal.aborted) aborted();
+      else signal.addEventListener('abort', aborted, { once: true });
     }),
 };
 
@@ -265,13 +263,15 @@ test('a deadline during an encode that started late stays retryable', async () =
     },
     {
       processJob: async (incoming, signal, onEncodingStarted) => {
-        // A slow download used 150 of the 200 ms: the encode may fit next time.
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        // A slow download used 900 of the 1000 ms: the encode may fit next
+        // time. It runs for about 100 ms of the 500 ms that would make it
+        // permanent, so only a deadline 400 ms late could fail this test.
+        await new Promise((resolve) => setTimeout(resolve, 900));
         onEncodingStarted?.();
         return untilAborted.processJob(incoming, signal);
       },
     },
-    200,
+    1000,
   );
   await assert.rejects(
     runner.run(job, new AbortController().signal),

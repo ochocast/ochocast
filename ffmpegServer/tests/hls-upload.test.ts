@@ -26,6 +26,9 @@ const fakeS3 = async (
     puts: [] as Put[],
     finished: [] as string[],
     deleted: [] as string[],
+    // What DeleteObjects answers, and after how long.
+    deleteResult: '<DeleteResult></DeleteResult>',
+    deleteDelayMs: 0,
   };
   const prefix = `/${S3_CONFIG.mediaBucket}/`;
   const server = createServer(async (request, response) => {
@@ -35,9 +38,11 @@ const fakeS3 = async (
       for await (const chunk of request) body += chunk;
       for (const [, key] of body.matchAll(/<Key>([^<]+)<\/Key>/g))
         state.deleted.push(key);
-      response
-        .writeHead(200, { 'Content-Type': 'application/xml' })
-        .end('<DeleteResult></DeleteResult>');
+      await sleep(state.deleteDelayMs);
+      if (!response.destroyed)
+        response
+          .writeHead(200, { 'Content-Type': 'application/xml' })
+          .end(state.deleteResult);
       return;
     }
     const key = decodeURIComponent(
@@ -269,4 +274,55 @@ test('an aborted HLS upload (job deadline) deletes the renditions it started', a
     [...state.deleted].sort(),
     state.puts.map(({ key }) => key).sort(),
   );
+});
+
+// With Quiet, S3 answers 200 and lists the keys it refused in Errors.
+test('keys S3 refuses to delete are logged', async (t) => {
+  setEnv(t, 'TRANSCODING_UPLOAD_CONCURRENCY', '4');
+  t.mock.method(console, 'log', () => {});
+  const warn = t.mock.method(console, 'warn', () => {});
+  const { state, upload } = await run(t, 8, async (key, request, response) => {
+    if (key === 'video/360p3.ts') {
+      response
+        .writeHead(403, { 'Content-Type': 'application/xml' })
+        .end(
+          '<Error><Code>AccessDenied</Code><Message>denied</Message></Error>',
+        );
+      return;
+    }
+    await ok(key, request, response);
+  });
+  state.deleteResult =
+    '<DeleteResult><Error><Key>video/360p0.ts</Key><Code>AccessDenied</Code>' +
+    '<Message>denied</Message></Error></DeleteResult>';
+  await assert.rejects(upload, { name: 'AccessDenied' });
+  const logged = warn.mock.calls.map((call) => String(call.arguments[0]));
+  assert.ok(
+    logged.some(
+      (line) =>
+        line.includes('1 partial HLS file') &&
+        line.includes('video/360p0.ts (AccessDenied)'),
+    ),
+    logged.join('\n'),
+  );
+});
+
+// The lease outlives the job deadline by as little as 30 s: the cleanup has
+// one budget for every batch of 1000 keys, not one each.
+test('the cleanup of a partial upload stops at its budget, across batches', async (t) => {
+  const warn = t.mock.method(console, 'warn', () => {});
+  const s3 = await fakeS3(ok);
+  t.after(() => s3.close());
+  s3.state.deleteDelayMs = 300;
+  const keys = Array.from({ length: 1500 }, (_, index) => `video/${index}.ts`);
+  const started = Date.now();
+  await (
+    new TranscodingService(s3.client) as unknown as {
+      deletePartialUpload(keys: string[], budgetMs: number): Promise<void>;
+    }
+  ).deletePartialUpload(keys, 400);
+  const elapsed = Date.now() - started;
+  // Two batches of 300 ms each would take 600 ms.
+  assert.ok(elapsed < 520, `cleanup took ${elapsed} ms`);
+  assert.equal(warn.mock.callCount(), 1);
 });

@@ -413,14 +413,29 @@ export class TranscodingService {
   }
 
   /**
-   * Best effort, in batches of 1000 keys, with its own timeout: the job's
-   * signal may already be aborted, and the lease outlives the job deadline by
-   * at least 30 s.
+   * Best effort, in batches of 1000 keys, all within one budget (10 s): the
+   * job's signal may already be aborted, and the lease outlives the job
+   * deadline by as little as 30 s. PUTs still in flight when the job aborted
+   * can land afterwards: lib-storage does not cancel a single-part upload.
    */
-  private async deletePartialUpload(keys: string[]): Promise<void> {
-    for (let start = 0; start < keys.length; start += 1000) {
-      try {
-        await this.s3Client.send(
+  private async deletePartialUpload(
+    keys: string[],
+    budgetMs = 10000,
+  ): Promise<void> {
+    const signal = AbortSignal.timeout(budgetMs);
+    // The SDK only rejects an aborted request once its response arrives: the
+    // budget is enforced by racing each request against it.
+    const expired = new Promise<never>((_resolve, reject) => {
+      const fail = () => reject(signal.reason);
+      if (signal.aborted) fail();
+      else signal.addEventListener('abort', fail, { once: true });
+    });
+    expired.catch(() => {});
+    const refused: string[] = [];
+    try {
+      for (let start = 0; start < keys.length; start += 1000) {
+        // Quiet: S3 answers 200 and lists only the keys it refused.
+        const sending = this.s3Client.send(
           new DeleteObjectsCommand({
             Bucket: S3_CONFIG.mediaBucket,
             Delete: {
@@ -428,15 +443,23 @@ export class TranscodingService {
               Quiet: true,
             },
           }),
-          { abortSignal: AbortSignal.timeout(10000) },
+          { abortSignal: signal },
         );
-      } catch (error) {
-        console.warn(
-          `Could not delete ${keys.length} partial HLS files: ${(error as Error).message}`,
-        );
-        return;
+        sending.catch(() => {});
+        const { Errors = [] } = await Promise.race([sending, expired]);
+        for (const error of Errors)
+          refused.push(`${error.Key} (${error.Code})`);
       }
+    } catch (error) {
+      console.warn(
+        `Could not delete the partial HLS upload (${keys.length} files): ${(error as Error).message}`,
+      );
+      return;
     }
+    if (refused.length)
+      console.warn(
+        `Could not delete ${refused.length} partial HLS file(s): ${refused.slice(0, 5).join(', ')}`,
+      );
   }
 
   /**
