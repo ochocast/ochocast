@@ -29,6 +29,8 @@ func TestWorkerConfigValidate(t *testing.T) {
 		{"missing control-plane URL", func(c *WorkerConfig) { c.ControlPlaneURL = "" }},
 		{"partial registry credentials", func(c *WorkerConfig) { c.RegistryUser = "user" }},
 		{"missing TURN password", func(c *WorkerConfig) { c.TURNPassword = "" }},
+		{"backend URL without webhook secret", func(c *WorkerConfig) { c.BackendURL = "https://api.example.com" }},
+		{"webhook secret without backend URL", func(c *WorkerConfig) { c.WebhookSecret = "webhook-secret" }},
 		{"partial ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMax = "" }},
 		{"reversed ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMin = "50101" }},
 	}
@@ -56,6 +58,8 @@ func TestWorkerConfigRender(t *testing.T) {
 		TURNPassword:    "turn-secret",
 		ICEUDPPortMin:   "50000",
 		ICEUDPPortMax:   "50100",
+		BackendURL:      "https://api.example.com",
+		WebhookSecret:   "webhook-secret",
 	}
 
 	rendered := cfg.Render("sfu-123", "room-456")
@@ -70,6 +74,9 @@ func TestWorkerConfigRender(t *testing.T) {
 		"export ICE_UDP_PORT_MIN='50000'",
 		"export ICE_UDP_PORT_MAX='50100'",
 		"-e ICE_UDP_PORT_MIN=\"${ICE_UDP_PORT_MIN:-}\"",
+		"export BACKEND_URL='https://api.example.com'",
+		"export SFU_WEBHOOK_SECRET='webhook-secret'",
+		"-e SFU_WEBHOOK_SECRET=\"${SFU_WEBHOOK_SECRET:-}\"",
 		"conf?format=json",
 		".public_ips_v4[0].address // .public_ip.address // empty",
 	}

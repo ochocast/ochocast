@@ -1,0 +1,19 @@
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--error-color, #c0392b);
+  border-radius: 8px;
+  color: var(--error-color, #c0392b);
+  background: color-mix(in srgb, var(--error-color, #c0392b) 8%, transparent);
+}
+
+.link {
+  margin-left: auto;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}

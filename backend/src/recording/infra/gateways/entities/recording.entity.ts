@@ -1,0 +1,77 @@
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  CreateDateColumn,
+} from 'typeorm';
+import { TrackEntity } from '../../../../tracks/infra/gateways/entities/track.entity';
+import { UserEntity } from '../../../../users/infra/gateways/entities/user.entity';
+import {
+  RecordingKind,
+  RecordingStatus,
+  RecordingVisibility,
+} from '../../../domain/recording';
+
+/**
+ * A recording segment of a track, persisted as `unlisted` on capture.
+ * See {@link RecordingObject} for the domain semantics.
+ */
+@Entity()
+export class RecordingEntity {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @ManyToOne(() => TrackEntity, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'trackId' })
+  track: TrackEntity;
+
+  @Column()
+  trackId: string;
+
+  @Column()
+  media_id: string;
+
+  @Column({ default: 'unlisted' })
+  visibility: RecordingVisibility;
+
+  @Column({ default: false })
+  problematic: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  segment_index: number;
+
+  @Column({ type: 'float', nullable: true })
+  duration: number | null;
+
+  @Column({ default: 'segment' })
+  kind: RecordingKind;
+
+  @Column({ default: 'ready' })
+  status: RecordingStatus;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  source_segment_ids: string[] | null;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  // Publication (US-4 / US-6): when, on whose channel, as which video.
+  @Column({ type: 'timestamp', nullable: true })
+  published_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  published_video_id: string | null;
+
+  @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'published_by_id' })
+  published_by: UserEntity | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  published_by_id: string | null;
+
+  constructor(recording: Partial<RecordingEntity>) {
+    Object.assign(this, recording);
+  }
+}

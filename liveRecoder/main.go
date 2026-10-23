@@ -1,15 +1,45 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 )
 
+// loadDotEnv reads .env file and sets env vars (only if not already set)
+func loadDotEnv() {
+	f, err := os.Open(".env")
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if os.Getenv(key) == "" {
+			os.Setenv(key, val)
+		}
+	}
+}
+
 func main() {
+	loadDotEnv()
+
 	// Get SFU base URL from environment variable, fallback to default
 	sfuDefault := os.Getenv("SFU_BASE_URL")
 	if sfuDefault == "" {
@@ -40,6 +70,16 @@ func runHTTPServer(addr, outputDir string) {
 	log.Printf("Output directory: %s", outputDir)
 
 	server := NewRecordingServer(outputDir)
+
+	// Recordings are written to the OS temp dir (rec.go): sweep the ones left
+	// behind by failed uploads, at startup then every hour.
+	go func() {
+		retention := recordingRetention()
+		for {
+			cleanupStaleRecordings(os.TempDir(), retention)
+			time.Sleep(time.Hour)
+		}
+	}()
 
 	// Handle graceful shutdown
 	go func() {
@@ -89,7 +129,7 @@ func runCLIMode(roomID, roomKey, sfuBaseURL, outputDir string) {
 	log.Println("Recording directly to MP4 with synchronized A/V")
 
 	// Create recording session (use roomID as eventID for filename)
-	// In CLI mode, no auto-publish (no backend/keycloak config)
+	// In CLI mode, no auto-publish (no backend config)
 	session, err := NewRecordingSession(RecordingConfig{
 		EventID:    roomID,
 		RoomID:     roomID,

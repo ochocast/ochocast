@@ -76,6 +76,13 @@ export class TrackObject {
   })
   event: PublicEventObject;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether every live of this track is recorded automatically (US-5).',
+  })
+  recordingArmed: boolean = false;
+
   public canBeEditBy(user: UserObject): boolean {
     for (const speaker of this.speakers)
       if (speaker.id === user.id) return true;
@@ -95,6 +102,7 @@ export class TrackObject {
     endDate: Date,
     speakers: PublicUserObject[],
     event: PublicEventObject,
+    recordingArmed: boolean = false,
   ) {
     this.id = id;
     this.name = name;
@@ -108,6 +116,7 @@ export class TrackObject {
     this.startDate = startDate;
     this.endDate = endDate;
     this.event = event;
+    this.recordingArmed = recordingArmed;
   }
 }
 

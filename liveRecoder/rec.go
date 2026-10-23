@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -35,41 +34,31 @@ type RecordingSession struct {
 	audioTrackAdded  bool                   // Flag to track if audio track is added
 	backendURL       string                 // Backend URL for auto-publish after recording
 	trackID          string                 // Track ID for video metadata
-	// Keycloak authentication for publishing
-	keycloakURL          string // Keycloak token endpoint URL
-	keycloakClientID     string // Keycloak client ID
-	keycloakClientSecret string // Keycloak client secret (for confidential clients)
-	keycloakUsername     string // Keycloak username (recording user)
-	keycloakPassword     string // Keycloak password (recording user)
+	sharedSecret     string                 // Shared secret sent to backend on publish
 }
 
 // RecordingConfig holds all configuration for a recording session
 type RecordingConfig struct {
-	EventID              string
-	RoomID               string
-	RoomKey              string
-	SfuBaseURL           string
-	OutputDir            string
-	BackendURL           string
-	TrackID              string
-	KeycloakURL          string
-	KeycloakClientID     string
-	KeycloakClientSecret string
-	KeycloakUsername     string
-	KeycloakPassword     string
+	EventID      string
+	RoomID       string
+	RoomKey      string
+	SfuBaseURL   string
+	OutputDir    string
+	BackendURL   string
+	TrackID      string
+	SharedSecret string // Sent as X-Recording-Secret when publishing to backend
 }
 
 // NewRecordingSession creates a new recording session.
 // Returns: initialized RecordingSession or error
 func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
-	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(config.OutputDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output directory: %w", err)
+	// Write to a temp file — deleted automatically after successful publish
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("recording-%s-*.mp4", config.EventID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
-
-	// Generate timestamped filename for MP4
-	timestamp := time.Now().Format("20060102_150405")
-	mp4FilePath := filepath.Join(config.OutputDir, fmt.Sprintf("%s_%s.mp4", config.EventID, timestamp))
+	mp4FilePath := tmpFile.Name()
+	tmpFile.Close()
 
 	// Create MP4 writer
 	mp4Writer, err := NewMP4Writer(mp4FilePath)
@@ -78,21 +67,17 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 	}
 
 	return &RecordingSession{
-		eventID:              config.EventID,
-		roomID:               config.RoomID,
-		roomKey:              config.RoomKey,
-		sfuBaseURL:           config.SfuBaseURL,
-		outputDir:            config.OutputDir,
-		mp4Writer:            mp4Writer,
-		mp4FilePath:          mp4FilePath,
-		stopChan:             make(chan struct{}),
-		backendURL:           config.BackendURL,
-		trackID:              config.TrackID,
-		keycloakURL:          config.KeycloakURL,
-		keycloakClientID:     config.KeycloakClientID,
-		keycloakClientSecret: config.KeycloakClientSecret,
-		keycloakUsername:     config.KeycloakUsername,
-		keycloakPassword:     config.KeycloakPassword,
+		eventID:      config.EventID,
+		roomID:       config.RoomID,
+		roomKey:      config.RoomKey,
+		sfuBaseURL:   config.SfuBaseURL,
+		outputDir:    config.OutputDir,
+		mp4Writer:    mp4Writer,
+		mp4FilePath:  mp4FilePath,
+		stopChan:     make(chan struct{}),
+		backendURL:   config.BackendURL,
+		trackID:      config.TrackID,
+		sharedSecret: config.SharedSecret,
 	}, nil
 }
 
@@ -245,7 +230,6 @@ func (rs *RecordingSession) StartRecording() error {
 	return nil
 }
 
-
 // setupCallbacks configures WebRTC event handlers
 func (rs *RecordingSession) setupCallbacks() error {
 	// OnTrack: called when a track (video/audio) is received from SFU
@@ -357,7 +341,7 @@ func (rs *RecordingSession) recordTrack(track *webrtc.TrackRemote) {
 					log.Printf("[ERROR] Error writing audio packet to MP4: %v", err)
 					continue
 				}
-				
+
 				rs.mu.Lock()
 				rs.audioPacketCount++
 				rs.mu.Unlock()
@@ -445,6 +429,21 @@ func (rs *RecordingSession) Stop() error {
 	log.Println("Recording stopped successfully")
 	log.Println("MP4 file is ready to use - no muxing needed!")
 
+	// Auto-publish regardless of how Stop was triggered (HTTP or WebRTC callback)
+	if rs.backendURL != "" && rs.trackID != "" && rs.mp4FilePath != "" {
+		filePath := rs.mp4FilePath
+		backendURL := rs.backendURL
+		trackID := rs.trackID
+		sharedSecret := rs.sharedSecret
+
+		go func() {
+			if err := publishWithRetry(backendURL, trackID, filePath, sharedSecret); err != nil {
+				log.Printf("[ERROR] Failed to publish recording to backend, kept for %s at %s: %v", recordingRetention(), filePath, err)
+			} else {
+				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
+			}
+		}()
+	}
+
 	return nil
 }
-

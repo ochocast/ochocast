@@ -30,6 +30,10 @@ type WorkerConfig struct {
 	TURNServer      string
 	TURNUsername    string
 	TURNPassword    string
+	// US-5: the worker notifies the backend when a live starts or stops, so
+	// armed tracks are recorded automatically.
+	BackendURL    string
+	WebhookSecret string
 }
 
 // Validate fails closed before the autoscaler is enabled. This prevents it
@@ -52,6 +56,9 @@ func (c WorkerConfig) Validate() error {
 		if c.TURNServer == "" || c.TURNUsername == "" || c.TURNPassword == "" {
 			return fmt.Errorf("TURN_SERVER, TURN_USERNAME and TURN_PASSWORD are required when ICE_RELAY_ONLY=true")
 		}
+	}
+	if (c.BackendURL == "") != (c.WebhookSecret == "") {
+		return fmt.Errorf("BACKEND_URL and SFU_WEBHOOK_SECRET must be set together")
 	}
 	if c.ICEUDPPortMin != "" || c.ICEUDPPortMax != "" {
 		if c.ICEUDPPortMin == "" || c.ICEUDPPortMax == "" {
@@ -99,6 +106,8 @@ func (c WorkerConfig) Render(sfuID, roomID string) string {
 		{"TURN_SERVER", c.TURNServer},
 		{"TURN_USERNAME", c.TURNUsername},
 		{"TURN_PASSWORD", c.TURNPassword},
+		{"BACKEND_URL", c.BackendURL},
+		{"SFU_WEBHOOK_SECRET", c.WebhookSecret},
 	}
 
 	var rendered strings.Builder

@@ -189,9 +189,44 @@ export const searchVideosAdmin = (data) =>
   api.get(`/videos/searchvideoadmin/${data}`);
 
 // Recording
-export const startRecording = (data) => api.post('/recordings/start', data);
-export const stopRecording = (trackId) =>
-  api.post(`/recordings/stop/${trackId}`);
+// US-5: arm / disarm the automatic recording of every live of a track
+export const setTrackRecordingArmed = (trackId, armed) =>
+  api.put(`/recordings/track/${trackId}/armed`, { armed });
+// US-6: publishing a recording on a track speaker's channel, with approval
+export const createPublicationRequest = (data) =>
+  api.post('/publication-requests', data);
+export const getMyPublicationRequests = () =>
+  api.get('/publication-requests/mine');
+export const getTrackPublicationRequests = (trackId) =>
+  api.get(`/publication-requests/track/${trackId}`);
+export const getPublicationRequest = (id) =>
+  api.get(`/publication-requests/${id}`);
+export const getPublicationRequestMediaUrl = (id) =>
+  api.get(`/publication-requests/${id}/media`);
+export const acceptPublicationRequest = (id, videoId) =>
+  api.post(`/publication-requests/${id}/accept`, { videoId });
+export const refusePublicationRequest = (id, reason) =>
+  api.post(`/publication-requests/${id}/refuse`, { reason });
+export const cancelPublicationRequest = (id) =>
+  api.post(`/publication-requests/${id}/cancel`);
+// US-5c: real-time recording status of a track (organizer only)
+export const getTrackRecordingStatus = (trackId) =>
+  api.get(`/recordings/track/${trackId}/status`);
+// US-1 / US-2: list the unlisted recording segments of a track (organizer only)
+export const getTrackRecordings = (trackId) =>
+  api.get(`/recordings/track/${trackId}`);
+// Presigned URL to preview/play a recording segment's raw file
+export const getRecordingMediaUrl = (recordingId) =>
+  api.get(`/recordings/${recordingId}/media`);
+// US-3: merge unlisted segments of a track into a merged recording
+export const mergeRecordings = (trackId, segmentIds) =>
+  api.post(`/recordings/track/${trackId}/merge`, { segmentIds });
+// US-3 "Go back": delete a merged recording
+export const deleteRecording = (recordingId) =>
+  api.delete(`/recordings/${recordingId}`);
+// US-4: mark a recording as published (after creating a video via the editor)
+export const markRecordingPublished = (recordingId, videoId) =>
+  api.post(`/recordings/${recordingId}/mark-published`, { videoId });
 
 // Polls
 export const createPoll = (pollData) => api.post('/polls', pollData);

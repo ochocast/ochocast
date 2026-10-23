@@ -9,13 +9,19 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   private readonly logger = new Logger(RecordingVMGateway.name);
   private readonly vmUrl: string;
   private readonly controlPlaneUrl: string;
+  private readonly sharedSecret: string;
 
   constructor() {
     this.vmUrl = process.env.RECORDING_VM_URL || 'http://localhost:8080';
     this.controlPlaneUrl =
       process.env.CONTROL_PLANE_URL || 'http://localhost:8090';
+    this.sharedSecret = process.env.RECORDING_SHARED_SECRET || '';
     this.logger.log(`Recording VM URL: ${this.vmUrl}`);
     this.logger.log(`Control Plane URL: ${this.controlPlaneUrl}`);
+  }
+
+  private get secretHeaders(): Record<string, string> {
+    return { 'X-Recording-Secret': this.sharedSecret };
   }
 
   async startRecording(config: StartRecordingConfig): Promise<void> {
@@ -39,14 +45,22 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     // Step 2: Start recording with the discovered SFU URL and key
     const response = await fetch(`${this.vmUrl}/recording/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.secretHeaders },
       body: JSON.stringify({
         room_id: config.roomId,
         room_key: cpData.room_key,
         sfu_url: cpData.sfu_url,
-        track_id: config.trackId || config.roomId,
+        track_id: config.trackId,
       }),
     });
+
+    // 409 = the recorder already records this room: starting is idempotent.
+    if (response.status === 409) {
+      this.logger.log(
+        `Recording already in progress for room: ${config.roomId}`,
+      );
+      return;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -64,7 +78,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
     const response = await fetch(`${this.vmUrl}/recording/stop`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...this.secretHeaders },
       body: JSON.stringify({ room_id: roomId }),
     });
 
@@ -77,19 +91,39 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     this.logger.log(`Recording stopped successfully for room: ${roomId}`);
   }
 
-  async getStatus(): Promise<{
+  async getStatus(roomId?: string): Promise<{
     status: string;
     roomId?: string;
     filePath?: string;
   }> {
-    const response = await fetch(`${this.vmUrl}/recording/status`, {
+    const url = roomId
+      ? `${this.vmUrl}/recording/status?room_id=${roomId}`
+      : `${this.vmUrl}/recording/status`;
+    const response = await fetch(url, {
       method: 'GET',
+      headers: this.secretHeaders,
     });
 
     if (!response.ok) {
       throw new Error('Failed to get recording status');
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      status: data.status,
+      roomId: data.room_id,
+      filePath: data.file_path,
+    };
+  }
+
+  async isLiveActive(roomId: string): Promise<boolean> {
+    const response = await fetch(
+      `${this.controlPlaneUrl}/stream-status?room_id=${encodeURIComponent(roomId)}`,
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to get stream status (HTTP ${response.status})`);
+    }
+    const data = await response.json();
+    return data.active === true;
   }
 }

@@ -140,6 +140,8 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		TURNServer:      os.Getenv("TURN_SERVER"),
 		TURNUsername:    os.Getenv("TURN_USERNAME"),
 		TURNPassword:    os.Getenv("TURN_PASSWORD"),
+		BackendURL:      os.Getenv("BACKEND_URL"),
+		WebhookSecret:   os.Getenv("SFU_WEBHOOK_SECRET"),
 	}
 	if err := workerBootstrap.Validate(); err != nil {
 		return fmt.Errorf("worker bootstrap config: %w", err)

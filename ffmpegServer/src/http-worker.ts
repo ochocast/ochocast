@@ -5,6 +5,11 @@ import { JobProcessorService } from './services/job-processor.service';
 import { BackendClient } from './serverless/backend-client';
 import { HttpError, parseJobEnvelope } from './serverless/job-envelope';
 import { JobRunner } from './serverless/job-runner';
+import { MergeBackendClient } from './serverless/merge-backend-client';
+import { parseMergeEnvelope } from './serverless/merge-envelope';
+import { MergeRunner } from './serverless/merge-runner';
+import { MergeService } from './services/merge.service';
+import { VideoTranscodingJob } from './types/job.types';
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -32,9 +37,24 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   });
 }
 
-export function createWorkerServer(
-  runner: Pick<JobRunner, 'run'>,
+export interface WorkerServerOptions<J> {
+  /** Verifies and decodes a signed queue message. */
+  parse: (value: unknown, secret: string) => J;
+  /** Local alias of the root route ('/transcode' or '/merge'). */
+  alias: string;
+}
+
+const TRANSCODE_ROUTES: WorkerServerOptions<VideoTranscodingJob> = {
+  parse: parseJobEnvelope,
+  alias: '/transcode',
+};
+
+export function createWorkerServer<
+  J extends { jobId: string } = VideoTranscodingJob,
+>(
+  runner: { run(job: J, signal: AbortSignal): Promise<void> },
   dispatchSecret: string,
+  options: WorkerServerOptions<J> = TRANSCODE_ROUTES as unknown as WorkerServerOptions<J>,
 ) {
   let busy = false;
   const shutdown = new AbortController();
@@ -52,7 +72,7 @@ export function createWorkerServer(
     // Scaleway Queue triggers POST the message body to the container root.
     if (
       request.method !== 'POST' ||
-      !['/', '/transcode'].includes(request.url || '')
+      !['/', options.alias].includes(request.url || '')
     ) {
       send(404, { error: 'Not found' });
       return;
@@ -63,7 +83,7 @@ export function createWorkerServer(
     }
     busy = true;
     try {
-      const job = parseJobEnvelope(await readJson(request), dispatchSecret);
+      const job = options.parse(await readJson(request), dispatchSecret);
       await runner.run(job, shutdown.signal);
       send(200, { jobId: job.jobId, success: true });
     } catch (error) {
@@ -126,14 +146,33 @@ function main() {
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 3300000)
     throw new Error('Invalid TRANSCODING_JOB_TIMEOUT_MS (1000..3300000)');
   const s3 = createS3Client();
-  const runner = new JobRunner(
-    new BackendClient(backendUrl, callbackSecret),
-    new JobProcessorService(s3),
-    timeoutMs,
-  );
-  const { server, shutdown } = createWorkerServer(runner, dispatchSecret);
+  // One image, two deployments: the transcoding container (default) and the
+  // merge container (US-3), each behind its own queue and trigger. A trigger
+  // always posts to the container root, so the mode is set by environment.
+  const mode = process.env.FFMPEG_WORKER_MODE || 'transcode';
+  if (mode !== 'transcode' && mode !== 'merge')
+    throw new Error('FFMPEG_WORKER_MODE must be transcode or merge');
+  const { server, shutdown } =
+    mode === 'merge'
+      ? createWorkerServer(
+          new MergeRunner(
+            new MergeBackendClient(backendUrl, callbackSecret),
+            new MergeService(s3),
+            timeoutMs,
+          ),
+          dispatchSecret,
+          { parse: parseMergeEnvelope, alias: '/merge' },
+        )
+      : createWorkerServer(
+          new JobRunner(
+            new BackendClient(backendUrl, callbackSecret),
+            new JobProcessorService(s3),
+            timeoutMs,
+          ),
+          dispatchSecret,
+        );
   server.listen(Number(process.env.PORT || 8080), '0.0.0.0', () =>
-    console.log('HTTP transcoder listening'),
+    console.log(`HTTP ${mode} worker listening`),
   );
   const stop = () => {
     if (shutdown.signal.aborted) return;

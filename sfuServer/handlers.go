@@ -579,6 +579,10 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		isOrigin := room.IsOrigin
 		room.mu.Unlock()
 
+		if wasInactive {
+			go notifyLiveStarted(room)
+		}
+
 		// Notifier les peers après un délai pour permettre à toutes les tracks d'arriver
 		// (audio et vidéo arrivent généralement ensemble mais avec un léger décalage)
 		if wasInactive && isOrigin && becameOrigin {
@@ -594,6 +598,7 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 		cleanupOnce.Do(func() {
 			log.Printf("[WHIP][ROOM-%s] Host cleanup due to %s", roomID, reason)
 			room.CleanupHost()
+			go notifyLiveStopped(roomID)
 		})
 	}
 
@@ -697,6 +702,7 @@ func handleWHIPResource(w http.ResponseWriter, r *http.Request) {
 	}
 
 	room.CleanupHost()
+	go notifyLiveStopped(roomID)
 	w.WriteHeader(http.StatusOK)
 	log.Printf("[WHIP][ROOM-%s] Publishing session deleted", roomID)
 }
@@ -1489,80 +1495,4 @@ func handleSyncCreateRoom(w http.ResponseWriter, r *http.Request) {
 	})
 
 	log.Printf("[ROOM] Room synchronized: %s", requestBody.RoomID)
-}
-
-// handleCascadeRequestSubscribe handles the request from origin to subscribe to a room
-// This is called by the control plane to set up a relay cascade connection
-func handleCascadeRequestSubscribe(w http.ResponseWriter, r *http.Request) {
-	log.Printf("[CASCADE] Request subscribe from %s", r.RemoteAddr)
-
-	setCORSHeaders(w, "POST, OPTIONS")
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST is supported", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var requestBody struct {
-		RoomID    string `json:"room_id"`
-		OriginURL string `json:"origin_url"`
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	if requestBody.RoomID == "" || requestBody.OriginURL == "" {
-		http.Error(w, "room_id and origin_url are required", http.StatusBadRequest)
-		return
-	}
-
-	log.Printf("[CASCADE] Processing subscription request: room=%s, origin=%s", requestBody.RoomID, requestBody.OriginURL)
-
-	// Vérifier si la room existe déjà localement
-	room, err := sfuServer.GetRoom(requestBody.RoomID)
-	if err == nil {
-		// Room existe déjà
-		room.mu.Lock()
-		if room.IsOrigin {
-			// Ce serveur est déjà l'origin, on ignore
-			room.mu.Unlock()
-			log.Printf("[CASCADE] Already origin for room %s, ignoring subscription request", requestBody.RoomID)
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "already_origin"})
-			return
-		}
-		if room.OriginURL == requestBody.OriginURL && room.StreamActive {
-			// Déjà connecté à cet origin et stream actif
-			room.mu.Unlock()
-			log.Printf("[CASCADE] Already subscribed to %s for room %s (stream active)", requestBody.OriginURL, requestBody.RoomID)
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"status": "already_subscribed"})
-			return
-		}
-		room.mu.Unlock()
-	}
-
-	// Se connecter à l'origin en cascade - SYNCHRONOUSLY so CP knows if it worked
-	log.Printf("[CASCADE] Connecting to origin %s for room %s...", requestBody.OriginURL, requestBody.RoomID)
-	if err := sfuServer.ConnectToUpstreamForRoom(requestBody.RoomID, requestBody.OriginURL); err != nil {
-		log.Printf("[CASCADE] Failed to connect to origin: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to connect to origin: %v", err), http.StatusBadGateway)
-		return
-	}
-
-	log.Printf("[CASCADE] Successfully connected to origin %s for room %s", requestBody.OriginURL, requestBody.RoomID)
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":     "connected",
-		"room_id":    requestBody.RoomID,
-		"origin_url": requestBody.OriginURL,
-	})
 }

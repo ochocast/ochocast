@@ -114,7 +114,20 @@
   min-height: 120px;
 }
 
+/* Custom chevron: the native one sits flush against the right border. */
+.inputWrapper select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23333' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 12px 8px;
+  cursor: pointer;
+}
+
 .inputWrapper input:focus,
+.inputWrapper select:focus,
 .inputWrapper textarea:focus {
   outline: none;
   border-color: var(--theme-color, #0056d2);
@@ -349,4 +362,22 @@
   .confirmationButtons button {
     width: 100%;
   }
+}
+/* US-6: publication on / from a track speaker's channel */
+.publicationBanner {
+  margin: 0 0 1.5rem;
+  padding: 12px 16px;
+  border: 1px solid var(--theme-color-700, #2e6e4e);
+  border-radius: 8px;
+  color: var(--theme-color-700, #2e6e4e);
+  background: color-mix(
+    in srgb,
+    var(--theme-color-700, #2e6e4e) 8%,
+    transparent
+  );
+  font-weight: 500;
+}
+
+.modalActions {
+  margin-top: 1.5rem;
 }
