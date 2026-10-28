@@ -49,7 +49,7 @@ describe('Upload maintenance with and without a transcoding queue', () => {
       db as unknown as DataSource,
       storage as unknown as MultipartStorage,
       { enabled, publishRegisteredJob } as any,
-      {} as TranscodingJobsService,
+      new TranscodingJobsService(db as unknown as DataSource),
     );
   const job = (overrides: Partial<TranscodingJobEntity>) =>
     Object.assign(new TranscodingJobEntity(), {
@@ -274,7 +274,13 @@ describe('Upload maintenance with and without a transcoding queue', () => {
           id: 'doomed',
           status: 'failed',
           leaseExpiresAt: null,
-          result: expect.objectContaining({ success: false, error }),
+          // Like an abandonment at claim time: a redelivery is acknowledged.
+          result: expect.objectContaining({
+            success: false,
+            error,
+            permanent: true,
+            reason: 'max_attempts',
+          }),
         }),
       );
       expect(manager.update).toHaveBeenCalledWith(VideoEntity, 'video', {
