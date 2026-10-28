@@ -12,6 +12,27 @@ export interface VideoTranscodingJob {
   timestamp: number;
 }
 
+/**
+ * Failures that another attempt cannot fix. For a video too long to transcode
+ * (duration_exceeded, deadline_exceeded) the backend plays the source instead:
+ * both are only reported once the final miniature and subtitle are written.
+ * A deadline before encoding started (a stalled S3 read) stays retryable.
+ */
+export type PermanentFailureReason =
+  | 'source_too_large'
+  | 'invalid_source'
+  | 'duration_exceeded'
+  | 'deadline_exceeded';
+
+export class PermanentJobError extends Error {
+  constructor(
+    public readonly reason: PermanentFailureReason,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
 export interface VideoTranscodingResult {
   jobId: string;
   videoId: string;
@@ -22,6 +43,14 @@ export interface VideoTranscodingResult {
   subtitle_id?: string | null;
   error?: string;
   processedAt: number;
+  /** Stored, then acknowledged: the trigger does not retry this failure. */
+  permanent?: boolean;
+  reason?: PermanentFailureReason;
+  /**
+   * Set on a failure once the source was probed: whether browsers decode its
+   * codecs as is. The source fallback requires it.
+   */
+  sourceCodecsPlayable?: boolean;
 }
 
 export interface HLSVariant {

@@ -22,6 +22,7 @@ import {
   PLAYABLE_AS_IS,
   planVideoMedia,
   prepareMiniature,
+  uploadMaxBytes,
 } from 'src/queue/transcoding-plan';
 import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
@@ -57,10 +58,6 @@ export class UploadsService {
   // A pending job not claimed within this delay lost its message.
   private readonly redispatchAfterMs =
     positiveInteger('TRANSCODING_REDISPATCH_AFTER_SECONDS', 7200) * 1000;
-  private readonly maxAttempts = positiveInteger(
-    'TRANSCODING_MAX_ATTEMPTS',
-    10,
-  );
   constructor(
     private readonly db: DataSource,
     private readonly storage: MultipartStorage,
@@ -97,9 +94,7 @@ export class UploadsService {
   }
   async create(email: string, input: { size: number; filename: string }) {
     const owner = await this.owner(email);
-    const max = Number(process.env.UPLOAD_MAX_BYTES || 1024 ** 3);
-    if (!Number.isSafeInteger(max) || max < 1 || max > 50 * 1024 ** 3)
-      throw new Error('UPLOAD_MAX_BYTES must be between 1 byte and 50 GiB');
+    const max = uploadMaxBytes();
     if (
       !Number.isSafeInteger(input.size) ||
       input.size < 1 ||
@@ -485,23 +480,8 @@ export class UploadsService {
       for (const job of stale) {
         job.leaseToken = null;
         job.leaseExpiresAt = null;
-        if (job.attempts >= this.maxAttempts) {
-          const error = `Transcoding abandoned after ${job.attempts} attempts`;
-          job.status = 'failed';
-          job.result = {
-            jobId: job.id,
-            videoId: job.videoId,
-            success: false,
-            duration: 0,
-            error,
-            processedAt: now,
-          };
-          await m.save(job);
-          await m.update(VideoEntity, job.videoId, {
-            transcoding_status: 'failed',
-            transcoding_error: error,
-          });
-          this.logger.warn(`Transcoding job ${job.id}: ${error}`);
+        if (job.attempts >= this.jobs.maxAttempts) {
+          await this.jobs.abandon(job, m);
           continue;
         }
         const payload = { ...job.payload, timestamp: now };

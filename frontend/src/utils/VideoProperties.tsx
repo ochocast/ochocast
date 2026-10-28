@@ -16,7 +16,14 @@ export interface Video {
   duration?: number;
   transcoding_status?: 'pending' | 'ready' | 'failed';
   transcoding_error?: string;
-  transcription_status?: 'waiting_audio' | 'pending' | 'processing' | 'ready' | 'no_audio' | 'no_speech' | 'failed';
+  transcription_status?:
+    | 'waiting_audio'
+    | 'pending'
+    | 'processing'
+    | 'ready'
+    | 'no_audio'
+    | 'no_speech'
+    | 'failed';
 }
 
 export interface User {

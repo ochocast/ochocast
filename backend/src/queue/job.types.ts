@@ -22,4 +22,10 @@ export interface VideoTranscodingResult {
   subtitle_id?: string | null;
   error?: string;
   processedAt: number;
+  /** A failure another attempt cannot fix: redeliveries are acknowledged. */
+  permanent?: boolean;
+  /** Why it is permanent, e.g. duration_exceeded (see SOURCE_PLAYBACK_REASONS). */
+  reason?: string;
+  /** Whether browsers decode the probed source's codecs as is. */
+  sourceCodecsPlayable?: boolean;
 }

@@ -16,7 +16,10 @@ export class TranscriptionScheduler implements OnModuleInit {
     if (!this.service.enabled) return;
     const job = new CronJob(
       process.env.TRANSCRIPTION_CRON || '0 2 * * *',
-      () => void this.service.run().catch((error) => this.logger.error(error.message)),
+      () =>
+        void this.service
+          .run()
+          .catch((error) => this.logger.error(error.message)),
       null,
       false,
       process.env.TRANSCRIPTION_TIMEZONE || 'Europe/Paris',
@@ -33,7 +36,9 @@ export class TranscriptionScheduler implements OnModuleInit {
     try {
       await this.service.recover();
     } catch (error) {
-      this.logger.error(`Transcription worker recovery failed: ${error.message}`);
+      this.logger.error(
+        `Transcription worker recovery failed: ${error.message}`,
+      );
     }
   }
 }

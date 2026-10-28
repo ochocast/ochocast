@@ -4,7 +4,7 @@ La partie applicative est regroupée sur `feat/transcription-sous-titres`, avec
 la version actuelle de main intégrée. La partie infrastructure est regroupée
 sur `feat/ffmpeg-serverless` dans ops-architecture-lab. Une PR par dépôt suffit.
 
-FFmpeg produit un WAV mono 16 kHz et le callback enregistre `audio_key`,
+FFmpeg produit un FLAC stéréo 44,1 kHz et le callback enregistre `audio_key`,
 `has_audio` et l'état de transcription. Le backend sélectionne les vidéos prêtes,
 non archivées et sans sous-titres. Par défaut, à 2 h Europe/Paris, il traite au
 plus 20 vidéos, démarre Whisper, attend `/health`, génère le WebVTT dans S3 puis
@@ -61,8 +61,8 @@ avant d'activer le cron. La procédure de staging, les secrets et le réseau son
 décrits dans `ops-architecture-lab/docs/runbooks/transcription-staging.md`.
 
 Pour les vidéos historiques, `npm run transcription:backfill` est en lecture
-seule. Avec `-- --enqueue`, il réutilise le WAV existant ou remet la source
-retenue en file FFmpeg. Sans WAV ni source, un nouvel upload est nécessaire.
+seule. Avec `-- --enqueue`, il réutilise le FLAC existant (ou un ancien WAV) ou remet la source
+retenue en file FFmpeg. Sans audio extrait ni source, un nouvel upload est nécessaire.
 Les scripts TypeScript de `backend/scripts` s'exécutent depuis un checkout avec
 les dépendances de développement et un `.env` ciblant explicitement staging ;
 ils ne sont pas inclus dans l'image backend de production.

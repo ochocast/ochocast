@@ -229,16 +229,16 @@ export class VideoGateway implements IVideoGateway {
     } while (continuationToken);
   }
 
-  async modifyVideo(video: VideoObject): Promise<VideoObject> {
-    const existingVideo = await this.videosRepository.findOneBy({
-      id: video.id,
-    });
-    if (!existingVideo) {
+  async modifyVideo(
+    video: Partial<VideoObject> & Pick<VideoObject, 'id'>,
+  ): Promise<VideoObject> {
+    if (!(await this.videosRepository.existsBy({ id: video.id }))) {
       throw new Error(`Video with ID ${video.id} not found`);
     }
-
-    Object.assign(existingVideo, video);
-    return await this.videosRepository.save(existingVideo);
+    // Only the given columns are written (TypeORM skips undefined ones): a
+    // column changed since, such as a transcoding result, keeps its value.
+    await this.videosRepository.save(this.videosRepository.create(video));
+    return await this.videosRepository.findOneBy({ id: video.id });
   }
 
   async searchVideo(filter: any): Promise<VideoObject[]> {

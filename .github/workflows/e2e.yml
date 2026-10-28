@@ -38,6 +38,12 @@ jobs:
         run: |
           cp frontend/.env.example frontend/.env
           cp backend/.env.example backend/.env
+      - name: Ensure FFmpeg is available for subtitle upload tests
+        run: |
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
       - name: Clean up stale processes on ports 3000 and 3001
         run: |
           npx kill-port 3000 3001 || true

@@ -11,7 +11,8 @@ import { TranscodingJobsService } from '../src/transcoding-jobs/transcoding-jobs
 async function main() {
   const apply = process.argv.includes('--enqueue');
   const flags = process.argv.slice(2);
-  if (flags.some((flag) => flag !== '--enqueue')) throw new Error('Only --enqueue is supported');
+  if (flags.some((flag) => flag !== '--enqueue'))
+    throw new Error('Only --enqueue is supported');
   const s3 = createS3Client();
   try {
     await db.initialize();
@@ -24,7 +25,12 @@ async function main() {
     let queue: QueueService;
     const exists = async (key: string) => {
       try {
-        await s3.send(new HeadObjectCommand({ Bucket: process.env.STOCK_MEDIA_BUCKET, Key: key }));
+        await s3.send(
+          new HeadObjectCommand({
+            Bucket: process.env.STOCK_MEDIA_BUCKET,
+            Key: key,
+          }),
+        );
         return true;
       } catch (error) {
         if (error.$metadata?.httpStatusCode === 404) return false;
@@ -32,31 +38,62 @@ async function main() {
       }
     };
     for (const video of videos) {
-      const audioKey = `${video.id}/audio.wav`;
-      if (await exists(audioKey)) {
-        console.log(`${video.id}: existing WAV ${apply ? 'queued for transcription' : '(dry run)'}`);
-        if (apply) await db.query(`UPDATE video_entity SET audio_key = $2,
+      let audioKey: string | undefined;
+      for (const extension of ['flac', 'wav']) {
+        const candidate = `${video.id}/audio.${extension}`;
+        if (await exists(candidate)) {
+          audioKey = candidate;
+          break;
+        }
+      }
+      if (audioKey) {
+        console.log(
+          `${video.id}: existing audio ${apply ? 'queued for transcription' : '(dry run)'}`,
+        );
+        if (apply)
+          await db.query(
+            `UPDATE video_entity SET audio_key = $2,
           has_audio = true, transcription_status = 'pending'
           WHERE id = $1 AND transcription_status = 'waiting_audio'
-            AND archived = false AND (subtitle_id IS NULL OR subtitle_id = '')`, [video.id, audioKey]);
-      } else if (video.payload?.originalKey && await exists(video.payload.originalKey)) {
-        console.log(`${video.id}: source available, ${apply ? 'requeueing FFmpeg' : 'needs FFmpeg extraction (dry run)'}`);
+            AND archived = false AND (subtitle_id IS NULL OR subtitle_id = '')`,
+            [video.id, audioKey],
+          );
+      } else if (
+        video.payload?.originalKey &&
+        (await exists(video.payload.originalKey))
+      ) {
+        console.log(
+          `${video.id}: source available, ${apply ? 'requeueing FFmpeg' : 'needs FFmpeg extraction (dry run)'}`,
+        );
         if (apply) {
           queue ||= new QueueService(new TranscodingJobsService(db));
-          const job = { ...video.payload, jobId: randomUUID(), timestamp: Date.now() };
-          const [, updated] = await db.query(`UPDATE video_entity SET transcoding_status = 'pending'
+          const job = {
+            ...video.payload,
+            jobId: randomUUID(),
+            timestamp: Date.now(),
+          };
+          const [, updated] = await db.query(
+            `UPDATE video_entity SET transcoding_status = 'pending'
             WHERE id = $1 AND transcoding_status = 'ready' AND transcription_status = 'waiting_audio'
-              AND archived = false AND (subtitle_id IS NULL OR subtitle_id = '')`, [video.id]);
+              AND archived = false AND (subtitle_id IS NULL OR subtitle_id = '')`,
+            [video.id],
+          );
           if (!updated) continue;
-          try { await queue.publishJob(job); }
-          catch (error) {
-            await db.query(`UPDATE video_entity SET transcoding_status = 'ready'
-              WHERE id = $1 AND transcoding_status = 'pending'`, [video.id]);
+          try {
+            await queue.publishJob(job);
+          } catch (error) {
+            await db.query(
+              `UPDATE video_entity SET transcoding_status = 'ready'
+              WHERE id = $1 AND transcoding_status = 'pending'`,
+              [video.id],
+            );
             throw error;
           }
         }
       } else {
-        console.log(`${video.id}: no WAV or retained source; re-upload required`);
+        console.log(
+          `${video.id}: no extracted audio or retained source; re-upload required`,
+        );
       }
     }
   } finally {
@@ -64,4 +101,7 @@ async function main() {
     if (db.isInitialized) await db.destroy();
   }
 }
-void main().catch((error) => { console.error(error.message); process.exitCode = 1; });
+void main().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});

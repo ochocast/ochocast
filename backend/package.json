@@ -29,7 +29,7 @@
     "migration:show": "npm run typeorm -- migration:show -d ./src/config/typeorm.config.ts",
     "transcription:run": "node --env-file=.env -r ts-node/register -r tsconfig-paths/register scripts/run-transcription.ts",
     "transcription:backfill": "node --env-file=.env -r ts-node/register -r tsconfig-paths/register scripts/backfill-transcription.ts",
-    "test:transcription": "jest --runInBand src/transcription src/transcoding-jobs/transcoding-jobs.spec.ts",
+    "test:transcription": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand src/transcription src/transcoding-jobs/transcoding-jobs.spec.ts",
     "local:queue-bridge": "node --env-file=.env -r ts-node/register scripts/local-queue-bridge.ts",
     "local:queue-config": "node scripts/configure-local-scaleway-queue.mjs",
     "test:local-queue-config": "node --test scripts/configure-local-scaleway-queue.test.mjs"

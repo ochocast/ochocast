@@ -100,7 +100,8 @@ describe('UpdateEventUsecase', () => {
     false,
     false,
     false,
-    dataToUpdate.imageSlug,
+    // No file uploaded: the stored miniature stays, whatever imageSlug says.
+    event.imageSlug,
     [],
     creatorId,
     event.createdAt,
@@ -182,6 +183,82 @@ describe('UpdateEventUsecase', () => {
 
     expect(eventGatewayMock.updateEvent).toHaveBeenCalledTimes(1);
     expect(result).toEqual(eventUpdated);
+  });
+
+  // GET /events/miniature/:id presigns imageSlug in the miniatures bucket.
+  it('keeps the stored miniature when an imageSlug is sent without a file', async () => {
+    eventGatewayMock.getEventById.mockResolvedValue(
+      new EventObject(
+        eventId,
+        'Event',
+        'Description',
+        [tag1],
+        new Date('2024-05-01T10:00:00Z'),
+        new Date('2024-05-01T12:00:00Z'),
+        false,
+        false,
+        false,
+        'stored-miniature.jpg',
+        [],
+        creatorId,
+        new Date(),
+        creator,
+        [],
+      ),
+    );
+
+    const result = await updateEventUsecase.execute(
+      eventId,
+      { ...dataToUpdate, imageSlug: 'another-video/source/miniature-original' },
+      undefined,
+      creatorEmail,
+    );
+
+    expect(eventGatewayMock.updateEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ imageSlug: 'stored-miniature.jpg' }),
+    );
+    expect(result.imageSlug).toBe('stored-miniature.jpg');
+  });
+
+  it('gives an uploaded miniature the key it writes, never the one sent', async () => {
+    const send = jest.fn().mockResolvedValue({});
+    eventGatewayMock.getEventById.mockResolvedValue(
+      new EventObject(
+        eventId,
+        'Event',
+        'Description',
+        [tag1],
+        new Date('2024-05-01T10:00:00Z'),
+        new Date('2024-05-01T12:00:00Z'),
+        false,
+        false,
+        false,
+        'imageSlug',
+        [],
+        creatorId,
+        new Date(),
+        creator,
+        [],
+      ),
+    );
+
+    const result = await new UpdateEventUsecase(
+      eventGatewayMock,
+      userGatewayMock,
+      { send } as any,
+    ).execute(
+      eventId,
+      { ...dataToUpdate, imageSlug: 'another-video/source/miniature-original' },
+      {
+        originalname: 'poster.png',
+        buffer: Buffer.from('png'),
+        mimetype: 'image/png',
+      } as Express.Multer.File,
+      creatorEmail,
+    );
+
+    expect(result.imageSlug).toMatch(/^[0-9a-f-]{36}\.png$/);
+    expect(send.mock.calls[0][0].input.Key).toBe(result.imageSlug);
   });
 
   /*
