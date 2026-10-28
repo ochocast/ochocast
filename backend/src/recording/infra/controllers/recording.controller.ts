@@ -41,10 +41,33 @@ import { isUUID } from 'class-validator';
 import { diskStorage } from 'multer';
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import * as path from 'node:path';
+import { SegmentUpload } from '../../domain/usecases/createRecordingSegmentFromFile.usecase';
 
 // A segment covers a whole live (about 2 GB per hour at 4.5 Mbit/s): it is
 // written to disk, never buffered in memory, then streamed to S3.
 const SEGMENT_MAX_BYTES = 8 * 1024 ** 3;
+const segmentUploadDir = () =>
+  path.resolve(process.env.RECORDING_UPLOAD_DIR || tmpdir());
+// multer's disk storage names files with 16 random bytes in hex.
+const MULTER_FILENAME = /^[0-9a-f]{32}$/;
+
+/**
+ * Rebuilds the stored upload's path from the upload directory and multer's
+ * generated name, instead of trusting `file.path`.
+ */
+function storedSegmentPath(file: Express.Multer.File): string {
+  const dir = segmentUploadDir();
+  const name = path.basename(file.filename ?? '');
+  if (!MULTER_FILENAME.test(name)) {
+    throw new HttpException('Invalid upload', HttpStatus.BAD_REQUEST);
+  }
+  const resolved = path.resolve(dir, name);
+  if (!resolved.startsWith(dir + path.sep)) {
+    throw new HttpException('Invalid upload', HttpStatus.BAD_REQUEST);
+  }
+  return resolved;
+}
 
 @ApiTags('Recording')
 @Controller('recordings')
@@ -117,8 +140,7 @@ export class RecordingController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: (_req, _file, cb) =>
-          cb(null, process.env.RECORDING_UPLOAD_DIR || tmpdir()),
+        destination: (_req, _file, cb) => cb(null, segmentUploadDir()),
       }),
       limits: { fileSize: SEGMENT_MAX_BYTES, files: 1 },
     }),
@@ -129,24 +151,34 @@ export class RecordingController {
     @Body('problematic') problematic?: string,
     @Body('duration') duration?: string,
   ): Promise<RecordingObject> {
+    if (!file) {
+      throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
+    }
+    const storedPath = storedSegmentPath(file);
     try {
-      return await this.registerSegment(file, trackId, problematic, duration);
+      return await this.registerSegment(
+        {
+          path: storedPath,
+          originalname: file.originalname,
+          mimetype: file.mimetype,
+        },
+        trackId,
+        problematic,
+        duration,
+      );
     } finally {
       // The temporary upload is removed whatever the outcome; the recorder
       // keeps its own copy until the backend accepts the segment.
-      if (file?.path) await unlink(file.path).catch(() => undefined);
+      await unlink(storedPath).catch(() => undefined);
     }
   }
 
   private async registerSegment(
-    file: Express.Multer.File,
+    upload: SegmentUpload,
     trackId: string,
     problematic?: string,
     duration?: string,
   ): Promise<RecordingObject> {
-    if (!file) {
-      throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
-    }
     if (!trackId || !isUUID(trackId)) {
       throw new HttpException(
         'trackId must be a valid UUID',
@@ -160,7 +192,7 @@ export class RecordingController {
     try {
       return await this.createRecordingSegmentFromFileUsecase.execute(
         trackId,
-        file,
+        upload,
         {
           problematic: problematic === 'true' || problematic === '1',
           duration:

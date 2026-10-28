@@ -8,6 +8,14 @@ import { IRecordingRepositoryGateway } from '../gateways/recording-repository.ga
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { RecordingObject } from '../recording';
 
+/** Uploaded segment: on disk (`path`) or in memory (`buffer`). */
+export interface SegmentUpload {
+  path?: string;
+  buffer?: Buffer;
+  originalname?: string;
+  mimetype?: string;
+}
+
 export interface CreateRecordingSegmentFromFileOptions {
   problematic?: boolean;
   duration?: number | null;
@@ -21,7 +29,7 @@ export interface CreateRecordingSegmentFromFileOptions {
  * direct-publish flow. The raw file is stored as-is (no transcoding yet — that
  * happens at merge/publish time); only the storage key is kept as `media_id`.
  *
- * The upload arrives on disk (`file.path`) and is streamed to S3 in parts, so
+ * The upload arrives on disk (`path`) and is streamed to S3 in parts, so
  * memory stays constant whatever the length of the live.
  */
 @Injectable()
@@ -37,7 +45,7 @@ export class CreateRecordingSegmentFromFileUsecase {
 
   async execute(
     trackId: string,
-    file: Express.Multer.File,
+    file: SegmentUpload,
     options: CreateRecordingSegmentFromFileOptions = {},
   ): Promise<RecordingObject> {
     if (!file?.path && !file?.buffer) {
