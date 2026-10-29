@@ -23,8 +23,9 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 class Refused(Exception):
-    """Answered with its own status. The backend only counts an attempt
-    against the video for 413 and 422: other refusals hit every video alike."""
+    """Answered with its own status. The backend counts every failure against
+    the video, but continues its batch only after 413, 422 or 500, the
+    failures caused by this audio: other refusals hit every video alike."""
 
     def __init__(self, status, message):
         super().__init__(message)
@@ -43,17 +44,24 @@ def download_audio(url, destination):
     total = 0
     try:
         with build_opener(NoRedirect).open(url, timeout=60) as response:
+            length = response.headers.get("Content-Length", "")
+            expected = int(length) if length.isdigit() else None
+            if expected is not None and expected > maximum:
+                raise Refused(413, "Audio exceeds the configured limit")
             while chunk := response.read(1024 * 1024):
                 total += len(chunk)
                 if total > maximum:
                     raise Refused(413, "Audio exceeds the configured limit")
                 destination.write(chunk)
+            # http.client ends a body closed early without an error.
+            if expected is not None and total != expected:
+                raise Refused(502, "Audio download was truncated")
     except HTTPError as error:
         # A missing object is this video's; any other answer is the storage's.
         raise Refused(422 if error.code == 404 else 502,
                       f"Audio download failed (HTTP {error.code})") from None
-    except (OSError, HTTPException):
-        raise Refused(502, "Audio download failed") from None
+    except (OSError, HTTPException) as error:
+        raise Refused(502, f"Audio download failed ({type(error).__name__})") from None
 
 
 def transcribe(audio_url, language):
@@ -102,20 +110,26 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(409, {"error": "Worker is busy"})
             return
         try:
-            length = int(self.headers.get("Content-Length", "0"))
-            if length < 1 or length > 16_384:
-                raise ValueError("Expected a small JSON request")
-            payload = json.loads(self.rfile.read(length))
-            if not isinstance(payload.get("audio_url"), str):
-                raise ValueError("audio_url is required")
+            # Only a malformed request is a 400: decoding errors of the audio
+            # itself, PyAV's included, are ValueErrors too and answer 500.
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length < 1 or length > 16_384:
+                    raise ValueError("Expected a small JSON request")
+                payload = json.loads(self.rfile.read(length))
+                if not isinstance(payload, dict) or not isinstance(payload.get("audio_url"), str):
+                    raise ValueError("audio_url is required")
+            except ValueError as error:
+                self.send_json(400, {"error": str(error)})
+                return
             self.send_json(200, transcribe(payload["audio_url"], payload.get("language", "fr")))
         except Refused as error:
+            # Refusal messages never contain the signed URL.
+            LOG.warning("Transcription refused (%s): %s", error.status, error)
             self.send_json(error.status, {"error": str(error)})
-        except ValueError as error:
-            self.send_json(400, {"error": str(error)})
-        except Exception:
+        except Exception as error:
             # Do not log signed URLs or Authorization headers.
-            LOG.error("Transcription failed")
+            LOG.error("Transcription failed (%s)", type(error).__name__)
             self.send_json(500, {"error": "Transcription failed"})
         finally:
             BUSY.release()

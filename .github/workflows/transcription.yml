@@ -55,6 +55,7 @@ jobs:
       - run: npm run test:transcription
         working-directory: backend
       - run: python3 -m py_compile ffmpegServer/transcript/server.py
+      - run: python3 -m unittest discover -s ffmpegServer/transcript
 
   integration:
     needs: validate
@@ -73,17 +74,8 @@ jobs:
       - run: npm ci --prefix backend && npm ci --prefix ffmpegServer
       - name: Start isolated PostgreSQL, S3 and Whisper
         run: docker compose -f dev-tools/transcription-tests/docker-compose.yml up --build -d
-      - name: Wait for model inference readiness
-        run: |
-          for attempt in $(seq 1 120); do
-            case "$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 http://127.0.0.1:28082/health || true)" in
-              200) exit 0 ;;
-              # The model failed to load: waiting longer cannot help.
-              500) echo "Whisper failed to load its model"; exit 1 ;;
-            esac
-            sleep 5
-          done
-          exit 1
+      # The integration spec waits for model readiness, and fails at once on a
+      # model that cannot load.
       - name: Transcribe real speech and verify silence and manual subtitles
         working-directory: backend
         env:
