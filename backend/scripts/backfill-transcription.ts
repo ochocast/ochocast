@@ -11,11 +11,11 @@ async function main() {
   if (flags.some((flag) => flag !== '--enqueue'))
     throw new Error('Only --enqueue is supported');
   // The Whisper worker refuses larger audio: keep it equal to the worker's
-  // TRANSCRIPT_MAX_AUDIO_BYTES.
-  const maxAudioBytes = Number(
-    process.env.TRANSCRIPT_MAX_AUDIO_BYTES || 512 * 1024 * 1024,
-  );
-  if (!Number.isSafeInteger(maxAudioBytes) || maxAudioBytes < 1)
+  // TRANSCRIPT_MAX_AUDIO_BYTES, which accepts the same digits only.
+  const limit =
+    process.env.TRANSCRIPT_MAX_AUDIO_BYTES ?? `${512 * 1024 * 1024}`;
+  const maxAudioBytes = Number(limit);
+  if (!/^[1-9][0-9]*$/.test(limit) || !Number.isSafeInteger(maxAudioBytes))
     throw new Error('TRANSCRIPT_MAX_AUDIO_BYTES must be a positive integer');
   const s3 = createS3Client();
   try {

@@ -20,14 +20,16 @@ class Storage(BaseHTTPRequestHandler):
 
     def do_GET(self):
         status = {"/missing": 404, "/broken": 500}.get(self.path, 200)
-        body = b"x" * (64 if self.path == "/big" else 8)
+        # Announced lengths that the 8-byte body does not match.
+        announced = {"/big": "64", "/truncated": "20", "/spaced": "20 "}
+        body = b"x" * (64 if self.path == "/unsized" else 8)
         self.send_response(status)
-        if self.path == "/truncated":
-            self.send_header("Content-Length", "20")
+        if self.path in announced:
+            self.send_header("Content-Length", announced[self.path])
         elif self.path != "/unsized":
             self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body * (8 if self.path == "/unsized" else 1))
+        self.wfile.write(body)
 
 
 class Segment:
@@ -93,11 +95,22 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.download("/ok"), 200)
         self.assertEqual(self.download("/missing"), 422)
         self.assertEqual(self.download("/broken"), 502)
+        # Refused from its announced length, before reading the body.
         self.assertEqual(self.download("/big"), 413)
         self.assertEqual(self.download("/unsized"), 413)
         self.assertEqual(self.download("/truncated"), 502)
+        self.assertEqual(self.download("/spaced"), 502)
         os.environ["TRANSCRIPT_ALLOWED_AUDIO_HOSTS"] = "storage.test"
         self.assertEqual(self.download("/ok"), 403)
+
+    def test_audio_limit_must_be_a_positive_integer(self):
+        # Checked at startup: a bad value must not answer 500 per request.
+        for value in ["", "0", "-1", "5e8", "512MiB", "536870912.0", "²"]:
+            os.environ["TRANSCRIPT_MAX_AUDIO_BYTES"] = value
+            with self.assertRaises(ValueError, msg=value):
+                server.max_audio_bytes()
+        os.environ["TRANSCRIPT_MAX_AUDIO_BYTES"] = "536870912"
+        self.assertEqual(server.max_audio_bytes(), 536870912)
 
     def test_only_a_malformed_request_is_a_400(self):
         self.assertEqual(self.post(b"[]")[0], 400)

@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 from http.client import HTTPException
@@ -32,6 +33,14 @@ class Refused(Exception):
         self.status = status
 
 
+def max_audio_bytes():
+    """The download limit; checked at startup, so a bad value never answers 500."""
+    value = os.environ.get("TRANSCRIPT_MAX_AUDIO_BYTES", str(512 * 1024 * 1024))
+    if not re.fullmatch(r"[1-9][0-9]*", value):
+        raise ValueError("TRANSCRIPT_MAX_AUDIO_BYTES must be a positive integer")
+    return int(value)
+
+
 def download_audio(url, destination):
     parsed = urlsplit(url)
     allowed = set(os.environ.get("TRANSCRIPT_ALLOWED_AUDIO_HOSTS", "").split(","))
@@ -40,12 +49,15 @@ def download_audio(url, destination):
     protocols = {"https"} if os.environ.get("NODE_ENV") == "production" else {"https", "http"}
     if parsed.scheme not in protocols:
         raise Refused(403, "Audio URL must use HTTPS in production")
-    maximum = int(os.environ.get("TRANSCRIPT_MAX_AUDIO_BYTES", str(512 * 1024 * 1024)))
+    maximum = max_audio_bytes()
     total = 0
     try:
         with build_opener(NoRedirect).open(url, timeout=60) as response:
-            length = response.headers.get("Content-Length", "")
-            expected = int(length) if length.isdigit() else None
+            # Parsed like http.client does (surrounding spaces allowed).
+            try:
+                expected = int(response.headers.get("Content-Length", ""))
+            except ValueError:
+                expected = None
             if expected is not None and expected > maximum:
                 raise Refused(413, "Audio exceeds the configured limit")
             while chunk := response.read(1024 * 1024):
@@ -167,6 +179,10 @@ if __name__ == "__main__":
         raise SystemExit("Set TRANSCRIPT_API_KEY to at least 32 characters")
     if not os.environ.get("TRANSCRIPT_ALLOWED_AUDIO_HOSTS"):
         raise SystemExit("Set TRANSCRIPT_ALLOWED_AUDIO_HOSTS")
+    try:
+        max_audio_bytes()
+    except ValueError as error:
+        raise SystemExit(str(error))
     # HTTP health responds 503 during loading so the backend can wait for readiness.
     threading.Thread(target=load_model, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("TRANSCRIPT_PORT", "8080"))), Handler)
