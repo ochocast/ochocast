@@ -273,7 +273,7 @@ const VideoMedia: FC = () => {
       );
 
       const userResponse = await getUsers();
-      const users: User[] = userResponse.data.users || [];
+      const users: User[] = userResponse?.data?.users || [];
       const user = backendUser
         ? users.find((u) => u.id === backendUser.id)
         : null;
@@ -288,40 +288,38 @@ const VideoMedia: FC = () => {
           getLikedComments(),
         ]);
 
-      if (videoRes) {
-        const currentVideo = videoRes.data[0];
-        setVideo(currentVideo);
-
+      // An unknown video, or an error, ends on the not-found page.
+      const currentVideo = firstVideo(videoRes);
+      setVideo(currentVideo);
+      if (currentVideo) {
         const suggestionsRes = await getVideoSuggestions(currentVideo.id);
-        if (suggestionsRes) {
+        if (suggestionsRes?.ok && Array.isArray(suggestionsRes.data))
           setSuggestedVideos(suggestionsRes.data.slice(0, 3));
-        }
       }
 
-      if (mediaRes) setUrl(mediaRes.data);
+      // A pending upload has no media yet: its poll below sets it.
+      setUrl(urlOf(mediaRes) ?? '');
 
       // Without a subtitle URL, the transcript poll below can start.
       setSubtitleUrl(urlOf(subtitleRes));
 
-      if (commentsRes && likedCommentsRes) {
-        const likedComments = Array.isArray(likedCommentsRes.data)
-          ? likedCommentsRes.data
-          : [];
-        const likedCommentIds = new Set(
-          likedComments.map((c: CommentObject) => c.id),
-        );
-
-        const commentsWithLikedStatus = commentsRes.data.map(
-          (comment: CommentObject) => ({
+      const comments: CommentObject[] = Array.isArray(commentsRes?.data)
+        ? commentsRes.data
+        : [];
+      const likedComments = Array.isArray(likedCommentsRes?.data)
+        ? likedCommentsRes.data
+        : [];
+      const likedCommentIds = new Set(
+        likedComments.map((c: CommentObject) => c.id),
+      );
+      setCommentaryList(
+        sortCommentsByLikes(
+          comments.map((comment) => ({
             ...comment,
             isLiked: likedCommentIds.has(comment.id),
-          }),
-        );
-
-        setCommentaryList(sortCommentsByLikes(commentsWithLikedStatus));
-      } else if (commentsRes) {
-        setCommentaryList(commentsRes.data);
-      }
+          })),
+        ),
+      );
 
       setIsLoading(false);
     };
@@ -333,10 +331,10 @@ const VideoMedia: FC = () => {
   useEffect(() => {
     if (video?.transcoding_status !== 'pending' || !videoId) return;
 
+    let cancelled = false;
     const poll = window.setInterval(async () => {
       const refreshedVideo = firstVideo(await getVideo(videoId));
-      if (!refreshedVideo) return;
-      setVideo(refreshedVideo);
+      if (!refreshedVideo || cancelled) return;
 
       if (refreshedVideo.transcoding_status === 'ready') {
         const [mediaResponse, subtitleResponse] = await Promise.all([
@@ -344,12 +342,21 @@ const VideoMedia: FC = () => {
           getSubtitle(videoId),
         ]);
         const mediaUrl = urlOf(mediaResponse);
-        if (mediaUrl) setUrl(mediaUrl);
-        setSubtitleUrl(urlOf(subtitleResponse));
+        const subtitle = urlOf(subtitleResponse);
+        // Showing the ready video ends this poll: keep polling until its
+        // media, and its subtitle if it has one, are read.
+        if (cancelled || !mediaUrl || (refreshedVideo.subtitle_id && !subtitle))
+          return;
+        setUrl(mediaUrl);
+        setSubtitleUrl(subtitle);
       }
+      setVideo(refreshedVideo);
     }, 3000);
 
-    return () => window.clearInterval(poll);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, [video?.transcoding_status, videoId]);
 
   // Refresh infrequently while the viewer is watching and a transcript is pending.

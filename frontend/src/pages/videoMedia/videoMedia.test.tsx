@@ -200,32 +200,60 @@ describe('VideoMedia', () => {
     expect(getMedia).toHaveBeenCalledTimes(1);
   });
 
-  // While an upload transcodes, neither an error page nor an error body may
-  // become page state: the video stays shown and no broken track appears.
-  it('ignores error responses while the upload transcodes', async () => {
+  // While an upload transcodes, an error page or body never becomes page
+  // state, and media or a subtitle that fail once it is ready are retried.
+  it('retries the media of an upload that becomes ready', async () => {
+    const mediaUrl = 'https://bucket.example/A/master.m3u8';
+    const subtitleUrl = 'https://bucket.example/subtitle-A.vtt';
+    const gateway = { ok: false, data: { statusCode: 502 } };
+    const subtitled = { ...video, subtitle_id: 'subtitle-A.vtt' };
     (getVideo as jest.Mock)
       .mockResolvedValueOnce({
         ok: true,
-        data: [{ ...video, transcoding_status: 'pending' }],
+        data: [{ ...subtitled, transcoding_status: 'pending' }],
       })
       .mockResolvedValueOnce({ ok: false, data: '<html>Bad gateway</html>' })
-      .mockResolvedValue({ ok: true, data: [video] });
+      .mockResolvedValue({ ok: true, data: [subtitled] });
+    (getMedia as jest.Mock)
+      .mockReset()
+      // The media of a pending upload answers 404.
+      .mockResolvedValueOnce({ ok: false, data: { statusCode: 404 } })
+      .mockResolvedValueOnce(gateway)
+      .mockResolvedValue({ ok: true, data: mediaUrl });
     (getSubtitle as jest.Mock)
-      .mockResolvedValueOnce({ ok: true, data: '' })
-      .mockResolvedValue({
-        ok: false,
-        data: { statusCode: 500, message: 'Internal server error' },
-      });
+      .mockResolvedValueOnce(gateway)
+      .mockResolvedValueOnce(gateway)
+      .mockResolvedValue({ ok: true, data: subtitleUrl });
     render(<VideoMedia />);
     await settle();
-    for (let poll = 0; poll < 2; poll++) {
+    for (let poll = 0; poll < 3; poll++) {
       await act(async () => {
         jest.advanceTimersByTime(3000);
       });
       await settle();
     }
 
-    expect(screen.getAllByText('Title A').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('player').querySelector('track')).toBeNull();
+    const player = screen.getByTestId('player');
+    expect(player).toHaveAttribute('data-url', mediaUrl);
+    expect(player.querySelector('track')).toHaveAttribute('src', subtitleUrl);
+  });
+
+  // Offline or unknown, the video ends on the not-found page, not on an
+  // endless spinner.
+  it('shows the not-found page when the video cannot be loaded', async () => {
+    const offline = { ok: false, problem: 'NETWORK_ERROR', data: null };
+    for (const request of [
+      getUsers,
+      getVideo,
+      getSubtitle,
+      getComments,
+      getLikedComments,
+    ])
+      (request as jest.Mock).mockResolvedValue(offline);
+    (getMedia as jest.Mock).mockReset().mockResolvedValue(offline);
+    render(<VideoMedia />);
+    await settle();
+
+    expect(screen.getByText('404')).toBeInTheDocument();
   });
 });
