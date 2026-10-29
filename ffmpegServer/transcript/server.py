@@ -5,7 +5,9 @@ import logging
 import os
 import tempfile
 import threading
+from http.client import HTTPException
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import build_opener, HTTPRedirectHandler
 
@@ -20,22 +22,38 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
+class Refused(Exception):
+    """Answered with its own status. The backend only counts an attempt
+    against the video for 413 and 422: other refusals hit every video alike."""
+
+    def __init__(self, status, message):
+        super().__init__(message)
+        self.status = status
+
+
 def download_audio(url, destination):
     parsed = urlsplit(url)
     allowed = set(os.environ.get("TRANSCRIPT_ALLOWED_AUDIO_HOSTS", "").split(","))
     if parsed.hostname not in allowed or parsed.username or parsed.password:
-        raise ValueError("Audio host is not allowed")
+        raise Refused(403, "Audio host is not allowed")
     protocols = {"https"} if os.environ.get("NODE_ENV") == "production" else {"https", "http"}
     if parsed.scheme not in protocols:
-        raise ValueError("Audio URL must use HTTPS in production")
+        raise Refused(403, "Audio URL must use HTTPS in production")
     maximum = int(os.environ.get("TRANSCRIPT_MAX_AUDIO_BYTES", str(512 * 1024 * 1024)))
     total = 0
-    with build_opener(NoRedirect).open(url, timeout=60) as response:
-        while chunk := response.read(1024 * 1024):
-            total += len(chunk)
-            if total > maximum:
-                raise ValueError("Audio exceeds the configured limit")
-            destination.write(chunk)
+    try:
+        with build_opener(NoRedirect).open(url, timeout=60) as response:
+            while chunk := response.read(1024 * 1024):
+                total += len(chunk)
+                if total > maximum:
+                    raise Refused(413, "Audio exceeds the configured limit")
+                destination.write(chunk)
+    except HTTPError as error:
+        # A missing object is this video's; any other answer is the storage's.
+        raise Refused(422 if error.code == 404 else 502,
+                      f"Audio download failed (HTTP {error.code})") from None
+    except (OSError, HTTPException):
+        raise Refused(502, "Audio download failed") from None
 
 
 def transcribe(audio_url, language):
@@ -91,6 +109,8 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(payload.get("audio_url"), str):
                 raise ValueError("audio_url is required")
             self.send_json(200, transcribe(payload["audio_url"], payload.get("language", "fr")))
+        except Refused as error:
+            self.send_json(error.status, {"error": str(error)})
         except ValueError as error:
             self.send_json(400, {"error": str(error)})
         except Exception:

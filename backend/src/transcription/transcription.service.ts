@@ -10,6 +10,24 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { toWebVtt } from './webvtt';
 
 const LOCK = 1791540000;
+// Whisper statuses caused by the requested audio itself: too large, missing or
+// undecodable. Any other refusal would fail every video of the batch alike.
+const AUDIO_FAILURES = new Set([413, 422, 500]);
+
+/** The worker, the network or the configuration failed, not this video. */
+class WorkerFault extends Error {}
+
+function checkEndpoint(url: string) {
+  const parsed = new URL(url);
+  if (
+    !['http:', 'https:'].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password
+  )
+    throw new Error('Invalid transcription URL');
+  if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:')
+    throw new Error('Transcription endpoints require HTTPS in production');
+}
 
 @Injectable()
 export class TranscriptionService {
@@ -42,6 +60,15 @@ export class TranscriptionService {
     private readonly db: DataSource,
     @Inject('s3Client') private readonly s3: S3Client,
   ) {
+    // recover() also runs while transcription is disabled: the stop endpoint
+    // and its token are checked in every mode.
+    if (this.stopUrl) {
+      if (!this.controlToken || this.controlToken.length < 32)
+        throw new Error(
+          'On-demand transcription requires WORKER_CONTROL_TOKEN (>=32 characters)',
+        );
+      checkEndpoint(this.stopUrl);
+    }
     if (!this.enabled) return;
     if (!this.apiUrl || !this.apiKey || this.apiKey.length < 32)
       throw new Error(
@@ -55,30 +82,13 @@ export class TranscriptionService {
       throw new Error(
         'Production transcription requires the on-demand worker lifecycle',
       );
-    if (this.startUrl && (!this.controlToken || this.controlToken.length < 32))
-      throw new Error(
-        'On-demand transcription requires WORKER_CONTROL_TOKEN (>=32 characters)',
-      );
-    for (const url of [this.apiUrl, this.startUrl, this.stopUrl].filter(
-      Boolean,
-    )) {
-      const parsed = new URL(url);
-      if (
-        !['http:', 'https:'].includes(parsed.protocol) ||
-        parsed.username ||
-        parsed.password
-      )
-        throw new Error('Invalid transcription URL');
-      if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:')
-        throw new Error('Transcription endpoints require HTTPS in production');
-    }
-    // Node's default fetch headers timeout is 300s, shorter than a long
-    // transcription. Scope this dispatcher to Whisper requests only.
+    for (const url of [this.apiUrl, this.startUrl].filter(Boolean))
+      checkEndpoint(url);
+    // Node's default fetch cuts a response after 300 s, before a long
+    // transcription ends. The request's abort signal is its only deadline, so a
+    // timeout always surfaces as a TimeoutError. Whisper requests only.
     const { Agent } = require('undici');
-    this.whisperDispatcher = new Agent({
-      headersTimeout: this.timeoutMs,
-      bodyTimeout: this.timeoutMs,
-    });
+    this.whisperDispatcher = new Agent({ headersTimeout: 0, bodyTimeout: 0 });
     for (const number of [
       this.timeoutMs,
       this.healthRetries,
@@ -94,14 +104,22 @@ export class TranscriptionService {
     if (!this.enabled || this.running) return { processed: 0, failed: 0 };
     return this.locked(async (runner) => {
       await this.stopOrphan(runner);
+      // No other batch runs under this lock: a video still processing was
+      // interrupted (crash, deploy). Its attempt counts, and its page stops
+      // waiting; it is retried below while attempts remain.
+      await runner.query(
+        `UPDATE video_entity SET transcription_status = 'failed',
+        transcription_error = 'Transcription interrupted'
+        WHERE transcription_status = 'processing'`,
+      );
       const videos = await runner.query(
         `SELECT id, audio_key FROM video_entity
         WHERE archived = false AND transcoding_status = 'ready'
           AND (subtitle_id IS NULL OR subtitle_id = '') AND audio_key IS NOT NULL
-          AND transcription_status IN ('pending', 'failed', 'processing')
+          AND transcription_status IN ('pending', 'failed')
           AND transcription_attempts < 3
           AND (transcription_retry_at IS NULL OR transcription_retry_at <= now())
-        ORDER BY "createdAt" LIMIT $1`,
+        ORDER BY transcription_attempts, "createdAt" LIMIT $1`,
         [this.batchSize],
       );
       const summary = { processed: 0, failed: 0 };
@@ -132,26 +150,7 @@ export class TranscriptionService {
               }),
               { expiresIn: 3600 },
             );
-            const response = await fetch(
-              `${this.apiUrl}/v1/audio/transcriptions`,
-              {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${this.apiKey}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  audio_url: audioUrl,
-                  language: 'fr',
-                  response_format: 'verbose_json',
-                }),
-                signal: AbortSignal.timeout(this.timeoutMs),
-                dispatcher: this.whisperDispatcher,
-              } as RequestInit,
-            );
-            if (!response.ok)
-              throw new Error(`Whisper HTTP ${response.status}`);
-            const data = await response.json();
+            const data = await this.transcribe(audioUrl);
             const vtt = toWebVtt(data.segments);
             const key = `subtitle-auto-${video.id}.vtt`;
             if (vtt)
@@ -183,25 +182,33 @@ export class TranscriptionService {
             }
             summary.processed += 1;
           } catch (error) {
+            const message = String(error.message || error).slice(0, 2000);
+            if (error instanceof WorkerFault) {
+              // Not this video's fault: give its attempt back and stop rather
+              // than fail every remaining video alike.
+              await runner.query(
+                `UPDATE video_entity SET transcription_status = 'pending',
+                transcription_attempts = transcription_attempts - 1, transcription_error = $2
+                WHERE id = $1 AND transcription_status = 'processing'`,
+                [video.id, message],
+              );
+              this.logger.warn(
+                `Transcription batch stopped at ${video.id}: ${error.message}`,
+              );
+              break;
+            }
             summary.failed += 1;
             await runner.query(
               `UPDATE video_entity SET transcription_status = 'failed',
               transcription_error = $2, transcription_retry_at = now() + interval '1 hour'
               WHERE id = $1 AND (subtitle_id IS NULL OR subtitle_id = '')`,
-              [video.id, String(error.message || error).slice(0, 2000)],
+              [video.id, message],
             );
             this.logger.warn(
               `Transcription failed for ${video.id}: ${error.message}`,
             );
-            // The worker may still be processing an abandoned request. Stop
-            // this batch rather than failing every subsequent video with 409.
-            if (
-              error.name === 'TimeoutError' ||
-              error.name === 'AbortError' ||
-              error.name === 'TypeError' ||
-              /Whisper HTTP (409|503)/.test(String(error.message))
-            )
-              break;
+            // The worker still processes the abandoned request: stop here.
+            if (error.name === 'TimeoutError') break;
           }
         }
       } finally {
@@ -259,6 +266,36 @@ export class TranscriptionService {
     await runner.query(
       'UPDATE transcription_runtime SET worker_requested = false WHERE id = 1',
     );
+  }
+
+  /** Whisper's verbose JSON. A WorkerFault is not caused by this audio. */
+  private async transcribe(audioUrl: string) {
+    let response: Response;
+    try {
+      response = await fetch(`${this.apiUrl}/v1/audio/transcriptions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audio_url: audioUrl,
+          language: 'fr',
+          response_format: 'verbose_json',
+        }),
+        signal: AbortSignal.timeout(this.timeoutMs),
+        dispatcher: this.whisperDispatcher,
+      } as RequestInit);
+      if (response.ok) return await response.json();
+    } catch (error) {
+      // A timeout counts against the video: its audio may be too long.
+      if (error.name === 'TimeoutError') throw error;
+      throw new WorkerFault(`Whisper request failed: ${error.message}`);
+    }
+    const message = `Whisper HTTP ${response.status}`;
+    throw AUDIO_FAILURES.has(response.status)
+      ? new Error(message)
+      : new WorkerFault(message);
   }
 
   private async control(url: string) {

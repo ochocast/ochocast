@@ -100,6 +100,22 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     ).toContain("transcoding_status = 'ready'");
   });
 
+  it('fails the videos an interrupted batch left processing before selecting', async () => {
+    videos = [];
+    await service.run();
+    const statements = query.mock.calls.map(([sql]) => sql);
+    const interrupted = statements.findIndex((sql) =>
+      sql.includes("WHERE transcription_status = 'processing'"),
+    );
+    expect(interrupted).toBeGreaterThan(-1);
+    expect(statements[interrupted]).toContain(
+      "SET transcription_status = 'failed'",
+    );
+    expect(interrupted).toBeLessThan(
+      statements.findIndex((sql) => sql.startsWith('SELECT id')),
+    );
+  });
+
   it('records silence as no_speech without publishing an empty subtitle', async () => {
     fetchMock.mockImplementation(
       async () => new Response(JSON.stringify({ segments: [] })),
@@ -129,20 +145,96 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     expect(requested).toBe(false);
   });
 
-  it('stops the batch on a busy worker without marking later videos failed', async () => {
+  it.each([401, 403, 404, 409, 502, 503])(
+    'gives the attempt back and stops the batch when the worker refuses with %i',
+    async (status) => {
+      videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
+      fetchMock.mockImplementation(
+        async (url) =>
+          new Response('{}', {
+            status: String(url).includes('/transcriptions') ? status : 200,
+          }),
+      );
+      await expect(service.run()).resolves.toEqual({
+        processed: 0,
+        failed: 0,
+      });
+      const updates = query.mock.calls.filter(
+        ([sql]) =>
+          sql.startsWith('UPDATE video_entity') &&
+          sql.includes('WHERE id = $1'),
+      );
+      expect(updates.map(([, params]) => params[0])).toEqual([
+        'video-1',
+        'video-1',
+      ]);
+      expect(updates[1]).toEqual([
+        expect.stringContaining(
+          'transcription_attempts = transcription_attempts - 1',
+        ),
+        ['video-1', `Whisper HTTP ${status}`],
+      ]);
+      expect(requested).toBe(false);
+    },
+  );
+
+  it('gives the attempt back and stops the batch when the worker is unreachable', async () => {
     videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
-    fetchMock.mockImplementation(
-      async (url) =>
-        new Response('{}', {
-          status: String(url).includes('/transcriptions') ? 409 : 200,
-        }),
+    fetchMock.mockImplementation(async (url) => {
+      if (String(url).includes('/transcriptions'))
+        throw new TypeError('fetch failed');
+      return new Response('{}');
+    });
+    await expect(service.run()).resolves.toEqual({ processed: 0, failed: 0 });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('transcription_attempts - 1'),
+      ['video-1', 'Whisper request failed: fetch failed'],
     );
+    expect(query).not.toHaveBeenCalledWith(expect.any(String), ['video-2']);
+  });
+
+  it.each([413, 422])(
+    'counts a %i caused by the audio itself and continues the batch',
+    async (status) => {
+      videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
+      fetchMock.mockImplementation(
+        async (url) =>
+          new Response('{}', {
+            status: String(url).includes('/transcriptions') ? status : 200,
+          }),
+      );
+      await expect(service.run()).resolves.toEqual({
+        processed: 0,
+        failed: 2,
+      });
+      expect(query).not.toHaveBeenCalledWith(
+        expect.stringContaining('transcription_attempts - 1'),
+        expect.anything(),
+      );
+    },
+  );
+
+  it('counts a timeout against the video but stops the batch', async () => {
+    videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
+    fetchMock.mockImplementation(async (url) => {
+      if (String(url).includes('/transcriptions'))
+        throw new DOMException('The operation timed out', 'TimeoutError');
+      return new Response('{}');
+    });
     await expect(service.run()).resolves.toEqual({ processed: 0, failed: 1 });
-    const failures = query.mock.calls.filter(([sql]) =>
-      sql.includes("transcription_status = 'failed'"),
+    const failures = query.mock.calls.filter(
+      ([sql]) =>
+        sql.includes("transcription_status = 'failed'") &&
+        sql.includes('WHERE id = $1'),
     );
-    expect(failures).toHaveLength(1);
-    expect(failures[0][1][0]).toBe('video-1');
+    expect(failures.map(([, params]) => params[0])).toEqual(['video-1']);
+  });
+
+  it('transcribes videos not tried yet before retrying earlier failures', async () => {
+    await service.run();
+    expect(
+      query.mock.calls.find(([sql]) => sql.startsWith('SELECT id'))[0],
+    ).toContain('ORDER BY transcription_attempts, "createdAt"');
   });
 
   it('removes an unattached VTT when a video is archived or edited concurrently', async () => {
@@ -206,6 +298,20 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
       'https://stop.test',
     ]);
+  });
+
+  it('validates the stop endpoint and token even while transcription is disabled', () => {
+    process.env.TRANSCRIPTION_ENABLED = 'false';
+    process.env.NODE_ENV = 'production';
+    process.env.WORKER_STOP_URL = 'http://stop.test';
+    expect(
+      () => new TranscriptionService({} as DataSource, {} as S3Client),
+    ).toThrow('Transcription endpoints require HTTPS');
+    process.env.WORKER_STOP_URL = 'https://stop.test';
+    process.env.WORKER_CONTROL_TOKEN = 'short';
+    expect(
+      () => new TranscriptionService({} as DataSource, {} as S3Client),
+    ).toThrow('WORKER_CONTROL_TOKEN');
   });
 
   it('does not start or stop a worker already owned by another replica', async () => {
