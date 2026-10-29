@@ -21,17 +21,17 @@ Les sous-titres fournis manuellement restent prioritaires.
 
 `TRANSCRIPTION_ENABLED=false` par défaut. Les statuts incluent `waiting_audio`,
 `pending`, `processing`, `ready`, `failed`, `no_audio` et `no_speech`.
-Un échec fixe une éligibilité de reprise à +1 h, mais la reprise effective se
-fait au prochain lancement du traitement (le lendemain avec le cron par défaut).
-Chaque échec compte parmi les trois tentatives de la vidéo concernée. Après un
-audio trop volumineux (413), introuvable (422) ou illisible (500), le lot
-continue. Un refus qui toucherait toutes les vidéos (requête invalide,
-authentification, hôte audio non autorisé, worker occupé, en échec ou
+Chaque échec compte parmi les trois tentatives de la vidéo concernée : elle
+redevient `pending`, éligible une heure plus tard et reprise au prochain
+lancement (le lendemain avec le cron par défaut), puis `failed`, définitif, une
+fois ses tentatives épuisées. Une vidéo interrompue (crash, déploiement) suit la
+même règle. Après un audio trop volumineux (413), introuvable (422) ou illisible
+(500), le lot continue. Un refus qui toucherait toutes les vidéos (requête
+invalide, authentification, hôte audio non autorisé, worker occupé, en échec ou
 injoignable, téléchargement interrompu) ou un dépassement de
 `TRANSCRIPTION_TIMEOUT_MS` arrête le lot : une seule tentative est consommée par
-lancement. Les vidéos jamais essayées passent avant les reprises. Une vidéo
-interrompue (crash, déploiement) redevient `pending`, ou `failed` une fois ses
-tentatives épuisées.
+lancement. Les vidéos jamais essayées passent avant les reprises. Le worker
+refuse de démarrer si `TRANSCRIPT_MAX_AUDIO_BYTES` n'est pas un entier positif.
 
 ## Validation locale
 
