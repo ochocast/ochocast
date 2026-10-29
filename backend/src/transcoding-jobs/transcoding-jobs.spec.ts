@@ -273,6 +273,29 @@ describe('Transcoding job leases', () => {
     );
   });
 
+  it('marks a long video played from its source with a supplied subtitle ready', async () => {
+    stored.payload = {
+      ...payload,
+      originalKey: `${payload.videoId}/source/original.mp4`,
+      subtitle_id: `subtitle-${payload.videoId}.vtt`,
+    };
+    await service.claim(payload.jobId, payload.videoId);
+    await service.complete(payload.jobId, stored.leaseToken, {
+      ...permanent('duration_exceeded', 'too long', 5400),
+      sourceCodecsPlayable: true,
+      has_audio: true,
+      audio_key: `${payload.videoId}/audio.flac`,
+    });
+    expect(update).toHaveBeenLastCalledWith(
+      VideoEntity,
+      payload.videoId,
+      expect.objectContaining({
+        transcoding_status: 'ready',
+        transcription_status: 'ready',
+      }),
+    );
+  });
+
   it('fails a too long video whose source browsers cannot play', async () => {
     stored.payload = {
       ...payload,

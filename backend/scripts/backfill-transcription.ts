@@ -5,6 +5,11 @@ import { createS3Client } from '../src/s3.module';
 
 // Read-only by default. --enqueue marks videos with existing audio as pending.
 // It never requeues a published video or starts a VM.
+// The Whisper worker refuses larger audio (its TRANSCRIPT_MAX_AUDIO_BYTES).
+const maxAudioBytes = Number(
+  process.env.TRANSCRIPT_MAX_AUDIO_BYTES || 512 * 1024 * 1024,
+);
+
 async function main() {
   const apply = process.argv.includes('--enqueue');
   const flags = process.argv.slice(2);
@@ -19,30 +24,40 @@ async function main() {
       WHERE v.archived = false AND v.transcoding_status = 'ready'
         AND (v.subtitle_id IS NULL OR v.subtitle_id = '')
         AND v.transcription_status = 'waiting_audio' ORDER BY v."createdAt"`);
-    const exists = async (key: string) => {
+    // The object's size, or undefined when it does not exist.
+    const size = async (key: string) => {
       try {
-        await s3.send(
+        const head = await s3.send(
           new HeadObjectCommand({
             Bucket: process.env.STOCK_MEDIA_BUCKET,
             Key: key,
           }),
         );
-        return true;
+        return head.ContentLength ?? 0;
       } catch (error) {
-        if (error.$metadata?.httpStatusCode === 404) return false;
+        if (error.$metadata?.httpStatusCode === 404) return undefined;
         throw error; // Never mistake invalid permissions for a missing source.
       }
     };
     for (const video of videos) {
       let audioKey: string | undefined;
+      let audioBytes = 0;
       for (const extension of ['flac', 'wav']) {
         const candidate = `${video.id}/audio.${extension}`;
-        if (await exists(candidate)) {
+        const bytes = await size(candidate);
+        if (bytes !== undefined) {
           audioKey = candidate;
+          audioBytes = bytes;
           break;
         }
       }
-      if (audioKey) {
+      if (audioKey && audioBytes > maxAudioBytes) {
+        // A former WAV passes the limit after about 50 minutes: queuing it
+        // would only spend the video's nightly attempts.
+        console.log(
+          `${video.id}: ${audioKey} exceeds the Whisper download limit; left unchanged`,
+        );
+      } else if (audioKey) {
         console.log(
           `${video.id}: existing audio ${apply ? 'queued for transcription' : '(dry run)'}`,
         );
@@ -56,7 +71,7 @@ async function main() {
           );
       } else if (
         video.payload?.originalKey &&
-        (await exists(video.payload.originalKey))
+        (await size(video.payload.originalKey)) !== undefined
       ) {
         // Requeueing the original FFmpeg job would set a published video back
         // to pending and hide it while it is re-encoded. Until an audio-only
