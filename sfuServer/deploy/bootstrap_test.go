@@ -42,7 +42,6 @@ func TestWorkerConfigValidate(t *testing.T) {
 			c.RecorderImageTag, c.RecordingSecret, c.BackendURL, c.WebhookSecret = "sha-abc123", "r", "https://api.example.com", "w"
 			c.RecorderPort = "http"
 		}},
-		{"recording secret without recorder", func(c *WorkerConfig) { c.RecordingSecret = "r" }},
 		{"partial ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMax = "" }},
 		{"reversed ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMin = "50101" }},
 	}
@@ -129,6 +128,14 @@ func TestWorkerConfigRenderRecorder(t *testing.T) {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered user-data missing %q", want)
 		}
+	}
+}
+
+// The secret may be provisioned before the first recorder image is promoted.
+func TestWorkerConfigAcceptsRecordingSecretWithoutRecorder(t *testing.T) {
+	cfg := WorkerConfig{ImageTag: "sha-abc123", ControlPlaneURL: "https://sfu.example.com", RecordingSecret: "r"}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("a recording secret alone must not block the control plane: %v", err)
 	}
 }
 

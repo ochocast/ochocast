@@ -87,8 +87,6 @@ func (c WorkerConfig) Validate() error {
 		if port, err := strconv.ParseUint(c.RecorderPortOrDefault(), 10, 16); err != nil || port == 0 {
 			return fmt.Errorf("invalid SFU_RECORDER_PORT %q", c.RecorderPort)
 		}
-	} else if c.RecordingSecret != "" {
-		return fmt.Errorf("RECORDING_SHARED_SECRET is set but SFU_RECORDER_IMAGE_TAG is empty")
 	}
 	if c.ICEUDPPortMin != "" || c.ICEUDPPortMax != "" {
 		if c.ICEUDPPortMin == "" || c.ICEUDPPortMax == "" {
