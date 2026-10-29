@@ -199,4 +199,33 @@ describe('VideoMedia', () => {
     expect(track).toHaveAttribute('label', 'Français');
     expect(getMedia).toHaveBeenCalledTimes(1);
   });
+
+  // While an upload transcodes, neither an error page nor an error body may
+  // become page state: the video stays shown and no broken track appears.
+  it('ignores error responses while the upload transcodes', async () => {
+    (getVideo as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: [{ ...video, transcoding_status: 'pending' }],
+      })
+      .mockResolvedValueOnce({ ok: false, data: '<html>Bad gateway</html>' })
+      .mockResolvedValue({ ok: true, data: [video] });
+    (getSubtitle as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, data: '' })
+      .mockResolvedValue({
+        ok: false,
+        data: { statusCode: 500, message: 'Internal server error' },
+      });
+    render(<VideoMedia />);
+    await settle();
+    for (let poll = 0; poll < 2; poll++) {
+      await act(async () => {
+        jest.advanceTimersByTime(3000);
+      });
+      await settle();
+    }
+
+    expect(screen.getAllByText('Title A').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('player').querySelector('track')).toBeNull();
+  });
 });

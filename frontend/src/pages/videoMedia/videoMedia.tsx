@@ -66,6 +66,15 @@ interface QualityOption {
   label: string;
 }
 
+// apisauce never throws: an error page or body must not become page state.
+type ApiResponse = { ok?: boolean; data?: unknown } | undefined;
+const firstVideo = (response: ApiResponse): Video | undefined =>
+  response?.ok && Array.isArray(response.data) ? response.data[0] : undefined;
+const urlOf = (response: ApiResponse): string | null =>
+  response?.ok && typeof response.data === 'string' && response.data
+    ? response.data
+    : null;
+
 const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
   const parentComments = comments.filter((c) => c.parentid === null);
   const childComments = comments.filter((c) => c.parentid !== null);
@@ -291,17 +300,8 @@ const VideoMedia: FC = () => {
 
       if (mediaRes) setUrl(mediaRes.data);
 
-      // An error body is not a subtitle URL: without one, the transcript poll
-      // below can start.
-      if (
-        subtitleRes?.ok &&
-        typeof subtitleRes.data === 'string' &&
-        subtitleRes.data
-      ) {
-        setSubtitleUrl(subtitleRes.data);
-      } else {
-        setSubtitleUrl(null);
-      }
+      // Without a subtitle URL, the transcript poll below can start.
+      setSubtitleUrl(urlOf(subtitleRes));
 
       if (commentsRes && likedCommentsRes) {
         const likedComments = Array.isArray(likedCommentsRes.data)
@@ -334,8 +334,7 @@ const VideoMedia: FC = () => {
     if (video?.transcoding_status !== 'pending' || !videoId) return;
 
     const poll = window.setInterval(async () => {
-      const videoResponse = await getVideo(videoId);
-      const refreshedVideo = videoResponse?.data?.[0] as Video | undefined;
+      const refreshedVideo = firstVideo(await getVideo(videoId));
       if (!refreshedVideo) return;
       setVideo(refreshedVideo);
 
@@ -344,8 +343,9 @@ const VideoMedia: FC = () => {
           getMedia(videoId),
           getSubtitle(videoId),
         ]);
-        if (mediaResponse?.data) setUrl(mediaResponse.data);
-        setSubtitleUrl(subtitleResponse?.data || null);
+        const mediaUrl = urlOf(mediaResponse);
+        if (mediaUrl) setUrl(mediaUrl);
+        setSubtitleUrl(urlOf(subtitleResponse));
       }
     }, 3000);
 
@@ -364,16 +364,11 @@ const VideoMedia: FC = () => {
     const poll = window.setInterval(async () => {
       if (document.hidden) return;
       // An error page (a proxy 502 during a rollout) is retried next time.
-      const response = await getVideo(videoId);
-      const refreshed: Video | undefined =
-        response?.ok && Array.isArray(response.data)
-          ? response.data[0]
-          : undefined;
+      const refreshed = firstVideo(await getVideo(videoId));
       if (!refreshed || cancelled) return;
       if (refreshed.subtitle_id) {
-        const subtitle = await getSubtitle(videoId);
-        if (!cancelled && subtitle?.ok && typeof subtitle.data === 'string')
-          setSubtitleUrl(subtitle.data);
+        const subtitle = urlOf(await getSubtitle(videoId));
+        if (!cancelled && subtitle) setSubtitleUrl(subtitle);
       } else if (
         !['pending', 'processing'].includes(
           refreshed.transcription_status || '',
