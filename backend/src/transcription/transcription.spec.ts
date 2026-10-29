@@ -7,6 +7,12 @@ import {
 import { TranscriptionService } from './transcription.service';
 import { toWebVtt } from './webvtt';
 
+// A counted failure waits as pending while attempts remain, so an open page
+// keeps polling; out of attempts it is final.
+const failureUpdate = expect.stringMatching(
+  /transcription_status =\s+CASE WHEN transcription_attempts >= 3 THEN 'failed' ELSE 'pending' END,\s+transcription_error = \$2/,
+);
+
 describe('Automatic subtitles and on-demand lifecycle', () => {
   let originalEnv: NodeJS.ProcessEnv;
   let fetchMock: jest.SpyInstance;
@@ -139,10 +145,10 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
         }),
     );
     await expect(service.run()).resolves.toEqual({ processed: 0, failed: 2 });
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("transcription_status = 'failed'"),
-      ['video-1', 'Whisper HTTP 500'],
-    );
+    expect(query).toHaveBeenCalledWith(failureUpdate, [
+      'video-1',
+      'Whisper HTTP 500',
+    ]);
     expect(requested).toBe(false);
   });
 
@@ -172,13 +178,9 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
         'video-1',
       ]);
       expect(updates[1]).toEqual([
-        expect.stringContaining("transcription_status = 'failed'"),
+        failureUpdate,
         ['video-1', `Whisper HTTP ${status}`],
       ]);
-      expect(query).not.toHaveBeenCalledWith(
-        expect.stringContaining('transcription_attempts - 1'),
-        expect.anything(),
-      );
       expect(requested).toBe(false);
     },
   );
@@ -191,10 +193,10 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       return new Response('{}');
     });
     await expect(service.run()).resolves.toEqual({ processed: 0, failed: 1 });
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("transcription_status = 'failed'"),
-      ['video-1', 'Whisper request failed: fetch failed'],
-    );
+    expect(query).toHaveBeenCalledWith(failureUpdate, [
+      'video-1',
+      'Whisper request failed: fetch failed',
+    ]);
     expect(query).not.toHaveBeenCalledWith(expect.any(String), ['video-2']);
   });
 
@@ -208,10 +210,10 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
         : new Response('{}'),
     );
     await service.run();
-    expect(query).toHaveBeenCalledWith(
-      expect.stringContaining("transcription_status = 'failed'"),
-      ['video-1', 'Whisper HTTP 502: Audio download failed (URLError)'],
-    );
+    expect(query).toHaveBeenCalledWith(failureUpdate, [
+      'video-1',
+      'Whisper HTTP 502: Audio download failed (URLError)',
+    ]);
   });
 
   it('counts a storage timeout after a transcription without stopping the batch', async () => {
@@ -237,10 +239,6 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
         processed: 0,
         failed: 2,
       });
-      expect(query).not.toHaveBeenCalledWith(
-        expect.stringContaining('transcription_attempts - 1'),
-        expect.anything(),
-      );
     },
   );
 
@@ -254,10 +252,12 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     await expect(service.run()).resolves.toEqual({ processed: 0, failed: 1 });
     const failures = query.mock.calls.filter(
       ([sql]) =>
-        sql.includes("transcription_status = 'failed'") &&
+        sql.includes('transcription_error = $2') &&
         sql.includes('WHERE id = $1'),
     );
-    expect(failures.map(([, params]) => params[0])).toEqual(['video-1']);
+    expect(failures.map(([, params]) => params)).toEqual([
+      ['video-1', 'Whisper timed out after 1800000 ms'],
+    ]);
   });
 
   it('transcribes videos not tried yet before retrying earlier failures', async () => {

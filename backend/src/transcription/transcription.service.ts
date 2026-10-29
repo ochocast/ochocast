@@ -10,6 +10,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { toWebVtt } from './webvtt';
 
 const LOCK = 1791540000;
+const MAX_ATTEMPTS = 3;
+// After a counted failure, a video waits again as pending (an open page keeps
+// polling for it) until its attempts are spent: failed is final.
+const AFTER_FAILURE = `CASE WHEN transcription_attempts >= ${MAX_ATTEMPTS} THEN 'failed' ELSE 'pending' END`;
 // Whisper statuses caused by the requested audio itself: too large, missing or
 // undecodable. Any other refusal would fail every video of the batch alike.
 const AUDIO_FAILURES = new Set([413, 422, 500]);
@@ -108,11 +112,9 @@ export class TranscriptionService {
     return this.locked(async (runner) => {
       await this.stopOrphan(runner);
       // No other batch runs under this lock: a video still processing was
-      // interrupted (crash, deploy). Its attempt was counted when claimed; it
-      // waits again for a retry, or fails once out of attempts.
+      // interrupted by a crash. Its attempt was counted when claimed.
       await runner.query(
-        `UPDATE video_entity SET transcription_status =
-          CASE WHEN transcription_attempts >= 3 THEN 'failed' ELSE 'pending' END,
+        `UPDATE video_entity SET transcription_status = ${AFTER_FAILURE},
         transcription_error = 'Transcription interrupted'
         WHERE transcription_status = 'processing'`,
       );
@@ -121,7 +123,7 @@ export class TranscriptionService {
         WHERE archived = false AND transcoding_status = 'ready'
           AND (subtitle_id IS NULL OR subtitle_id = '') AND audio_key IS NOT NULL
           AND transcription_status IN ('pending', 'failed')
-          AND transcription_attempts < 3
+          AND transcription_attempts < ${MAX_ATTEMPTS}
           AND (transcription_retry_at IS NULL OR transcription_retry_at <= now())
         ORDER BY transcription_attempts, "createdAt" LIMIT $1`,
         [this.batchSize],
@@ -187,8 +189,9 @@ export class TranscriptionService {
             summary.processed += 1;
           } catch (error) {
             summary.failed += 1;
+            // A shutdown aborts the request in flight: the video is retried.
             await runner.query(
-              `UPDATE video_entity SET transcription_status = 'failed',
+              `UPDATE video_entity SET transcription_status = ${AFTER_FAILURE},
               transcription_error = $2, transcription_retry_at = now() + interval '1 hour'
               WHERE id = $1 AND (subtitle_id IS NULL OR subtitle_id = '')`,
               [video.id, String(error.message || error).slice(0, 2000)],
@@ -198,7 +201,10 @@ export class TranscriptionService {
             );
             // Every remaining video would meet the same fault: stop. The
             // attempt still counts, so one video cannot hold the queue's head.
-            if (error instanceof WorkerFault) break;
+            if (error instanceof WorkerFault) {
+              this.logger.warn(`Transcription batch stopped at ${video.id}`);
+              break;
+            }
           }
         }
       } finally {
