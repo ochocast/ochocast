@@ -14,6 +14,8 @@ FFmpeg produit un FLAC stéréo 44,1 kHz et le callback enregistre `audio_key`,
 non archivées et sans sous-titres. Par défaut, à 2 h Europe/Paris, il traite au
 plus 20 vidéos, démarre Whisper, attend `/health`, génère le WebVTT dans S3 puis
 arrête la VM. Le verrou PostgreSQL empêche deux réplicas de traiter le même lot.
+Un CronJob indépendant peut utiliser `dist/transcription/recover-worker.js` pour
+arrêter une VM orpheline si le backend n'est plus disponible, avec ce même verrou.
 Les sous-titres fournis manuellement restent prioritaires.
 
 `TRANSCRIPTION_ENABLED=false` par défaut. Les statuts incluent `waiting_audio`,
@@ -45,8 +47,9 @@ au premier démarrage), puis depuis `backend` avec FFmpeg installé :
 TRANSCRIPTION_TEST_DATABASE_URL=postgresql://transcription:transcription@127.0.0.1:25439/transcription_test npm run test:transcription
 ```
 
-Les quatre cas d'intégration couvrent parole française, absence de piste audio,
-silence et préservation des sous-titres manuels. Ils utilisent un schéma et un
+Les cas d'intégration couvrent parole française, absence de piste audio,
+silence, préservation des sous-titres manuels et récupération d'une VM
+orpheline sans interrompre un lot actif. Ils utilisent un schéma et un
 bucket dédiés ; aucune VM Scaleway n'est démarrée.
 
 Les tests navigateur sont dans `e2e/tests/subtitles.spec.ts` : SRT, VTT et cas
