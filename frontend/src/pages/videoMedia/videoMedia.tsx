@@ -117,7 +117,9 @@ const VideoMedia: FC = () => {
   const [commentaryList, setCommentaryList] = useState<CommentObject[]>([]);
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const userString = localStorage.getItem('backendUser');
+  const currentUserIdForData = JSON.parse(
+    localStorage.getItem('backendUser') || 'null',
+  )?.id;
 
   const location = useLocation();
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
@@ -257,7 +259,9 @@ const VideoMedia: FC = () => {
     const fetchData = async () => {
       setIsLoading(true);
 
-      const backendUser = userString ? JSON.parse(userString) : null;
+      const backendUser = JSON.parse(
+        localStorage.getItem('backendUser') || 'null',
+      );
 
       const userResponse = await getUsers();
       const users: User[] = userResponse.data.users || [];
@@ -318,7 +322,7 @@ const VideoMedia: FC = () => {
 
     fetchData();
     window.scrollTo(0, 0);
-  }, [userString, videoId]);
+  }, [currentUserIdForData, videoId]);
 
   useEffect(() => {
     if (video?.transcoding_status !== 'pending' || !videoId) return;
@@ -342,28 +346,55 @@ const VideoMedia: FC = () => {
     return () => window.clearInterval(poll);
   }, [video?.transcoding_status, videoId]);
 
-  // A nightly transcript can arrive while the viewer keeps the player open.
+  // Refresh infrequently while the viewer is watching and a transcript is pending.
   useEffect(() => {
     if (
       !videoId ||
       subtitleUrl ||
-      !['pending', 'processing', 'failed'].includes(
-        video?.transcription_status || '',
-      )
+      !['pending', 'processing'].includes(video?.transcription_status || '')
     )
       return;
+    let cancelled = false;
     const poll = window.setInterval(async () => {
+      if (document.hidden) return;
       const response = await getVideo(videoId);
       const refreshed = response?.data?.[0] as Video | undefined;
-      if (!refreshed) return;
-      setVideo(refreshed);
+      if (!refreshed || cancelled) return;
       if (refreshed.subtitle_id) {
         const subtitle = await getSubtitle(videoId);
-        setSubtitleUrl(subtitle?.data || null);
+        if (!cancelled && typeof subtitle?.data === 'string')
+          setSubtitleUrl(subtitle.data);
+      } else if (
+        !['pending', 'processing'].includes(
+          refreshed.transcription_status || '',
+        )
+      ) {
+        window.clearInterval(poll);
       }
-    }, 15000);
-    return () => window.clearInterval(poll);
+    }, 300_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+    };
   }, [videoId, subtitleUrl, video?.transcription_status]);
+
+  // ReactPlayer creates tracks when it mounts, but a transcript may arrive later.
+  useEffect(() => {
+    if (!subtitleUrl) return;
+    const element = playerRef.current?.getInternalPlayer();
+    if (!(element instanceof HTMLVideoElement)) return;
+    let track = element.querySelector<HTMLTrackElement>(
+      'track[kind="subtitles"][srclang="fr"]',
+    );
+    if (!track) {
+      track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.srclang = 'fr';
+      track.label = 'Français';
+      element.appendChild(track);
+    }
+    if (track.src !== subtitleUrl) track.src = subtitleUrl;
+  }, [subtitleUrl]);
 
   const handleReplyClick = (index: number) => {
     const parent = commentaryList.filter((c) => c.parentid === null)[index];

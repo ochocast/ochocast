@@ -108,7 +108,7 @@ jobs:
       - name: Resolve image metadata
         id: image
         env:
-          SHOULD_PUBLISH: ${{ github.event_name == 'push' || inputs.publish == true }}
+          SHOULD_PUBLISH: ${{ github.event_name == 'workflow_dispatch' && inputs.publish == true }}
           TARGET: ${{ matrix.target }}
         run: |
           if [ "$SHOULD_PUBLISH" = true ] && [ -z "$IMAGE_REPOSITORY" ]; then

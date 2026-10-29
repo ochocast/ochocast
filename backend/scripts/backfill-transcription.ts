@@ -1,13 +1,10 @@
 import 'reflect-metadata';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
-import { randomUUID } from 'node:crypto';
 import db from '../src/config/typeorm.config';
 import { createS3Client } from '../src/s3.module';
-import { QueueService } from '../src/queue/queue.service';
-import { TranscodingJobsService } from '../src/transcoding-jobs/transcoding-jobs.service';
 
-// Read-only by default. Explicit --enqueue is required to change rows or queue
-// jobs; no VM is started by this command. Sources are never deleted here.
+// Read-only by default. --enqueue marks videos with existing audio as pending.
+// It never requeues a published video or starts a VM.
 async function main() {
   const apply = process.argv.includes('--enqueue');
   const flags = process.argv.slice(2);
@@ -18,11 +15,10 @@ async function main() {
     await db.initialize();
     const videos = await db.query(`SELECT v.id, j.payload FROM video_entity v
       LEFT JOIN LATERAL (SELECT payload FROM transcoding_job
-        WHERE "videoId" = v.id AND status = 'ready' LIMIT 1) j ON true
+        WHERE "videoId" = v.id AND status IN ('ready', 'failed') LIMIT 1) j ON true
       WHERE v.archived = false AND v.transcoding_status = 'ready'
         AND (v.subtitle_id IS NULL OR v.subtitle_id = '')
         AND v.transcription_status = 'waiting_audio' ORDER BY v."createdAt"`);
-    let queue: QueueService;
     const exists = async (key: string) => {
       try {
         await s3.send(
@@ -62,34 +58,12 @@ async function main() {
         video.payload?.originalKey &&
         (await exists(video.payload.originalKey))
       ) {
+        // Requeueing the original FFmpeg job would set a published video back
+        // to pending and hide it while it is re-encoded. Until an audio-only
+        // worker exists, leave the published video untouched.
         console.log(
-          `${video.id}: source available, ${apply ? 'requeueing FFmpeg' : 'needs FFmpeg extraction (dry run)'}`,
+          `${video.id}: retained source requires audio-only backfill; left unchanged`,
         );
-        if (apply) {
-          queue ||= new QueueService(new TranscodingJobsService(db));
-          const job = {
-            ...video.payload,
-            jobId: randomUUID(),
-            timestamp: Date.now(),
-          };
-          const [, updated] = await db.query(
-            `UPDATE video_entity SET transcoding_status = 'pending'
-            WHERE id = $1 AND transcoding_status = 'ready' AND transcription_status = 'waiting_audio'
-              AND archived = false AND (subtitle_id IS NULL OR subtitle_id = '')`,
-            [video.id],
-          );
-          if (!updated) continue;
-          try {
-            await queue.publishJob(job);
-          } catch (error) {
-            await db.query(
-              `UPDATE video_entity SET transcoding_status = 'ready'
-              WHERE id = $1 AND transcoding_status = 'pending'`,
-              [video.id],
-            );
-            throw error;
-          }
-        }
       } else {
         console.log(
           `${video.id}: no extracted audio or retained source; re-upload required`,

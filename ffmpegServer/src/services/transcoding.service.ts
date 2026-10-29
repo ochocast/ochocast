@@ -496,6 +496,8 @@ export class TranscodingService {
     const tempAudioPath = path.join(workDir, 'audio.flac');
     let duration = 0;
     let sourceCodecsPlayable: boolean | undefined;
+    let hasAudioTrack: boolean | undefined;
+    let uploadedAudioKey: string | undefined;
 
     try {
       console.log(`\nStarting transcoding job: ${job.jobId}`);
@@ -509,7 +511,11 @@ export class TranscodingService {
 
       // Get video duration; an unreadable source fails permanently
       const probe = await this.probeSource(tempInputPath);
-      ({ duration, codecsPlayable: sourceCodecsPlayable } = probe);
+      ({
+        duration,
+        codecsPlayable: sourceCodecsPlayable,
+        hasAudio: hasAudioTrack,
+      } = probe);
       console.log(`   Duration: ${duration}s`);
 
       let generatedSubtitleId: string | undefined;
@@ -547,13 +553,6 @@ export class TranscodingService {
         generatedSubtitleId = job.subtitle_id;
       }
 
-      const maxDuration = maxDurationSeconds();
-      if (duration > maxDuration)
-        throw new PermanentJobError(
-          'duration_exceeded',
-          `Video duration ${duration} s exceeds TRANSCODING_MAX_DURATION_SECONDS (${maxDuration} s)`,
-        );
-
       // A misconfiguration must not cost a whole encode before failing.
       uploadConcurrency();
 
@@ -570,8 +569,16 @@ export class TranscodingService {
           audioKey,
           'audio/flac',
         );
+        uploadedAudioKey = audioKey;
         console.log(`FLAC audio uploaded: ${audioKey}`);
       }
+
+      const maxDuration = maxDurationSeconds();
+      if (duration > maxDuration)
+        throw new PermanentJobError(
+          'duration_exceeded',
+          `Video duration ${duration} s exceeds TRANSCODING_MAX_DURATION_SECONDS (${maxDuration} s)`,
+        );
 
       // Transcode to HLS. A deadline during the encode, or after one that used
       // half the budget or more, means the video is too long to transcode: the
@@ -639,6 +646,8 @@ export class TranscodingService {
         success: false,
         videoId: job.videoId,
         duration,
+        ...(hasAudioTrack !== undefined ? { has_audio: hasAudioTrack } : {}),
+        ...(uploadedAudioKey ? { audio_key: uploadedAudioKey } : {}),
         subtitle_id: null,
         error: (error instanceof Error ? error.message : String(error)).slice(
           -2000,

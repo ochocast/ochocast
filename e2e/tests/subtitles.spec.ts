@@ -10,6 +10,7 @@ const apiUrl = process.env.PLAYWRIGHT_API_URL || 'http://localhost:3001/api';
 
 // Real MP4, longer than the one-second thumbnail seek. No mislabeled WebM.
 async function createVideo(speech = false) {
+  if (!speech) return readFile(path.resolve('e2e/assets/video-short.mp4'));
   const directory = await mkdtemp(path.join(tmpdir(), 'ochocast-subtitles-e2e-'));
   try {
     const file = path.join(directory, 'video.mp4');
@@ -51,7 +52,7 @@ async function readSubtitle(page: Page, request: APIRequestContext, id: string) 
   const headers = { Authorization: 'Bearer ' + await getAccessToken(page) };
   const response = await request.get(apiUrl + '/videos/subtitle/' + id, { headers });
   expect(response.ok()).toBeTruthy();
-  const url = await response.json();
+  const url = await response.text();
   expect(typeof url).toBe('string');
   const stored = await request.get(url);
   expect(stored.ok()).toBeTruthy();

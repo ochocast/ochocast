@@ -231,6 +231,14 @@ export class TranscodingJobsService {
       transcoding_status: 'ready',
       transcoding_error: null,
       ...(result.duration > 0 ? { duration: result.duration } : {}),
+      ...(result.has_audio !== undefined
+        ? { has_audio: result.has_audio }
+        : {}),
+      ...(result.audio_key
+        ? { audio_key: result.audio_key, transcription_status: 'pending' }
+        : result.has_audio === false
+          ? { transcription_status: 'no_audio' }
+          : {}),
     };
   }
 }

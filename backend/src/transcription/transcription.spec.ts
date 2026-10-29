@@ -1,5 +1,9 @@
 import { DataSource } from 'typeorm';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { TranscriptionService } from './transcription.service';
 import { toWebVtt } from './webvtt';
 
@@ -33,6 +37,7 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       if (sql.startsWith('SELECT id, audio_key')) return videos;
       if (sql.startsWith('SELECT worker_requested'))
         return [{ worker_requested: requested }];
+      if (sql.includes('RETURNING id')) return [[], 1];
       if (sql.includes('SET worker_requested = true')) requested = true;
       if (sql.includes('SET worker_requested = false')) requested = false;
       return [];
@@ -122,6 +127,46 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       ['video-1', 'Whisper HTTP 500'],
     );
     expect(requested).toBe(false);
+  });
+
+  it('stops the batch on a busy worker without marking later videos failed', async () => {
+    videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
+    fetchMock.mockImplementation(
+      async (url) =>
+        new Response('{}', {
+          status: String(url).includes('/transcriptions') ? 409 : 200,
+        }),
+    );
+    await expect(service.run()).resolves.toEqual({ processed: 0, failed: 1 });
+    const failures = query.mock.calls.filter(([sql]) =>
+      sql.includes("transcription_status = 'failed'"),
+    );
+    expect(failures).toHaveLength(1);
+    expect(failures[0][1][0]).toBe('video-1');
+  });
+
+  it('removes an unattached VTT when a video is archived or edited concurrently', async () => {
+    query.mockImplementation(async (sql: string) => {
+      if (sql.includes('pg_try_advisory_lock')) return [{ acquired: true }];
+      if (sql.startsWith('SELECT id, audio_key')) return videos;
+      if (sql.startsWith('SELECT worker_requested'))
+        return [{ worker_requested: requested }];
+      if (sql.includes('SET worker_requested = true')) requested = true;
+      if (sql.includes('SET worker_requested = false')) requested = false;
+      if (sql.includes('SET subtitle_id')) return [[], 0];
+      if (sql.includes('RETURNING id')) return [[], 1];
+      return [];
+    });
+    await expect(service.run()).resolves.toEqual({ processed: 0, failed: 0 });
+    expect(send.mock.calls[1][0]).toBeInstanceOf(DeleteObjectCommand);
+    expect(send.mock.calls[1][0].input.Key).toBe('subtitle-auto-video-1.vtt');
+  });
+
+  it('requires HTTPS for the worker in production', () => {
+    process.env.NODE_ENV = 'production';
+    expect(
+      () => new TranscriptionService({} as DataSource, {} as S3Client),
+    ).toThrow('Transcription endpoints require HTTPS');
   });
 
   it('stops even when readiness fails after the VM start', async () => {

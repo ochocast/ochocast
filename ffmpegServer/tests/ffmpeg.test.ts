@@ -421,7 +421,10 @@ test('a video above TRANSCODING_MAX_DURATION_SECONDS publishes its attachments, 
     assert.deepEqual(uploads.sort(), [
       'miniature-video.jpg',
       'subtitle-video.vtt',
+      'video/audio.flac',
     ]);
+    assert.equal(result.audio_key, 'video/audio.flac');
+    assert.equal(result.has_audio, true);
     assert.equal(encode.mock.callCount(), 0);
     assert.equal(encodingStarted, false);
   });

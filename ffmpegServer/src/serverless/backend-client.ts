@@ -72,7 +72,10 @@ export class BackendClient {
       // sourceCodecsPlayable also comes with transient failures after the probe.
       if (
         response.status === 400 &&
-        (result.permanent || result.sourceCodecsPlayable !== undefined)
+        (result.permanent ||
+          result.sourceCodecsPlayable !== undefined ||
+          result.has_audio !== undefined ||
+          result.audio_key !== undefined)
       ) {
         console.warn(
           `Backend rejected permanent failure fields for job ${jobId}; storing a plain failure`,
@@ -81,6 +84,8 @@ export class BackendClient {
         delete plain.permanent;
         delete plain.reason;
         delete plain.sourceCodecsPlayable;
+        delete plain.has_audio;
+        delete plain.audio_key;
         return this.complete(jobId, leaseToken, plain);
       }
       if (response.status < 500)

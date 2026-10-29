@@ -61,8 +61,10 @@ avant d'activer le cron. La procédure de staging, les secrets et le réseau son
 décrits dans `ops-architecture-lab/docs/runbooks/transcription-staging.md`.
 
 Pour les vidéos historiques, `npm run transcription:backfill` est en lecture
-seule. Avec `-- --enqueue`, il réutilise le FLAC existant (ou un ancien WAV) ou remet la source
-retenue en file FFmpeg. Sans audio extrait ni source, un nouvel upload est nécessaire.
+seule. Avec `-- --enqueue`, il réutilise le FLAC existant (ou un ancien WAV). Les vidéos dont seule la source
+est conservée sont signalées et laissées en ligne : leur traitement nécessite
+un futur worker audio-only. Sans audio extrait ni source, un nouvel upload est
+nécessaire.
 Les scripts TypeScript de `backend/scripts` s'exécutent depuis un checkout avec
 les dépendances de développement et un `.env` ciblant explicitement staging ;
 ils ne sont pas inclus dans l'image backend de production.

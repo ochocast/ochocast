@@ -32,7 +32,6 @@ export class TranscriptionScheduler implements OnModuleInit {
   // same PostgreSQL lock let any replica safely stop it after recovery.
   @Interval(60_000)
   async recoverWorker() {
-    if (!this.service.enabled) return;
     try {
       await this.service.recover();
     } catch (error) {

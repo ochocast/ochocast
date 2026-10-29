@@ -38,12 +38,6 @@ jobs:
         run: |
           cp frontend/.env.example frontend/.env
           cp backend/.env.example backend/.env
-      - name: Ensure FFmpeg is available for subtitle upload tests
-        run: |
-          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y ffmpeg
-          fi
       - name: Clean up stale processes on ports 3000 and 3001
         run: |
           npx kill-port 3000 3001 || true
@@ -74,7 +68,7 @@ jobs:
           PLAYWRIGHT_TEST_PASSWORD: "test-password"
           # Must match nest-back in the local Keycloak realm import.
           AUTH_SECRET: "this-is-a-local-keycloak-secret"
-          TRANSCODING_QUEUE_PROVIDER: "local"
+          TRANSCODING_QUEUE_PROVIDER: "disabled"
           TRANSCODING_QUEUE_ENDPOINT: "http://127.0.0.1:9324"
           TRANSCODING_QUEUE_REGION: "fr-par"
           TRANSCODING_QUEUE_URL: "http://127.0.0.1:9324/000000000000/ochocast-local-ffmpeg"

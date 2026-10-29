@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -35,6 +36,7 @@ export class TranscriptionService {
     process.env.TRANSCRIPTION_BATCH_SIZE || 20,
   );
   private running = false;
+  private whisperDispatcher: { destroy(): Promise<void> } | undefined;
 
   constructor(
     private readonly db: DataSource,
@@ -67,13 +69,16 @@ export class TranscriptionService {
         parsed.password
       )
         throw new Error('Invalid transcription URL');
-      if (
-        url !== this.apiUrl &&
-        process.env.NODE_ENV === 'production' &&
-        parsed.protocol !== 'https:'
-      )
-        throw new Error('Worker control functions require HTTPS');
+      if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:')
+        throw new Error('Transcription endpoints require HTTPS in production');
     }
+    // Node's default fetch headers timeout is 300s, shorter than a long
+    // transcription. Scope this dispatcher to Whisper requests only.
+    const { Agent } = require('undici');
+    this.whisperDispatcher = new Agent({
+      headersTimeout: this.timeoutMs,
+      bodyTimeout: this.timeoutMs,
+    });
     for (const number of [
       this.timeoutMs,
       this.healthRetries,
@@ -94,6 +99,7 @@ export class TranscriptionService {
         WHERE archived = false AND transcoding_status = 'ready'
           AND (subtitle_id IS NULL OR subtitle_id = '') AND audio_key IS NOT NULL
           AND transcription_status IN ('pending', 'failed', 'processing')
+          AND transcription_attempts < 3
           AND (transcription_retry_at IS NULL OR transcription_retry_at <= now())
         ORDER BY "createdAt" LIMIT $1`,
         [this.batchSize],
@@ -111,12 +117,13 @@ export class TranscriptionService {
         await this.waitForWorker();
         for (const video of videos) {
           try {
-            await runner.query(
+            const [, claimed] = await runner.query(
               `UPDATE video_entity SET transcription_status = 'processing',
               transcription_attempts = transcription_attempts + 1, transcription_error = NULL
-              WHERE id = $1 AND (subtitle_id IS NULL OR subtitle_id = '')`,
+              WHERE id = $1 AND archived = false AND (subtitle_id IS NULL OR subtitle_id = '') RETURNING id`,
               [video.id],
             );
+            if (!claimed) continue;
             const audioUrl = await getSignedUrl(
               this.s3,
               new GetObjectCommand({
@@ -139,7 +146,8 @@ export class TranscriptionService {
                   response_format: 'verbose_json',
                 }),
                 signal: AbortSignal.timeout(this.timeoutMs),
-              },
+                dispatcher: this.whisperDispatcher,
+              } as RequestInit,
             );
             if (!response.ok)
               throw new Error(`Whisper HTTP ${response.status}`);
@@ -156,13 +164,23 @@ export class TranscriptionService {
                 }),
               );
             // A manually attached subtitle always takes precedence.
-            await runner.query(
+            const [, attached] = await runner.query(
               `UPDATE video_entity SET subtitle_id = $2,
               transcription_status = $3, transcription_error = NULL, transcription_retry_at = NULL,
               "updatedAt" = now() WHERE id = $1 AND archived = false
-              AND (subtitle_id IS NULL OR subtitle_id = '')`,
+              AND (subtitle_id IS NULL OR subtitle_id = '') RETURNING id`,
               [video.id, vtt ? key : null, vtt ? 'ready' : 'no_speech'],
             );
+            if (!attached) {
+              if (vtt)
+                await this.s3.send(
+                  new DeleteObjectCommand({
+                    Bucket: process.env.STOCK_MEDIA_BUCKET,
+                    Key: key,
+                  }),
+                );
+              continue;
+            }
             summary.processed += 1;
           } catch (error) {
             summary.failed += 1;
@@ -175,6 +193,15 @@ export class TranscriptionService {
             this.logger.warn(
               `Transcription failed for ${video.id}: ${error.message}`,
             );
+            // The worker may still be processing an abandoned request. Stop
+            // this batch rather than failing every subsequent video with 409.
+            if (
+              error.name === 'TimeoutError' ||
+              error.name === 'AbortError' ||
+              error.name === 'TypeError' ||
+              /Whisper HTTP (409|503)/.test(String(error.message))
+            )
+              break;
           }
         }
       } finally {
@@ -188,8 +215,12 @@ export class TranscriptionService {
   }
 
   async recover() {
-    if (!this.enabled || this.running) return;
+    if (!this.stopUrl || !this.controlToken || this.running) return;
     await this.locked((runner) => this.stopOrphan(runner));
+  }
+
+  async onModuleDestroy() {
+    await this.whisperDispatcher?.destroy();
   }
 
   private async locked<T>(
@@ -253,12 +284,15 @@ export class TranscriptionService {
 
   private async waitForWorker() {
     for (let attempt = 0; attempt < this.healthRetries; attempt++) {
+      let response: Response | undefined;
       try {
-        const response = await fetch(`${this.apiUrl}/health`, {
+        response = await fetch(`${this.apiUrl}/health`, {
           signal: AbortSignal.timeout(5000),
         });
-        if (response.ok) return;
       } catch {}
+      if (response?.ok) return;
+      if (response?.status === 500)
+        throw new Error('Transcription worker failed to load its model');
       if (attempt + 1 < this.healthRetries)
         await new Promise((resolve) => setTimeout(resolve, this.healthDelay));
     }

@@ -11,6 +11,7 @@ from urllib.request import build_opener, HTTPRedirectHandler
 
 LOG = logging.getLogger("transcript")
 MODEL = None
+MODEL_FAILED = False
 BUSY = threading.Lock()
 
 
@@ -64,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self.send_json(200 if MODEL is not None else 503, {"ready": MODEL is not None})
+            self.send_json(500 if MODEL_FAILED else 200 if MODEL is not None else 503, {"ready": MODEL is not None, "failed": MODEL_FAILED})
         else:
             self.send_json(404, {"error": "Not found"})
 
@@ -101,6 +102,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def load_model():
+    global MODEL, MODEL_FAILED
+    try:
+        _load_model()
+    except Exception:
+        MODEL_FAILED = True
+        LOG.exception("Whisper model initialization failed")
+
+
+def _load_model():
     global MODEL
     from faster_whisper import WhisperModel
     device = os.environ.get("WHISPER_DEVICE", "cpu")
