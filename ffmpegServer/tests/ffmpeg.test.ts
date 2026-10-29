@@ -468,7 +468,9 @@ test('a FLAC failure does not cost a too long video its source playback', async 
     async () => {},
   );
   t.mock.method(TranscodingService.prototype, 'extractAudioFlac', async () => {
-    throw new Error('Invalid audio stream');
+    throw Object.assign(new Error('ffmpeg exited with code 1'), {
+      exitCode: 1,
+    });
   });
   t.mock.method(console, 'error', () => {});
   t.mock.method(console, 'warn', () => {});
@@ -487,6 +489,44 @@ test('a FLAC failure does not cost a too long video its source playback', async 
     assert.equal(result.sourceCodecsPlayable, true);
     assert.equal(result.audio_key, undefined);
   });
+});
+
+test('a shutdown or upload failure during the FLAC of a too long video stays retryable', async (t) => {
+  setEnv(t, 'TRANSCODING_MAX_DURATION_SECONDS', '1');
+  for (const failure of [
+    new DOMException('The operation was aborted', 'AbortError'),
+    new Error('S3 upload failed'),
+  ]) {
+    t.mock.restoreAll();
+    t.mock.method(console, 'error', () => {});
+    t.mock.method(console, 'warn', () => {});
+    t.mock.method(
+      TranscodingService.prototype as unknown as Uploads,
+      'uploadFile',
+      async () => {},
+    );
+    t.mock.method(
+      TranscodingService.prototype,
+      'extractAudioFlac',
+      async () => {
+        throw failure;
+      },
+    );
+    await withDirectory(async (directory) => {
+      const input = path.join(directory, 'input.mp4');
+      await clip(input);
+      const result = await new TranscodingService({} as S3Client).processJob(
+        fixtureJob,
+        input,
+        undefined,
+        undefined,
+        true,
+      );
+      // Not permanent: the job is retried and the audio extracted again.
+      assert.equal(result.success, false);
+      assert.equal(result.permanent, undefined);
+    });
+  }
 });
 
 test('a full job uploads lossless FLAC audio, never WAV', async (t) => {

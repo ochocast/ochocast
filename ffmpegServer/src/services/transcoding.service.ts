@@ -588,7 +588,13 @@ export class TranscodingService {
           uploadedAudioKey = audioKey;
           console.log(`FLAC audio uploaded: ${audioKey}`);
         } catch (error) {
-          if (!tooLong) throw error;
+          // Only FFmpeg failing on this audio is skipped. An abort (shutdown,
+          // deadline) or an upload failure is retried with the whole job.
+          if (
+            !tooLong ||
+            typeof (error as { exitCode?: unknown }).exitCode !== 'number'
+          )
+            throw error;
           console.warn(
             `FLAC audio skipped for job ${job.jobId}; its source is still played`,
             error,
