@@ -493,23 +493,24 @@ test('a FLAC failure does not cost a too long video its source playback', async 
 
 test('a shutdown or upload failure during the FLAC of a too long video stays retryable', async (t) => {
   setEnv(t, 'TRANSCODING_MAX_DURATION_SECONDS', '1');
-  for (const failure of [
-    new DOMException('The operation was aborted', 'AbortError'),
-    new Error('S3 upload failed'),
-  ]) {
+  const abort = new DOMException('The operation was aborted', 'AbortError');
+  for (const failing of ['extraction', 'upload']) {
     t.mock.restoreAll();
     t.mock.method(console, 'error', () => {});
     t.mock.method(console, 'warn', () => {});
     t.mock.method(
       TranscodingService.prototype as unknown as Uploads,
       'uploadFile',
-      async () => {},
+      async (_file: string, _bucket: string, key: string) => {
+        if (failing === 'upload' && key === 'video/audio.flac')
+          throw new Error('S3 upload failed');
+      },
     );
     t.mock.method(
       TranscodingService.prototype,
       'extractAudioFlac',
       async () => {
-        throw failure;
+        if (failing === 'extraction') throw abort;
       },
     );
     await withDirectory(async (directory) => {
