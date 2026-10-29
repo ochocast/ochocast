@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -83,8 +84,8 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 
 // CheckStreamStatus checks if the stream is active in the room
 func (rs *RecordingSession) CheckStreamStatus() (bool, error) {
-	url := fmt.Sprintf("%s/stream-status?room_id=%s", rs.sfuBaseURL, rs.roomID)
-	resp, err := http.Get(url)
+	statusURL := rs.sfuBaseURL + "/stream-status?" + url.Values{"room_id": {rs.roomID}}.Encode()
+	resp, err := http.Get(statusURL)
 	if err != nil {
 		return false, fmt.Errorf("failed to check stream status: %w", err)
 	}
@@ -185,11 +186,12 @@ func (rs *RecordingSession) StartRecording() error {
 	log.Println("Sending offer to SFU...")
 
 	// Build recorder URL with room_id and optional key (dedicated track, no-drop policy)
-	recorderURL := fmt.Sprintf("%s/recorder?room_id=%s", rs.sfuBaseURL, rs.roomID)
+	query := url.Values{"room_id": {rs.roomID}}
 	if rs.roomKey != "" {
-		recorderURL = fmt.Sprintf("%s&key=%s", recorderURL, rs.roomKey)
+		query.Set("key", rs.roomKey)
 	}
-	log.Printf("Recorder URL: %s", recorderURL)
+	recorderURL := rs.sfuBaseURL + "/recorder?" + query.Encode()
+	log.Printf("Recorder URL: %s/recorder?room_id=%s", rs.sfuBaseURL, rs.roomID)
 
 	resp, err := http.Post(recorderURL, "application/sdp",
 		bytes.NewReader([]byte(pc.LocalDescription().SDP)))

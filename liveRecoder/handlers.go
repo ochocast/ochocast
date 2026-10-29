@@ -50,14 +50,11 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "room_id is required", http.StatusBadRequest)
 		return
 	}
-	// On an SFU worker the recorder always records its local SFU
-	// (RECORDER_SFU_URL); the URL sent by the backend is only used elsewhere.
-	sfuURL := req.SfuURL
-	if s.localSfuURL != "" {
-		sfuURL = s.localSfuURL
-	}
-	if sfuURL == "" {
-		http.Error(w, "sfu_url is required", http.StatusBadRequest)
+	// The recorder only ever records the SFU of its configuration
+	// (RECORDER_SFU_URL: the local SFU on a worker), never a URL from a request.
+	if s.sfuURL == "" {
+		log.Printf("[CONFIG] RECORDER_SFU_URL is not set — cannot record")
+		http.Error(w, "Recorder SFU not configured", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -77,7 +74,7 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		EventID:      req.RoomID,
 		RoomID:       req.RoomID,
 		RoomKey:      req.RoomKey,
-		SfuBaseURL:   sfuURL,
+		SfuBaseURL:   s.sfuURL,
 		OutputDir:    outputDir,
 		BackendURL:   s.backendURL,
 		TrackID:      req.TrackID,

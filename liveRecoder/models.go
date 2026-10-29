@@ -17,10 +17,10 @@ func getEnv(key, defaultValue string) string {
 type StartRecordingRequest struct {
 	RoomID  string `json:"room_id"`
 	RoomKey string `json:"room_key"`
-	SfuURL  string `json:"sfu_url"`
 	TrackID string `json:"track_id,omitempty"` // Track ID for video metadata
-	// BackendURL and OutputDir are intentionally NOT accepted from the
-	// request body — they come from server env vars only.
+	// The SFU URL, BackendURL and OutputDir are intentionally NOT accepted
+	// from the request body — they come from server env vars only, so a
+	// caller cannot make the recorder connect anywhere else.
 }
 
 // StopRecordingRequest is the JSON body for POST /recording/stop
@@ -57,7 +57,7 @@ type RecordingServer struct {
 	// Environment-based config (read from env vars only — never from request body)
 	sharedSecret string // RECORDING_SHARED_SECRET — signs every request (auth.go)
 	backendURL   string
-	localSfuURL  string // RECORDER_SFU_URL — set on an SFU worker: the local SFU
+	sfuURL       string // RECORDER_SFU_URL — the SFU this recorder records (local on a worker)
 }
 
 // NewRecordingServer creates a new HTTP server instance
@@ -67,6 +67,6 @@ func NewRecordingServer(defaultOutput string) *RecordingServer {
 		defaultOutput: defaultOutput,
 		sharedSecret:  getEnv("RECORDING_SHARED_SECRET", ""),
 		backendURL:    getEnv("BACKEND_PUBLIC_URL", ""),
-		localSfuURL:   getEnv("RECORDER_SFU_URL", ""),
+		sfuURL:        getEnv("RECORDER_SFU_URL", ""),
 	}
 }

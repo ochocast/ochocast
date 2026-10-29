@@ -90,12 +90,16 @@ func TestSignRequestVector(t *testing.T) {
 	}
 }
 
-func TestStartRequiresSfuURLUnlessLocal(t *testing.T) {
+// The SFU comes from the configuration only: a sfu_url in the request is
+// ignored, and without RECORDER_SFU_URL the recorder refuses to record.
+func TestStartIgnoresRequestSfuURL(t *testing.T) {
 	s := NewRecordingServer("")
 	s.sharedSecret = "secret"
+	s.sfuURL = ""
 	w := httptest.NewRecorder()
-	s.handleStart(w, signedRequest(t, "secret", http.MethodPost, "/recording/start", `{"room_id":"r1"}`, time.Now()))
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("without RECORDER_SFU_URL, sfu_url is required: got %d", w.Code)
+	body := `{"room_id":"r1","sfu_url":"http://attacker.example"}`
+	s.handleStart(w, signedRequest(t, "secret", http.MethodPost, "/recording/start", body, time.Now()))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("without RECORDER_SFU_URL the recorder must refuse, got %d", w.Code)
 	}
 }

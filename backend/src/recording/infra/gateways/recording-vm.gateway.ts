@@ -76,7 +76,6 @@ export class RecordingVMGateway implements IRecordingVMGateway {
    * (409) — with on-demand workers there is then no recorder at all.
    */
   private async discover(roomId: string): Promise<{
-    sfuUrl: string;
     roomKey: string;
     recorderUrl: string;
   } | null> {
@@ -90,7 +89,6 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     }
     const cpData = await cpResponse.json();
     return {
-      sfuUrl: cpData.sfu_url,
       roomKey: cpData.room_key,
       recorderUrl: cpData.recorder_service_url || this.vmUrl,
     };
@@ -127,8 +125,8 @@ export class RecordingVMGateway implements IRecordingVMGateway {
       'POST',
       {
         room_id: config.roomId,
+        // No SFU URL: the recorder only records the SFU of its configuration.
         room_key: target.roomKey,
-        sfu_url: target.sfuUrl,
         track_id: config.trackId,
       },
     );
