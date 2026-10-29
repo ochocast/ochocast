@@ -16,7 +16,8 @@ See `ffmpegServer/SERVERLESS.md` for the environment and trigger contract.
 `transcription.yml` validates the nightly transcription backend and builds both
 CPU and GPU Whisper images for linux/amd64. Set `TRANSCRIPT_IMAGE_REPOSITORY`
 to a full registry/repository path; publication uses `SCW_REG_USER` and
-`SCW_SECRET_KEY`, on main pushes or manual dispatch with `publish=true`.
+`SCW_SECRET_KEY`, only on a manual dispatch with `publish=true`: pushes and
+pull requests build the images without publishing them.
 Tags are `sha-<full commit>-cpu` and `sha-<full commit>-gpu`; use the published
 digest in ops Terraform. GPU inference must still be verified on the L4 VM.
 The VM must be able to pull the image: the current bootstrap has no registry

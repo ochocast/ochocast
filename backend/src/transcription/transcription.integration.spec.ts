@@ -113,15 +113,18 @@ integration(
       let ready = false;
       const readyDeadline = Date.now() + 600_000;
       while (Date.now() < readyDeadline) {
+        let response: Response | undefined;
         try {
-          const response = await fetch(`${apiUrl}/health`, {
+          response = await fetch(`${apiUrl}/health`, {
             signal: AbortSignal.timeout(5000),
           });
-          if (response.ok) {
-            ready = true;
-            break;
-          }
         } catch {}
+        if (response?.ok) {
+          ready = true;
+          break;
+        }
+        if (response?.status === 500)
+          throw new Error('Local Whisper model failed to load');
         await new Promise((resolve) => setTimeout(resolve, 5000));
       }
       if (!ready)

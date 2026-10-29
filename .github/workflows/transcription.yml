@@ -76,9 +76,11 @@ jobs:
       - name: Wait for model inference readiness
         run: |
           for attempt in $(seq 1 120); do
-            if curl --fail --silent --max-time 5 http://127.0.0.1:28082/health; then
-              exit 0
-            fi
+            case "$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 http://127.0.0.1:28082/health || true)" in
+              200) exit 0 ;;
+              # The model failed to load: waiting longer cannot help.
+              500) echo "Whisper failed to load its model"; exit 1 ;;
+            esac
             sleep 5
           done
           exit 1
