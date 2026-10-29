@@ -291,7 +291,13 @@ const VideoMedia: FC = () => {
 
       if (mediaRes) setUrl(mediaRes.data);
 
-      if (subtitleRes && subtitleRes.data) {
+      // An error body is not a subtitle URL: without one, the transcript poll
+      // below can start.
+      if (
+        subtitleRes?.ok &&
+        typeof subtitleRes.data === 'string' &&
+        subtitleRes.data
+      ) {
         setSubtitleUrl(subtitleRes.data);
       } else {
         setSubtitleUrl(null);
@@ -357,12 +363,16 @@ const VideoMedia: FC = () => {
     let cancelled = false;
     const poll = window.setInterval(async () => {
       if (document.hidden) return;
+      // An error page (a proxy 502 during a rollout) is retried next time.
       const response = await getVideo(videoId);
-      const refreshed = response?.data?.[0] as Video | undefined;
+      const refreshed: Video | undefined =
+        response?.ok && Array.isArray(response.data)
+          ? response.data[0]
+          : undefined;
       if (!refreshed || cancelled) return;
       if (refreshed.subtitle_id) {
         const subtitle = await getSubtitle(videoId);
-        if (!cancelled && typeof subtitle?.data === 'string')
+        if (!cancelled && subtitle?.ok && typeof subtitle.data === 'string')
           setSubtitleUrl(subtitle.data);
       } else if (
         !['pending', 'processing'].includes(

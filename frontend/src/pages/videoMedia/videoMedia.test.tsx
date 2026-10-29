@@ -44,12 +44,21 @@ jest.mock('react-markdown', () => ({
 }));
 
 jest.mock('react-player/lazy', () => {
-  const { createElement, forwardRef } = jest.requireActual('react');
+  const { createElement, forwardRef, useImperativeHandle, useRef } =
+    jest.requireActual('react');
   return {
     __esModule: true,
-    default: forwardRef(({ url }: { url: string }, _ref: unknown) =>
-      createElement('div', { 'data-testid': 'player', 'data-url': url }),
-    ),
+    default: forwardRef(({ url }: { url: string }, ref: unknown) => {
+      const element = useRef(null);
+      useImperativeHandle(ref, () => ({
+        getInternalPlayer: () => element.current,
+      }));
+      return createElement('video', {
+        'data-testid': 'player',
+        'data-url': url,
+        ref: element,
+      });
+    }),
   };
 });
 
@@ -144,5 +153,50 @@ describe('VideoMedia', () => {
       'data-url',
       sourceUrl(1),
     );
+  });
+
+  // The nightly transcript may arrive while the page stays open: the open
+  // player gets its track without reloading the media.
+  it('adds a transcript that arrives while the video stays open', async () => {
+    const subtitleUrl = 'https://bucket.example/subtitle-auto-A.vtt';
+    (getVideo as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: [{ ...video, transcription_status: 'pending' }],
+      })
+      // An error page from a proxy must not stop the refresh.
+      .mockResolvedValueOnce({ ok: false, data: '<html>Bad gateway</html>' })
+      .mockResolvedValue({
+        ok: true,
+        data: [
+          {
+            ...video,
+            transcription_status: 'ready',
+            subtitle_id: 'subtitle-auto-A.vtt',
+          },
+        ],
+      });
+    // Without a subtitle the API answers 200 with an empty body.
+    (getSubtitle as jest.Mock).mockResolvedValueOnce({ ok: true, data: '' });
+    render(<VideoMedia />);
+    await settle();
+    const player = screen.getByTestId('player');
+    expect(player.querySelector('track')).toBeNull();
+
+    (getSubtitle as jest.Mock).mockResolvedValue({
+      ok: true,
+      data: subtitleUrl,
+    });
+    for (let poll = 0; poll < 2; poll++) {
+      await act(async () => {
+        jest.advanceTimersByTime(5 * 60 * 1000);
+      });
+      await settle();
+    }
+
+    const track = player.querySelector('track');
+    expect(track).toHaveAttribute('src', subtitleUrl);
+    expect(track).toHaveAttribute('label', 'Français');
+    expect(getMedia).toHaveBeenCalledTimes(1);
   });
 });
