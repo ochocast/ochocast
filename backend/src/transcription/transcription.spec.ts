@@ -193,6 +193,21 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     expect(requested).toBe(false);
   });
 
+  it('recovers a requested worker while transcription is disabled', async () => {
+    process.env.TRANSCRIPTION_ENABLED = 'false';
+    requested = true;
+    const runner = { connect: jest.fn(), release: jest.fn(), query };
+    const disabled = new TranscriptionService(
+      { createQueryRunner: () => runner } as unknown as DataSource,
+      {} as S3Client,
+    );
+    await disabled.recover();
+    expect(requested).toBe(false);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      'https://stop.test',
+    ]);
+  });
+
   it('does not start or stop a worker already owned by another replica', async () => {
     query.mockImplementation(async () => [{ acquired: false }]);
     await service.run();
