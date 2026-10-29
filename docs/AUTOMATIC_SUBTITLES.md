@@ -1,15 +1,16 @@
 # Sous-titres automatiques
 
 La première version en staging cible les nouvelles vidéos qui passent par le
-worker FFmpeg et pour lesquelles il extrait un fichier audio. Les vidéos publiées
-directement depuis leur source et les anciennes vidéos sans audio extrait ne sont
-pas prises en charge automatiquement dans ce périmètre.
+worker FFmpeg et pour lesquelles il extrait un fichier audio, y compris celles
+trop longues pour être transcodées et lues depuis leur source. Les vidéos publiées
+sans worker FFmpeg (transcodage désactivé) et les anciennes vidéos sans audio
+extrait ne sont pas prises en charge automatiquement dans ce périmètre.
 
 La partie applicative est regroupée sur `feat/transcription-sous-titres`, avec
 la version actuelle de main intégrée. La partie infrastructure est regroupée
 sur `feat/ffmpeg-serverless` dans ops-architecture-lab. Une PR par dépôt suffit.
 
-FFmpeg produit un FLAC stéréo 44,1 kHz et le callback enregistre `audio_key`,
+FFmpeg produit un FLAC mono 16 kHz et le callback enregistre `audio_key`,
 `has_audio` et l'état de transcription. Le backend sélectionne les vidéos prêtes,
 non archivées et sans sous-titres. Par défaut, à 2 h Europe/Paris, il traite au
 plus 20 vidéos, démarre Whisper, attend `/health`, génère le WebVTT dans S3 puis
@@ -22,6 +23,11 @@ Les sous-titres fournis manuellement restent prioritaires.
 `pending`, `processing`, `ready`, `failed`, `no_audio` et `no_speech`.
 Un échec fixe une éligibilité de reprise à +1 h, mais la reprise effective se
 fait au prochain lancement du traitement (le lendemain avec le cron par défaut).
+Seuls un audio trop volumineux (413), introuvable (422) ou illisible (500) et un
+dépassement de `TRANSCRIPTION_TIMEOUT_MS` comptent parmi les trois tentatives
+d'une vidéo. Un refus qui toucherait toutes les vidéos (authentification, hôte
+audio non autorisé, worker occupé ou injoignable) rend la tentative et arrête le
+lot. Les vidéos jamais essayées passent avant les reprises.
 
 ## Validation locale
 
@@ -69,7 +75,10 @@ avant d'activer le cron. La procédure de staging, les secrets et le réseau son
 décrits dans `ops-architecture-lab/docs/runbooks/transcription-staging.md`.
 
 Pour les vidéos historiques, `npm run transcription:backfill` est en lecture
-seule. Avec `-- --enqueue`, il réutilise le FLAC existant (ou un ancien WAV). Les vidéos dont seule la source
+seule. Avec `-- --enqueue`, il réutilise le FLAC existant (ou un ancien WAV)
+sous la limite de téléchargement du worker (`TRANSCRIPT_MAX_AUDIO_BYTES`,
+512 MiB par défaut : un ancien WAV la dépasse vers 50 min, il est alors signalé
+et laissé tel quel). Les vidéos dont seule la source
 est conservée sont signalées et laissées en ligne : leur traitement nécessite
 un futur worker audio-only. Sans audio extrait ni source, un nouvel upload est
 nécessaire.
