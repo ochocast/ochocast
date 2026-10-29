@@ -1,5 +1,10 @@
 # Sous-titres automatiques
 
+La première version en staging cible les nouvelles vidéos qui passent par le
+worker FFmpeg et pour lesquelles il extrait un fichier audio. Les vidéos publiées
+directement depuis leur source et les anciennes vidéos sans audio extrait ne sont
+pas prises en charge automatiquement dans ce périmètre.
+
 La partie applicative est regroupée sur `feat/transcription-sous-titres`, avec
 la version actuelle de main intégrée. La partie infrastructure est regroupée
 sur `feat/ffmpeg-serverless` dans ops-architecture-lab. Une PR par dépôt suffit.
