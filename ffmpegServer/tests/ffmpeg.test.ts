@@ -96,7 +96,7 @@ const ffmpeg = (...args: string[]) =>
     ...args,
   ]);
 // A short H.264/AAC clip; the audio is 48 kHz stereo with different channels,
-// so the 44.1 kHz stereo extraction really resamples.
+// so the 16 kHz mono extraction really resamples and downmixes.
 const clip = (file: string, audio = true, seconds = 2) =>
   ffmpeg(
     '-f',
@@ -430,6 +430,65 @@ test('a video above TRANSCODING_MAX_DURATION_SECONDS publishes its attachments, 
   });
 });
 
+test('a too long video that browsers cannot play from its source extracts no FLAC', async (t) => {
+  setEnv(t, 'TRANSCODING_MAX_DURATION_SECONDS', '1');
+  t.mock.method(
+    TranscodingService.prototype as unknown as Uploads,
+    'uploadFile',
+    async () => {},
+  );
+  const extract = t.mock.method(
+    TranscodingService.prototype,
+    'extractAudioFlac',
+    async () => {},
+  );
+  t.mock.method(console, 'error', () => {});
+  await withDirectory(async (directory) => {
+    const input = path.join(directory, 'input.mp4');
+    await clip(input);
+    // The backend fails such a video: a FLAC would never be read.
+    const result = await new TranscodingService({} as S3Client).processJob(
+      { ...fixtureJob, originalKey: 'video/source/original.mkv' },
+      input,
+      undefined,
+      undefined,
+      true,
+    );
+    assert.equal(result.reason, 'duration_exceeded');
+    assert.equal(extract.mock.callCount(), 0);
+    assert.equal(result.audio_key, undefined);
+  });
+});
+
+test('a FLAC failure does not cost a too long video its source playback', async (t) => {
+  setEnv(t, 'TRANSCODING_MAX_DURATION_SECONDS', '1');
+  t.mock.method(
+    TranscodingService.prototype as unknown as Uploads,
+    'uploadFile',
+    async () => {},
+  );
+  t.mock.method(TranscodingService.prototype, 'extractAudioFlac', async () => {
+    throw new Error('Invalid audio stream');
+  });
+  t.mock.method(console, 'error', () => {});
+  t.mock.method(console, 'warn', () => {});
+  await withDirectory(async (directory) => {
+    const input = path.join(directory, 'input.mp4');
+    await clip(input);
+    const result = await new TranscodingService({} as S3Client).processJob(
+      fixtureJob,
+      input,
+      undefined,
+      undefined,
+      true,
+    );
+    assert.equal(result.permanent, true);
+    assert.equal(result.reason, 'duration_exceeded');
+    assert.equal(result.sourceCodecsPlayable, true);
+    assert.equal(result.audio_key, undefined);
+  });
+});
+
 test('a full job uploads lossless FLAC audio, never WAV', async (t) => {
   const uploads: Array<{ key: string; type: string }> = [];
   let flacSamples = '';
@@ -518,13 +577,13 @@ test('a full job probes its source once', async (t) => {
   });
 });
 
-test('FLAC audio holds exactly the samples of the former PCM s16le WAV extraction', async () => {
+test('FLAC audio holds exactly the 16 kHz mono PCM samples Whisper reads', async () => {
   await withDirectory(async (directory) => {
     const input = path.join(directory, 'input.mp4');
     const wav = path.join(directory, 'audio.wav');
     const flac = path.join(directory, 'audio.flac');
     await clip(input);
-    // The exact former extraction command.
+    // The same samples as an uncompressed PCM s16le extraction.
     await ffmpeg(
       '-i',
       input,
@@ -532,9 +591,9 @@ test('FLAC audio holds exactly the samples of the former PCM s16le WAV extractio
       '-acodec',
       'pcm_s16le',
       '-ar',
-      '44100',
+      '16000',
       '-ac',
-      '2',
+      '1',
       wav,
     );
     await new TranscodingService({} as S3Client).extractAudioFlac(input, flac);
@@ -567,10 +626,10 @@ test('FLAC audio holds exactly the samples of the former PCM s16le WAV extractio
       ],
     );
     assert.deepEqual(stdout.trim().split('\n').sort(), [
-      'channels=2',
+      'channels=1',
       'codec_name=flac',
       'sample_fmt=s16',
-      'sample_rate=44100',
+      'sample_rate=16000',
     ]);
     assert.ok((await stat(flac)).size < (await stat(wav)).size);
   });
