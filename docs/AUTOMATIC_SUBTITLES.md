@@ -23,11 +23,15 @@ Les sous-titres fournis manuellement restent prioritaires.
 `pending`, `processing`, `ready`, `failed`, `no_audio` et `no_speech`.
 Un échec fixe une éligibilité de reprise à +1 h, mais la reprise effective se
 fait au prochain lancement du traitement (le lendemain avec le cron par défaut).
-Seuls un audio trop volumineux (413), introuvable (422) ou illisible (500) et un
-dépassement de `TRANSCRIPTION_TIMEOUT_MS` comptent parmi les trois tentatives
-d'une vidéo. Un refus qui toucherait toutes les vidéos (authentification, hôte
-audio non autorisé, worker occupé ou injoignable) rend la tentative et arrête le
-lot. Les vidéos jamais essayées passent avant les reprises.
+Chaque échec compte parmi les trois tentatives de la vidéo concernée. Après un
+audio trop volumineux (413), introuvable (422) ou illisible (500), le lot
+continue. Un refus qui toucherait toutes les vidéos (requête invalide,
+authentification, hôte audio non autorisé, worker occupé, en échec ou
+injoignable, téléchargement interrompu) ou un dépassement de
+`TRANSCRIPTION_TIMEOUT_MS` arrête le lot : une seule tentative est consommée par
+lancement. Les vidéos jamais essayées passent avant les reprises. Une vidéo
+interrompue (crash, déploiement) redevient `pending`, ou `failed` une fois ses
+tentatives épuisées.
 
 ## Validation locale
 
