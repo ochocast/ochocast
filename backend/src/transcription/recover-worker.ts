@@ -8,7 +8,7 @@ async function main() {
   // This process may only stop an orphan; it must never start a batch.
   process.env.TRANSCRIPTION_ENABLED = 'false';
   if (!process.env.WORKER_STOP_URL)
-    throw new Error('Worker recovery requires a stop URL and control token');
+    throw new Error('Worker recovery requires WORKER_STOP_URL');
   // recover() never accesses S3; no storage credentials are required. The
   // service checks the stop URL and token as it does in the backend.
   const service = new TranscriptionService(db, null as unknown as S3Client);

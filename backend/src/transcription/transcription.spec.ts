@@ -100,7 +100,7 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     ).toContain("transcoding_status = 'ready'");
   });
 
-  it('fails the videos an interrupted batch left processing before selecting', async () => {
+  it('requeues the videos an interrupted batch left processing before selecting', async () => {
     videos = [];
     await service.run();
     const statements = query.mock.calls.map(([sql]) => sql);
@@ -108,8 +108,9 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       sql.includes("WHERE transcription_status = 'processing'"),
     );
     expect(interrupted).toBeGreaterThan(-1);
+    // Pending keeps an open page waiting; out of attempts it is final.
     expect(statements[interrupted]).toContain(
-      "SET transcription_status = 'failed'",
+      "CASE WHEN transcription_attempts >= 3 THEN 'failed' ELSE 'pending' END",
     );
     expect(interrupted).toBeLessThan(
       statements.findIndex((sql) => sql.startsWith('SELECT id')),
@@ -145,8 +146,8 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     expect(requested).toBe(false);
   });
 
-  it.each([401, 403, 404, 409, 502, 503])(
-    'gives the attempt back and stops the batch when the worker refuses with %i',
+  it.each([400, 401, 403, 404, 409, 502, 503])(
+    'counts a %i refusal against the current video only and stops the batch',
     async (status) => {
       videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
       fetchMock.mockImplementation(
@@ -157,40 +158,69 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       );
       await expect(service.run()).resolves.toEqual({
         processed: 0,
-        failed: 0,
+        failed: 1,
       });
       const updates = query.mock.calls.filter(
         ([sql]) =>
           sql.startsWith('UPDATE video_entity') &&
           sql.includes('WHERE id = $1'),
       );
+      // Claimed then failed: its attempt counts, so it cannot hold the head of
+      // the queue, and video-2 is not touched.
       expect(updates.map(([, params]) => params[0])).toEqual([
         'video-1',
         'video-1',
       ]);
       expect(updates[1]).toEqual([
-        expect.stringContaining(
-          'transcription_attempts = transcription_attempts - 1',
-        ),
+        expect.stringContaining("transcription_status = 'failed'"),
         ['video-1', `Whisper HTTP ${status}`],
       ]);
+      expect(query).not.toHaveBeenCalledWith(
+        expect.stringContaining('transcription_attempts - 1'),
+        expect.anything(),
+      );
       expect(requested).toBe(false);
     },
   );
 
-  it('gives the attempt back and stops the batch when the worker is unreachable', async () => {
+  it('counts an unreachable worker against the current video and stops the batch', async () => {
     videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
     fetchMock.mockImplementation(async (url) => {
       if (String(url).includes('/transcriptions'))
         throw new TypeError('fetch failed');
       return new Response('{}');
     });
-    await expect(service.run()).resolves.toEqual({ processed: 0, failed: 0 });
+    await expect(service.run()).resolves.toEqual({ processed: 0, failed: 1 });
     expect(query).toHaveBeenCalledWith(
-      expect.stringContaining('transcription_attempts - 1'),
+      expect.stringContaining("transcription_status = 'failed'"),
       ['video-1', 'Whisper request failed: fetch failed'],
     );
     expect(query).not.toHaveBeenCalledWith(expect.any(String), ['video-2']);
+  });
+
+  it('keeps the reason Whisper gives for a refusal', async () => {
+    fetchMock.mockImplementation(async (url) =>
+      String(url).includes('/transcriptions')
+        ? new Response(
+            JSON.stringify({ error: 'Audio download failed (URLError)' }),
+            { status: 502 },
+          )
+        : new Response('{}'),
+    );
+    await service.run();
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("transcription_status = 'failed'"),
+      ['video-1', 'Whisper HTTP 502: Audio download failed (URLError)'],
+    );
+  });
+
+  it('counts a storage timeout after a transcription without stopping the batch', async () => {
+    videos.push({ id: 'video-2', audio_key: 'video-2/audio.flac' });
+    // The AWS SDK names network errors TimeoutError too.
+    send.mockRejectedValueOnce(
+      Object.assign(new Error('socket hang up'), { name: 'TimeoutError' }),
+    );
+    await expect(service.run()).resolves.toEqual({ processed: 1, failed: 1 });
   });
 
   it.each([413, 422])(

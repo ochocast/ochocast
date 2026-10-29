@@ -14,7 +14,10 @@ const LOCK = 1791540000;
 // undecodable. Any other refusal would fail every video of the batch alike.
 const AUDIO_FAILURES = new Set([413, 422, 500]);
 
-/** The worker, the network or the configuration failed, not this video. */
+/**
+ * The worker cannot take the next video: it refused for a reason that is not
+ * this audio, failed, or still runs this request after its deadline.
+ */
 class WorkerFault extends Error {}
 
 function checkEndpoint(url: string) {
@@ -105,10 +108,11 @@ export class TranscriptionService {
     return this.locked(async (runner) => {
       await this.stopOrphan(runner);
       // No other batch runs under this lock: a video still processing was
-      // interrupted (crash, deploy). Its attempt counts, and its page stops
-      // waiting; it is retried below while attempts remain.
+      // interrupted (crash, deploy). Its attempt was counted when claimed; it
+      // waits again for a retry, or fails once out of attempts.
       await runner.query(
-        `UPDATE video_entity SET transcription_status = 'failed',
+        `UPDATE video_entity SET transcription_status =
+          CASE WHEN transcription_attempts >= 3 THEN 'failed' ELSE 'pending' END,
         transcription_error = 'Transcription interrupted'
         WHERE transcription_status = 'processing'`,
       );
@@ -182,33 +186,19 @@ export class TranscriptionService {
             }
             summary.processed += 1;
           } catch (error) {
-            const message = String(error.message || error).slice(0, 2000);
-            if (error instanceof WorkerFault) {
-              // Not this video's fault: give its attempt back and stop rather
-              // than fail every remaining video alike.
-              await runner.query(
-                `UPDATE video_entity SET transcription_status = 'pending',
-                transcription_attempts = transcription_attempts - 1, transcription_error = $2
-                WHERE id = $1 AND transcription_status = 'processing'`,
-                [video.id, message],
-              );
-              this.logger.warn(
-                `Transcription batch stopped at ${video.id}: ${error.message}`,
-              );
-              break;
-            }
             summary.failed += 1;
             await runner.query(
               `UPDATE video_entity SET transcription_status = 'failed',
               transcription_error = $2, transcription_retry_at = now() + interval '1 hour'
               WHERE id = $1 AND (subtitle_id IS NULL OR subtitle_id = '')`,
-              [video.id, message],
+              [video.id, String(error.message || error).slice(0, 2000)],
             );
             this.logger.warn(
               `Transcription failed for ${video.id}: ${error.message}`,
             );
-            // The worker still processes the abandoned request: stop here.
-            if (error.name === 'TimeoutError') break;
+            // Every remaining video would meet the same fault: stop. The
+            // attempt still counts, so one video cannot hold the queue's head.
+            if (error instanceof WorkerFault) break;
           }
         }
       } finally {
@@ -222,7 +212,8 @@ export class TranscriptionService {
   }
 
   async recover() {
-    if (!this.stopUrl || !this.controlToken || this.running) return;
+    // The constructor rejects a stop URL without a valid token.
+    if (!this.stopUrl || this.running) return;
     await this.locked((runner) => this.stopOrphan(runner));
   }
 
@@ -268,7 +259,10 @@ export class TranscriptionService {
     );
   }
 
-  /** Whisper's verbose JSON. A WorkerFault is not caused by this audio. */
+  /**
+   * Whisper's verbose JSON. A WorkerFault means the worker cannot take
+   * another video.
+   */
   private async transcribe(audioUrl: string) {
     let response: Response;
     try {
@@ -288,11 +282,21 @@ export class TranscriptionService {
       } as RequestInit);
       if (response.ok) return await response.json();
     } catch (error) {
-      // A timeout counts against the video: its audio may be too long.
-      if (error.name === 'TimeoutError') throw error;
-      throw new WorkerFault(`Whisper request failed: ${error.message}`);
+      // After its deadline the worker still runs this request.
+      throw new WorkerFault(
+        error.name === 'TimeoutError'
+          ? `Whisper timed out after ${this.timeoutMs} ms`
+          : `Whisper request failed: ${error.message}`,
+      );
     }
-    const message = `Whisper HTTP ${response.status}`;
+    // Whisper states why it refused; a proxy error page has no reason.
+    const reason = await response.json().then(
+      (body) => (typeof body?.error === 'string' ? body.error : ''),
+      () => '',
+    );
+    const message = reason
+      ? `Whisper HTTP ${response.status}: ${reason.slice(0, 200)}`
+      : `Whisper HTTP ${response.status}`;
     throw AUDIO_FAILURES.has(response.status)
       ? new Error(message)
       : new WorkerFault(message);
