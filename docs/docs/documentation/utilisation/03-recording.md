@@ -108,10 +108,10 @@ Avant de pouvoir utiliser l'enregistrement, plusieurs composants doivent être d
 | Composant | Description | Variable d'environnement |
 |-----------|-------------|--------------------------|
 | **Control Plane** | Orchestre les SFU et la découverte | `CONTROL_PLANE_URL` (backend) |
-| **VM liveRecorder** | Service Go qui capture les flux | `RECORDING_VM_URL` (backend) |
+| **liveRecorder** | Service Go qui capture les flux. En production, il tourne sur chaque worker SFU à la demande, à côté du SFU, et naît et meurt avec lui. En local, c'est un process lancé à la main | `SFU_RECORDER_IMAGE_TAG` (control plane), `RECORDING_VM_URL` (backend, en local) |
 | **Serveur(s) SFU** | Gère les connexions WebRTC | Enregistrés auprès du Control Plane |
 | **Stockage (MinIO/S3)** | Stocke les vidéos finales | `STOCK_*` (backend) |
-| **Secret partagé** | Authentifie le backend et la VM liveRecorder entre eux | `RECORDING_SHARED_SECRET` (backend et VM) |
+| **Secret partagé** | Le backend signe chaque requête au liveRecorder avec ce secret (HMAC horodaté), sans jamais l'envoyer ; le liveRecorder l'envoie au backend en HTTPS avec chaque segment | `RECORDING_SHARED_SECRET` (backend, liveRecorder, control plane) |
 
 ### Configuration Backend
 
@@ -121,10 +121,12 @@ Dans le fichier `.env` du backend :
 # URL du Control Plane (pour la découverte du SFU)
 CONTROL_PLANE_URL=http://localhost:8090
 
-# URL de la VM d'enregistrement
-RECORDING_VM_URL=http://localhost:8080
+# liveRecorder utilisé quand le control plane n'en indique pas sur le worker
+# (en local). En production, le backend appelle celui du worker qui porte le
+# live (champ recorder_service_url de GET /recorder du control plane).
+RECORDING_VM_URL=http://localhost:8083
 
-# Secret partagé avec la VM liveRecorder (même valeur des deux côtés)
+# Secret partagé avec le liveRecorder (même valeur des deux côtés)
 RECORDING_SHARED_SECRET=<secret>
 
 # Secret partagé avec le SFU (notifications live démarré / arrêté)

@@ -31,6 +31,18 @@ func TestWorkerConfigValidate(t *testing.T) {
 		{"missing TURN password", func(c *WorkerConfig) { c.TURNPassword = "" }},
 		{"backend URL without webhook secret", func(c *WorkerConfig) { c.BackendURL = "https://api.example.com" }},
 		{"webhook secret without backend URL", func(c *WorkerConfig) { c.WebhookSecret = "webhook-secret" }},
+		{"recorder without recording secret", func(c *WorkerConfig) {
+			c.RecorderImageTag, c.BackendURL, c.WebhookSecret = "sha-abc123", "https://api.example.com", "w"
+		}},
+		{"recorder without backend URL", func(c *WorkerConfig) { c.RecorderImageTag, c.RecordingSecret = "sha-abc123", "r" }},
+		{"mutable recorder tag", func(c *WorkerConfig) {
+			c.RecorderImageTag, c.RecordingSecret, c.BackendURL, c.WebhookSecret = "latest", "r", "https://api.example.com", "w"
+		}},
+		{"invalid recorder port", func(c *WorkerConfig) {
+			c.RecorderImageTag, c.RecordingSecret, c.BackendURL, c.WebhookSecret = "sha-abc123", "r", "https://api.example.com", "w"
+			c.RecorderPort = "http"
+		}},
+		{"recording secret without recorder", func(c *WorkerConfig) { c.RecordingSecret = "r" }},
 		{"partial ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMax = "" }},
 		{"reversed ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMin = "50101" }},
 	}
@@ -90,5 +102,39 @@ func TestWorkerConfigRender(t *testing.T) {
 	}
 	if strings.Contains(rendered, `$1 == "PUBLIC_IP"`) {
 		t.Fatal("rendered user-data must not parse the legacy PUBLIC_IP table")
+	}
+}
+
+func TestWorkerConfigRenderRecorder(t *testing.T) {
+	cfg := WorkerConfig{
+		ImageTag:         "sha-abc123",
+		ControlPlaneURL:  "https://sfu.example.com",
+		BackendURL:       "https://api.example.com",
+		WebhookSecret:    "webhook-secret",
+		RecorderImageTag: "sha-def456",
+		RecordingSecret:  "recording-secret",
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("valid recorder config rejected: %v", err)
+	}
+	rendered := cfg.Render("sfu-123", "room-456")
+	for _, want := range []string{
+		"export RECORDER_IMAGE_TAG='sha-def456'",
+		"export RECORDING_SHARED_SECRET='recording-secret'",
+		"export RECORDER_PORT='8083'",
+		`RECORDER_IMAGE="${REGISTRY}/live-recorder:${RECORDER_IMAGE_TAG}"`,
+		`-e RECORDER_SFU_URL="http://127.0.0.1:${SFU_PORT}"`,
+		`-e BACKEND_PUBLIC_URL="$BACKEND_URL"`,
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("rendered user-data missing %q", want)
+		}
+	}
+}
+
+func TestWorkerConfigRenderWithoutRecorder(t *testing.T) {
+	rendered := WorkerConfig{ImageTag: "sha-abc123", ControlPlaneURL: "https://sfu.example.com"}.Render("s", "r")
+	if !strings.Contains(rendered, "export RECORDER_IMAGE_TAG=''") {
+		t.Fatal("without a recorder tag the bootstrap must skip the recorder container")
 	}
 }

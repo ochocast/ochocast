@@ -103,6 +103,32 @@ type ControlPlane struct {
 	// Externally reachable TLS endpoint used in streamer-facing WHIP URLs.
 	// Empty falls back to the host and forwarding headers of the HTTP request.
 	publicURL string
+
+	// Port of the liveRecorder running on each worker, next to its SFU.
+	// Empty when workers carry no recorder (the backend then uses its own
+	// RECORDING_VM_URL).
+	recorderPort string
+}
+
+// SetRecorderPort declares that every worker runs a liveRecorder on port, so
+// recorder discovery returns its URL (recorder_service_url).
+func (cp *ControlPlane) SetRecorderPort(port string) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	cp.recorderPort = port
+}
+
+// recorderServiceURL is the liveRecorder of the worker at sfuURL: same host,
+// recorder port. Empty when workers carry no recorder.
+func recorderServiceURL(sfuURL, port string) string {
+	if port == "" {
+		return ""
+	}
+	u, err := url.Parse(sfuURL)
+	if err != nil || u.Hostname() == "" {
+		return ""
+	}
+	return (&url.URL{Scheme: "http", Host: net.JoinHostPort(u.Hostname(), port)}).String()
 }
 
 // capacityEnsurer provisions on-demand SFU capacity for a room. Implemented by
@@ -2063,6 +2089,7 @@ func (cp *ControlPlane) HandleRecorder(w http.ResponseWriter, r *http.Request) {
 
 	cp.mu.RLock()
 	sfu, sfuExists := cp.sfus[ingestionSFUID]
+	recorderPort := cp.recorderPort
 	cp.mu.RUnlock()
 
 	if !sfuExists || !sfu.Active {
@@ -2075,13 +2102,18 @@ func (cp *ControlPlane) HandleRecorder(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response := map[string]interface{}{
 		"sfu_id":       ingestionSFUID,
 		"sfu_url":      sfu.URL,
 		"room_id":      roomID,
 		"room_key":     topology.Key,
 		"recorder_url": fmt.Sprintf("%s/recorder?room_id=%s&key=%s", sfu.URL, roomID, topology.Key),
-	})
+	}
+	// The liveRecorder of the worker carrying the live, for the backend.
+	if service := recorderServiceURL(sfu.URL, recorderPort); service != "" {
+		response["recorder_service_url"] = service
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // HandleStreamStatus checks if a stream is active for a room

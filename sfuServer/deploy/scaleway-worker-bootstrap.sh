@@ -86,6 +86,26 @@ if [ "$ICE_RELAY_ONLY" = "true" ]; then
   require_env TURN_PASSWORD
 fi
 
+# liveRecorder next to the SFU (optional): it records the local SFU and
+# uploads each segment to the backend, then disappears with the worker.
+if [ -n "${RECORDER_IMAGE_TAG:-}" ]; then
+  require_env RECORDING_SHARED_SECRET
+  require_env BACKEND_URL
+  RECORDER_IMAGE="${REGISTRY}/live-recorder:${RECORDER_IMAGE_TAG}"
+  docker pull "$RECORDER_IMAGE"
+  docker rm -f ochocast-live-recorder >/dev/null 2>&1 || true
+  docker run \
+    --detach \
+    --name ochocast-live-recorder \
+    --restart unless-stopped \
+    --network host \
+    -e RECORDING_SHARED_SECRET="$RECORDING_SHARED_SECRET" \
+    -e BACKEND_PUBLIC_URL="$BACKEND_URL" \
+    -e RECORDER_SFU_URL="http://127.0.0.1:${SFU_PORT}" \
+    "$RECORDER_IMAGE" \
+    ./liveRecorder -http ":${RECORDER_PORT:-8083}"
+fi
+
 docker pull "$IMAGE"
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 docker run \

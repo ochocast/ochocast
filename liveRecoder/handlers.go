@@ -18,22 +18,7 @@ import (
 func setCORSHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Recording-Secret")
-}
-
-// requireSecret checks the X-Recording-Secret header against the configured shared secret.
-// Returns true and continues if valid; writes 401 and returns false if invalid.
-func requireSecret(s *RecordingServer, w http.ResponseWriter, r *http.Request) bool {
-	if s.sharedSecret == "" {
-		log.Printf("[SECURITY] RECORDING_SHARED_SECRET is not set — rejecting all requests")
-		http.Error(w, "Recording endpoint not configured", http.StatusUnauthorized)
-		return false
-	}
-	if r.Header.Get("X-Recording-Secret") != s.sharedSecret {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return false
-	}
-	return true
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Recording-Timestamp, X-Recording-Signature")
 }
 
 // handleStart handles POST /recording/start
@@ -45,7 +30,7 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !requireSecret(s, w, r) {
+	if !requireSignature(s, w, r) {
 		return
 	}
 
@@ -65,7 +50,13 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "room_id is required", http.StatusBadRequest)
 		return
 	}
-	if req.SfuURL == "" {
+	// On an SFU worker the recorder always records its local SFU
+	// (RECORDER_SFU_URL); the URL sent by the backend is only used elsewhere.
+	sfuURL := req.SfuURL
+	if s.localSfuURL != "" {
+		sfuURL = s.localSfuURL
+	}
+	if sfuURL == "" {
 		http.Error(w, "sfu_url is required", http.StatusBadRequest)
 		return
 	}
@@ -86,7 +77,7 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		EventID:      req.RoomID,
 		RoomID:       req.RoomID,
 		RoomKey:      req.RoomKey,
-		SfuBaseURL:   req.SfuURL,
+		SfuBaseURL:   sfuURL,
 		OutputDir:    outputDir,
 		BackendURL:   s.backendURL,
 		TrackID:      req.TrackID,
@@ -124,7 +115,7 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !requireSecret(s, w, r) {
+	if !requireSignature(s, w, r) {
 		return
 	}
 
@@ -186,7 +177,7 @@ func (s *RecordingServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !requireSecret(s, w, r) {
+	if !requireSignature(s, w, r) {
 		return
 	}
 

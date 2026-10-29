@@ -1,8 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { createHash, createHmac } from 'node:crypto';
 import {
   IRecordingVMGateway,
   StartRecordingConfig,
 } from '../../domain/gateways/recording-vm.gateway';
+
+/**
+ * HMAC-SHA256 of `timestamp \n method \n path?query \n sha256(body)`, keyed
+ * with RECORDING_SHARED_SECRET. The recorder runs on the on-demand SFU worker,
+ * reached over plain HTTP, so the secret itself is never sent (see
+ * liveRecoder/auth.go for the verification).
+ */
+export function signRecorderRequest(
+  secret: string,
+  timestamp: string,
+  method: string,
+  pathAndQuery: string,
+  body: string,
+): string {
+  const bodyHash = createHash('sha256').update(body).digest('hex');
+  return createHmac('sha256', secret)
+    .update(`${timestamp}\n${method}\n${pathAndQuery}\n${bodyHash}`)
+    .digest('hex');
+}
 
 @Injectable()
 export class RecordingVMGateway implements IRecordingVMGateway {
@@ -10,8 +30,12 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   private readonly vmUrl: string;
   private readonly controlPlaneUrl: string;
   private readonly sharedSecret: string;
+  // Recorder that records each room: the one on the worker carrying the live.
+  private readonly recorderByRoom = new Map<string, string>();
 
   constructor() {
+    // Fallback when the control plane reports no per-worker recorder (local
+    // development, or workers started without one).
     this.vmUrl = process.env.RECORDING_VM_URL || 'http://localhost:8080';
     this.controlPlaneUrl =
       process.env.CONTROL_PLANE_URL || 'http://localhost:8090';
@@ -20,39 +44,95 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     this.logger.log(`Control Plane URL: ${this.controlPlaneUrl}`);
   }
 
-  private get secretHeaders(): Record<string, string> {
-    return { 'X-Recording-Secret': this.sharedSecret };
+  /** Calls the recorder with a signed request. */
+  private recorderFetch(
+    baseUrl: string,
+    pathAndQuery: string,
+    method: 'GET' | 'POST',
+    body?: unknown,
+  ): Promise<Response> {
+    const payload = body === undefined ? '' : JSON.stringify(body);
+    const timestamp = Math.floor(Date.now() / 1000).toString();
+    return fetch(`${baseUrl}${pathAndQuery}`, {
+      method,
+      headers: {
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        'X-Recording-Timestamp': timestamp,
+        'X-Recording-Signature': signRecorderRequest(
+          this.sharedSecret,
+          timestamp,
+          method,
+          pathAndQuery,
+          payload,
+        ),
+      },
+      ...(body === undefined ? {} : { body: payload }),
+    });
   }
 
-  async startRecording(config: StartRecordingConfig): Promise<void> {
-    this.logger.log(`Starting recording for room: ${config.roomId}`);
-
-    // Step 1: Discover ingestion SFU from Control Plane (same pattern as frontend /viewer)
-    const discoveryUrl = `${this.controlPlaneUrl}/recorder?room_id=${config.roomId}`;
-    this.logger.log(`Discovering SFU from control plane: ${discoveryUrl}`);
-
+  /**
+   * The recorder of the worker carrying the room, from the control plane.
+   * `null` when no live runs: no room (404), room not ready (503) or ended
+   * (409) — with on-demand workers there is then no recorder at all.
+   */
+  private async discover(roomId: string): Promise<{
+    sfuUrl: string;
+    roomKey: string;
+    recorderUrl: string;
+  } | null> {
+    const discoveryUrl = `${this.controlPlaneUrl}/recorder?room_id=${encodeURIComponent(roomId)}`;
     const cpResponse = await fetch(discoveryUrl);
-
+    if ([404, 409, 503].includes(cpResponse.status)) return null;
     if (!cpResponse.ok) {
       const errorText = await cpResponse.text();
       this.logger.error(`Failed to discover SFU: ${errorText}`);
       throw new Error(`Failed to discover SFU: ${errorText}`);
     }
-
     const cpData = await cpResponse.json();
-    this.logger.log(`SFU discovery response: ${JSON.stringify(cpData)}`);
+    return {
+      sfuUrl: cpData.sfu_url,
+      roomKey: cpData.room_key,
+      recorderUrl: cpData.recorder_service_url || this.vmUrl,
+    };
+  }
 
-    // Step 2: Start recording with the discovered SFU URL and key
-    const response = await fetch(`${this.vmUrl}/recording/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this.secretHeaders },
-      body: JSON.stringify({
+  /**
+   * Recorder of a room (rediscovered after a backend restart); `null` when no
+   * live runs, so nothing can be recording it.
+   */
+  private async recorderFor(roomId: string): Promise<string | null> {
+    return (
+      this.recorderByRoom.get(roomId) ??
+      (await this.discover(roomId))?.recorderUrl ??
+      null
+    );
+  }
+
+  async startRecording(config: StartRecordingConfig): Promise<void> {
+    this.logger.log(`Starting recording for room: ${config.roomId}`);
+
+    // Step 1: discover the worker carrying the live, and its recorder.
+    const target = await this.discover(config.roomId);
+    if (!target) {
+      throw new Error(`No live is running for room ${config.roomId}`);
+    }
+    this.logger.log(
+      `Recording room ${config.roomId} with recorder ${target.recorderUrl}`,
+    );
+
+    // Step 2: start recording on that recorder.
+    const response = await this.recorderFetch(
+      target.recorderUrl,
+      '/recording/start',
+      'POST',
+      {
         room_id: config.roomId,
-        room_key: cpData.room_key,
-        sfu_url: cpData.sfu_url,
+        room_key: target.roomKey,
+        sfu_url: target.sfuUrl,
         track_id: config.trackId,
-      }),
-    });
+      },
+    );
+    this.recorderByRoom.set(config.roomId, target.recorderUrl);
 
     // 409 = the recorder already records this room: starting is idempotent.
     if (response.status === 409) {
@@ -76,11 +156,19 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   async stopRecording(roomId: string): Promise<void> {
     this.logger.log(`Stopping recording for room: ${roomId}`);
 
-    const response = await fetch(`${this.vmUrl}/recording/stop`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this.secretHeaders },
-      body: JSON.stringify({ room_id: roomId }),
-    });
+    const recorderUrl = await this.recorderFor(roomId);
+    this.recorderByRoom.delete(roomId);
+    if (!recorderUrl) {
+      // The worker is gone with the live: its recorder already stopped.
+      this.logger.log(`No live for room ${roomId}: nothing to stop`);
+      return;
+    }
+    const response = await this.recorderFetch(
+      recorderUrl,
+      '/recording/stop',
+      'POST',
+      { room_id: roomId },
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -96,13 +184,22 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     roomId?: string;
     filePath?: string;
   }> {
-    const url = roomId
-      ? `${this.vmUrl}/recording/status?room_id=${roomId}`
-      : `${this.vmUrl}/recording/status`;
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.secretHeaders,
-    });
+    let response: Response;
+    if (roomId) {
+      const recorderUrl = await this.recorderFor(roomId);
+      if (!recorderUrl) return { status: 'idle', roomId };
+      response = await this.recorderFetch(
+        recorderUrl,
+        `/recording/status?room_id=${encodeURIComponent(roomId)}`,
+        'GET',
+      );
+    } else {
+      response = await this.recorderFetch(
+        this.vmUrl,
+        '/recording/status',
+        'GET',
+      );
+    }
 
     if (!response.ok) {
       throw new Error('Failed to get recording status');

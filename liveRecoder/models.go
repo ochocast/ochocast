@@ -55,8 +55,9 @@ type RecordingServer struct {
 	mu            sync.Mutex
 	defaultOutput string
 	// Environment-based config (read from env vars only — never from request body)
-	sharedSecret string // RECORDING_SHARED_SECRET — required on every request
+	sharedSecret string // RECORDING_SHARED_SECRET — signs every request (auth.go)
 	backendURL   string
+	localSfuURL  string // RECORDER_SFU_URL — set on an SFU worker: the local SFU
 }
 
 // NewRecordingServer creates a new HTTP server instance
@@ -66,5 +67,6 @@ func NewRecordingServer(defaultOutput string) *RecordingServer {
 		defaultOutput: defaultOutput,
 		sharedSecret:  getEnv("RECORDING_SHARED_SECRET", ""),
 		backendURL:    getEnv("BACKEND_PUBLIC_URL", ""),
+		localSfuURL:   getEnv("RECORDER_SFU_URL", ""),
 	}
 }
