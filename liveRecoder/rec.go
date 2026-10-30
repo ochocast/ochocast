@@ -7,8 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -35,41 +35,33 @@ type RecordingSession struct {
 	audioTrackAdded  bool                   // Flag to track if audio track is added
 	backendURL       string                 // Backend URL for auto-publish after recording
 	trackID          string                 // Track ID for video metadata
-	// Keycloak authentication for publishing
-	keycloakURL          string // Keycloak token endpoint URL
-	keycloakClientID     string // Keycloak client ID
-	keycloakClientSecret string // Keycloak client secret (for confidential clients)
-	keycloakUsername     string // Keycloak username (recording user)
-	keycloakPassword     string // Keycloak password (recording user)
+	sharedSecret     string                 // Shared secret sent to backend on publish
+	uploads          *uploadTracker         // Uploads in flight (a shutdown waits for them)
 }
 
 // RecordingConfig holds all configuration for a recording session
 type RecordingConfig struct {
-	EventID              string
-	RoomID               string
-	RoomKey              string
-	SfuBaseURL           string
-	OutputDir            string
-	BackendURL           string
-	TrackID              string
-	KeycloakURL          string
-	KeycloakClientID     string
-	KeycloakClientSecret string
-	KeycloakUsername     string
-	KeycloakPassword     string
+	EventID      string
+	RoomID       string
+	RoomKey      string
+	SfuBaseURL   string
+	OutputDir    string
+	BackendURL   string
+	TrackID      string
+	SharedSecret string         // Sent as X-Recording-Secret when publishing to backend
+	Uploads      *uploadTracker // The server's; nil in CLI mode
 }
 
 // NewRecordingSession creates a new recording session.
 // Returns: initialized RecordingSession or error
 func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
-	// Create output directory if it doesn't exist
-	if err := os.MkdirAll(config.OutputDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output directory: %w", err)
+	// Write to a temp file — deleted automatically after successful publish
+	tmpFile, err := os.CreateTemp("", fmt.Sprintf("recording-%s-*.mp4", config.EventID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
-
-	// Generate timestamped filename for MP4
-	timestamp := time.Now().Format("20060102_150405")
-	mp4FilePath := filepath.Join(config.OutputDir, fmt.Sprintf("%s_%s.mp4", config.EventID, timestamp))
+	mp4FilePath := tmpFile.Name()
+	tmpFile.Close()
 
 	// Create MP4 writer
 	mp4Writer, err := NewMP4Writer(mp4FilePath)
@@ -77,29 +69,35 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 		return nil, fmt.Errorf("failed to create MP4 writer: %w", err)
 	}
 
+	uploads := config.Uploads
+	if uploads == nil {
+		uploads = &uploadTracker{}
+	}
+
 	return &RecordingSession{
-		eventID:              config.EventID,
-		roomID:               config.RoomID,
-		roomKey:              config.RoomKey,
-		sfuBaseURL:           config.SfuBaseURL,
-		outputDir:            config.OutputDir,
-		mp4Writer:            mp4Writer,
-		mp4FilePath:          mp4FilePath,
-		stopChan:             make(chan struct{}),
-		backendURL:           config.BackendURL,
-		trackID:              config.TrackID,
-		keycloakURL:          config.KeycloakURL,
-		keycloakClientID:     config.KeycloakClientID,
-		keycloakClientSecret: config.KeycloakClientSecret,
-		keycloakUsername:     config.KeycloakUsername,
-		keycloakPassword:     config.KeycloakPassword,
+		uploads:      uploads,
+		eventID:      config.EventID,
+		roomID:       config.RoomID,
+		roomKey:      config.RoomKey,
+		sfuBaseURL:   config.SfuBaseURL,
+		outputDir:    config.OutputDir,
+		mp4Writer:    mp4Writer,
+		mp4FilePath:  mp4FilePath,
+		stopChan:     make(chan struct{}),
+		backendURL:   config.BackendURL,
+		trackID:      config.TrackID,
+		sharedSecret: config.SharedSecret,
 	}, nil
 }
 
+// sfuStatusClient bounds the stream status check, also made when a session
+// fails (stopOnFailure).
+var sfuStatusClient = &http.Client{Timeout: 5 * time.Second}
+
 // CheckStreamStatus checks if the stream is active in the room
 func (rs *RecordingSession) CheckStreamStatus() (bool, error) {
-	url := fmt.Sprintf("%s/stream-status?room_id=%s", rs.sfuBaseURL, rs.roomID)
-	resp, err := http.Get(url)
+	statusURL := rs.sfuBaseURL + "/stream-status?" + url.Values{"room_id": {rs.roomID}}.Encode()
+	resp, err := sfuStatusClient.Get(statusURL)
 	if err != nil {
 		return false, fmt.Errorf("failed to check stream status: %w", err)
 	}
@@ -200,11 +198,12 @@ func (rs *RecordingSession) StartRecording() error {
 	log.Println("Sending offer to SFU...")
 
 	// Build recorder URL with room_id and optional key (dedicated track, no-drop policy)
-	recorderURL := fmt.Sprintf("%s/recorder?room_id=%s", rs.sfuBaseURL, rs.roomID)
+	query := url.Values{"room_id": {rs.roomID}}
 	if rs.roomKey != "" {
-		recorderURL = fmt.Sprintf("%s&key=%s", recorderURL, rs.roomKey)
+		query.Set("key", rs.roomKey)
 	}
-	log.Printf("Recorder URL: %s", recorderURL)
+	recorderURL := rs.sfuBaseURL + "/recorder?" + query.Encode()
+	log.Printf("Recorder URL: %s/recorder?room_id=%s", rs.sfuBaseURL, rs.roomID)
 
 	resp, err := http.Post(recorderURL, "application/sdp",
 		bytes.NewReader([]byte(pc.LocalDescription().SDP)))
@@ -244,7 +243,6 @@ func (rs *RecordingSession) StartRecording() error {
 
 	return nil
 }
-
 
 // setupCallbacks configures WebRTC event handlers
 func (rs *RecordingSession) setupCallbacks() error {
@@ -296,7 +294,7 @@ func (rs *RecordingSession) setupCallbacks() error {
 
 		case webrtc.PeerConnectionStateFailed:
 			log.Println("[ERROR] Connection failed")
-			rs.Stop()
+			rs.stopOnFailure()
 
 		case webrtc.PeerConnectionStateClosed:
 			log.Println("Connection closed")
@@ -313,7 +311,7 @@ func (rs *RecordingSession) setupCallbacks() error {
 
 		if state == webrtc.ICEConnectionStateFailed {
 			log.Println("[ERROR] ICE connection failed")
-			rs.Stop()
+			rs.stopOnFailure()
 		}
 	})
 
@@ -357,7 +355,7 @@ func (rs *RecordingSession) recordTrack(track *webrtc.TrackRemote) {
 					log.Printf("[ERROR] Error writing audio packet to MP4: %v", err)
 					continue
 				}
-				
+
 				rs.mu.Lock()
 				rs.audioPacketCount++
 				rs.mu.Unlock()
@@ -397,6 +395,20 @@ func (rs *RecordingSession) monitorStats() {
 // 4. Displays final statistics
 // Returns: error if stop fails
 func (rs *RecordingSession) Stop() error {
+	return rs.stop(false)
+}
+
+// stopOnFailure stops a session whose WebRTC connection failed. The SFU
+// closes the recorder's connection when the live ends, so a failure once the
+// stream is inactive is the normal end of the live; otherwise the recording
+// is likely truncated.
+func (rs *RecordingSession) stopOnFailure() {
+	active, err := rs.CheckStreamStatus()
+	rs.stop(err != nil || active)
+}
+
+// stop ends the session; failed marks a session cut by a WebRTC failure.
+func (rs *RecordingSession) stop(failed bool) error {
 	rs.mu.Lock()
 	if !rs.isRecording {
 		rs.mu.Unlock()
@@ -414,10 +426,11 @@ func (rs *RecordingSession) Stop() error {
 	time.Sleep(500 * time.Millisecond)
 
 	// Close MP4 writer
+	var closeErr error
 	if rs.mp4Writer != nil {
 		syncOffset := rs.mp4Writer.GetSyncOffset()
-		if err := rs.mp4Writer.Close(); err != nil {
-			log.Printf("[WARN] Error closing MP4 writer: %v", err)
+		if closeErr = rs.mp4Writer.Close(); closeErr != nil {
+			log.Printf("[WARN] Error closing MP4 writer: %v", closeErr)
 		} else {
 			log.Printf("MP4 file saved: %s", rs.mp4FilePath)
 			log.Printf("[STATS] A/V sync offset: %.3f ms", syncOffset*1000)
@@ -445,6 +458,26 @@ func (rs *RecordingSession) Stop() error {
 	log.Println("Recording stopped successfully")
 	log.Println("MP4 file is ready to use - no muxing needed!")
 
+	// Auto-publish regardless of how Stop was triggered (HTTP or WebRTC callback)
+	if rs.backendURL != "" && rs.trackID != "" && rs.mp4FilePath != "" {
+		meta := rs.segmentMeta(failed, closeErr)
+		if meta.Problematic {
+			log.Printf("[WARN] Recording flagged problematic (webrtc failure=%t, close error=%v)", failed, closeErr)
+		}
+		publishAsync(rs.uploads, rs.backendURL, rs.trackID, rs.mp4FilePath, rs.sharedSecret, meta)
+	}
+
 	return nil
 }
 
+// segmentMeta describes the closed recording for the backend: its media
+// duration, and whether it is likely truncated or unusable (cut by a WebRTC
+// failure, file not finalized, or no video at all).
+func (rs *RecordingSession) segmentMeta(failed bool, closeErr error) segmentMeta {
+	meta := segmentMeta{Problematic: failed || closeErr != nil || rs.mp4Writer == nil}
+	if rs.mp4Writer != nil {
+		meta.Duration = rs.mp4Writer.Duration().Seconds()
+		meta.Problematic = meta.Problematic || rs.mp4Writer.VideoWrites() == 0
+	}
+	return meta
+}

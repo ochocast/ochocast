@@ -1,0 +1,50 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--theme-color-500, #6b7770);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--theme-color-300, #cbd5d0);
+}
+
+.armed_waiting .dot {
+  background: var(--theme-color-700, #2e6e4e);
+}
+
+.recording {
+  color: var(--error-color, #c0392b);
+  font-weight: 600;
+}
+
+.recording .dot {
+  background: var(--error-color, #c0392b);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.error {
+  color: var(--error-color, #c0392b);
+  font-weight: 600;
+}
+
+.error .dot {
+  background: var(--error-color, #c0392b);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording .dot {
+    animation: none;
+  }
+}

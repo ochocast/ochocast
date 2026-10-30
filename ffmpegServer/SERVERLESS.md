@@ -15,6 +15,7 @@ La plateforme peut réduire à zéro le nombre d'instances inactives. Le serveur
 - `ffmpegServer/src/serverless/` : vérification des messages, client backend et orchestration.
 - `ffmpegServer/src/services/job-processor.service.ts` : téléchargement en flux vers le disque, transcodage et checkpoint S3.
 - `.github/workflows/ffmpeg-serverless.yml` : tests, construction `linux/amd64` et publication de l'image.
+- `backend/src/recording/infra/merge-jobs/` et `ffmpegServer/src/serverless/merge-*.ts` : fusion des enregistrements (US-3), voir plus bas.
 
 Les ressources Scaleway, secrets d'environnement et déploiements restent dans `ops-architecture-lab`.
 Le workflow existant de promotion frontend/backend n'est pas un déploiement de FFmpeg. L'image FFmpeg est publiée séparément ; son digest doit être renseigné dans le staging ops.
@@ -67,7 +68,6 @@ En mode désactivé :
 - le backend démarre sans aucune variable `TRANSCODING_*` et l'indique par un WARN ;
 - un upload finalisé est lu depuis sa source (`<id>/source/original.<ext>`, URL présignée) : statut `ready` immédiat, aucun job ni message de queue. Les sous-titres normalisés sont écrits directement à leur clé finale `subtitle-<id>.vtt`. La miniature fournie est réencodée par le backend comme le ferait le worker (JPEG 1280x720) puis écrite à `miniature-<id>.jpg` ; un fichier qui n'est pas une image est ignoré (vidéo sans miniature). Il n'y a ni HLS, ni miniature générée, ni durée, et la lecture dépend des codecs supportés par le navigateur ;
 - seuls les conteneurs lisibles tels quels par les navigateurs (`mp4`, `webm`, `mov`, `m4v`) sont publiés, car la source est servie telle quelle ; `mkv`, `avi` et `ogg` sont refusés. L'extension est vérifiée à la création de l'upload et de nouveau à sa finalisation (une session ouverte quand le transcodage était actif reçoit `400 Unsupported video format`). La source est stockée et servie avec le type MIME de son extension, jamais celui envoyé par le client ;
-- la publication d'un enregistrement (`POST /api/recordings/publish`) applique les mêmes règles : extension vérifiée avant tout stockage, type MIME déduit de l'extension, aucun job. Cette route n'exige qu'un utilisateur authentifié ;
 - le proxy public `/api/videos/media-content` ne sert que les vidéos HLS (`media_id` terminé par `/master.m3u8`), jamais une source ;
 - la maintenance expire toujours les sessions abandonnées, mais ne publie plus rien.
 
@@ -246,3 +246,40 @@ Les PR exécutent les tests et construisent l'image sans la publier. Un push sur
 Ops déploie ce digest en staging. Le nom d'image et les fichiers d'infrastructure ne sont pas devinés par le workflow Ochocast.
 
 Références : [trigger Scaleway Queues](https://www.scaleway.com/en/docs/serverless-containers/how-to/add-trigger-to-a-container/), [API Queues](https://www.scaleway.com/en/docs/queues/api-cli/python-node-queues/), [limites HTTP](https://www.scaleway.com/en/docs/serverless-containers/reference-content/containers-limitations/), [stockage temporaire et RAM](https://www.scaleway.com/en/docs/serverless-containers/troubleshooting/container-oom/).
+
+## Fusion des enregistrements (US-3)
+
+La fusion de segments de live en un montage utilise **la même image**, déployée une seconde fois avec `FFMPEG_WORKER_MODE=merge`, derrière **sa propre queue et son propre trigger**. Un trigger poste toujours à la racine du container ; c'est donc le mode qui détermine le traitement (`POST /`, alias local `POST /merge`). Une fusion longue ne retarde ainsi jamais le transcodage des uploads, et chaque flux se règle séparément.
+
+Parcours : `backend → queue de fusion → trigger → FFmpeg (mode merge) → S3 + callbacks /api/internal/recordings/merge-jobs/:id/claim|result`.
+
+- Le message est signé comme un job de transcodage (HMAC de `JSON.stringify(job)` avec `TRANSCODING_DISPATCH_SECRET`) ; les callbacks utilisent `X-Transcoding-Token` (`TRANSCODING_CALLBACK_SECRET`). Les deux déploiements partagent ces secrets.
+- Le job contient l'id du montage, la track, les clés S3 des segments (2 à 50, dans l'ordre) et la clé de sortie. Chaque segment est réencodé (720p, 30 i/s CFR, audio garanti) puis concaténé ; seul un MP4 est produit. Le transcodage HLS multi-qualité n'a lieu qu'à la publication du montage, via l'upload multipart habituel.
+- Verrou et résultat : table `recording_merge_job` (migration `1789574400001-AddRecordingMergeJobs`), même modèle que `transcoding_job`. Supprimer le montage (« Go back ») supprime son job en cascade : le worker reçoit `410` et acquitte le message. Si la fusion était en cours, le MP4 envoyé ensuite n'est plus référencé (le backend a déjà supprimé l'objet) : sur `410` au callback `result` après une fusion réussie, le worker supprime `targetKey` (au mieux, échec journalisé) puis acquitte.
+- Échecs : comme pour le transcodage (voir « Échecs définitifs et vidéos trop longues »), le worker distingue ce qu'une autre tentative rencontrerait à l'identique. **Définitif** : total des segments au-delà de `TRANSCODING_MAX_SOURCE_BYTES` (vérifié par `HEAD` avant tout téléchargement), segment que FFprobe ne lit pas (MP4 tronqué sans `moov` après un arrêt brutal) ou sans flux vidéo ; le résultat porte `permanent: true`, le montage passe `failed` et le message est acquitté (`200`). **Transitoire** : S3 ou réseau, arrêt du container, échéance `TRANSCODING_JOB_TIMEOUT_MS`, erreur FFmpeg sur un segment lisible ; le résultat n'a pas de champ `permanent`, le job repasse `pending` (montage toujours `processing`) et le worker répond `503` pour que la queue rejoue. Après `RECORDING_MERGE_MAX_ATTEMPTS` acquisitions (5 par défaut), un échec rend le montage `failed`.
+- Pas de réconciliation automatique : un message perdu laisse le montage `processing`. L'organisateur peut le supprimer et relancer la fusion.
+
+Backend :
+
+```dotenv
+RECORDING_MERGE_QUEUE_URL=<URL de la queue de fusion créée par ops>
+# Optionnel, sinon TRANSCODING_QUEUE_ACCESS_KEY / SECRET_KEY
+RECORDING_MERGE_QUEUE_ACCESS_KEY=<clé de publication de la queue de fusion>
+RECORDING_MERGE_QUEUE_SECRET_KEY=<secret de publication de la queue de fusion>
+RECORDING_MERGE_LEASE_SECONDS=3600
+```
+
+Sans `RECORDING_MERGE_QUEUE_URL`, ou avec `TRANSCODING_QUEUE_PROVIDER` autre que `scaleway`/`local`, la fusion est désactivée : `POST /api/recordings/track/:trackId/merge` répond `503` sans rien créer.
+
+Container de fusion : mêmes variables que le container de transcodage, plus `FFMPEG_WORKER_MODE=merge`. Réglages à mesurer, une fusion pouvant être plus longue et plus gourmande en disque qu'un transcodage : concurrence **1**, minimum **0**, maximum propre à ce flux, mêmes timeouts que ci-dessus au départ. Une fusion doit tenir sous la limite HTTP (55 min) ; au-delà, prévoir un passage en Serverless Jobs.
+
+### Dimensionner le déploiement de fusion
+
+`TRANSCODING_MAX_SOURCE_BYTES` borne le **total** des segments d'un montage (validé au démarrage comme en mode transcodage). Chaque déploiement a ses propres variables : la valeur du container de transcodage (1 GiB en staging, alignée sur `UPLOAD_MAX_BYTES`) est trop basse pour la fusion et doit y être relevée. La choisir comme le plus petit des deux plafonds suivants :
+
+- **Disque** : les segments sont traités un par un (téléchargement, normalisation, suppression du brut avant le suivant), puis concaténés. Le pic vaut à peu près les segments normalisés plus leur copie fusionnée, soit **≈ 2 × le total des sources** (le débit normalisé dépend du contenu). Avec un disque de 15 GiB : ≈ 7 GiB de sources au plus, marge comprise.
+- **Temps** : tout le montage est réencodé (720p, 30 i/s) dans `TRANSCODING_JOB_TIMEOUT_MS` (B secondes, 3300 s soit 55 min au plus), téléchargements et upload compris. Un live à 4,5 Mbit/s pèse ≈ 2 Go par heure et un segment peut atteindre 8 GiB (≈ 4 h) : 7 GiB de sources représentent ≈ 3,5 h de live, à réencoder à plus de 4 fois le temps réel. C'est une **estimation**, pas une mesure : chronométrer en staging la fusion d'1 h de live (durée de la requête dans les logs du container), puis viser 80 % du budget, soit `TRANSCODING_MAX_SOURCE_BYTES` ≈ 0,8 × 2 Go × B / T, où T est la durée mesurée (en s) pour 1 h de live.
+
+Un montage au-delà de cette limite échoue aussitôt et définitivement, sans rien télécharger. Une limite trop haute coûte plus cher : l'échéance est un échec transitoire, rejoué jusqu'à `RECORDING_MERGE_MAX_ATTEMPTS` fois (jusqu'à 5 × 55 min de calcul) avant que le montage passe `failed`. Les paramètres d'encodage de la normalisation sont fixes ; seuls la taille du container, son disque et `FFMPEG_THREADS` se règlent. En mode fusion, `FFMPEG_THREADS` s'applique à l'**unique** encodeur x264 de chaque normalisation : ne pas reprendre la valeur du transcodage (4, prévue pour trois encodeurs) ; l'omettre laisse x264 utiliser tous les vCPU.
+
+En local : `ffmpegServer/docker-compose.yml` démarre aussi `ffmpeg-merge` (port 8082) et ElasticMQ crée la queue `ochocast-local-merge`. Avec le provider `local`, renseigner `RECORDING_MERGE_QUEUE_URL=http://127.0.0.1:9324/000000000000/ochocast-local-merge` ; le backend relaie alors chaque message vers `LOCAL_MERGE_BRIDGE_WORKER_URL` (défaut `http://127.0.0.1:8082/`).

@@ -9,6 +9,8 @@ import { useTranslation } from 'react-i18next';
 import Chat from '../../components/Chat/Chat';
 import PollsContainer from '../../components/Polls/PollsContainer';
 import { useUser } from '../../context/UserContext';
+import { useRecordingStatus } from '../../hooks/useRecordingStatus';
+import RecordingErrorBanner from '../../components/ReworkComponents/Event/Track/RecordingStatus/RecordingErrorBanner';
 import getEnv from '../../utils/env';
 
 // ============ LOGGER UTILITY ============
@@ -67,6 +69,14 @@ const LiveTrack = () => {
   const [showClosedPolls, setShowClosedPolls] = useState(false);
   const [viewerCount, setViewerCount] = useState<number>(0);
   const { user } = useUser();
+  const isOrganizer =
+    !!user &&
+    (track?.speakers?.some((s) => s.id === user.id) ||
+      track?.event?.creatorId === user.id);
+  const { status: recordingStatus } = useRecordingStatus(
+    trackId,
+    !!isOrganizer,
+  );
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const noStreamTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -648,6 +658,12 @@ const LiveTrack = () => {
               <h1 className={styles.eventTitle}>{track.event.name}</h1>
             </div>
           </div>
+          {isOrganizer && (
+            <RecordingErrorBanner
+              status={recordingStatus}
+              settingsPath={`/events/${track.event.id}/track-settings/${track.id}`}
+            />
+          )}
           <div className={styles.liveContent}>
             <div className={styles.liveLeft}>
               <div className={styles.playerWrapper}>

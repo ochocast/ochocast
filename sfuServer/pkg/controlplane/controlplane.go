@@ -3,7 +3,9 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -103,6 +106,37 @@ type ControlPlane struct {
 	// Externally reachable TLS endpoint used in streamer-facing WHIP URLs.
 	// Empty falls back to the host and forwarding headers of the HTTP request.
 	publicURL string
+
+	// Port of the liveRecorder running on each worker, next to its SFU.
+	// Empty when workers carry no recorder (the backend then uses its own
+	// RECORDING_VM_URL).
+	recorderPort string
+	// RECORDING_SHARED_SECRET: signs the recorder status requests made
+	// before releasing a worker.
+	recordingSecret string
+}
+
+// SetRecorder declares that every worker runs a liveRecorder on port, so
+// recorder discovery returns its URL (recorder_service_url), and that the
+// worker is kept while that recorder is busy (secret signs the status check).
+func (cp *ControlPlane) SetRecorder(port, secret string) {
+	cp.mu.Lock()
+	defer cp.mu.Unlock()
+	cp.recorderPort = port
+	cp.recordingSecret = secret
+}
+
+// recorderServiceURL is the liveRecorder of the worker at sfuURL: same host,
+// recorder port. Empty when workers carry no recorder.
+func recorderServiceURL(sfuURL, port string) string {
+	if port == "" {
+		return ""
+	}
+	u, err := url.Parse(sfuURL)
+	if err != nil || u.Hostname() == "" {
+		return ""
+	}
+	return (&url.URL{Scheme: "http", Host: net.JoinHostPort(u.Hostname(), port)}).String()
 }
 
 // capacityEnsurer provisions on-demand SFU capacity for a room. Implemented by
@@ -147,6 +181,17 @@ func (cp *ControlPlane) LifecycleStore() *lifecycle.Store { return cp.roomState 
 // Grace period before cleaning up room topology when stream ends
 // This allows the host to reconnect (e.g., OBS stop/start) without losing the room
 const TopologyCleanupGracePeriod = 10 * time.Minute
+
+// Scaleway terminates a worker without a graceful OS shutdown, so a segment
+// still uploading would be lost: the cleanup (and so the worker's release)
+// is postponed while the worker's recorder is recording or uploading,
+// rechecked every recorderBusyRecheck, at most recorderBusyMaxDelay so a
+// stuck recorder cannot keep a billed worker. Variables for the tests.
+var (
+	topologyCleanupDelay = TopologyCleanupGracePeriod
+	recorderBusyRecheck  = time.Minute
+	recorderBusyMaxDelay = time.Hour
+)
 
 // SFUInfo stores information about a registered SFU
 type SFUInfo struct {
@@ -362,10 +407,24 @@ func (cp *ControlPlane) scheduleTopologyCleanupWithGracePeriod(roomID, sfuID str
 		return
 	}
 
-	log.Printf("[CP-CLEANUP] Stream ended on ingestion SFU %s for room %s, scheduling cleanup in %v", sfuID, roomID, TopologyCleanupGracePeriod)
+	log.Printf("[CP-CLEANUP] Stream ended on ingestion SFU %s for room %s, scheduling cleanup in %v", sfuID, roomID, topologyCleanupDelay)
 
-	timer := time.AfterFunc(TopologyCleanupGracePeriod, func() {
+	deadline := time.Now().Add(topologyCleanupDelay + recorderBusyMaxDelay)
+	var timer *time.Timer
+	timer = time.AfterFunc(topologyCleanupDelay, func() {
+		busy := time.Now().Before(deadline) && cp.ingestionRecorderBusy(roomID)
 		cp.cleanupMu.Lock()
+		if cp.pendingCleanups[roomID] != timer {
+			// Cancelled during the recorder check: the stream came back.
+			cp.cleanupMu.Unlock()
+			return
+		}
+		if busy {
+			timer.Reset(recorderBusyRecheck)
+			cp.cleanupMu.Unlock()
+			log.Printf("[CP-CLEANUP] Recorder of room %s still busy, cleanup postponed by %v", roomID, recorderBusyRecheck)
+			return
+		}
 		delete(cp.pendingCleanups, roomID)
 		cp.cleanupMu.Unlock()
 
@@ -376,6 +435,79 @@ func (cp *ControlPlane) scheduleTopologyCleanupWithGracePeriod(roomID, sfuID str
 	})
 
 	cp.pendingCleanups[roomID] = timer
+}
+
+// ingestionRecorderBusy reports whether the room's cleanup would release a
+// worker whose liveRecorder is still recording or uploading. An unreachable
+// recorder is not waited for: the worker is gone or carries no recorder.
+func (cp *ControlPlane) ingestionRecorderBusy(roomID string) bool {
+	cp.mu.RLock()
+	port, secret, sfuURL := cp.recorderPort, cp.recordingSecret, ""
+	topology, releases := cp.rooms[roomID]
+	releases = releases && cp.provisioner != nil
+	if releases {
+		if sfu, ok := cp.sfus[topology.IngestionSFUID]; ok {
+			sfuURL = sfu.URL
+		}
+		// Another room on the same worker keeps it: nothing to wait for.
+		for otherID, other := range cp.rooms {
+			if _, shared := other.Nodes[topology.IngestionSFUID]; shared && otherID != roomID {
+				releases = false
+			}
+		}
+	}
+	cp.mu.RUnlock()
+	if !releases {
+		return false
+	}
+
+	service := recorderServiceURL(sfuURL, port)
+	if service == "" || secret == "" {
+		return false
+	}
+	busy, err := recorderBusy(service, secret)
+	if err != nil {
+		log.Printf("[CP-CLEANUP] Recorder status for room %s unavailable (%v), not waiting for it", roomID, err)
+	}
+	return busy
+}
+
+// recorderBusy asks a liveRecorder (GET /recording/status, signed like the
+// backend's requests) whether it is recording or uploading.
+func recorderBusy(serviceURL, secret string) (bool, error) {
+	const path = "/recording/status"
+	req, err := http.NewRequest(http.MethodGet, serviceURL+path, nil)
+	if err != nil {
+		return false, err
+	}
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	req.Header.Set("X-Recording-Timestamp", timestamp)
+	req.Header.Set("X-Recording-Signature", signRecorderRequest(secret, timestamp, http.MethodGet, path, nil))
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var status struct {
+		ActiveCount    int `json:"active_count"`
+		PendingUploads int `json:"pending_uploads"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&status); err != nil {
+		return false, err
+	}
+	return status.ActiveCount > 0 || status.PendingUploads > 0, nil
+}
+
+// signRecorderRequest is liveRecoder/auth.go's signRequest: HMAC-SHA256 of
+// "timestamp \n method \n path?query \n sha256(body)" keyed with the secret.
+func signRecorderRequest(secret, timestamp, method, pathAndQuery string, body []byte) string {
+	bodyHash := sha256.Sum256(body)
+	mac := hmac.New(sha256.New, []byte(secret))
+	io.WriteString(mac, timestamp+"\n"+method+"\n"+pathAndQuery+"\n"+hex.EncodeToString(bodyHash[:]))
+	return hex.EncodeToString(mac.Sum(nil))
 }
 
 // cancelPendingCleanup cancels a scheduled cleanup (called when stream becomes active again)
@@ -2063,6 +2195,7 @@ func (cp *ControlPlane) HandleRecorder(w http.ResponseWriter, r *http.Request) {
 
 	cp.mu.RLock()
 	sfu, sfuExists := cp.sfus[ingestionSFUID]
+	recorderPort := cp.recorderPort
 	cp.mu.RUnlock()
 
 	if !sfuExists || !sfu.Active {
@@ -2075,13 +2208,18 @@ func (cp *ControlPlane) HandleRecorder(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	response := map[string]interface{}{
 		"sfu_id":       ingestionSFUID,
 		"sfu_url":      sfu.URL,
 		"room_id":      roomID,
 		"room_key":     topology.Key,
 		"recorder_url": fmt.Sprintf("%s/recorder?room_id=%s&key=%s", sfu.URL, roomID, topology.Key),
-	})
+	}
+	// The liveRecorder of the worker carrying the live, for the backend.
+	if service := recorderServiceURL(sfu.URL, recorderPort); service != "" {
+		response["recorder_service_url"] = service
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // HandleStreamStatus checks if a stream is active for a room

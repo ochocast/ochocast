@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // getEnv returns environment variable value or default if not set
@@ -15,18 +17,12 @@ func getEnv(key, defaultValue string) string {
 
 // StartRecordingRequest is the JSON body for POST /recording/start
 type StartRecordingRequest struct {
-	RoomID     string `json:"room_id"`
-	RoomKey    string `json:"room_key"`
-	SfuURL     string `json:"sfu_url"`
-	OutputDir  string `json:"output_dir,omitempty"`
-	BackendURL string `json:"backend_url,omitempty"` // Backend URL for auto-publish
-	TrackID    string `json:"track_id,omitempty"`    // Track ID for video metadata
-	// Keycloak authentication for publishing
-	KeycloakURL          string `json:"keycloak_url,omitempty"`
-	KeycloakClientID     string `json:"keycloak_client_id,omitempty"`
-	KeycloakClientSecret string `json:"keycloak_client_secret,omitempty"`
-	KeycloakUsername     string `json:"keycloak_username,omitempty"`
-	KeycloakPassword     string `json:"keycloak_password,omitempty"`
+	RoomID  string `json:"room_id"`
+	RoomKey string `json:"room_key"`
+	TrackID string `json:"track_id,omitempty"` // Track ID for video metadata
+	// The SFU URL, BackendURL and OutputDir are intentionally NOT accepted
+	// from the request body — they come from server env vars only, so a
+	// caller cannot make the recorder connect anywhere else.
 }
 
 // StopRecordingRequest is the JSON body for POST /recording/stop
@@ -53,6 +49,9 @@ type SessionInfo struct {
 type MultiStatusResponse struct {
 	ActiveCount int           `json:"active_count"`
 	Sessions    []SessionInfo `json:"sessions"`
+	// Segments still being uploaded: the control plane keeps the worker
+	// while this or active_count is not 0.
+	PendingUploads int64 `json:"pending_uploads"`
 }
 
 // RecordingServer manages the HTTP server and multiple recording sessions
@@ -60,25 +59,53 @@ type RecordingServer struct {
 	sessions      map[string]*RecordingSession // roomID -> session
 	mu            sync.Mutex
 	defaultOutput string
-	// Environment-based config for auto-publish (read from env vars)
-	backendURL           string
-	keycloakURL          string
-	keycloakClientID     string
-	keycloakClientSecret string
-	keycloakUsername     string
-	keycloakPassword     string
+	// Environment-based config (read from env vars only — never from request body)
+	sharedSecret string // RECORDING_SHARED_SECRET — signs every request (auth.go)
+	backendURL   string
+	sfuURL       string // RECORDER_SFU_URL — the SFU this recorder records (local on a worker)
+	uploads      uploadTracker
+	shuttingDown bool // set by shutdown: no new recording may start
+}
+
+// uploadTracker counts the segment uploads still running, so a shutdown can
+// wait for them and the status can report them.
+type uploadTracker struct {
+	wg      sync.WaitGroup
+	pending atomic.Int64
+}
+
+func (u *uploadTracker) start() {
+	u.wg.Add(1)
+	u.pending.Add(1)
+}
+
+func (u *uploadTracker) done() {
+	u.pending.Add(-1)
+	u.wg.Done()
+}
+
+// wait reports whether every upload finished within grace.
+func (u *uploadTracker) wait(grace time.Duration) bool {
+	finished := make(chan struct{})
+	go func() {
+		u.wg.Wait()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return true
+	case <-time.After(grace):
+		return false
+	}
 }
 
 // NewRecordingServer creates a new HTTP server instance
 func NewRecordingServer(defaultOutput string) *RecordingServer {
 	return &RecordingServer{
-		sessions:             make(map[string]*RecordingSession),
-		defaultOutput:        defaultOutput,
-		backendURL:           getEnv("BACKEND_PUBLIC_URL", ""),
-		keycloakURL:          getEnv("KEYCLOAK_TOKEN_URL", ""),
-		keycloakClientID:     getEnv("KEYCLOAK_CLIENT_ID", ""),
-		keycloakClientSecret: getEnv("KEYCLOAK_CLIENT_SECRET", ""),
-		keycloakUsername:     getEnv("RECORDING_USER_USERNAME", ""),
-		keycloakPassword:     getEnv("RECORDING_USER_PASSWORD", ""),
+		sessions:      make(map[string]*RecordingSession),
+		defaultOutput: defaultOutput,
+		sharedSecret:  getEnv("RECORDING_SHARED_SECRET", ""),
+		backendURL:    getEnv("BACKEND_PUBLIC_URL", ""),
+		sfuURL:        getEnv("RECORDER_SFU_URL", ""),
 	}
 }

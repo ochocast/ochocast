@@ -1,0 +1,89 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { S3Client } from '@aws-sdk/client-s3';
+import { Upload } from '@aws-sdk/lib-storage';
+import { createReadStream } from 'node:fs';
+import { v4 as uuid } from 'uuid';
+import * as path from 'path';
+import { IRecordingRepositoryGateway } from '../gateways/recording-repository.gateway';
+import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
+import { RecordingObject } from '../recording';
+import { getTrack } from '../trackOrganizer';
+
+/** Uploaded segment: on disk (`path`) or in memory (`buffer`). */
+export interface SegmentUpload {
+  path?: string;
+  buffer?: Buffer;
+  originalname?: string;
+  mimetype?: string;
+}
+
+export interface CreateRecordingSegmentFromFileOptions {
+  problematic?: boolean;
+  duration?: number | null;
+}
+
+/**
+ * Raccordement — Store an uploaded recording segment file and register it as an
+ * `unlisted` segment of the track.
+ *
+ * This is what the recorder now calls (multipart file) instead of the old
+ * direct-publish flow. The raw file is stored as-is (no transcoding yet — that
+ * happens at merge/publish time); only the storage key is kept as `media_id`.
+ *
+ * The upload arrives on disk (`path`) and is streamed to S3 in parts, so
+ * memory stays constant whatever the length of the live.
+ */
+@Injectable()
+export class CreateRecordingSegmentFromFileUsecase {
+  constructor(
+    @Inject('RecordingRepositoryGateway')
+    private recordingRepository: IRecordingRepositoryGateway,
+    @Inject('TrackGateway')
+    private trackGateway: ITrackGateway,
+    @Inject('s3Client')
+    private readonly s3Client: S3Client,
+  ) {}
+
+  async execute(
+    trackId: string,
+    file: SegmentUpload,
+    options: CreateRecordingSegmentFromFileOptions = {},
+  ): Promise<RecordingObject> {
+    if (!file?.path && !file?.buffer) {
+      throw new Error('Missing recording segment file in upload payload');
+    }
+
+    await getTrack(this.trackGateway, trackId);
+
+    const segmentId = uuid();
+    const extension =
+      path
+        .extname(file.originalname || '')
+        .toLowerCase()
+        .replace(/[^.a-z0-9]/g, '') || '.mp4';
+    const key = `recordings/${trackId}/${segmentId}/original${extension}`;
+
+    await new Upload({
+      client: this.s3Client,
+      params: {
+        Bucket: process.env.STOCK_MEDIA_BUCKET,
+        Key: key,
+        Body: file.path ? createReadStream(file.path) : file.buffer,
+        ContentType: file.mimetype || 'video/mp4',
+      },
+    }).done();
+
+    const recording = new RecordingObject(
+      segmentId,
+      trackId,
+      key,
+      'unlisted',
+      options.problematic ?? false,
+      0, // assigned by createSegment
+      options.duration ?? null,
+      new Date(),
+    );
+
+    return this.recordingRepository.createSegment(recording);
+  }
+}

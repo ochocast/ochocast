@@ -50,6 +50,9 @@ export class TrackEntity {
   @Column()
   eventId: string;
 
+  @Column({ default: false })
+  recordingArmed: boolean;
+
   @ManyToMany(() => UserEntity, (user) => user.speakingTracks, {
     eager: false,
   })

@@ -157,6 +157,30 @@ describe('CreateNewTracktUsecase', () => {
   });
 
   /*
+    US-5 : recording armed default comes from configuration
+   */
+
+  describe('recordingArmed default', () => {
+    const initial = process.env.RECORDING_ARMED_BY_DEFAULT;
+    afterEach(() => {
+      if (initial === undefined) delete process.env.RECORDING_ARMED_BY_DEFAULT;
+      else process.env.RECORDING_ARMED_BY_DEFAULT = initial;
+    });
+
+    it('should create a disarmed track by default', async () => {
+      delete process.env.RECORDING_ARMED_BY_DEFAULT;
+      const res = await createNewTrackUseCase.execute(trackDto);
+      expect(res.recordingArmed).toBe(false);
+    });
+
+    it('should create an armed track when RECORDING_ARMED_BY_DEFAULT=true', async () => {
+      process.env.RECORDING_ARMED_BY_DEFAULT = 'true';
+      const res = await createNewTrackUseCase.execute(trackDto);
+      expect(res.recordingArmed).toBe(true);
+    });
+  });
+
+  /*
     Error case : DB fail
    */
 

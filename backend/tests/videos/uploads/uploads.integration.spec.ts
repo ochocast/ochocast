@@ -4,6 +4,7 @@ import {
   CreateBucketCommand,
   GetObjectCommand,
   ListObjectsV2Command,
+  PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import {
   BadRequestException,
@@ -700,6 +701,47 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
         return false;
       },
     );
+  it('publishes a stored recording through a server-side copy, without the browser upload cap', async () => {
+    process.env.UPLOAD_MAX_BYTES = String(1024);
+    try {
+      const key = `recordings/${randomUUID()}/merged/${randomUUID()}.mp4`;
+      const bytes = Buffer.alloc(6 * 1024 ** 2 + 123, 23);
+      await s3.send(
+        new PutObjectCommand({
+          Bucket: process.env.STOCK_MEDIA_BUCKET,
+          Key: key,
+          Body: bytes,
+        }),
+      );
+      const session = await service.createFromStoredMedia(owner, {
+        key,
+        filename: 'recording.mp4',
+      });
+      await session.copied;
+      const copiedView = await service.status(session.id, owner);
+      expect(copiedView.parts).toEqual([
+        { number: 1, size: bytes.length, checksum: expect.any(String) },
+      ]);
+      await expect(
+        service.complete(session.id, owner, metadata),
+      ).resolves.toEqual({ id: session.id });
+      const video = await db.manager.findOneByOrFail(VideoEntity, {
+        id: session.id,
+      });
+      expect(video.title).toBe('Video test');
+      const copy = await s3.send(
+        new GetObjectCommand({
+          Bucket: process.env.STOCK_MEDIA_BUCKET,
+          Key: `${session.id}/source/original.mp4`,
+        }),
+      );
+      expect(
+        Buffer.from(await copy.Body.transformToByteArray()).equals(bytes),
+      ).toBe(true);
+    } finally {
+      delete process.env.UPLOAD_MAX_BYTES;
+    }
+  });
   it('plays a completed upload from its source without a job when transcoding is disabled', async () => {
     const disabled = makeDisabledService();
     const session = await upload(1024, 'sample.mp4', disabled);

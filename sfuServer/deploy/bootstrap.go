@@ -30,6 +30,27 @@ type WorkerConfig struct {
 	TURNServer      string
 	TURNUsername    string
 	TURNPassword    string
+	// US-5: the worker notifies the backend when a live starts or stops, so
+	// armed tracks are recorded automatically.
+	BackendURL    string
+	WebhookSecret string
+	// The liveRecorder runs on the same worker, next to the SFU, so it lives
+	// and dies with the live (immutable tag of <registry>/live-recorder).
+	// Empty disables it.
+	RecorderImageTag string
+	RecordingSecret  string
+	RecorderPort     string
+}
+
+// DefaultRecorderPort is the liveRecorder port on a worker when none is set.
+const DefaultRecorderPort = "8083"
+
+// RecorderPortOrDefault returns the configured recorder port.
+func (c WorkerConfig) RecorderPortOrDefault() string {
+	if c.RecorderPort == "" {
+		return DefaultRecorderPort
+	}
+	return c.RecorderPort
 }
 
 // Validate fails closed before the autoscaler is enabled. This prevents it
@@ -51,6 +72,20 @@ func (c WorkerConfig) Validate() error {
 	if c.ICERelayOnly {
 		if c.TURNServer == "" || c.TURNUsername == "" || c.TURNPassword == "" {
 			return fmt.Errorf("TURN_SERVER, TURN_USERNAME and TURN_PASSWORD are required when ICE_RELAY_ONLY=true")
+		}
+	}
+	if (c.BackendURL == "") != (c.WebhookSecret == "") {
+		return fmt.Errorf("BACKEND_URL and SFU_WEBHOOK_SECRET must be set together")
+	}
+	if c.RecorderImageTag != "" {
+		if c.RecorderImageTag == "latest" {
+			return fmt.Errorf("SFU_RECORDER_IMAGE_TAG must be immutable, got latest")
+		}
+		if c.RecordingSecret == "" || c.BackendURL == "" {
+			return fmt.Errorf("SFU_RECORDER_IMAGE_TAG requires RECORDING_SHARED_SECRET and BACKEND_URL")
+		}
+		if port, err := strconv.ParseUint(c.RecorderPortOrDefault(), 10, 16); err != nil || port == 0 {
+			return fmt.Errorf("invalid SFU_RECORDER_PORT %q", c.RecorderPort)
 		}
 	}
 	if c.ICEUDPPortMin != "" || c.ICEUDPPortMax != "" {
@@ -99,6 +134,11 @@ func (c WorkerConfig) Render(sfuID, roomID string) string {
 		{"TURN_SERVER", c.TURNServer},
 		{"TURN_USERNAME", c.TURNUsername},
 		{"TURN_PASSWORD", c.TURNPassword},
+		{"BACKEND_URL", c.BackendURL},
+		{"SFU_WEBHOOK_SECRET", c.WebhookSecret},
+		{"RECORDER_IMAGE_TAG", c.RecorderImageTag},
+		{"RECORDING_SHARED_SECRET", c.RecordingSecret},
+		{"RECORDER_PORT", c.RecorderPortOrDefault()},
 	}
 
 	var rendered strings.Builder

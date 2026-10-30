@@ -29,6 +29,19 @@ func TestWorkerConfigValidate(t *testing.T) {
 		{"missing control-plane URL", func(c *WorkerConfig) { c.ControlPlaneURL = "" }},
 		{"partial registry credentials", func(c *WorkerConfig) { c.RegistryUser = "user" }},
 		{"missing TURN password", func(c *WorkerConfig) { c.TURNPassword = "" }},
+		{"backend URL without webhook secret", func(c *WorkerConfig) { c.BackendURL = "https://api.example.com" }},
+		{"webhook secret without backend URL", func(c *WorkerConfig) { c.WebhookSecret = "webhook-secret" }},
+		{"recorder without recording secret", func(c *WorkerConfig) {
+			c.RecorderImageTag, c.BackendURL, c.WebhookSecret = "sha-abc123", "https://api.example.com", "w"
+		}},
+		{"recorder without backend URL", func(c *WorkerConfig) { c.RecorderImageTag, c.RecordingSecret = "sha-abc123", "r" }},
+		{"mutable recorder tag", func(c *WorkerConfig) {
+			c.RecorderImageTag, c.RecordingSecret, c.BackendURL, c.WebhookSecret = "latest", "r", "https://api.example.com", "w"
+		}},
+		{"invalid recorder port", func(c *WorkerConfig) {
+			c.RecorderImageTag, c.RecordingSecret, c.BackendURL, c.WebhookSecret = "sha-abc123", "r", "https://api.example.com", "w"
+			c.RecorderPort = "http"
+		}},
 		{"partial ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMax = "" }},
 		{"reversed ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMin = "50101" }},
 	}
@@ -56,6 +69,8 @@ func TestWorkerConfigRender(t *testing.T) {
 		TURNPassword:    "turn-secret",
 		ICEUDPPortMin:   "50000",
 		ICEUDPPortMax:   "50100",
+		BackendURL:      "https://api.example.com",
+		WebhookSecret:   "webhook-secret",
 	}
 
 	rendered := cfg.Render("sfu-123", "room-456")
@@ -70,6 +85,9 @@ func TestWorkerConfigRender(t *testing.T) {
 		"export ICE_UDP_PORT_MIN='50000'",
 		"export ICE_UDP_PORT_MAX='50100'",
 		"-e ICE_UDP_PORT_MIN=\"${ICE_UDP_PORT_MIN:-}\"",
+		"export BACKEND_URL='https://api.example.com'",
+		"export SFU_WEBHOOK_SECRET='webhook-secret'",
+		"-e SFU_WEBHOOK_SECRET=\"${SFU_WEBHOOK_SECRET:-}\"",
 		"conf?format=json",
 		".public_ips_v4[0].address // .public_ip.address // empty",
 	}
@@ -83,5 +101,51 @@ func TestWorkerConfigRender(t *testing.T) {
 	}
 	if strings.Contains(rendered, `$1 == "PUBLIC_IP"`) {
 		t.Fatal("rendered user-data must not parse the legacy PUBLIC_IP table")
+	}
+}
+
+func TestWorkerConfigRenderRecorder(t *testing.T) {
+	cfg := WorkerConfig{
+		ImageTag:         "sha-abc123",
+		ControlPlaneURL:  "https://sfu.example.com",
+		BackendURL:       "https://api.example.com",
+		WebhookSecret:    "webhook-secret",
+		RecorderImageTag: "sha-def456",
+		RecordingSecret:  "recording-secret",
+	}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("valid recorder config rejected: %v", err)
+	}
+	rendered := cfg.Render("sfu-123", "room-456")
+	for _, want := range []string{
+		"export RECORDER_IMAGE_TAG='sha-def456'",
+		"export RECORDING_SHARED_SECRET='recording-secret'",
+		"export RECORDER_PORT='8083'",
+		`RECORDER_IMAGE="${REGISTRY}/live-recorder:${RECORDER_IMAGE_TAG}"`,
+		`-e RECORDER_SFU_URL="http://127.0.0.1:${SFU_PORT}"`,
+		`-e BACKEND_PUBLIC_URL="$BACKEND_URL"`,
+		// docker stop must leave the recorder its upload grace.
+		`RECORDER_SHUTDOWN_GRACE_SECONDS="${RECORDER_SHUTDOWN_GRACE_SECONDS:-600}"`,
+		`--stop-timeout "$((RECORDER_SHUTDOWN_GRACE_SECONDS + 30))"`,
+		`-e RECORDER_SHUTDOWN_GRACE_SECONDS="$RECORDER_SHUTDOWN_GRACE_SECONDS"`,
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("rendered user-data missing %q", want)
+		}
+	}
+}
+
+// The secret may be provisioned before the first recorder image is promoted.
+func TestWorkerConfigAcceptsRecordingSecretWithoutRecorder(t *testing.T) {
+	cfg := WorkerConfig{ImageTag: "sha-abc123", ControlPlaneURL: "https://sfu.example.com", RecordingSecret: "r"}
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("a recording secret alone must not block the control plane: %v", err)
+	}
+}
+
+func TestWorkerConfigRenderWithoutRecorder(t *testing.T) {
+	rendered := WorkerConfig{ImageTag: "sha-abc123", ControlPlaneURL: "https://sfu.example.com"}.Render("s", "r")
+	if !strings.Contains(rendered, "export RECORDER_IMAGE_TAG=''") {
+		t.Fatal("without a recorder tag the bootstrap must skip the recorder container")
 	}
 }
