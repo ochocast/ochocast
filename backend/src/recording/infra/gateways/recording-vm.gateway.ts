@@ -3,6 +3,7 @@ import {
   IRecordingVMGateway,
   StartRecordingConfig,
 } from '../../domain/gateways/recording-vm.gateway';
+import { controlPlaneHeaders, controlPlaneUrl } from 'src/common/control-plane';
 
 @Injectable()
 export class RecordingVMGateway implements IRecordingVMGateway {
@@ -12,8 +13,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
   constructor() {
     this.vmUrl = process.env.RECORDING_VM_URL || 'http://localhost:8080';
-    this.controlPlaneUrl =
-      process.env.CONTROL_PLANE_URL || 'http://localhost:8090';
+    this.controlPlaneUrl = controlPlaneUrl();
     this.logger.log(`Recording VM URL: ${this.vmUrl}`);
     this.logger.log(`Control Plane URL: ${this.controlPlaneUrl}`);
   }
@@ -25,7 +25,9 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     const discoveryUrl = `${this.controlPlaneUrl}/recorder?room_id=${config.roomId}`;
     this.logger.log(`Discovering SFU from control plane: ${discoveryUrl}`);
 
-    const cpResponse = await fetch(discoveryUrl);
+    const cpResponse = await fetch(discoveryUrl, {
+      headers: controlPlaneHeaders(),
+    });
 
     if (!cpResponse.ok) {
       const errorText = await cpResponse.text();
@@ -37,9 +39,11 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     this.logger.log(`SFU discovery response: ${JSON.stringify(cpData)}`);
 
     // Step 2: Start recording with the discovered SFU URL and key
+    // The recorder only answers callers holding the control token, and finds the live's
+    // worker through the control plane itself.
     const response = await fetch(`${this.vmUrl}/recording/start`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...controlPlaneHeaders() },
       body: JSON.stringify({
         room_id: config.roomId,
         room_key: cpData.room_key,
@@ -64,7 +68,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
     const response = await fetch(`${this.vmUrl}/recording/stop`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...controlPlaneHeaders() },
       body: JSON.stringify({ room_id: roomId }),
     });
 
@@ -84,6 +88,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   }> {
     const response = await fetch(`${this.vmUrl}/recording/status`, {
       method: 'GET',
+      headers: controlPlaneHeaders(),
     });
 
     if (!response.ok) {

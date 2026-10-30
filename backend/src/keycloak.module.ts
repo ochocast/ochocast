@@ -2,7 +2,7 @@
 
 // Path: backend/src/keycloak.module.ts
 
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import {
   KeycloakConnectModule,
   AuthGuard,
@@ -26,6 +26,8 @@ const resolveTokenValidation = (): TokenValidation => {
   return TokenValidation.ONLINE;
 };
 
+// Global: the chat gateway checks socket tokens with the same Keycloak instance.
+@Global()
 @Module({
   imports: [
     KeycloakConnectModule.register({
@@ -42,5 +44,6 @@ const resolveTokenValidation = (): TokenValidation => {
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RoleGuard },
   ],
+  exports: [KeycloakConnectModule],
 })
 export class KeycloakModule {}

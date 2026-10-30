@@ -31,7 +31,10 @@ RUN npm ci --only=production
 # Copy built assets from builder stage
 COPY --from=builder /usr/src/app/dist ./dist
 
-EXPOSE 80/tcp
+# Run as the image's unprivileged "node" user (uid 1000). It listens on PORT (8080 in the
+# deployment templates), so no privileged port is needed.
+USER node
+EXPOSE 8080/tcp
 
 # Run compiled migrations and then start the app
 CMD ["sh", "-c", "npm run migration:run:prod && node dist/main.js"]

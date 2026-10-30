@@ -38,6 +38,12 @@ export const useSocket = ({ trackId, username }: UseSocketProps) => {
     // Create socket connection
     const newSocket = io(wsUrl, {
       transports: ['websocket', 'polling'],
+      // The backend takes the author of every message from this token (read on each
+      // connection, so a reconnection sends the refreshed one).
+      auth: (cb) => {
+        const stored = localStorage.getItem('backendUser');
+        cb({ token: stored ? JSON.parse(stored).token : undefined });
+      },
     });
 
     newSocket.on('connect', () => {

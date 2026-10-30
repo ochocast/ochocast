@@ -8,6 +8,8 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+
+	"whip-server/pkg/controlauth"
 )
 
 // Global SFU server instance
@@ -20,9 +22,18 @@ func main() {
 	}
 
 	// NOW create the SFU server instance with the loaded environment variables
+	// Every outgoing call of a worker goes to the control plane or another worker:
+	// carry the control token (SFU_CONTROL_TOKEN) on all of them.
+	http.DefaultTransport = controlauth.Wrap(http.DefaultTransport)
+
 	sfuServer = NewSFUServer()
 
-	mux := newServerMux()
+	// Only the control plane, other workers and the recorder call a worker: with
+	// SFU_CONTROL_TOKEN set, everything but /health needs the token.
+	var mux http.Handler = controlauth.RequireExcept(newServerMux(), "/health")
+	if !controlauth.Enabled() {
+		log.Println("WARNING: SFU_CONTROL_TOKEN is empty, the worker API is open (development only)")
+	}
 
 	// Get configuration from environment variables
 	enableHTTPS := getEnvAsBool("ENABLE_HTTPS", false)
@@ -41,13 +52,15 @@ func main() {
 		httpsPort := getEnv("HTTPS_PORT", "443")
 
 		fmt.Printf("Server listening on :%s (HTTPS)\n", httpsPort)
-		log.Fatal(http.ListenAndServeTLS(":"+httpsPort, certFile, keyFile, mux))
+		srv := &http.Server{Addr: ":" + httpsPort, Handler: mux}
+		serveWithDrain(srv, func() error { return srv.ListenAndServeTLS(certFile, keyFile) })
 	} else {
 		// HTTP Configuration
 		httpPort := getEnv("SERVER_PORT", "8090")
 
 		fmt.Printf("Server listening on :%s (HTTP)\n", httpPort)
-		log.Fatal(http.ListenAndServe(":"+httpPort, mux))
+		srv := &http.Server{Addr: ":" + httpPort, Handler: mux}
+		serveWithDrain(srv, srv.ListenAndServe)
 	}
 }
 
