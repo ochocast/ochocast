@@ -149,4 +149,75 @@ describe('VideoGateway', () => {
       NotFoundException,
     );
   });
+
+  /*
+    deleteVideoAdmin — a video played from its source after a transcoding fallback
+   */
+  it('permanently deletes everything under the video prefix of a source-played video', async () => {
+    const previous = { ...process.env };
+    process.env.STOCK_MEDIA_BUCKET = 'media';
+    process.env.STOCK_MINIATURE_BUCKET = 'miniature';
+    jest.spyOn(console, 'log').mockImplementation();
+    try {
+      const video = {
+        id: 'video-1',
+        media_id: 'video-1/source/original.mp4',
+        miniature_id: 'miniature-video-1.jpg',
+        subtitle_id: 'subtitle-video-1.vtt',
+      } as VideoEntity;
+      videoRepositoryMock.findOneBy = jest.fn().mockResolvedValue(video);
+      videoRepositoryMock.remove = jest.fn().mockResolvedValue(video);
+      const listed = [
+        'video-1/source/original.mp4',
+        'video-1/source/subtitle-video-1.vtt',
+        'video-1/audio.flac',
+        'video-1/360p0.ts',
+      ];
+      const send = jest.fn(async (command) =>
+        command.constructor.name === 'ListObjectsV2Command'
+          ? { Contents: listed.map((Key) => ({ Key })) }
+          : {},
+      );
+      await new VideoGateway(
+        videoRepositoryMock as any,
+        {
+          send,
+        } as any,
+      ).deleteVideoAdmin('video-1');
+      const calls = send.mock.calls.map(([command]) => [
+        command.constructor.name,
+        command.input,
+      ]);
+      expect(calls).toEqual([
+        [
+          'ListObjectsV2Command',
+          expect.objectContaining({ Prefix: 'video-1/' }),
+        ],
+        [
+          'DeleteObjectsCommand',
+          expect.objectContaining({
+            Delete: expect.objectContaining({
+              Objects: listed.map((Key) => ({ Key })),
+            }),
+          }),
+        ],
+        [
+          'DeleteObjectCommand',
+          { Bucket: 'miniature', Key: 'miniature-video-1.jpg' },
+        ],
+        [
+          'DeleteObjectCommand',
+          { Bucket: 'miniature', Key: 'video-1/source/miniature-original' },
+        ],
+        [
+          'DeleteObjectCommand',
+          { Bucket: 'media', Key: 'subtitle-video-1.vtt' },
+        ],
+      ]);
+      expect(videoRepositoryMock.remove).toHaveBeenCalledWith(video);
+    } finally {
+      process.env = previous;
+      jest.restoreAllMocks();
+    }
+  });
 });

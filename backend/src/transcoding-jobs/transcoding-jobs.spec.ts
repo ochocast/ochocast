@@ -14,6 +14,7 @@ import {
   TranscodingJobsController,
 } from './transcoding-jobs.controller';
 import { TranscodingJobEntity } from './transcoding-job.entity';
+import { VideoEntity } from '../videos/infra/gateways/entities/video.entity';
 import {
   VideoTranscodingJob,
   VideoTranscodingResult,
@@ -60,7 +61,11 @@ describe('Transcoding job leases', () => {
       }),
     };
     update = jest.fn();
-    const manager = { getRepository: () => repository, update };
+    const manager = {
+      getRepository: () => repository,
+      save: repository.save,
+      update,
+    };
     service = new TranscodingJobsService({
       transaction: (callback) => callback(manager),
     } as unknown as DataSource);
@@ -134,6 +139,154 @@ describe('Transcoding job leases', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  const permanent = (
+    reason: string,
+    error: string,
+    duration = 0,
+  ): VideoTranscodingResult => ({
+    ...result,
+    success: false,
+    duration,
+    error,
+    permanent: true,
+    reason,
+  });
+
+  it('acknowledges redeliveries of a permanent failure without a new attempt', async () => {
+    await service.claim(payload.jobId, payload.videoId);
+    await service.complete(
+      payload.jobId,
+      stored.leaseToken,
+      permanent('invalid_source', 'Source has no video stream'),
+    );
+    expect(stored.status).toBe('failed');
+    expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+      transcoding_status: 'failed',
+      transcoding_error: 'Source has no video stream',
+    });
+    expect(await service.claim(payload.jobId, payload.videoId)).toEqual({
+      status: 'completed',
+    });
+    expect(stored.attempts).toBe(1);
+  });
+
+  it('abandons a job claimed TRANSCODING_MAX_ATTEMPTS times instead of running it again', async () => {
+    stored.attempts = 10;
+    stored.status = 'failed';
+    expect(await service.claim(payload.jobId, payload.videoId)).toEqual({
+      status: 'completed',
+    });
+    expect(stored.attempts).toBe(10);
+    expect(stored.status).toBe('failed');
+    expect(stored.result).toEqual(
+      expect.objectContaining({
+        success: false,
+        permanent: true,
+        error: 'Transcoding abandoned after 10 attempts',
+      }),
+    );
+    expect(update).toHaveBeenCalledWith(VideoEntity, payload.videoId, {
+      transcoding_status: 'failed',
+      transcoding_error: 'Transcoding abandoned after 10 attempts',
+    });
+    // The next redelivery is acknowledged from the stored permanent failure.
+    update.mockClear();
+    expect(await service.claim(payload.jobId, payload.videoId)).toEqual({
+      status: 'completed',
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('honours TRANSCODING_MAX_ATTEMPTS and rejects an invalid value', async () => {
+    const previous = process.env.TRANSCODING_MAX_ATTEMPTS;
+    const build = () =>
+      new TranscodingJobsService({
+        transaction: (callback) =>
+          callback({
+            getRepository: () => ({ findOne, save: jest.fn() }),
+            save: jest.fn(),
+            update,
+          }),
+      } as unknown as DataSource);
+    try {
+      process.env.TRANSCODING_MAX_ATTEMPTS = '2';
+      stored.attempts = 2;
+      expect(await build().claim(payload.jobId, payload.videoId)).toEqual({
+        status: 'completed',
+      });
+      process.env.TRANSCODING_MAX_ATTEMPTS = '0';
+      expect(build).toThrow('TRANSCODING_MAX_ATTEMPTS');
+    } finally {
+      if (previous === undefined) delete process.env.TRANSCODING_MAX_ATTEMPTS;
+      else process.env.TRANSCODING_MAX_ATTEMPTS = previous;
+    }
+  });
+
+  it.each(['duration_exceeded', 'deadline_exceeded'])(
+    'plays a playable source when the video is too long to transcode (%s)',
+    async (reason) => {
+      stored.payload = {
+        ...payload,
+        originalKey: `${payload.videoId}/source/original.mp4`,
+      };
+      await service.claim(payload.jobId, payload.videoId);
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...permanent(reason, 'too long', 5400),
+        sourceCodecsPlayable: true,
+      });
+      expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+        media_id: `${payload.videoId}/source/original.mp4`,
+        transcoding_status: 'ready',
+        transcoding_error: null,
+        duration: 5400,
+      });
+      expect(stored.status).toBe('failed');
+      expect(stored.result.permanent).toBe(true);
+      expect(await service.claim(payload.jobId, payload.videoId)).toEqual({
+        status: 'completed',
+      });
+    },
+  );
+
+  it('fails a too long video whose source browsers cannot play', async () => {
+    stored.payload = {
+      ...payload,
+      originalKey: `${payload.videoId}/source/original.mkv`,
+    };
+    await service.claim(payload.jobId, payload.videoId);
+    await service.complete(
+      payload.jobId,
+      stored.leaseToken,
+      permanent('duration_exceeded', 'Video duration 5400 s exceeds the limit'),
+    );
+    expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+      transcoding_status: 'failed',
+      transcoding_error:
+        'Video duration 5400 s exceeds the limit; a .mkv source cannot be played without transcoding',
+    });
+  });
+
+  // false: HEVC, 10-bit... as probed. Absent: a worker that did not probe.
+  it.each([false, undefined])(
+    'fails a too long .mov whose codecs browsers cannot decode (sourceCodecsPlayable: %s)',
+    async (sourceCodecsPlayable) => {
+      stored.payload = {
+        ...payload,
+        originalKey: `${payload.videoId}/source/original.mov`,
+      };
+      await service.claim(payload.jobId, payload.videoId);
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...permanent('deadline_exceeded', 'Transcoding deadline exceeded'),
+        sourceCodecsPlayable,
+      });
+      expect(update).toHaveBeenLastCalledWith(VideoEntity, payload.videoId, {
+        transcoding_status: 'failed',
+        transcoding_error:
+          'Transcoding deadline exceeded; the source codecs cannot be played without transcoding',
+      });
+    },
+  );
 
   // 410, not 404: the worker must tell a deleted job from a missing route.
   it('reports a deleted job as gone on claim and result', async () => {
@@ -239,6 +392,39 @@ describe('Internal transcoding HTTP API', () => {
       result: { ...result, duration: -1 },
     }).expect(400);
     await send({ leaseToken: randomUUID(), result }).expect(200);
+  });
+
+  it('accepts the permanent failure fields of the worker', async () => {
+    const endpoint = `/api/internal/transcoding/jobs/${payload.jobId}/result`;
+    const send = (extra: Record<string, unknown>) =>
+      request(app.getHttpServer())
+        .post(endpoint)
+        .set('X-Transcoding-Token', secret)
+        .send({
+          leaseToken: randomUUID(),
+          result: { ...result, success: false, error: 'too long', ...extra },
+        });
+    jobs.complete.mockClear();
+    await send({ permanent: true, reason: 'duration_exceeded' }).expect(200);
+    expect(jobs.complete).toHaveBeenCalledWith(
+      payload.jobId,
+      expect.any(String),
+      expect.objectContaining({ permanent: true, reason: 'duration_exceeded' }),
+    );
+    await send({ permanent: 'yes' }).expect(400);
+    await send({ reason: 'x'.repeat(65) }).expect(400);
+    jobs.complete.mockClear();
+    await send({
+      permanent: true,
+      reason: 'deadline_exceeded',
+      sourceCodecsPlayable: false,
+    }).expect(200);
+    expect(jobs.complete).toHaveBeenCalledWith(
+      payload.jobId,
+      expect.any(String),
+      expect.objectContaining({ sourceCodecsPlayable: false }),
+    );
+    await send({ sourceCodecsPlayable: 'true' }).expect(400);
   });
 
   it('answers 410 Gone for a deleted job on claim and result', async () => {
