@@ -17,6 +17,7 @@ import { PollsModule } from './polls/polls.module';
 import { RecordingModule } from './recording/recording.module';
 import { QueueModule } from './queue/queue.module';
 import { HealthController } from './health/health.controller';
+import { TranscriptionModule } from './transcription/transcription.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { HealthController } from './health/health.controller';
     PollsModule,
     RecordingModule,
     QueueModule,
+    TranscriptionModule,
   ],
   controllers: [HealthController],
 })

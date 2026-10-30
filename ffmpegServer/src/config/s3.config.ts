@@ -3,8 +3,16 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-export function createS3Client(): S3Client {
+// An S3 request still waiting for its response this long after the socket
+// went idle (an upload or a request left unanswered) fails, and the SDK
+// retries it, instead of hanging until the job deadline. A download whose body
+// stalls after its headers is not covered: that is before encoding, where the
+// job deadline is retried. requestTimeout would only log in this SDK version.
+const S3_IDLE_TIMEOUT_MS = 120000;
+
+export function createS3Client(idleTimeoutMs = S3_IDLE_TIMEOUT_MS): S3Client {
   return new S3Client({
+    requestHandler: { connectionTimeout: 10000, socketTimeout: idleTimeoutMs },
     endpoint:
       process.env.STOCK_SERVER_URL ||
       `${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT || 'localhost'}:${process.env.MINIO_PORT || '9000'}`,

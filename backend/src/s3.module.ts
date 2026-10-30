@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 
 // Configuration du client S3 pour Scaleway
-const createS3Client = () =>
+export const createS3Client = () =>
   new S3Client({
     requestHandler: { connectionTimeout: 10000, socketTimeout: 120000 },
     requestChecksumCalculation: 'WHEN_REQUIRED',

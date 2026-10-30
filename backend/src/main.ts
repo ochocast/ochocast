@@ -14,6 +14,8 @@ async function bootstrap() {
     },
   });
 
+  app.enableShutdownHooks();
+
   // Swagger configuration
   const config = new DocumentBuilder()
     .setTitle('ochocast API')

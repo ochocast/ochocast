@@ -13,6 +13,17 @@ The disposable MinIO service is built from a pinned official source revision,
 so the contract recipe does not depend on discontinued public MinIO images.
 See `ffmpegServer/SERVERLESS.md` for the environment and trigger contract.
 
+`transcription.yml` validates the nightly transcription backend and builds both
+CPU and GPU Whisper images for linux/amd64. Set `TRANSCRIPT_IMAGE_REPOSITORY`
+to a full registry/repository path; publication uses `SCW_REG_USER` and
+`SCW_SECRET_KEY`, only on a manual dispatch with `publish=true`: pushes and
+pull requests build the images without publishing them.
+Tags are `sha-<full commit>-cpu` and `sha-<full commit>-gpu`; use the published
+digest in ops Terraform. GPU inference must still be verified on the L4 VM.
+The VM must be able to pull the image: the current bootstrap has no registry
+login. Use a publicly pullable worker image or configure VM registry access
+before deployment. See `docs/AUTOMATIC_SUBTITLES.md` for local verification.
+
 The GitOps promotion workflow:
 
 1. validates the frontend and backend;

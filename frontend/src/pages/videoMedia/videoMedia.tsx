@@ -46,8 +46,6 @@ import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
-const linkExpirationTime = 3600;
-const renewalThreshold = 300;
 const PERSONA_IMAGE = '/branding/persona.png';
 
 interface HlsLevel {
@@ -67,6 +65,21 @@ interface QualityOption {
   level: number;
   label: string;
 }
+
+// apisauce never throws: an error page or body must not become page state.
+type ApiResponse = { ok?: boolean; data?: unknown } | undefined;
+const firstVideo = (response: ApiResponse): Video | undefined =>
+  response?.ok && Array.isArray(response.data) ? response.data[0] : undefined;
+const urlOf = (response: ApiResponse): string | null =>
+  response?.ok && typeof response.data === 'string' && response.data
+    ? response.data
+    : null;
+
+// An upload is polled every 3 s while it transcodes. Once it is ready, its
+// media and subtitle reads get spaced retries (6, 12, 24 and 48 s) before the
+// page offers a reload: an expired session would fail them forever.
+const TRANSCODING_POLL_MS = 3000;
+const READY_READ_ATTEMPTS = 5;
 
 const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
   const parentComments = comments.filter((c) => c.parentid === null);
@@ -116,10 +129,16 @@ const VideoMedia: FC = () => {
   const [video, setVideo] = useState<Video>();
   const [suggestedVideos, setSuggestedVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // A failed load (an error page, the network) offers a retry: only an empty
+  // answer means that the video does not exist.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloads, setReloads] = useState(0);
   const [commentaryList, setCommentaryList] = useState<CommentObject[]>([]);
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const userString = localStorage.getItem('backendUser');
+  const currentUserIdForData = JSON.parse(
+    localStorage.getItem('backendUser') || 'null',
+  )?.id;
 
   const location = useLocation();
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
@@ -258,11 +277,14 @@ const VideoMedia: FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setLoadFailed(false);
 
-      const backendUser = userString ? JSON.parse(userString) : null;
+      const backendUser = JSON.parse(
+        localStorage.getItem('backendUser') || 'null',
+      );
 
       const userResponse = await getUsers();
-      const users: User[] = userResponse.data.users || [];
+      const users: User[] = userResponse?.data?.users || [];
       const user = backendUser
         ? users.find((u) => u.id === backendUser.id)
         : null;
@@ -277,83 +299,152 @@ const VideoMedia: FC = () => {
           getLikedComments(),
         ]);
 
-      if (videoRes) {
-        const currentVideo = videoRes.data[0];
-        setVideo(currentVideo);
-
+      if (!videoRes?.ok || !Array.isArray(videoRes.data)) {
+        setVideo(undefined);
+        setLoadFailed(true);
+        setIsLoading(false);
+        return;
+      }
+      // An unknown video ends on the not-found page.
+      const currentVideo = firstVideo(videoRes);
+      setVideo(currentVideo);
+      if (currentVideo) {
         const suggestionsRes = await getVideoSuggestions(currentVideo.id);
-        if (suggestionsRes) {
+        if (suggestionsRes?.ok && Array.isArray(suggestionsRes.data))
           setSuggestedVideos(suggestionsRes.data.slice(0, 3));
-        }
       }
 
-      if (mediaRes) setUrl(mediaRes.data);
+      // A pending upload has no media yet: its poll below sets it.
+      setUrl(urlOf(mediaRes) ?? '');
 
-      if (subtitleRes && subtitleRes.data) {
-        setSubtitleUrl(subtitleRes.data);
-      } else {
-        setSubtitleUrl(null);
-      }
+      // Without a subtitle URL, the transcript poll below can start.
+      setSubtitleUrl(urlOf(subtitleRes));
 
-      if (commentsRes && likedCommentsRes) {
-        const likedComments = Array.isArray(likedCommentsRes.data)
-          ? likedCommentsRes.data
-          : [];
-        const likedCommentIds = new Set(
-          likedComments.map((c: CommentObject) => c.id),
-        );
-
-        const commentsWithLikedStatus = commentsRes.data.map(
-          (comment: CommentObject) => ({
+      const comments: CommentObject[] = Array.isArray(commentsRes?.data)
+        ? commentsRes.data
+        : [];
+      const likedComments = Array.isArray(likedCommentsRes?.data)
+        ? likedCommentsRes.data
+        : [];
+      const likedCommentIds = new Set(
+        likedComments.map((c: CommentObject) => c.id),
+      );
+      setCommentaryList(
+        sortCommentsByLikes(
+          comments.map((comment) => ({
             ...comment,
             isLiked: likedCommentIds.has(comment.id),
-          }),
-        );
-
-        setCommentaryList(sortCommentsByLikes(commentsWithLikedStatus));
-      } else if (commentsRes) {
-        setCommentaryList(commentsRes.data);
-      }
+          })),
+        ),
+      );
 
       setIsLoading(false);
     };
 
     fetchData();
     window.scrollTo(0, 0);
-  }, [userString, videoId]);
+  }, [currentUserIdForData, videoId, reloads]);
 
   useEffect(() => {
     if (video?.transcoding_status !== 'pending' || !videoId) return;
 
-    const poll = window.setInterval(async () => {
-      const videoResponse = await getVideo(videoId);
-      const refreshedVideo = videoResponse?.data?.[0] as Video | undefined;
-      if (!refreshedVideo) return;
-      setVideo(refreshedVideo);
-
-      if (refreshedVideo.transcoding_status === 'ready') {
-        const [mediaResponse, subtitleResponse] = await Promise.all([
-          getMedia(videoId),
-          getSubtitle(videoId),
-        ]);
-        if (mediaResponse?.data) setUrl(mediaResponse.data);
-        setSubtitleUrl(subtitleResponse?.data || null);
+    let cancelled = false;
+    let timer: number | undefined;
+    let failedReads = 0;
+    // Each tick is scheduled once the previous one settles, so slow reads
+    // never overlap; a hidden tab only waits.
+    const poll = async () => {
+      let delay = TRANSCODING_POLL_MS;
+      if (!document.hidden) {
+        // An error page (a proxy 502 during a rollout) is retried next tick.
+        const refreshedVideo = firstVideo(await getVideo(videoId));
+        if (cancelled) return;
+        if (refreshedVideo?.transcoding_status === 'ready') {
+          const [mediaResponse, subtitleResponse] = await Promise.all([
+            getMedia(videoId),
+            getSubtitle(videoId),
+          ]);
+          if (cancelled) return;
+          const mediaUrl = urlOf(mediaResponse);
+          const subtitle = urlOf(subtitleResponse);
+          // Showing the ready video ends this poll: its media, and its
+          // subtitle if it has one, are read first.
+          if (mediaUrl && (!refreshedVideo.subtitle_id || subtitle)) {
+            setUrl(mediaUrl);
+            setSubtitleUrl(subtitle);
+            setVideo(refreshedVideo);
+            return;
+          }
+          failedReads += 1;
+          if (failedReads === READY_READ_ATTEMPTS) {
+            setVideo(refreshedVideo);
+            setLoadFailed(true);
+            return;
+          }
+          delay = TRANSCODING_POLL_MS * 2 ** failedReads;
+        } else if (refreshedVideo) {
+          setVideo(refreshedVideo);
+          if (refreshedVideo.transcoding_status !== 'pending') return;
+        }
       }
-    }, 3000);
+      timer = window.setTimeout(poll, delay);
+    };
+    timer = window.setTimeout(poll, TRANSCODING_POLL_MS);
 
-    return () => window.clearInterval(poll);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [video?.transcoding_status, videoId]);
 
+  // Refresh infrequently while the viewer is watching and a transcript is pending.
   useEffect(() => {
-    const renewSignedUrl = async () => {
-      const url_response = await getMedia(videoId);
-      if (url_response) setUrl(url_response.data);
+    if (
+      !videoId ||
+      subtitleUrl ||
+      !['pending', 'processing'].includes(video?.transcription_status || '')
+    )
+      return;
+    let cancelled = false;
+    const poll = window.setInterval(async () => {
+      if (document.hidden) return;
+      // An error page (a proxy 502 during a rollout) is retried next time.
+      const refreshed = firstVideo(await getVideo(videoId));
+      if (!refreshed || cancelled) return;
+      if (refreshed.subtitle_id) {
+        const subtitle = urlOf(await getSubtitle(videoId));
+        if (!cancelled && subtitle) setSubtitleUrl(subtitle);
+      } else if (
+        !['pending', 'processing'].includes(
+          refreshed.transcription_status || '',
+        )
+      ) {
+        window.clearInterval(poll);
+      }
+    }, 300_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
     };
+  }, [videoId, subtitleUrl, video?.transcription_status]);
 
-    const ms = (linkExpirationTime - renewalThreshold) * 1000;
-    const id = window.setTimeout(renewSignedUrl, ms);
-    return () => window.clearTimeout(id);
-  }, [videoId]);
+  // ReactPlayer creates tracks when it mounts, but a transcript may arrive later.
+  useEffect(() => {
+    if (!subtitleUrl) return;
+    const element = playerRef.current?.getInternalPlayer();
+    if (!(element instanceof HTMLVideoElement)) return;
+    let track = element.querySelector<HTMLTrackElement>(
+      'track[kind="subtitles"][srclang="fr"]',
+    );
+    if (!track) {
+      track = document.createElement('track');
+      track.kind = 'subtitles';
+      track.srclang = 'fr';
+      track.label = 'Français';
+      element.appendChild(track);
+    }
+    if (track.src !== subtitleUrl) track.src = subtitleUrl;
+  }, [subtitleUrl]);
 
   const handleReplyClick = (index: number) => {
     const parent = commentaryList.filter((c) => c.parentid === null)[index];
@@ -565,6 +656,17 @@ const VideoMedia: FC = () => {
   };
 
   if (isLoading) return <LoadingCircle />;
+  if (loadFailed)
+    return (
+      <div className={styles.loadFailed}>
+        <p>{t('errorLoadingVideo')}</p>
+        <Button
+          type={ButtonType.primary}
+          label={t('retry')}
+          onClick={() => setReloads((count) => count + 1)}
+        />
+      </div>
+    );
   if (!video) return <NotFoundPage />;
 
   const formattedDate = new Date(video.createdAt);

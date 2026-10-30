@@ -16,6 +16,18 @@ export const VIDEO_CONTENT_TYPES = new Map([
 // accepted, since the source itself is published.
 export const PLAYABLE_AS_IS = new Set(['m4v', 'mov', 'mp4', 'webm']);
 
+/**
+ * Largest source sent to the worker. Ops keeps it equal to the worker's
+ * TRANSCODING_MAX_SOURCE_BYTES: uploads above it are refused at admission,
+ * recordings above it are published from their source.
+ */
+export function uploadMaxBytes(): number {
+  const max = Number(process.env.UPLOAD_MAX_BYTES || 1024 ** 3);
+  if (!Number.isSafeInteger(max) || max < 1 || max > 50 * 1024 ** 3)
+    throw new Error('UPLOAD_MAX_BYTES must be between 1 byte and 50 GiB');
+  return max;
+}
+
 export interface VideoMediaPlan {
   media_id: string;
   transcoding_status: 'pending' | 'ready';

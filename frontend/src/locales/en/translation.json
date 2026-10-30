@@ -306,6 +306,7 @@
   "videoRestoreError": "Error restoring video",
   "videoArchivedSuccess": "Video archived successfully",
   "videoArchiveError": "Error archiving video",
+  "errorLoadingVideo": "Error loading the video",
   "errorLoadingVideos": "Error loading videos",
   "cardsPerRow": "Cards per row",
   "copyLink": "Copy link",
