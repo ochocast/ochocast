@@ -75,6 +75,12 @@ const urlOf = (response: ApiResponse): string | null =>
     ? response.data
     : null;
 
+// An upload is polled every 3 s while it transcodes. Once it is ready, its
+// media and subtitle reads get spaced retries (6, 12, 24 and 48 s) before the
+// page offers a reload: an expired session would fail them forever.
+const TRANSCODING_POLL_MS = 3000;
+const READY_READ_ATTEMPTS = 5;
+
 const sortCommentsByLikes = (comments: CommentObject[]): CommentObject[] => {
   const parentComments = comments.filter((c) => c.parentid === null);
   const childComments = comments.filter((c) => c.parentid !== null);
@@ -123,6 +129,10 @@ const VideoMedia: FC = () => {
   const [video, setVideo] = useState<Video>();
   const [suggestedVideos, setSuggestedVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  // A failed load (an error page, the network) offers a retry: only an empty
+  // answer means that the video does not exist.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloads, setReloads] = useState(0);
   const [commentaryList, setCommentaryList] = useState<CommentObject[]>([]);
   const navigate = useNavigate();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -267,6 +277,7 @@ const VideoMedia: FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setLoadFailed(false);
 
       const backendUser = JSON.parse(
         localStorage.getItem('backendUser') || 'null',
@@ -288,7 +299,13 @@ const VideoMedia: FC = () => {
           getLikedComments(),
         ]);
 
-      // An unknown video, or an error, ends on the not-found page.
+      if (!videoRes?.ok || !Array.isArray(videoRes.data)) {
+        setVideo(undefined);
+        setLoadFailed(true);
+        setIsLoading(false);
+        return;
+      }
+      // An unknown video ends on the not-found page.
       const currentVideo = firstVideo(videoRes);
       setVideo(currentVideo);
       if (currentVideo) {
@@ -326,36 +343,57 @@ const VideoMedia: FC = () => {
 
     fetchData();
     window.scrollTo(0, 0);
-  }, [currentUserIdForData, videoId]);
+  }, [currentUserIdForData, videoId, reloads]);
 
   useEffect(() => {
     if (video?.transcoding_status !== 'pending' || !videoId) return;
 
     let cancelled = false;
-    const poll = window.setInterval(async () => {
-      const refreshedVideo = firstVideo(await getVideo(videoId));
-      if (!refreshedVideo || cancelled) return;
-
-      if (refreshedVideo.transcoding_status === 'ready') {
-        const [mediaResponse, subtitleResponse] = await Promise.all([
-          getMedia(videoId),
-          getSubtitle(videoId),
-        ]);
-        const mediaUrl = urlOf(mediaResponse);
-        const subtitle = urlOf(subtitleResponse);
-        // Showing the ready video ends this poll: keep polling until its
-        // media, and its subtitle if it has one, are read.
-        if (cancelled || !mediaUrl || (refreshedVideo.subtitle_id && !subtitle))
-          return;
-        setUrl(mediaUrl);
-        setSubtitleUrl(subtitle);
+    let timer: number | undefined;
+    let failedReads = 0;
+    // Each tick is scheduled once the previous one settles, so slow reads
+    // never overlap; a hidden tab only waits.
+    const poll = async () => {
+      let delay = TRANSCODING_POLL_MS;
+      if (!document.hidden) {
+        // An error page (a proxy 502 during a rollout) is retried next tick.
+        const refreshedVideo = firstVideo(await getVideo(videoId));
+        if (cancelled) return;
+        if (refreshedVideo?.transcoding_status === 'ready') {
+          const [mediaResponse, subtitleResponse] = await Promise.all([
+            getMedia(videoId),
+            getSubtitle(videoId),
+          ]);
+          if (cancelled) return;
+          const mediaUrl = urlOf(mediaResponse);
+          const subtitle = urlOf(subtitleResponse);
+          // Showing the ready video ends this poll: its media, and its
+          // subtitle if it has one, are read first.
+          if (mediaUrl && (!refreshedVideo.subtitle_id || subtitle)) {
+            setUrl(mediaUrl);
+            setSubtitleUrl(subtitle);
+            setVideo(refreshedVideo);
+            return;
+          }
+          failedReads += 1;
+          if (failedReads === READY_READ_ATTEMPTS) {
+            setVideo(refreshedVideo);
+            setLoadFailed(true);
+            return;
+          }
+          delay = TRANSCODING_POLL_MS * 2 ** failedReads;
+        } else if (refreshedVideo) {
+          setVideo(refreshedVideo);
+          if (refreshedVideo.transcoding_status !== 'pending') return;
+        }
       }
-      setVideo(refreshedVideo);
-    }, 3000);
+      timer = window.setTimeout(poll, delay);
+    };
+    timer = window.setTimeout(poll, TRANSCODING_POLL_MS);
 
     return () => {
       cancelled = true;
-      window.clearInterval(poll);
+      window.clearTimeout(timer);
     };
   }, [video?.transcoding_status, videoId]);
 
@@ -618,6 +656,17 @@ const VideoMedia: FC = () => {
   };
 
   if (isLoading) return <LoadingCircle />;
+  if (loadFailed)
+    return (
+      <div className={styles.loadFailed}>
+        <p>{t('errorLoadingVideo')}</p>
+        <Button
+          type={ButtonType.primary}
+          label={t('retry')}
+          onClick={() => setReloads((count) => count + 1)}
+        />
+      </div>
+    );
   if (!video) return <NotFoundPage />;
 
   const formattedDate = new Date(video.createdAt);

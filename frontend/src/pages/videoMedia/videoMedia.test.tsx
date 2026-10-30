@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import {
   getComments,
   getLikedComments,
@@ -200,47 +200,122 @@ describe('VideoMedia', () => {
     expect(getMedia).toHaveBeenCalledTimes(1);
   });
 
-  // While an upload transcodes, an error page or body never becomes page
-  // state, and media or a subtitle that fail once it is ready are retried.
-  it('retries the media of an upload that becomes ready', async () => {
-    const mediaUrl = 'https://bucket.example/A/master.m3u8';
-    const subtitleUrl = 'https://bucket.example/subtitle-A.vtt';
-    const gateway = { ok: false, data: { statusCode: 502 } };
-    const subtitled = { ...video, subtitle_id: 'subtitle-A.vtt' };
-    (getVideo as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        data: [{ ...subtitled, transcoding_status: 'pending' }],
-      })
-      .mockResolvedValueOnce({ ok: false, data: '<html>Bad gateway</html>' })
-      .mockResolvedValue({ ok: true, data: [subtitled] });
-    (getMedia as jest.Mock)
-      .mockReset()
-      // The media of a pending upload answers 404.
-      .mockResolvedValueOnce({ ok: false, data: { statusCode: 404 } })
-      .mockResolvedValueOnce(gateway)
-      .mockResolvedValue({ ok: true, data: mediaUrl });
-    (getSubtitle as jest.Mock)
-      .mockResolvedValueOnce(gateway)
-      .mockResolvedValueOnce(gateway)
-      .mockResolvedValue({ ok: true, data: subtitleUrl });
-    render(<VideoMedia />);
-    await settle();
-    for (let poll = 0; poll < 3; poll++) {
+  const advance = async (...waits: number[]) => {
+    for (const wait of waits) {
       await act(async () => {
-        jest.advanceTimersByTime(3000);
+        jest.advanceTimersByTime(wait);
       });
       await settle();
     }
+  };
+
+  // While an upload transcodes, an error page or body never becomes page
+  // state. Once it is ready, it shows only with its media and its subtitle:
+  // either read is retried 6 s after a failure.
+  it.each(['media', 'subtitle'])(
+    'retries the %s of an upload that becomes ready',
+    async (failing) => {
+      const mediaUrl = 'https://bucket.example/A/master.m3u8';
+      const subtitleUrl = 'https://bucket.example/subtitle-A.vtt';
+      const gateway = { ok: false, data: { statusCode: 502 } };
+      const subtitled = { ...video, subtitle_id: 'subtitle-A.vtt' };
+      (getVideo as jest.Mock)
+        .mockResolvedValueOnce({
+          ok: true,
+          data: [{ ...subtitled, transcoding_status: 'pending' }],
+        })
+        .mockResolvedValueOnce({ ok: false, data: '<html>Bad gateway</html>' })
+        .mockResolvedValue({ ok: true, data: [subtitled] });
+      (getMedia as jest.Mock)
+        .mockReset()
+        // The media of a pending upload answers 404.
+        .mockResolvedValueOnce({ ok: false, data: { statusCode: 404 } })
+        .mockResolvedValueOnce(
+          failing === 'media' ? gateway : { ok: true, data: mediaUrl },
+        )
+        .mockResolvedValue({ ok: true, data: mediaUrl });
+      (getSubtitle as jest.Mock)
+        .mockResolvedValueOnce(gateway)
+        .mockResolvedValueOnce(
+          failing === 'subtitle' ? gateway : { ok: true, data: subtitleUrl },
+        )
+        .mockResolvedValue({ ok: true, data: subtitleUrl });
+      render(<VideoMedia />);
+      await settle();
+      // The error page, then the first ready tick with one failed read.
+      await advance(3000, 3000);
+      expect(screen.queryByTestId('player')).toBeNull();
+
+      await advance(6000);
+      const player = screen.getByTestId('player');
+      expect(player).toHaveAttribute('data-url', mediaUrl);
+      expect(player.querySelector('track')).toHaveAttribute('src', subtitleUrl);
+    },
+  );
+
+  // An upload without a subtitle shows once its media is read: an error body
+  // from the subtitle route never becomes its track.
+  it('shows an unsubtitled upload without a track when its subtitle read fails', async () => {
+    const mediaUrl = 'https://bucket.example/A/master.m3u8';
+    (getVideo as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: [{ ...video, transcoding_status: 'pending' }],
+      })
+      .mockResolvedValue({ ok: true, data: [video] });
+    (getMedia as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce({ ok: false, data: { statusCode: 404 } })
+      .mockResolvedValue({ ok: true, data: mediaUrl });
+    (getSubtitle as jest.Mock)
+      .mockResolvedValueOnce({ ok: true, data: '' })
+      .mockResolvedValue({
+        ok: false,
+        data: { statusCode: 500, message: 'Internal server error' },
+      });
+    render(<VideoMedia />);
+    await settle();
+    await advance(3000);
 
     const player = screen.getByTestId('player');
     expect(player).toHaveAttribute('data-url', mediaUrl);
-    expect(player.querySelector('track')).toHaveAttribute('src', subtitleUrl);
+    expect(player.querySelector('track')).toBeNull();
   });
 
-  // Offline or unknown, the video ends on the not-found page, not on an
-  // endless spinner.
-  it('shows the not-found page when the video cannot be loaded', async () => {
+  // A ready upload whose reads keep failing (an expired session answers 401)
+  // is not polled forever: after spaced retries, the page offers a reload.
+  it('stops retrying a ready upload whose media keeps failing', async () => {
+    (getVideo as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: [{ ...video, transcoding_status: 'pending' }],
+      })
+      .mockResolvedValue({ ok: true, data: [video] });
+    (getMedia as jest.Mock)
+      .mockReset()
+      .mockResolvedValue({ ok: false, data: { statusCode: 401 } });
+    render(<VideoMedia />);
+    await settle();
+    // Ready ticks at 3, 9, 21, 45 and 93 s.
+    await advance(3000, 6000, 12000, 24000, 48000);
+    expect(getMedia).toHaveBeenCalledTimes(6);
+
+    await advance(HOUR);
+    expect(getMedia).toHaveBeenCalledTimes(6);
+    expect(screen.getByRole('button', { name: 'retry' })).toBeInTheDocument();
+  });
+
+  it('shows the not-found page for an unknown video', async () => {
+    (getVideo as jest.Mock).mockResolvedValue({ ok: true, data: [] });
+    render(<VideoMedia />);
+    await settle();
+
+    expect(screen.getByText('404')).toBeInTheDocument();
+  });
+
+  // Offline, an existing video is neither an endless spinner nor a not-found
+  // page: the page offers a retry.
+  it('offers a retry when the video cannot be loaded', async () => {
     const offline = { ok: false, problem: 'NETWORK_ERROR', data: null };
     for (const request of [
       getUsers,
@@ -249,11 +324,21 @@ describe('VideoMedia', () => {
       getComments,
       getLikedComments,
     ])
-      (request as jest.Mock).mockResolvedValue(offline);
-    (getMedia as jest.Mock).mockReset().mockResolvedValue(offline);
+      (request as jest.Mock).mockResolvedValueOnce(offline);
+    (getMedia as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce(offline)
+      .mockResolvedValue({ ok: true, data: sourceUrl(1) });
     render(<VideoMedia />);
     await settle();
+    expect(screen.getByText('errorLoadingVideo')).toBeInTheDocument();
+    expect(screen.queryByText('404')).toBeNull();
 
-    expect(screen.getByText('404')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    await settle();
+    expect(screen.getByTestId('player')).toHaveAttribute(
+      'data-url',
+      sourceUrl(1),
+    );
   });
 });
