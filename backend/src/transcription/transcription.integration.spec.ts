@@ -233,9 +233,16 @@ integration(
       );
       const vtt = await object.Body.transformToString();
       expect(vtt).toMatch(/^WEBVTT/);
-      // The default tiny model mishears the rest of the speech from one run to
-      // another: like the e2e test, only its opening word is checked.
-      expect(vtt.toLowerCase()).toContain('bonjour');
+      // CI's tiny model once heard "les soucis" for "les sous-titres", while
+      // the first and last words and the timing held: those are checked, so a
+      // lost segment still fails. The fixture's speech ends at 8.7 s.
+      const text = vtt.toLowerCase();
+      expect(text).toContain('bonjour');
+      expect(text).toContain('merci');
+      const ends = [
+        ...vtt.matchAll(/ --> (\d{2}):(\d{2}):(\d{2}\.\d{3})/g),
+      ].map(([, h, m, s]) => Number(h) * 3600 + Number(m) * 60 + Number(s));
+      expect(Math.max(...ends)).toBeGreaterThan(8);
       expect(lifecycle).toEqual(['/start', '/stop']);
     }, 180_000);
 
