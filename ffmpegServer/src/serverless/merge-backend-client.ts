@@ -48,21 +48,25 @@ export class MergeBackendClient {
     return claim;
   }
 
+  /**
+   * 'gone' when the montage was deleted meanwhile (410): its job row went with
+   * it, and an MP4 uploaded by this attempt is now the caller's to remove.
+   */
   async complete(
     jobId: string,
     leaseToken: string,
     result: RecordingMergeResult,
-  ): Promise<void> {
+  ): Promise<'stored' | 'gone'> {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const response = await this.post(jobId, 'result', {
           leaseToken,
           result,
         });
-        if (response.ok) return;
+        if (response.ok) return 'stored';
         if (response.status === 410) {
           console.log(`Merge job ${jobId} deleted; result discarded`);
-          return;
+          return 'gone';
         }
         if (response.status < 500)
           throw new HttpError(

@@ -1,4 +1,9 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  HeadObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -8,6 +13,8 @@ import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 import { S3_CONFIG } from '../config/s3.config';
+import { PermanentJobError } from '../types/job.types';
+import { maxSourceBytes, TranscodingService } from './transcoding.service';
 
 // Canonical output format used when normalizing segments so they can be
 // concatenated cleanly.
@@ -26,9 +33,14 @@ const TARGET_FPS = 30;
  * segments are concatenated with the concat demuxer.
  *
  * Runs in the serverless merge worker: files live under TRANSCODING_WORK_DIR
- * (not /tmp, which is RAM on Scaleway), downloads are streamed and capped by
- * TRANSCODING_MAX_SOURCE_BYTES (all segments together), and `signal` stops
- * every download, ffmpeg process and upload on timeout or shutdown.
+ * (not /tmp, which is RAM on Scaleway), and `signal` stops every download,
+ * ffmpeg process and upload on timeout or shutdown. TRANSCODING_MAX_SOURCE_BYTES
+ * bounds all segments together; segments are handled one at a time, so the
+ * disk peaks near twice the normalized montage (normalized segments, then the
+ * merged copy), never at all raw segments at once.
+ *
+ * Failures another attempt would hit again on the same bytes (over the size
+ * budget, a segment FFprobe cannot read) throw a PermanentJobError.
  */
 export class MergeService {
   constructor(private readonly s3Client: S3Client) {}
@@ -38,33 +50,35 @@ export class MergeService {
     targetKey: string,
     signal: AbortSignal,
   ): Promise<{ duration: number }> {
+    // 1. Check the whole budget before downloading anything: an oversized
+    //    montage fails at once instead of after gigabytes of downloads.
+    const maxBytes = maxSourceBytes();
+    const sizes = await Promise.all(
+      sourceKeys.map((key) => this.sizeOf(key, signal)),
+    );
+    const total = sizes.reduce((sum, size) => sum + size, 0);
+    if (total > maxBytes)
+      throw new PermanentJobError(
+        'source_too_large',
+        `Segments exceed configured size limit (${total} > ${maxBytes} bytes)`,
+      );
+
     const root = process.env.TRANSCODING_WORK_DIR || tmpdir();
     await mkdir(root, { recursive: true });
     const workDir = await mkdtemp(path.join(root, 'merge-'));
     try {
-      const maxBytes = Number(
-        process.env.TRANSCODING_MAX_SOURCE_BYTES || 5 * 1024 ** 3,
-      );
-      if (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)
-        throw new Error('Invalid TRANSCODING_MAX_SOURCE_BYTES');
-
-      // 1. Download every source segment, one after the other, within one
-      //    shared size budget.
+      // 2. One segment at a time: download, probe, normalize to the canonical
+      //    format, then delete the raw file before the next download. The
+      //    streamed budget still guards against a segment replaced since HEAD.
       const budget = { remaining: maxBytes };
-      const rawFiles: string[] = [];
-      for (let i = 0; i < sourceKeys.length; i++) {
-        const localPath = path.join(workDir, `raw-${i}.mp4`);
-        await this.download(sourceKeys[i], localPath, budget, signal);
-        rawFiles.push(localPath);
-      }
-
-      // 2. Normalize each segment to the canonical format (sequential: each
-      //    re-encode is CPU-bound and the worker handles one job at a time).
       const normalized: string[] = [];
-      for (let i = 0; i < rawFiles.length; i++) {
+      for (let i = 0; i < sourceKeys.length; i++) {
+        const raw = path.join(workDir, `raw-${i}.mp4`);
+        await this.download(sourceKeys[i], raw, budget, signal);
+        const { hasAudio } = await this.probe(raw, i, signal);
         const out = path.join(workDir, `norm-${i}.mp4`);
-        await this.normalize(rawFiles[i], out, signal);
-        await rm(rawFiles[i], { force: true }); // keep disk usage low
+        await this.normalize(raw, out, hasAudio, signal);
+        await rm(raw, { force: true });
         normalized.push(out);
       }
 
@@ -114,9 +128,9 @@ export class MergeService {
   private async normalize(
     input: string,
     output: string,
+    hasAudio: boolean,
     signal: AbortSignal,
   ): Promise<void> {
-    const hasAudio = await this.hasAudio(input, signal);
     const args = ['-y', '-fflags', '+genpts', '-i', input];
     if (!hasAudio) {
       args.push(
@@ -159,28 +173,35 @@ export class MergeService {
     await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', args, signal);
   }
 
-  private async hasAudio(input: string, signal: AbortSignal): Promise<boolean> {
+  /**
+   * Same FFprobe classification as a transcoding source: a segment it cannot
+   * read (a truncated MP4 without moov after a brutal stop) or without video
+   * is permanent; an abort, a killed probe or a missing binary is not.
+   */
+  private async probe(
+    input: string,
+    index: number,
+    signal: AbortSignal,
+  ): Promise<{ hasAudio: boolean }> {
     try {
-      const { stdout } = await this.runProcess(
-        process.env.FFPROBE_PATH || 'ffprobe',
-        [
-          '-v',
-          'error',
-          '-select_streams',
-          'a',
-          '-show_entries',
-          'stream=index',
-          '-of',
-          'csv=p=0',
-          input,
-        ],
-        signal,
+      return await new TranscodingService(this.s3Client, signal).probeSource(
+        input,
       );
-      return stdout.trim() !== '';
     } catch (error) {
-      signal.throwIfAborted();
-      return false;
+      if (!(error instanceof PermanentJobError)) throw error;
+      throw new PermanentJobError(
+        error.reason,
+        `Segment ${index + 1}: ${error.message}`.slice(0, 2000),
+      );
     }
+  }
+
+  private async sizeOf(key: string, signal: AbortSignal): Promise<number> {
+    const head = await this.s3Client.send(
+      new HeadObjectCommand({ Bucket: S3_CONFIG.mediaBucket, Key: key }),
+      { abortSignal: signal },
+    );
+    return head.ContentLength || 0;
   }
 
   private async download(
@@ -195,22 +216,31 @@ export class MergeService {
     );
     const body = response.Body as Readable;
     if (!body) throw new Error('Missing S3 object body');
+    // Another attempt would download the same objects: never retried.
+    const tooLarge = () =>
+      new PermanentJobError(
+        'source_too_large',
+        'Segments exceed configured size limit',
+      );
     if ((response.ContentLength || 0) > budget.remaining) {
       body.destroy();
-      throw new Error('Segments exceed configured size limit');
+      throw tooLarge();
     }
     const limiter = new Transform({
       transform(chunk: Buffer, _encoding, callback) {
         budget.remaining -= chunk.length;
-        callback(
-          budget.remaining < 0
-            ? new Error('Segments exceed configured size limit')
-            : null,
-          chunk,
-        );
+        callback(budget.remaining < 0 ? tooLarge() : null, chunk);
       },
     });
     await pipeline(body, limiter, createWriteStream(destination), { signal });
+  }
+
+  /** Deletes a merged MP4 nobody references any more (montage deleted). */
+  async remove(key: string): Promise<void> {
+    await this.s3Client.send(
+      new DeleteObjectCommand({ Bucket: S3_CONFIG.mediaBucket, Key: key }),
+      { abortSignal: AbortSignal.timeout(10000) },
+    );
   }
 
   private async upload(

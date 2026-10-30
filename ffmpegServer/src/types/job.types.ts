@@ -84,4 +84,9 @@ export interface RecordingMergeResult {
   duration: number;
   error?: string;
   processedAt: number;
+  /**
+   * Stored, then acknowledged: the montage fails for good. Sent only for a
+   * PermanentJobError (segments over the size budget, unreadable segment).
+   */
+  permanent?: boolean;
 }
