@@ -77,6 +77,13 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     fetchMock.mockRestore();
   });
 
+  // Per-video statements in order: each claim, then its outcome.
+  const videoUpdates = () =>
+    query.mock.calls.filter(
+      ([sql]) =>
+        sql.startsWith('UPDATE video_entity') && sql.includes('WHERE id = $1'),
+    );
+
   it('starts once, signs the WAV, writes VTT and stops after a successful batch', async () => {
     await expect(service.run()).resolves.toEqual({ processed: 1, failed: 0 });
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
@@ -166,11 +173,7 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
         processed: 0,
         failed: 1,
       });
-      const updates = query.mock.calls.filter(
-        ([sql]) =>
-          sql.startsWith('UPDATE video_entity') &&
-          sql.includes('WHERE id = $1'),
-      );
+      const updates = videoUpdates();
       // Claimed then failed: its attempt counts, so it cannot hold the head of
       // the queue, and video-2 is not touched.
       expect(updates.map(([, params]) => params[0])).toEqual([
@@ -239,6 +242,18 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
         processed: 0,
         failed: 2,
       });
+      // Each video keeps its counted attempt: no refund, and the batch goes on.
+      const updates = videoUpdates();
+      expect(updates.map(([, params]) => params[0])).toEqual([
+        'video-1',
+        'video-1',
+        'video-2',
+        'video-2',
+      ]);
+      expect([updates[1], updates[3]]).toEqual([
+        [failureUpdate, ['video-1', `Whisper HTTP ${status}`]],
+        [failureUpdate, ['video-2', `Whisper HTTP ${status}`]],
+      ]);
     },
   );
 
@@ -250,14 +265,20 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       return new Response('{}');
     });
     await expect(service.run()).resolves.toEqual({ processed: 0, failed: 1 });
-    const failures = query.mock.calls.filter(
-      ([sql]) =>
-        sql.includes('transcription_error = $2') &&
-        sql.includes('WHERE id = $1'),
-    );
-    expect(failures.map(([, params]) => params)).toEqual([
-      ['video-1', 'Whisper timed out after 1800000 ms'],
+    expect(query).toHaveBeenCalledWith(failureUpdate, [
+      'video-1',
+      'Whisper timed out after 1800000 ms',
     ]);
+    expect(query).not.toHaveBeenCalledWith(expect.any(String), ['video-2']);
+  });
+
+  it('never selects a failed video again: failed is final', async () => {
+    await service.run();
+    const select = query.mock.calls.find(([sql]) =>
+      sql.startsWith('SELECT id'),
+    )[0];
+    expect(select).toContain("transcription_status = 'pending'");
+    expect(select).not.toContain("'failed'");
   });
 
   it('transcribes videos not tried yet before retrying earlier failures', async () => {
@@ -304,6 +325,28 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       expect.anything(),
     );
     expect(requested).toBe(false);
+  });
+
+  it('fails at once with the reason a misconfigured worker reports', async () => {
+    const reason = 'TRANSCRIPT_MAX_AUDIO_BYTES must be a positive integer';
+    fetchMock.mockImplementation(async (url) =>
+      String(url).endsWith('/health')
+        ? new Response(JSON.stringify({ failed: true, error: reason }), {
+            status: 500,
+          })
+        : new Response('{}'),
+    );
+    await expect(service.run()).rejects.toThrow(
+      `Transcription worker failed: ${reason}`,
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://stop.test',
+      expect.anything(),
+    );
+    expect(query).not.toHaveBeenCalledWith(
+      expect.stringContaining("transcription_status = 'processing'"),
+      expect.anything(),
+    );
   });
 
   it('recovers an orphaned VM without starting a new batch', async () => {

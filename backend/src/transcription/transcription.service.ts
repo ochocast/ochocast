@@ -24,6 +24,13 @@ const AUDIO_FAILURES = new Set([413, 422, 500]);
  */
 class WorkerFault extends Error {}
 
+/** The reason Whisper states in its JSON body; a proxy error page has none. */
+const reasonOf = (response: Response): Promise<string> =>
+  response.json().then(
+    (body) => (typeof body?.error === 'string' ? body.error.slice(0, 200) : ''),
+    () => '',
+  );
+
 function checkEndpoint(url: string) {
   const parsed = new URL(url);
   if (
@@ -122,7 +129,7 @@ export class TranscriptionService {
         `SELECT id, audio_key FROM video_entity
         WHERE archived = false AND transcoding_status = 'ready'
           AND (subtitle_id IS NULL OR subtitle_id = '') AND audio_key IS NOT NULL
-          AND transcription_status IN ('pending', 'failed')
+          AND transcription_status = 'pending'
           AND transcription_attempts < ${MAX_ATTEMPTS}
           AND (transcription_retry_at IS NULL OR transcription_retry_at <= now())
         ORDER BY transcription_attempts, "createdAt" LIMIT $1`,
@@ -295,13 +302,9 @@ export class TranscriptionService {
           : `Whisper request failed: ${error.message}`,
       );
     }
-    // Whisper states why it refused; a proxy error page has no reason.
-    const reason = await response.json().then(
-      (body) => (typeof body?.error === 'string' ? body.error : ''),
-      () => '',
-    );
+    const reason = await reasonOf(response);
     const message = reason
-      ? `Whisper HTTP ${response.status}: ${reason.slice(0, 200)}`
+      ? `Whisper HTTP ${response.status}: ${reason}`
       : `Whisper HTTP ${response.status}`;
     throw AUDIO_FAILURES.has(response.status)
       ? new Error(message)
@@ -338,8 +341,15 @@ export class TranscriptionService {
         });
       } catch {}
       if (response?.ok) return;
-      if (response?.status === 500)
-        throw new Error('Transcription worker failed to load its model');
+      if (response?.status === 500) {
+        // A worker that cannot serve says why, such as an invalid setting.
+        const reason = await reasonOf(response);
+        throw new Error(
+          reason
+            ? `Transcription worker failed: ${reason}`
+            : 'Transcription worker failed to load its model',
+        );
+      }
       if (attempt + 1 < this.healthRetries)
         await new Promise((resolve) => setTimeout(resolve, this.healthDelay));
     }

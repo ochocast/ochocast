@@ -24,14 +24,17 @@ Les sous-titres fournis manuellement restent prioritaires.
 Chaque échec compte parmi les trois tentatives de la vidéo concernée : elle
 redevient `pending`, éligible une heure plus tard et reprise au prochain
 lancement (le lendemain avec le cron par défaut), puis `failed`, définitif, une
-fois ses tentatives épuisées. Une vidéo interrompue (crash, déploiement) suit la
-même règle. Après un audio trop volumineux (413), introuvable (422) ou illisible
-(500), le lot continue. Un refus qui toucherait toutes les vidéos (requête
-invalide, authentification, hôte audio non autorisé, worker occupé, en échec ou
+fois ses tentatives épuisées. Une vidéo interrompue par un déploiement suit la
+même règle ; après un crash, elle est reprise dès le lancement suivant. Après un
+audio trop volumineux (413), introuvable (422) ou illisible (500), le lot
+continue. Un refus qui toucherait toutes les vidéos (requête invalide,
+authentification, hôte audio non autorisé, worker occupé, en échec ou
 injoignable, téléchargement interrompu) ou un dépassement de
 `TRANSCRIPTION_TIMEOUT_MS` arrête le lot : une seule tentative est consommée par
-lancement. Les vidéos jamais essayées passent avant les reprises. Le worker
-refuse de démarrer si `TRANSCRIPT_MAX_AUDIO_BYTES` n'est pas un entier positif.
+lancement. Les vidéos jamais essayées passent avant les reprises. Si
+`TRANSCRIPT_MAX_AUDIO_BYTES` n'est pas un entier positif, le worker ne charge
+pas son modèle et son `/health` répond 500 avec la cause : le lot échoue aussitôt
+sans consommer de tentative.
 
 ## Validation locale
 
