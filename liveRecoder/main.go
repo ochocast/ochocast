@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -87,17 +88,13 @@ func runHTTPServer(addr, outputDir string) {
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		<-sigChan
 		log.Println("\nShutdown signal received...")
+		go func() {
+			<-sigChan
+			log.Println("Second signal, exiting without waiting for uploads")
+			os.Exit(1)
+		}()
 
-		// Stop all active recordings
-		server.mu.Lock()
-		for roomID, session := range server.sessions {
-			if session.isRecording {
-				log.Printf("Stopping recording for room: %s", roomID)
-				session.Stop()
-			}
-		}
-		server.mu.Unlock()
-
+		server.shutdown(shutdownGrace())
 		os.Exit(0)
 	}()
 
@@ -118,6 +115,37 @@ func runHTTPServer(addr, outputDir string) {
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("[ERROR] HTTP server failed: %v", err)
 	}
+}
+
+// shutdown stops the active recordings, then waits for the uploads in flight
+// (also those started earlier and still retrying), at most grace. Returns
+// false when uploads were still running at the end of the grace.
+func (s *RecordingServer) shutdown(grace time.Duration) bool {
+	s.mu.Lock()
+	s.shuttingDown = true
+	for roomID, session := range s.sessions {
+		if session.isRecording {
+			log.Printf("Stopping recording for room: %s", roomID)
+			session.Stop()
+		}
+	}
+	s.mu.Unlock()
+
+	log.Printf("Waiting up to %s for %d upload(s)...", grace, s.uploads.pending.Load())
+	if !s.uploads.wait(grace) {
+		log.Printf("[WARN] Shutdown grace expired, %d upload(s) interrupted (files left in %s)", s.uploads.pending.Load(), os.TempDir())
+		return false
+	}
+	return true
+}
+
+// shutdownGrace reads RECORDER_SHUTDOWN_GRACE_SECONDS (default 600): how long
+// a stop waits for the uploads. The container's stop timeout must be longer.
+func shutdownGrace() time.Duration {
+	if seconds, err := strconv.Atoi(os.Getenv("RECORDER_SHUTDOWN_GRACE_SECONDS")); err == nil && seconds >= 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	return 10 * time.Minute
 }
 
 // runCLIMode runs the original CLI mode for manual recording

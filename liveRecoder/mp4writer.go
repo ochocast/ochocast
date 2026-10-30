@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/pion/rtp"
@@ -10,22 +11,28 @@ import (
 	"github.com/yapingcat/gomedia/go-mp4"
 )
 
-// MP4Writer writes audio and video packets directly to MP4 with proper timestamps
+// MP4Writer writes audio and video packets directly to MP4 with proper timestamps.
+// The video and audio tracks are written from two goroutines: mu serializes
+// them (the muxer is not thread-safe) and the late packets after Close.
 type MP4Writer struct {
-	file              *os.File
-	muxer             *mp4.Movmuxer
-	videoTrackID      uint32
-	audioTrackID      uint32
-	videoFirstRTP     uint32
-	audioFirstRTP     uint32
-	videoClockRate    uint32
-	audioClockRate    uint32
-	videoFirstSet     bool
-	audioFirstSet     bool
-	videoStartTime    time.Time
-	audioStartTime    time.Time
-	h264Depacketizer  *codecs.H264Packet
-	opusDepacketizer  *codecs.OpusPacket
+	mu               sync.Mutex
+	closed           bool
+	videoWrites      int64  // video payloads written (0: no usable video)
+	lastPTS          uint64 // latest PTS written on any track, ms
+	file             *os.File
+	muxer            *mp4.Movmuxer
+	videoTrackID     uint32
+	audioTrackID     uint32
+	videoFirstRTP    uint32
+	audioFirstRTP    uint32
+	videoClockRate   uint32
+	audioClockRate   uint32
+	videoFirstSet    bool
+	audioFirstSet    bool
+	videoStartTime   time.Time
+	audioStartTime   time.Time
+	h264Depacketizer *codecs.H264Packet
+	opusDepacketizer *codecs.OpusPacket
 }
 
 // NewMP4Writer creates a new MP4 writer
@@ -51,6 +58,8 @@ func NewMP4Writer(filePath string) (*MP4Writer, error) {
 
 // AddVideoTrack adds a video track to the MP4
 func (w *MP4Writer) AddVideoTrack(codec string, clockRate uint32, width, height int) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.videoClockRate = clockRate
 
 	// Add H.264 video track
@@ -62,6 +71,8 @@ func (w *MP4Writer) AddVideoTrack(codec string, clockRate uint32, width, height 
 
 // AddAudioTrack adds an audio track to the MP4
 func (w *MP4Writer) AddAudioTrack(codec string, clockRate uint32) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.audioClockRate = clockRate
 
 	// Create OpusHead extradata (19 bytes)
@@ -101,6 +112,12 @@ func (w *MP4Writer) AddAudioTrack(codec string, clockRate uint32) error {
 
 // WriteVideoRTP writes a video RTP packet to MP4
 func (w *MP4Writer) WriteVideoRTP(packet *rtp.Packet) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return nil // late packet after Stop
+	}
+
 	// Initialize first timestamp
 	if !w.videoFirstSet {
 		w.videoFirstRTP = packet.Timestamp
@@ -126,6 +143,8 @@ func (w *MP4Writer) WriteVideoRTP(packet *rtp.Packet) error {
 		if err != nil {
 			return fmt.Errorf("failed to write video packet: %w", err)
 		}
+		w.videoWrites++
+		w.trackDuration(rtpDelta, pts)
 	}
 
 	return nil
@@ -133,6 +152,12 @@ func (w *MP4Writer) WriteVideoRTP(packet *rtp.Packet) error {
 
 // WriteAudioRTP writes an audio RTP packet to MP4
 func (w *MP4Writer) WriteAudioRTP(packet *rtp.Packet) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return nil // late packet after Stop
+	}
+
 	// Initialize first timestamp
 	if !w.audioFirstSet {
 		w.audioFirstRTP = packet.Timestamp
@@ -158,6 +183,7 @@ func (w *MP4Writer) WriteAudioRTP(packet *rtp.Packet) error {
 		if err != nil {
 			return fmt.Errorf("failed to write audio packet: %w", err)
 		}
+		w.trackDuration(rtpDelta, pts)
 	}
 
 	return nil
@@ -165,15 +191,47 @@ func (w *MP4Writer) WriteAudioRTP(packet *rtp.Packet) error {
 
 // GetSyncOffset returns the sync offset between audio and video in seconds
 func (w *MP4Writer) GetSyncOffset() float64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	if !w.videoFirstSet || !w.audioFirstSet {
 		return 0
 	}
 	return w.audioStartTime.Sub(w.videoStartTime).Seconds()
 }
 
+// trackDuration keeps the latest PTS. A packet older than the first one
+// (reordered) wraps around to a huge delta and is ignored.
+func (w *MP4Writer) trackDuration(rtpDelta uint32, pts uint64) {
+	if int32(rtpDelta) >= 0 {
+		w.lastPTS = max(w.lastPTS, pts)
+	}
+}
+
+// Duration is the recorded media duration: the latest PTS written (each
+// track starts at 0).
+func (w *MP4Writer) Duration() time.Duration {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return time.Duration(w.lastPTS) * time.Millisecond
+}
+
+// VideoWrites is the number of video payloads written to the file.
+func (w *MP4Writer) VideoWrites() int64 {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.videoWrites
+}
+
 // Close finalizes the MP4 file
 func (w *MP4Writer) Close() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed {
+		return nil
+	}
+	w.closed = true
 	if err := w.muxer.WriteTrailer(); err != nil {
+		w.file.Close()
 		return fmt.Errorf("failed to write trailer: %w", err)
 	}
 	return w.file.Close()

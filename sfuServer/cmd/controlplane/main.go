@@ -164,7 +164,7 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 	})
 	cp.SetProvisioner(prov)
 	if workerBootstrap.RecorderImageTag != "" {
-		cp.SetRecorderPort(workerBootstrap.RecorderPortOrDefault())
+		cp.SetRecorder(workerBootstrap.RecorderPortOrDefault(), workerBootstrap.RecordingSecret)
 	}
 	http.Handle("/metrics", prov.MetricsHandler())
 

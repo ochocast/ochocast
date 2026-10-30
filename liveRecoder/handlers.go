@@ -63,6 +63,12 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// A recording started now would be killed at the end of the shutdown.
+	if s.shuttingDown {
+		http.Error(w, "Recorder shutting down", http.StatusServiceUnavailable)
+		return
+	}
+
 	// Check if already recording THIS room (but allow different rooms)
 	if existingSession, exists := s.sessions[req.RoomID]; exists && existingSession.isRecording {
 		http.Error(w, "Recording already in progress for this room", http.StatusConflict)
@@ -79,6 +85,7 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		BackendURL:   s.backendURL,
 		TrackID:      req.TrackID,
 		SharedSecret: s.sharedSecret,
+		Uploads:      &s.uploads,
 	})
 	if err != nil {
 		http.Error(w, "Failed to create session: "+err.Error(), http.StatusInternalServerError)
@@ -135,10 +142,12 @@ func (s *RecordingServer) handleStop(w http.ResponseWriter, r *http.Request) {
 
 	s.mu.Lock()
 
+	// 409: the recording already ended (stopped by a WebRTC failure or an
+	// earlier stop); the backend treats it as already stopped.
 	session, exists := s.sessions[req.RoomID]
 	if !exists || !session.isRecording {
 		s.mu.Unlock()
-		http.Error(w, "No recording in progress for this room", http.StatusBadRequest)
+		http.Error(w, "No recording in progress for this room", http.StatusConflict)
 		return
 	}
 
@@ -217,8 +226,9 @@ func (s *RecordingServer) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := MultiStatusResponse{
-		ActiveCount: len(sessions),
-		Sessions:    sessions,
+		ActiveCount:    len(sessions),
+		Sessions:       sessions,
+		PendingUploads: s.uploads.pending.Load(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -245,12 +255,32 @@ var publishRetryDelays = []time.Duration{10 * time.Second, 30 * time.Second, 2 *
 // errPermanent marks a backend rejection that a retry cannot fix (4xx).
 type errPermanent struct{ error }
 
+// segmentMeta is sent with each segment so the backend can judge it.
+type segmentMeta struct {
+	Duration    float64 // recorded media duration, seconds
+	Problematic bool    // likely truncated or unusable
+}
+
+// publishAsync uploads the segment in the background. uploads tracks it: a
+// shutdown waits for it and the status reports it to the control plane.
+func publishAsync(uploads *uploadTracker, backendURL, trackID, filePath, sharedSecret string, meta segmentMeta) {
+	uploads.start()
+	go func() {
+		defer uploads.done()
+		if err := publishWithRetry(backendURL, trackID, filePath, sharedSecret, meta); err != nil {
+			log.Printf("[ERROR] Failed to publish recording to backend, kept for %s at %s: %v", recordingRetention(), filePath, err)
+		} else {
+			log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
+		}
+	}()
+}
+
 // publishWithRetry publishes the segment, retrying network errors and 5xx
 // responses. The local file is deleted once the backend has accepted it.
-func publishWithRetry(backendURL, trackID, filePath, sharedSecret string) error {
+func publishWithRetry(backendURL, trackID, filePath, sharedSecret string, meta segmentMeta) error {
 	var err error
 	for attempt := 0; ; attempt++ {
-		if err = publishToBackend(backendURL, trackID, filePath, sharedSecret); err == nil {
+		if err = publishToBackend(backendURL, trackID, filePath, sharedSecret, meta); err == nil {
 			if rmErr := os.Remove(filePath); rmErr != nil {
 				log.Printf("[WARN] Could not delete temp file %s: %v", filePath, rmErr)
 			}
@@ -268,7 +298,7 @@ func publishWithRetry(backendURL, trackID, filePath, sharedSecret string) error 
 // publishToBackend streams the recorded MP4 file to the backend. The multipart
 // body is produced while it is sent (io.Pipe), so memory stays constant
 // whatever the length of the live (about 2 GB per hour at 4.5 Mbit/s).
-func publishToBackend(backendURL, trackID, filePath, sharedSecret string) error {
+func publishToBackend(backendURL, trackID, filePath, sharedSecret string, meta segmentMeta) error {
 	log.Printf("[PUBLISH] Sending recording to backend: %s (track: %s)", backendURL, trackID)
 
 	file, err := os.Open(filePath)
@@ -288,8 +318,14 @@ func publishToBackend(backendURL, trackID, filePath, sharedSecret string) error 
 	go func() {
 		writer.CloseWithError(func() error {
 			// Fields first, so the backend has them before the file.
-			if err := form.WriteField("trackId", trackID); err != nil {
-				return err
+			for _, field := range [][2]string{
+				{"trackId", trackID},
+				{"duration", strconv.FormatFloat(meta.Duration, 'f', 3, 64)},
+				{"problematic", strconv.FormatBool(meta.Problematic)},
+			} {
+				if err := form.WriteField(field[0], field[1]); err != nil {
+					return err
+				}
 			}
 			part, err := form.CreateFormFile("file", filepath.Base(filePath))
 			if err != nil {

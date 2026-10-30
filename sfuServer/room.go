@@ -308,14 +308,16 @@ func (room *Room) RemovePublisher(publisherID string) {
 
 // ScheduleCleanup schedules a cleanup with a grace period to allow host reconnection
 // The room key is NOT deleted during this grace period
-func (room *Room) ScheduleCleanup() {
+// Returns true when this call started the cleanup, false when one was already
+// scheduled: only the first caller notifies that the live stopped.
+func (room *Room) ScheduleCleanup() bool {
 	room.mu.Lock()
 	defer room.mu.Unlock()
 
 	// If cleanup is already scheduled, do nothing
 	if room.cleanupScheduled {
 		log.Printf("[ROOM-%s] Cleanup already scheduled, ignoring", room.ID)
-		return
+		return false
 	}
 
 	// Mark stream as inactive immediately but keep the room alive
@@ -380,6 +382,7 @@ func (room *Room) ScheduleCleanup() {
 	})
 
 	log.Printf("[ROOM-%s] Host cleanup initiated, room key preserved for %v", room.ID, HostReconnectGracePeriod)
+	return true
 }
 
 // CancelScheduledCleanup cancels any pending cleanup (called when host reconnects)
@@ -402,9 +405,10 @@ func (room *Room) CancelScheduledCleanup() bool {
 
 // CleanupHost cleans up host connection and all broadcasters when host disconnects
 // DEPRECATED: Use ScheduleCleanup instead for graceful host disconnection
-func (room *Room) CleanupHost() {
+// Returns true when this call started the cleanup (see ScheduleCleanup).
+func (room *Room) CleanupHost() bool {
 	// Now delegates to ScheduleCleanup for grace period support
-	room.ScheduleCleanup()
+	return room.ScheduleCleanup()
 }
 
 // Close closes the room and all its connections

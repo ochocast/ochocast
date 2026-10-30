@@ -597,8 +597,10 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 	cleanupHost := func(reason string) {
 		cleanupOnce.Do(func() {
 			log.Printf("[WHIP][ROOM-%s] Host cleanup due to %s", roomID, reason)
-			room.CleanupHost()
-			go notifyLiveStopped(roomID)
+			// A WHIP DELETE may have stopped the live already (and notified).
+			if room.CleanupHost() {
+				go notifyLiveStopped(roomID)
+			}
 		})
 	}
 
@@ -701,8 +703,10 @@ func handleWHIPResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	room.CleanupHost()
-	go notifyLiveStopped(roomID)
+	// The host PC closing right after triggers cleanupHost too: notify once.
+	if room.CleanupHost() {
+		go notifyLiveStopped(roomID)
+	}
 	w.WriteHeader(http.StatusOK)
 	log.Printf("[WHIP][ROOM-%s] Publishing session deleted", roomID)
 }

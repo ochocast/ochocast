@@ -33,6 +33,8 @@ func TestPublishStreamsFileAndFields(t *testing.T) {
 	path := writeRecording(t, t.TempDir(), 1<<20)
 	var gotTrack, gotSecret string
 	var gotSize int64
+	fields := map[string]string{}
+	var order []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotSecret = r.Header.Get("X-Recording-Secret")
 		reader, err := r.MultipartReader()
@@ -49,23 +51,33 @@ func TestPublishStreamsFileAndFields(t *testing.T) {
 				t.Errorf("part: %v", err)
 				return
 			}
+			order = append(order, part.FormName())
 			switch part.FormName() {
-			case "trackId":
-				b, _ := io.ReadAll(part)
-				gotTrack = string(b)
 			case "file":
 				gotSize, _ = io.Copy(io.Discard, part)
+			default:
+				b, _ := io.ReadAll(part)
+				fields[part.FormName()] = string(b)
 			}
 		}
 		w.WriteHeader(http.StatusCreated)
 	}))
 	defer srv.Close()
 
-	if err := publishToBackend(srv.URL, "track-1", path, "s3cret"); err != nil {
+	if err := publishToBackend(srv.URL, "track-1", path, "s3cret", segmentMeta{Duration: 3725.5, Problematic: true}); err != nil {
 		t.Fatal(err)
 	}
+	gotTrack = fields["trackId"]
 	if gotTrack != "track-1" || gotSecret != "s3cret" || gotSize != 1<<20 {
 		t.Fatalf("got track=%q secret=%q size=%d", gotTrack, gotSecret, gotSize)
+	}
+	// The backend reads duration as a number of seconds and problematic as
+	// 'true' / '1'; both come before the file part.
+	if fields["duration"] != "3725.500" || fields["problematic"] != "true" {
+		t.Fatalf("got duration=%q problematic=%q", fields["duration"], fields["problematic"])
+	}
+	if len(order) == 0 || order[len(order)-1] != "file" {
+		t.Fatalf("fields must precede the file part, got %v", order)
 	}
 }
 
@@ -83,7 +95,7 @@ func TestPublishMemoryStaysConstant(t *testing.T) {
 	runtime.GC()
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
-	if err := publishToBackend(srv.URL, "track-1", path, "s"); err != nil {
+	if err := publishToBackend(srv.URL, "track-1", path, "s", segmentMeta{}); err != nil {
 		t.Fatal(err)
 	}
 	runtime.ReadMemStats(&after)
@@ -106,7 +118,7 @@ func TestPublishWithRetryRetriesServerErrorsThenDeletesFile(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if err := publishWithRetry(srv.URL, "track-1", path, "s"); err != nil {
+	if err := publishWithRetry(srv.URL, "track-1", path, "s", segmentMeta{}); err != nil {
 		t.Fatal(err)
 	}
 	if calls != 3 {
@@ -128,7 +140,7 @@ func TestPublishWithRetryStopsOnClientErrorAndKeepsFile(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if err := publishWithRetry(srv.URL, "track-1", path, "s"); err == nil {
+	if err := publishWithRetry(srv.URL, "track-1", path, "s", segmentMeta{}); err == nil {
 		t.Fatal("expected an error")
 	}
 	if calls != 1 {
@@ -150,7 +162,7 @@ func TestPublishWithRetryGivesUpAfterLastDelay(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if err := publishWithRetry(srv.URL, "track-1", path, "s"); err == nil {
+	if err := publishWithRetry(srv.URL, "track-1", path, "s", segmentMeta{}); err == nil {
 		t.Fatal("expected an error")
 	}
 	if want := int32(len(publishRetryDelays) + 1); calls != want {
@@ -196,5 +208,18 @@ func TestRecordingRetention(t *testing.T) {
 	t.Setenv("RECORDING_RETENTION_HOURS", "6")
 	if got := recordingRetention(); got != 6*time.Hour {
 		t.Fatalf("retention = %s", got)
+	}
+}
+
+// A stop for a room that is not recording (already stopped by a WebRTC
+// failure or an earlier stop) is a conflict, which the backend treats as
+// already stopped.
+func TestStopWithoutRecordingAnswersConflict(t *testing.T) {
+	s := NewRecordingServer("")
+	s.sharedSecret = "secret"
+	w := httptest.NewRecorder()
+	s.handleStop(w, signedRequest(t, "secret", http.MethodPost, "/recording/stop", `{"room_id":"r1"}`, time.Now()))
+	if w.Code != http.StatusConflict {
+		t.Fatalf("stop without recording = %d, want 409", w.Code)
 	}
 }

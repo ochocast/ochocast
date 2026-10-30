@@ -92,13 +92,18 @@ if [ -n "${RECORDER_IMAGE_TAG:-}" ]; then
   require_env RECORDING_SHARED_SECRET
   require_env BACKEND_URL
   RECORDER_IMAGE="${REGISTRY}/live-recorder:${RECORDER_IMAGE_TAG}"
+  # On stop the recorder waits up to this grace for its uploads; docker must
+  # not kill it before (stop timeout = grace + 30 s).
+  RECORDER_SHUTDOWN_GRACE_SECONDS="${RECORDER_SHUTDOWN_GRACE_SECONDS:-600}"
   docker pull "$RECORDER_IMAGE"
   docker rm -f ochocast-live-recorder >/dev/null 2>&1 || true
   docker run \
     --detach \
     --name ochocast-live-recorder \
     --restart unless-stopped \
+    --stop-timeout "$((RECORDER_SHUTDOWN_GRACE_SECONDS + 30))" \
     --network host \
+    -e RECORDER_SHUTDOWN_GRACE_SECONDS="$RECORDER_SHUTDOWN_GRACE_SECONDS" \
     -e RECORDING_SHARED_SECRET="$RECORDING_SHARED_SECRET" \
     -e BACKEND_PUBLIC_URL="$BACKEND_URL" \
     -e RECORDER_SFU_URL="http://127.0.0.1:${SFU_PORT}" \

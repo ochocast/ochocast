@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // getEnv returns environment variable value or default if not set
@@ -47,6 +49,9 @@ type SessionInfo struct {
 type MultiStatusResponse struct {
 	ActiveCount int           `json:"active_count"`
 	Sessions    []SessionInfo `json:"sessions"`
+	// Segments still being uploaded: the control plane keeps the worker
+	// while this or active_count is not 0.
+	PendingUploads int64 `json:"pending_uploads"`
 }
 
 // RecordingServer manages the HTTP server and multiple recording sessions
@@ -58,6 +63,40 @@ type RecordingServer struct {
 	sharedSecret string // RECORDING_SHARED_SECRET — signs every request (auth.go)
 	backendURL   string
 	sfuURL       string // RECORDER_SFU_URL — the SFU this recorder records (local on a worker)
+	uploads      uploadTracker
+	shuttingDown bool // set by shutdown: no new recording may start
+}
+
+// uploadTracker counts the segment uploads still running, so a shutdown can
+// wait for them and the status can report them.
+type uploadTracker struct {
+	wg      sync.WaitGroup
+	pending atomic.Int64
+}
+
+func (u *uploadTracker) start() {
+	u.wg.Add(1)
+	u.pending.Add(1)
+}
+
+func (u *uploadTracker) done() {
+	u.pending.Add(-1)
+	u.wg.Done()
+}
+
+// wait reports whether every upload finished within grace.
+func (u *uploadTracker) wait(grace time.Duration) bool {
+	finished := make(chan struct{})
+	go func() {
+		u.wg.Wait()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return true
+	case <-time.After(grace):
+		return false
+	}
 }
 
 // NewRecordingServer creates a new HTTP server instance

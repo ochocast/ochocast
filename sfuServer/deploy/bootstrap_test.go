@@ -124,6 +124,10 @@ func TestWorkerConfigRenderRecorder(t *testing.T) {
 		`RECORDER_IMAGE="${REGISTRY}/live-recorder:${RECORDER_IMAGE_TAG}"`,
 		`-e RECORDER_SFU_URL="http://127.0.0.1:${SFU_PORT}"`,
 		`-e BACKEND_PUBLIC_URL="$BACKEND_URL"`,
+		// docker stop must leave the recorder its upload grace.
+		`RECORDER_SHUTDOWN_GRACE_SECONDS="${RECORDER_SHUTDOWN_GRACE_SECONDS:-600}"`,
+		`--stop-timeout "$((RECORDER_SHUTDOWN_GRACE_SECONDS + 30))"`,
+		`-e RECORDER_SHUTDOWN_GRACE_SECONDS="$RECORDER_SHUTDOWN_GRACE_SECONDS"`,
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered user-data missing %q", want)

@@ -36,6 +36,7 @@ type RecordingSession struct {
 	backendURL       string                 // Backend URL for auto-publish after recording
 	trackID          string                 // Track ID for video metadata
 	sharedSecret     string                 // Shared secret sent to backend on publish
+	uploads          *uploadTracker         // Uploads in flight (a shutdown waits for them)
 }
 
 // RecordingConfig holds all configuration for a recording session
@@ -47,7 +48,8 @@ type RecordingConfig struct {
 	OutputDir    string
 	BackendURL   string
 	TrackID      string
-	SharedSecret string // Sent as X-Recording-Secret when publishing to backend
+	SharedSecret string         // Sent as X-Recording-Secret when publishing to backend
+	Uploads      *uploadTracker // The server's; nil in CLI mode
 }
 
 // NewRecordingSession creates a new recording session.
@@ -67,7 +69,13 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 		return nil, fmt.Errorf("failed to create MP4 writer: %w", err)
 	}
 
+	uploads := config.Uploads
+	if uploads == nil {
+		uploads = &uploadTracker{}
+	}
+
 	return &RecordingSession{
+		uploads:      uploads,
 		eventID:      config.EventID,
 		roomID:       config.RoomID,
 		roomKey:      config.RoomKey,
@@ -82,10 +90,14 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 	}, nil
 }
 
+// sfuStatusClient bounds the stream status check, also made when a session
+// fails (stopOnFailure).
+var sfuStatusClient = &http.Client{Timeout: 5 * time.Second}
+
 // CheckStreamStatus checks if the stream is active in the room
 func (rs *RecordingSession) CheckStreamStatus() (bool, error) {
 	statusURL := rs.sfuBaseURL + "/stream-status?" + url.Values{"room_id": {rs.roomID}}.Encode()
-	resp, err := http.Get(statusURL)
+	resp, err := sfuStatusClient.Get(statusURL)
 	if err != nil {
 		return false, fmt.Errorf("failed to check stream status: %w", err)
 	}
@@ -282,7 +294,7 @@ func (rs *RecordingSession) setupCallbacks() error {
 
 		case webrtc.PeerConnectionStateFailed:
 			log.Println("[ERROR] Connection failed")
-			rs.Stop()
+			rs.stopOnFailure()
 
 		case webrtc.PeerConnectionStateClosed:
 			log.Println("Connection closed")
@@ -299,7 +311,7 @@ func (rs *RecordingSession) setupCallbacks() error {
 
 		if state == webrtc.ICEConnectionStateFailed {
 			log.Println("[ERROR] ICE connection failed")
-			rs.Stop()
+			rs.stopOnFailure()
 		}
 	})
 
@@ -383,6 +395,20 @@ func (rs *RecordingSession) monitorStats() {
 // 4. Displays final statistics
 // Returns: error if stop fails
 func (rs *RecordingSession) Stop() error {
+	return rs.stop(false)
+}
+
+// stopOnFailure stops a session whose WebRTC connection failed. The SFU
+// closes the recorder's connection when the live ends, so a failure once the
+// stream is inactive is the normal end of the live; otherwise the recording
+// is likely truncated.
+func (rs *RecordingSession) stopOnFailure() {
+	active, err := rs.CheckStreamStatus()
+	rs.stop(err != nil || active)
+}
+
+// stop ends the session; failed marks a session cut by a WebRTC failure.
+func (rs *RecordingSession) stop(failed bool) error {
 	rs.mu.Lock()
 	if !rs.isRecording {
 		rs.mu.Unlock()
@@ -400,10 +426,11 @@ func (rs *RecordingSession) Stop() error {
 	time.Sleep(500 * time.Millisecond)
 
 	// Close MP4 writer
+	var closeErr error
 	if rs.mp4Writer != nil {
 		syncOffset := rs.mp4Writer.GetSyncOffset()
-		if err := rs.mp4Writer.Close(); err != nil {
-			log.Printf("[WARN] Error closing MP4 writer: %v", err)
+		if closeErr = rs.mp4Writer.Close(); closeErr != nil {
+			log.Printf("[WARN] Error closing MP4 writer: %v", closeErr)
 		} else {
 			log.Printf("MP4 file saved: %s", rs.mp4FilePath)
 			log.Printf("[STATS] A/V sync offset: %.3f ms", syncOffset*1000)
@@ -433,19 +460,24 @@ func (rs *RecordingSession) Stop() error {
 
 	// Auto-publish regardless of how Stop was triggered (HTTP or WebRTC callback)
 	if rs.backendURL != "" && rs.trackID != "" && rs.mp4FilePath != "" {
-		filePath := rs.mp4FilePath
-		backendURL := rs.backendURL
-		trackID := rs.trackID
-		sharedSecret := rs.sharedSecret
-
-		go func() {
-			if err := publishWithRetry(backendURL, trackID, filePath, sharedSecret); err != nil {
-				log.Printf("[ERROR] Failed to publish recording to backend, kept for %s at %s: %v", recordingRetention(), filePath, err)
-			} else {
-				log.Printf("[HTTP] Recording published successfully for track: %s", trackID)
-			}
-		}()
+		meta := rs.segmentMeta(failed, closeErr)
+		if meta.Problematic {
+			log.Printf("[WARN] Recording flagged problematic (webrtc failure=%t, close error=%v)", failed, closeErr)
+		}
+		publishAsync(rs.uploads, rs.backendURL, rs.trackID, rs.mp4FilePath, rs.sharedSecret, meta)
 	}
 
 	return nil
+}
+
+// segmentMeta describes the closed recording for the backend: its media
+// duration, and whether it is likely truncated or unusable (cut by a WebRTC
+// failure, file not finalized, or no video at all).
+func (rs *RecordingSession) segmentMeta(failed bool, closeErr error) segmentMeta {
+	meta := segmentMeta{Problematic: failed || closeErr != nil || rs.mp4Writer == nil}
+	if rs.mp4Writer != nil {
+		meta.Duration = rs.mp4Writer.Duration().Seconds()
+		meta.Problematic = meta.Problematic || rs.mp4Writer.VideoWrites() == 0
+	}
+	return meta
 }
