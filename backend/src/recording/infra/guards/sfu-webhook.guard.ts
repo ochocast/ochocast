@@ -4,7 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { timingSafeEqual } from 'crypto';
+import { secretMatches } from 'src/common/secret-matches';
 
 /**
  * Validates the X-Sfu-Webhook-Secret header against SFU_WEBHOOK_SECRET env var.
@@ -23,14 +23,7 @@ export class SfuWebhookGuard implements CanActivate {
       throw new UnauthorizedException('SFU_WEBHOOK_SECRET is not configured');
     }
     const request = context.switchToHttp().getRequest();
-    const header = request.headers['x-sfu-webhook-secret'] as
-      | string
-      | undefined;
-    if (
-      !header ||
-      header.length !== this.secret.length ||
-      !timingSafeEqual(Buffer.from(header), Buffer.from(this.secret))
-    ) {
+    if (!secretMatches(this.secret, request.headers['x-sfu-webhook-secret'])) {
       throw new UnauthorizedException('Invalid or missing SFU webhook secret');
     }
     return true;

@@ -47,6 +47,9 @@ export class MergeResultDto {
   @IsString()
   @MaxLength(2000)
   error?: string;
+  @IsOptional()
+  @IsBoolean()
+  permanent?: boolean;
 }
 
 export class CompleteMergeDto {

@@ -46,13 +46,23 @@ const pendingJob = (overrides: Partial<RecordingMergeJobEntity> = {}) => ({
   ...overrides,
 });
 
-const result = (success: boolean) => ({
+const result = (success: boolean, permanent?: boolean) => ({
   jobId: JOB_ID,
   recordingId: RECORDING_ID,
   success,
   duration: success ? 125 : 0,
   processedAt: Date.now(),
+  ...(permanent ? { permanent } : {}),
 });
+
+const runningJob = (overrides: Partial<RecordingMergeJobEntity> = {}) =>
+  pendingJob({
+    status: 'processing',
+    leaseToken: 'lease',
+    leaseExpiresAt: new Date(Date.now() + 60_000),
+    attempts: 1,
+    ...overrides,
+  });
 
 describe('RecordingMergeJobsService', () => {
   it('claims a pending job with a lease', async () => {
@@ -122,6 +132,55 @@ describe('RecordingMergeJobsService', () => {
     await service.complete(JOB_ID, 'old-lease', result(false));
 
     expect(recordingUpdates).toEqual([]);
+  });
+
+  it('keeps the montage processing while a transient failure is retried', async () => {
+    const { dataSource, state, recordingUpdates } =
+      fakeDataSource(runningJob());
+    const service = new RecordingMergeJobsService(dataSource);
+
+    await service.complete(JOB_ID, 'lease', result(false));
+
+    expect(state.row.status).toBe('pending');
+    expect(recordingUpdates).toEqual([]);
+    // The redelivered message claims it again.
+    expect((await service.claim(JOB_ID, RECORDING_ID)).status).toBe('claimed');
+  });
+
+  it('fails the montage for good on a permanent failure', async () => {
+    const { dataSource, state, recordingUpdates } =
+      fakeDataSource(runningJob());
+    const service = new RecordingMergeJobsService(dataSource);
+
+    await service.complete(JOB_ID, 'lease', result(false, true));
+
+    expect(state.row.status).toBe('failed');
+    expect(recordingUpdates).toEqual([{ status: 'failed' }]);
+    // Never claimed again, even if the message comes back.
+    expect(await service.claim(JOB_ID, RECORDING_ID)).toEqual({
+      status: 'completed',
+    });
+  });
+
+  it('fails the montage once the last attempt failed', async () => {
+    const { dataSource, recordingUpdates } = fakeDataSource(
+      runningJob({ attempts: 5 }),
+    );
+    const service = new RecordingMergeJobsService(dataSource);
+
+    await service.complete(JOB_ID, 'lease', result(false));
+
+    expect(recordingUpdates).toEqual([{ status: 'failed' }]);
+  });
+
+  it('ignores a repeated failure callback of the same lease', async () => {
+    const { dataSource, recordingUpdates } = fakeDataSource(runningJob());
+    const service = new RecordingMergeJobsService(dataSource);
+
+    await service.complete(JOB_ID, 'lease', result(false, true));
+    await service.complete(JOB_ID, 'lease', result(false, true));
+
+    expect(recordingUpdates).toEqual([{ status: 'failed' }]);
   });
 
   it('rejects a result from an expired lease', async () => {

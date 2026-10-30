@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { secretMatches } from 'src/common/secret-matches';
 
 /**
  * Validates the X-Recording-Secret header against RECORDING_SHARED_SECRET env var.
@@ -24,8 +25,7 @@ export class RecordingSecretGuard implements CanActivate {
       );
     }
     const request = context.switchToHttp().getRequest();
-    const header = request.headers['x-recording-secret'] as string | undefined;
-    if (!header || header !== this.secret) {
+    if (!secretMatches(this.secret, request.headers['x-recording-secret'])) {
       throw new UnauthorizedException('Invalid or missing recording secret');
     }
     return true;

@@ -1,13 +1,18 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { IPublicationRequestGateway } from '../gateways/publication-request.gateway';
 import { IRecordingRepositoryGateway } from '../gateways/recording-repository.gateway';
 import { PublicationRequestObject } from '../publicationRequest';
 import {
   assertPending,
   assertTarget,
-  getCurrentUser,
   getSettledRequest,
 } from '../publicationRequestAccess';
+import { getCurrentUser } from '../trackOrganizer';
 import { IVideoGateway } from 'src/videos/domain/gateways/videos.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 
@@ -43,12 +48,18 @@ export class AcceptPublicationRequestUsecase {
       throw new BadRequestException('Video not found on your channel');
     }
 
-    await this.recordingRepository.updateRecording(request.recordingId, {
-      visibility: 'published',
-      publishedAt: new Date(),
-      publishedById: user.id,
-      publishedVideoId: videoId,
-    });
+    // Conditional: the recording may have been published meanwhile.
+    const published = await this.recordingRepository.markPublished(
+      request.recordingId,
+      {
+        publishedAt: new Date(),
+        publishedById: user.id,
+        publishedVideoId: videoId,
+      },
+    );
+    if (!published) {
+      throw new ConflictException('The recording is no longer publishable');
+    }
     return this.requestGateway.update(id, {
       status: 'accepted',
       videoId,

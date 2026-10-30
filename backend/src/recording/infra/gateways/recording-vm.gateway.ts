@@ -24,6 +24,11 @@ export function signRecorderRequest(
     .digest('hex');
 }
 
+// A worker gone with its live (or a blackholed address) must not hang a
+// request: starting waits for the recorder to join the SFU, the rest is quick.
+const RECORDER_TIMEOUT_MS = 10_000;
+const RECORDER_START_TIMEOUT_MS = 30_000;
+
 @Injectable()
 export class RecordingVMGateway implements IRecordingVMGateway {
   private readonly logger = new Logger(RecordingVMGateway.name);
@@ -55,6 +60,11 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     return fetch(`${baseUrl}${pathAndQuery}`, {
       method,
+      signal: AbortSignal.timeout(
+        pathAndQuery === '/recording/start'
+          ? RECORDER_START_TIMEOUT_MS
+          : RECORDER_TIMEOUT_MS,
+      ),
       headers: {
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         'X-Recording-Timestamp': timestamp,
@@ -80,7 +90,9 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     recorderUrl: string;
   } | null> {
     const discoveryUrl = `${this.controlPlaneUrl}/recorder?room_id=${encodeURIComponent(roomId)}`;
-    const cpResponse = await fetch(discoveryUrl);
+    const cpResponse = await fetch(discoveryUrl, {
+      signal: AbortSignal.timeout(RECORDER_TIMEOUT_MS),
+    });
     if ([404, 409, 503].includes(cpResponse.status)) return null;
     if (!cpResponse.ok) {
       const errorText = await cpResponse.text();
@@ -95,15 +107,35 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   }
 
   /**
-   * Recorder of a room (rediscovered after a backend restart); `null` when no
-   * live runs, so nothing can be recording it.
+   * Calls the recorder of a room: the one remembered when it was started, else
+   * the one the control plane reports (after a backend restart). A remembered
+   * recorder that cannot be reached belongs to a worker gone with its live: it
+   * is forgotten and the control plane asked again, otherwise every later live
+   * of the room would keep calling a dead address. `null` when no live runs,
+   * so nothing can be recording the room.
    */
-  private async recorderFor(roomId: string): Promise<string | null> {
-    return (
-      this.recorderByRoom.get(roomId) ??
-      (await this.discover(roomId))?.recorderUrl ??
-      null
-    );
+  private async roomRecorderFetch(
+    roomId: string,
+    pathAndQuery: string,
+    method: 'GET' | 'POST',
+    body?: unknown,
+  ): Promise<Response | null> {
+    const remembered = this.recorderByRoom.get(roomId);
+    if (remembered) {
+      try {
+        return await this.recorderFetch(remembered, pathAndQuery, method, body);
+      } catch (error) {
+        this.recorderByRoom.delete(roomId);
+        this.logger.warn(
+          `Recorder ${remembered} of room ${roomId} unreachable (${
+            error instanceof Error ? error.message : String(error)
+          }), asking the control plane again`,
+        );
+      }
+    }
+    const target = await this.discover(roomId);
+    if (!target) return null;
+    return this.recorderFetch(target.recorderUrl, pathAndQuery, method, body);
   }
 
   async startRecording(config: StartRecordingConfig): Promise<void> {
@@ -154,19 +186,24 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   async stopRecording(roomId: string): Promise<void> {
     this.logger.log(`Stopping recording for room: ${roomId}`);
 
-    const recorderUrl = await this.recorderFor(roomId);
-    this.recorderByRoom.delete(roomId);
-    if (!recorderUrl) {
-      // The worker is gone with the live: its recorder already stopped.
-      this.logger.log(`No live for room ${roomId}: nothing to stop`);
-      return;
-    }
-    const response = await this.recorderFetch(
-      recorderUrl,
+    const response = await this.roomRecorderFetch(
+      roomId,
       '/recording/stop',
       'POST',
       { room_id: roomId },
     );
+    this.recorderByRoom.delete(roomId);
+    if (!response) {
+      // The worker is gone with the live: its recorder already stopped.
+      this.logger.log(`No live for room ${roomId}: nothing to stop`);
+      return;
+    }
+
+    // 409 = nothing recording any more (stopped meanwhile): stopping is idempotent.
+    if (response.status === 409) {
+      this.logger.log(`Recording already stopped for room: ${roomId}`);
+      return;
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -184,13 +221,12 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   }> {
     let response: Response;
     if (roomId) {
-      const recorderUrl = await this.recorderFor(roomId);
-      if (!recorderUrl) return { status: 'idle', roomId };
-      response = await this.recorderFetch(
-        recorderUrl,
+      response = await this.roomRecorderFetch(
+        roomId,
         `/recording/status?room_id=${encodeURIComponent(roomId)}`,
         'GET',
       );
+      if (!response) return { status: 'idle', roomId };
     } else {
       response = await this.recorderFetch(
         this.vmUrl,

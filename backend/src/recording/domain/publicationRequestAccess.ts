@@ -3,46 +3,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { TrackObject } from 'src/tracks/domain/track';
 import { UserObject } from 'src/users/domain/user';
-import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
-import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
 import { IPublicationRequestGateway } from './gateways/publication-request.gateway';
 import { PublicationRequestObject } from './publicationRequest';
 
-// Shared checks of the US-6 usecases.
-
-export async function getCurrentUser(
-  userGateway: IUserGateway,
-  email: string,
-): Promise<UserObject> {
-  const user = await userGateway.getUserByEmail(email);
-  if (!user) throw new NotFoundException(`User with email ${email} not found`);
-  return user;
-}
-
-/** Organizer = a track speaker or an editor of the parent event. */
-export async function isTrackOrganizer(
-  track: TrackObject,
-  user: UserObject,
-  eventGateway: IEventGateway,
-): Promise<boolean> {
-  if (track.canBeEditBy(user)) return true;
-  const event = await eventGateway.getEventById(track.eventId);
-  return !!event && event.canBeEditBy(user);
-}
-
-export async function assertTrackOrganizer(
-  track: TrackObject,
-  user: UserObject,
-  eventGateway: IEventGateway,
-): Promise<void> {
-  if (!(await isTrackOrganizer(track, user, eventGateway))) {
-    throw new UnauthorizedException(
-      'Only the organizer can manage the publications of this track',
-    );
-  }
-}
+// Shared checks of the US-6 usecases (organizer checks: trackOrganizer.ts).
 
 /** Loads a request, turning an unanswered stale one into `expired`. */
 export async function getSettledRequest(

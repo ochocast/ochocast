@@ -34,8 +34,9 @@ describe('GetRecordingMediaUrlUsecase (authorization)', () => {
       createRecording: jest.fn(),
       getRecordingsByTrack: jest.fn(),
       getRecordingById: jest.fn(),
-      countRecordingsByTrack: jest.fn(),
+      createSegment: jest.fn(),
       updateRecording: jest.fn(),
+      markPublished: jest.fn(),
       deleteRecording: jest.fn(),
     };
     trackGateway = {

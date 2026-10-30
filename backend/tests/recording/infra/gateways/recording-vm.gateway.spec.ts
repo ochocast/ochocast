@@ -113,6 +113,60 @@ describe('RecordingVMGateway', () => {
     expect(calls).toHaveLength(1);
   });
 
+  it('forgets a remembered recorder that went away with its worker', async () => {
+    // Live 1 on worker A: its recorder is remembered when started.
+    routes = (url) =>
+      url.startsWith('http://cp:8090/recorder')
+        ? json(200, { room_key: 'k', recorder_service_url: 'http://a:8083' })
+        : json(200, { status: 'recording' });
+    const gateway = new RecordingVMGateway();
+    await gateway.startRecording({ roomId: 'r1', trackId: 'r1' });
+
+    // Worker A is deleted; live 2 runs on worker B.
+    routes = (url) => {
+      if (url.startsWith('http://a:8083')) throw new TypeError('fetch failed');
+      return url.startsWith('http://cp:8090/recorder')
+        ? json(200, { room_key: 'k', recorder_service_url: 'http://b:8083' })
+        : json(200, { status: 'idle' });
+    };
+    calls = [];
+
+    await expect(gateway.getStatus('r1')).resolves.toMatchObject({
+      status: 'idle',
+    });
+    expect(calls.map((c) => c.url)).toEqual([
+      'http://a:8083/recording/status?room_id=r1',
+      'http://cp:8090/recorder?room_id=r1',
+      'http://b:8083/recording/status?room_id=r1',
+    ]);
+
+    // Worker A is not called again.
+    calls = [];
+    await gateway.getStatus('r1');
+    expect(calls.some((c) => c.url.startsWith('http://a:8083'))).toBe(false);
+  });
+
+  it('treats a 409 to a stop as already stopped', async () => {
+    routes = (url) =>
+      url.startsWith('http://cp:8090/recorder')
+        ? json(200, { room_key: 'k', recorder_service_url: 'http://a:8083' })
+        : json(409);
+    await expect(
+      new RecordingVMGateway().stopRecording('r1'),
+    ).resolves.toBeUndefined();
+  });
+
+  it('bounds every recorder call with a timeout', async () => {
+    routes = (url) =>
+      url.startsWith('http://cp:8090/recorder')
+        ? json(200, { room_key: 'k', recorder_service_url: 'http://a:8083' })
+        : json(200, { status: 'recording' });
+    await new RecordingVMGateway().getStatus('r1');
+    expect(calls.every((c) => c.init?.signal instanceof AbortSignal)).toBe(
+      true,
+    );
+  });
+
   it('refuses to start when no live runs', async () => {
     routes = () => json(503);
     await expect(

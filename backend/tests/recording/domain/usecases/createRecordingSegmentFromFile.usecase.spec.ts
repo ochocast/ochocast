@@ -35,11 +35,12 @@ describe('CreateRecordingSegmentFromFileUsecase', () => {
     uploadedBodies.length = 0;
     workDir = await mkdtemp(path.join(tmpdir(), 'segment-spec-'));
     recordingRepo = {
-      createRecording: jest.fn().mockImplementation(async (r) => r),
+      createRecording: jest.fn(),
+      createSegment: jest.fn().mockImplementation(async (r) => r),
       getRecordingsByTrack: jest.fn(),
       getRecordingById: jest.fn(),
-      countRecordingsByTrack: jest.fn().mockResolvedValue(2),
       updateRecording: jest.fn(),
+      markPublished: jest.fn(),
       deleteRecording: jest.fn(),
     };
     trackGateway = {
@@ -81,7 +82,9 @@ describe('CreateRecordingSegmentFromFileUsecase', () => {
       new RegExp(`^recordings/${trackId}/[0-9a-f-]+/original\\.mp4$`),
     );
     expect(recording.visibility).toBe('unlisted');
-    expect(recordingRepo.createRecording).toHaveBeenCalledTimes(1);
+    // The gateway numbers the segment within its track.
+    expect(recordingRepo.createSegment).toHaveBeenCalledTimes(1);
+    expect(recordingRepo.createRecording).not.toHaveBeenCalled();
   });
 
   it('still accepts an in-memory upload', async () => {

@@ -12,10 +12,13 @@ export interface RecordingUpdate {
   status?: RecordingStatus;
   mediaId?: string;
   duration?: number | null;
-  visibility?: RecordingVisibility;
-  publishedAt?: Date;
-  publishedById?: string;
-  publishedVideoId?: string | null;
+}
+
+/** Where and when a recording was published (US-4 / US-6). */
+export interface RecordingPublication {
+  publishedAt: Date;
+  publishedById: string;
+  publishedVideoId: string | null;
 }
 
 /**
@@ -24,15 +27,27 @@ export interface RecordingUpdate {
  */
 export interface IRecordingRepositoryGateway {
   createRecording: (recording: RecordingObject) => Promise<RecordingObject>;
+  /**
+   * Stores a raw segment as the last segment of its track: its segmentIndex is
+   * assigned here, one after the highest segment index of the track.
+   */
+  createSegment: (recording: RecordingObject) => Promise<RecordingObject>;
   getRecordingsByTrack: (
     trackId: string,
     filter?: GetRecordingsFilter,
   ) => Promise<RecordingObject[]>;
   getRecordingById: (id: string) => Promise<RecordingObject | null>;
-  countRecordingsByTrack: (trackId: string) => Promise<number>;
   updateRecording: (
     id: string,
     changes: RecordingUpdate,
   ) => Promise<RecordingObject | null>;
+  /**
+   * Publishes a recording that is still unlisted and ready, in one statement.
+   * False when it no longer is (published meanwhile, deleted...).
+   */
+  markPublished: (
+    id: string,
+    publication: RecordingPublication,
+  ) => Promise<boolean>;
   deleteRecording: (id: string) => Promise<void>;
 }

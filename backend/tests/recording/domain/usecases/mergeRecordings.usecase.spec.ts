@@ -64,6 +64,8 @@ describe('MergeRecordingsUsecase', () => {
 
     expect(merged.status).toBe('processing');
     expect(merged.kind).toBe('merged');
+    // Sorted with its first segment: the segment numbering is left untouched.
+    expect(merged.segmentIndex).toBe(0);
     expect(dispatcher.dispatch).toHaveBeenCalledWith(
       expect.objectContaining({
         recordingId: merged.id,

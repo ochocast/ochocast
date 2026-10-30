@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { createReadStream } from 'node:fs';
@@ -7,6 +7,7 @@ import * as path from 'path';
 import { IRecordingRepositoryGateway } from '../gateways/recording-repository.gateway';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { RecordingObject } from '../recording';
+import { getTrack } from '../trackOrganizer';
 
 /** Uploaded segment: on disk (`path`) or in memory (`buffer`). */
 export interface SegmentUpload {
@@ -52,10 +53,7 @@ export class CreateRecordingSegmentFromFileUsecase {
       throw new Error('Missing recording segment file in upload payload');
     }
 
-    const tracks = await this.trackGateway.getTracks({ id: trackId });
-    if (!tracks || tracks.length === 0) {
-      throw new NotFoundException(`Track not found: ${trackId}`);
-    }
+    await getTrack(this.trackGateway, trackId);
 
     const segmentId = uuid();
     const extension =
@@ -75,20 +73,17 @@ export class CreateRecordingSegmentFromFileUsecase {
       },
     }).done();
 
-    const segmentIndex =
-      await this.recordingRepository.countRecordingsByTrack(trackId);
-
     const recording = new RecordingObject(
       segmentId,
       trackId,
       key,
       'unlisted',
       options.problematic ?? false,
-      segmentIndex,
+      0, // assigned by createSegment
       options.duration ?? null,
       new Date(),
     );
 
-    return this.recordingRepository.createRecording(recording);
+    return this.recordingRepository.createSegment(recording);
   }
 }

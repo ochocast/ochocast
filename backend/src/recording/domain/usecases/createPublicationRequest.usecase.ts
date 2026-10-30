@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
@@ -12,11 +11,8 @@ import {
   PublicationRequestMetadata,
   PublicationRequestObject,
 } from '../publicationRequest';
-import {
-  assertTrackOrganizer,
-  getCurrentUser,
-  settleExpiry,
-} from '../publicationRequestAccess';
+import { assertNoPendingRequest } from '../recordingPublication';
+import { assertTrackOrganizer, getCurrentUser } from '../trackOrganizer';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
@@ -65,7 +61,12 @@ export class CreatePublicationRequestUsecase {
     const track = tracks[0];
 
     const user = await getCurrentUser(this.userGateway, email);
-    await assertTrackOrganizer(track, user, this.eventGateway);
+    await assertTrackOrganizer(
+      track,
+      user,
+      this.eventGateway,
+      'Only the organizer can manage the publications of this track',
+    );
 
     if (recording.visibility !== 'unlisted' || recording.status !== 'ready') {
       throw new BadRequestException('Recording cannot be published');
@@ -81,17 +82,7 @@ export class CreatePublicationRequestUsecase {
       );
     }
 
-    const pending = await this.requestGateway.findPendingByRecording(
-      recording.id,
-    );
-    if (
-      pending &&
-      (await settleExpiry(this.requestGateway, pending)).status === 'pending'
-    ) {
-      throw new ConflictException(
-        'A publication request is already pending for this recording',
-      );
-    }
+    await assertNoPendingRequest(this.requestGateway, recording.id);
 
     return this.requestGateway.create(
       new PublicationRequestObject({

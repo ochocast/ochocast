@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ArrayMinSize, IsArray, IsUUID } from 'class-validator';
+import { ArrayMinSize, ArrayUnique, IsArray, IsUUID } from 'class-validator';
 
 export class MergeRecordingsDto {
   @ApiProperty({
@@ -8,6 +8,7 @@ export class MergeRecordingsDto {
   })
   @IsArray()
   @ArrayMinSize(2)
+  @ArrayUnique()
   @IsUUID('all', { each: true })
   segmentIds: string[];
 }

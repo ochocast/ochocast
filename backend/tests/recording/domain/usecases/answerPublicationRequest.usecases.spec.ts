@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -34,7 +35,9 @@ describe('Answering a publication request', () => {
     let videoGateway: any;
 
     beforeEach(() => {
-      recordingRepository = { updateRecording: jest.fn() };
+      recordingRepository = {
+        markPublished: jest.fn().mockResolvedValue(true),
+      };
       videoGateway = {
         getVideos: jest
           .fn()
@@ -51,14 +54,13 @@ describe('Answering a publication request', () => {
     it('marks the request accepted and the recording published', async () => {
       await usecase.execute(REQUEST_ID, VIDEO_ID, SPEAKER.email);
 
-      expect(recordingRepository.updateRecording).toHaveBeenCalledWith(
+      expect(recordingRepository.markPublished).toHaveBeenCalledWith(
         RECORDING_ID,
-        expect.objectContaining({
-          visibility: 'published',
+        {
           publishedById: SPEAKER.id,
           publishedVideoId: VIDEO_ID,
           publishedAt: expect.any(Date),
-        }),
+        },
       );
       expect(requestGateway.update).toHaveBeenCalledWith(
         REQUEST_ID,
@@ -70,7 +72,7 @@ describe('Answering a publication request', () => {
       await expect(
         usecase.execute(REQUEST_ID, VIDEO_ID, ORGANIZER.email),
       ).rejects.toThrow(UnauthorizedException);
-      expect(recordingRepository.updateRecording).not.toHaveBeenCalled();
+      expect(recordingRepository.markPublished).not.toHaveBeenCalled();
     });
 
     it('rejects a video that is not on the speaker channel', async () => {
@@ -81,6 +83,15 @@ describe('Answering a publication request', () => {
       await expect(
         usecase.execute(REQUEST_ID, VIDEO_ID, SPEAKER.email),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('leaves the request pending when the recording was published meanwhile', async () => {
+      recordingRepository.markPublished.mockResolvedValue(false);
+
+      await expect(
+        usecase.execute(REQUEST_ID, VIDEO_ID, SPEAKER.email),
+      ).rejects.toThrow(ConflictException);
+      expect(requestGateway.update).not.toHaveBeenCalled();
     });
 
     it('rejects an expired request', async () => {
@@ -94,7 +105,7 @@ describe('Answering a publication request', () => {
       await expect(
         usecase.execute(REQUEST_ID, VIDEO_ID, SPEAKER.email),
       ).rejects.toThrow(ForbiddenException);
-      expect(recordingRepository.updateRecording).not.toHaveBeenCalled();
+      expect(recordingRepository.markPublished).not.toHaveBeenCalled();
     });
   });
 

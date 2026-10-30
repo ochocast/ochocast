@@ -1,11 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { IPublicationRequestGateway } from '../gateways/publication-request.gateway';
 import { PublicationRequestObject } from '../publicationRequest';
-import {
-  assertTrackOrganizer,
-  getCurrentUser,
-  settleExpiry,
-} from '../publicationRequestAccess';
+import { settleExpiry } from '../publicationRequestAccess';
+import { assertTrackOrganizer, getCurrentUser } from '../trackOrganizer';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
@@ -36,7 +33,12 @@ export class GetTrackPublicationRequestsUsecase {
       throw new NotFoundException(`Track not found: ${trackId}`);
     }
     const user = await getCurrentUser(this.userGateway, email);
-    await assertTrackOrganizer(tracks[0], user, this.eventGateway);
+    await assertTrackOrganizer(
+      tracks[0],
+      user,
+      this.eventGateway,
+      'Only the organizer can manage the publications of this track',
+    );
 
     const requests = await this.requestGateway.findByTrack(trackId);
     return Promise.all(

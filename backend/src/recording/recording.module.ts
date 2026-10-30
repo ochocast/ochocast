@@ -32,6 +32,10 @@ import { RecordingMergeJobEntity } from './infra/merge-jobs/recording-merge-job.
 import { RecordingMergeJobsService } from './infra/merge-jobs/recording-merge-jobs.service';
 import { RecordingMergeJobsController } from './infra/merge-jobs/recording-merge-jobs.controller';
 import { RecordingMergeDispatcher } from './infra/merge-jobs/recording-merge-dispatcher';
+import { PrepareRecordingUploadUsecase } from './domain/usecases/prepareRecordingUpload.usecase';
+import { PreparePublicationRequestUploadUsecase } from './domain/usecases/preparePublicationRequestUpload.usecase';
+import { UploadsModule } from 'src/videos/uploads/uploads.module';
+import { UploadsService } from 'src/videos/uploads/uploads.service';
 import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
 import { S3Module } from 'src/s3.module';
@@ -45,6 +49,7 @@ import { S3Module } from 'src/s3.module';
       RecordingMergeJobEntity,
     ]),
     VideosModule,
+    UploadsModule,
     S3Module,
     forwardRef(() => TracksModule),
   ],
@@ -70,6 +75,8 @@ import { S3Module } from 'src/s3.module';
       provide: 'PublicationRequestGateway',
       useClass: PublicationRequestGateway,
     },
+    // US-4 / US-6: recordings are published through a server-side copy.
+    { provide: 'VideoUploadGateway', useExisting: UploadsService },
     StartRecordingUsecase,
     StopRecordingUsecase,
     CreateRecordingSegmentFromFileUsecase,
@@ -89,6 +96,8 @@ import { S3Module } from 'src/s3.module';
     AcceptPublicationRequestUsecase,
     RefusePublicationRequestUsecase,
     CancelPublicationRequestUsecase,
+    PrepareRecordingUploadUsecase,
+    PreparePublicationRequestUploadUsecase,
     RecordingMergeJobsService,
     {
       provide: 'MergeJobDispatcher',

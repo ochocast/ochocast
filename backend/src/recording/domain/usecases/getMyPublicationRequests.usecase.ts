@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { IPublicationRequestGateway } from '../gateways/publication-request.gateway';
 import { PublicationRequestObject } from '../publicationRequest';
-import { getCurrentUser, settleExpiry } from '../publicationRequestAccess';
+import { settleExpiry } from '../publicationRequestAccess';
+import { getCurrentUser } from '../trackOrganizer';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 
 /** US-6 — Pending publication requests addressed to the current user. */

@@ -32,6 +32,7 @@ import { GetRecordingMediaUrlUsecase } from '../../domain/usecases/getRecordingM
 import { MergeRecordingsUsecase } from '../../domain/usecases/mergeRecordings.usecase';
 import { DeleteRecordingUsecase } from '../../domain/usecases/deleteRecording.usecase';
 import { MarkRecordingPublishedUsecase } from '../../domain/usecases/markRecordingPublished.usecase';
+import { PrepareRecordingUploadUsecase } from '../../domain/usecases/prepareRecordingUpload.usecase';
 import { MergeRecordingsDto } from './dto/merge-recordings.dto';
 import { RecordingObject } from '../../domain/recording';
 import { RecordingSecretGuard } from '../guards/recording-secret.guard';
@@ -82,6 +83,7 @@ export class RecordingController {
     private mergeRecordingsUsecase: MergeRecordingsUsecase,
     private deleteRecordingUsecase: DeleteRecordingUsecase,
     private markRecordingPublishedUsecase: MarkRecordingPublishedUsecase,
+    private prepareRecordingUploadUsecase: PrepareRecordingUploadUsecase,
   ) {}
 
   /**
@@ -258,6 +260,21 @@ export class RecordingController {
       throw new HttpException('trackId must be a UUID', HttpStatus.BAD_REQUEST);
     }
     return this.mergeRecordingsUsecase.execute(trackId, dto.segmentIds, email);
+  }
+
+  /**
+   * US-4 — Copy a recording, server side, into a new video upload of the
+   * organizer; the editor then completes it (POST /video-uploads/:id/complete).
+   */
+  @Post(':id/upload')
+  async prepareUpload(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<{ id: string }> {
+    if (!isUUID(id)) {
+      throw new HttpException('id must be a UUID', HttpStatus.BAD_REQUEST);
+    }
+    return this.prepareRecordingUploadUsecase.execute(id, email);
   }
 
   /**

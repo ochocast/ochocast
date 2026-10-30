@@ -21,6 +21,7 @@ import { GetPublicationRequestMediaUrlUsecase } from '../../domain/usecases/getP
 import { AcceptPublicationRequestUsecase } from '../../domain/usecases/acceptPublicationRequest.usecase';
 import { RefusePublicationRequestUsecase } from '../../domain/usecases/refusePublicationRequest.usecase';
 import { CancelPublicationRequestUsecase } from '../../domain/usecases/cancelPublicationRequest.usecase';
+import { PreparePublicationRequestUploadUsecase } from '../../domain/usecases/preparePublicationRequestUpload.usecase';
 import {
   AcceptPublicationRequestDto,
   CreatePublicationRequestDto,
@@ -46,6 +47,7 @@ export class PublicationRequestController {
     private acceptUsecase: AcceptPublicationRequestUsecase,
     private refuseUsecase: RefusePublicationRequestUsecase,
     private cancelUsecase: CancelPublicationRequestUsecase,
+    private prepareUploadUsecase: PreparePublicationRequestUploadUsecase,
   ) {}
 
   /** Organizer-only: ask a track speaker to publish a recording. */
@@ -107,6 +109,19 @@ export class PublicationRequestController {
   ): Promise<{ url: string }> {
     assertUUID(id, 'id');
     return { url: await this.getMediaUrlUsecase.execute(id, email) };
+  }
+
+  /**
+   * Targeted speaker: copy the proposed recording, server side, into a new
+   * video upload of theirs, completed by the editor before accepting.
+   */
+  @Post(':id/upload')
+  prepareUpload(
+    @Param('id') id: string,
+    @CurrentUserEmail() email: string,
+  ): Promise<{ id: string }> {
+    assertUUID(id, 'id');
+    return this.prepareUploadUsecase.execute(id, email);
   }
 
   /** Targeted speaker: the video was published on their channel. */

@@ -1,27 +1,38 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { IRecordingRepositoryGateway } from '../gateways/recording-repository.gateway';
+import { IPublicationRequestGateway } from '../gateways/publication-request.gateway';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
+import { IVideoGateway } from 'src/videos/domain/gateways/videos.gateway';
+import { getOrganizedTrack } from '../trackOrganizer';
+import {
+  assertNoPendingRequest,
+  assertPublishable,
+} from '../recordingPublication';
 
 /**
  * US-4 — Mark a recording as `published` once the organizer has created a video
  * from it through the regular video editor. Does not create a video itself;
  * it flips the recording out of the unlisted working set so it can't be
  * published twice, and records when / on whose channel / as which video.
- * Organizer-only.
+ * Organizer-only, and refused while a speaker is asked to publish it (US-6).
  */
 @Injectable()
 export class MarkRecordingPublishedUsecase {
   constructor(
     @Inject('RecordingRepositoryGateway')
     private recordingRepository: IRecordingRepositoryGateway,
+    @Inject('PublicationRequestGateway')
+    private requestGateway: IPublicationRequestGateway,
+    @Inject('VideoGateway')
+    private videoGateway: IVideoGateway,
     @Inject('TrackGateway')
     private trackGateway: ITrackGateway,
     @Inject('UserGateway')
@@ -40,40 +51,38 @@ export class MarkRecordingPublishedUsecase {
     if (!recording) {
       throw new NotFoundException(`Recording not found: ${recordingId}`);
     }
-    if (recording.visibility !== 'unlisted') {
-      throw new BadRequestException('Recording is already published');
-    }
-    if (recording.status !== 'ready') {
-      throw new BadRequestException('Recording is not ready');
-    }
 
-    const tracks = await this.trackGateway.getTracks({
-      id: recording.trackId,
-    });
-    if (!tracks || tracks.length === 0) {
-      throw new NotFoundException(`Track not found: ${recording.trackId}`);
-    }
+    const { user } = await getOrganizedTrack(
+      {
+        trackGateway: this.trackGateway,
+        userGateway: this.userGateway,
+        eventGateway: this.eventGateway,
+      },
+      recording.trackId,
+      email,
+      'Only the organizer can publish this recording',
+    );
+    assertPublishable(recording);
+    await assertNoPendingRequest(this.requestGateway, recording.id);
 
-    const currentUser = await this.userGateway.getUserByEmail(email);
-    if (!currentUser) {
-      throw new NotFoundException(`User with email ${email} not found`);
-    }
-
-    const track = tracks[0];
-    if (!track.canBeEditBy(currentUser)) {
-      const event = await this.eventGateway.getEventById(track.eventId);
-      if (!event || !event.canBeEditBy(currentUser)) {
-        throw new UnauthorizedException(
-          'Only the organizer can publish this recording',
-        );
+    if (videoId) {
+      const [video] = await this.videoGateway.getVideos({ id: videoId });
+      if (!video || video.creator?.id !== user.id) {
+        throw new BadRequestException('Video not found on your channel');
       }
     }
 
-    await this.recordingRepository.updateRecording(recordingId, {
-      visibility: 'published',
-      publishedAt: new Date(),
-      publishedById: currentUser.id,
-      publishedVideoId: videoId ?? null,
-    });
+    // Conditional: a concurrent publication of the same recording loses here.
+    const published = await this.recordingRepository.markPublished(
+      recordingId,
+      {
+        publishedAt: new Date(),
+        publishedById: user.id,
+        publishedVideoId: videoId ?? null,
+      },
+    );
+    if (!published) {
+      throw new ConflictException('Recording is already published');
+    }
   }
 }

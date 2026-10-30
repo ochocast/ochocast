@@ -6,12 +6,8 @@ import {
 } from '@nestjs/common';
 import { IPublicationRequestGateway } from '../gateways/publication-request.gateway';
 import { PublicationRequestObject } from '../publicationRequest';
-import {
-  assertPending,
-  getCurrentUser,
-  getSettledRequest,
-  isTrackOrganizer,
-} from '../publicationRequestAccess';
+import { assertPending, getSettledRequest } from '../publicationRequestAccess';
+import { getCurrentUser, isTrackOrganizer } from '../trackOrganizer';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';

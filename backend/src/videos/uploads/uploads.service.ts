@@ -45,6 +45,9 @@ export function validateParts(s: VideoUpload, parts: StoredPart[]) {
       throw new BadRequestException('Part checksum mismatch');
   });
 }
+// Server-side copies use large parts (S3 accepts up to 5 GiB per copied part).
+const COPY_PART_BYTES = 512 * 1024 ** 2;
+const COPY_CONCURRENCY = 4;
 function positiveInteger(name: string, fallback: number) {
   const value = Number(process.env[name] || fallback);
   if (!Number.isInteger(value) || value < 1)
@@ -104,6 +107,85 @@ export class UploadsService {
       input.filename.length > 255
     )
       throw new BadRequestException('Invalid filename or upload size');
+    const mode = process.env.UPLOAD_CHECKSUM_MODE || 'sha256';
+    if (!['sha256', 'etag'].includes(mode))
+      throw new Error('Invalid UPLOAD_CHECKSUM_MODE');
+    const s = await this.open(owner, input, {
+      checksumMode: mode,
+      partSize: Math.max(16 * 1024 ** 2, Math.ceil(input.size / 10000)),
+    });
+    return this.view(s, []);
+  }
+  /**
+   * Opens an upload whose content is copied server side, part by part, from a
+   * file already in the media bucket (a live recording), so the browser never
+   * downloads and re-sends it. The copy runs in the background (a long live
+   * outlasts an HTTP request): the browser follows it through `status` until
+   * every part is listed with its ETag, then completes the upload like any
+   * other. The browser upload cap does not apply: the source is already stored.
+   */
+  async createFromStoredMedia(
+    email: string,
+    source: { key: string; filename: string },
+  ) {
+    const owner = await this.owner(email);
+    const size = await this.storage.size(source.key);
+    const s = await this.open(
+      owner,
+      { size, filename: source.filename },
+      // Copied parts carry no browser checksum: the ETag is the manifest.
+      {
+        checksumMode: 'etag',
+        partSize: Math.max(COPY_PART_BYTES, Math.ceil(size / 10000)),
+      },
+    );
+    const copied = this.copyParts(s, source.key, email).catch((e) =>
+      this.logger.warn(
+        `Upload ${s.id}: copy of ${source.key} failed: ${e.message}`,
+      ),
+    );
+    return { ...this.view(s, []), copied };
+  }
+  private async copyParts(s: VideoUpload, sourceKey: string, email: string) {
+    try {
+      const size = Number(s.size);
+      const count = Math.ceil(size / s.partSize);
+      const etags: Record<string, string> = {};
+      let next = 1;
+      const copy = async () => {
+        while (next <= count) {
+          const part = next++;
+          const first = (part - 1) * s.partSize;
+          const last = Math.min(part * s.partSize, size) - 1;
+          etags[part] = await this.storage.copyPart(
+            s,
+            part,
+            sourceKey,
+            first,
+            last,
+          );
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(COPY_CONCURRENCY, count) }, copy),
+      );
+      // Saved last: a manifest is complete only once every part is copied.
+      await this.locked(s.id, email, async (locked, m) => {
+        this.active(locked);
+        locked.checksums = etags;
+        await m.save(locked);
+      });
+    } catch (e) {
+      // Aborted, so the browser following the copy stops waiting.
+      await this.cancel(s.id, email).catch(() => undefined);
+      throw e;
+    }
+  }
+  private async open(
+    owner: UserEntity,
+    input: { size: number; filename: string },
+    options: { checksumMode: string; partSize: number },
+  ) {
     const extension = extname(input.filename)
       .toLowerCase()
       .replace(/[^.a-z0-9]/g, '');
@@ -126,9 +208,6 @@ export class UploadsService {
           'Too many active uploads; cancel or wait for expiry',
         );
       const id = randomUUID();
-      const mode = process.env.UPLOAD_CHECKSUM_MODE || 'sha256';
-      if (!['sha256', 'etag'].includes(mode))
-        throw new Error('Invalid UPLOAD_CHECKSUM_MODE');
       const s = m.create(VideoUpload, {
         id,
         ownerId: owner.id,
@@ -136,8 +215,8 @@ export class UploadsService {
         key: `${id}/source/original${extension || '.video'}`,
         filename: input.filename,
         size: String(input.size),
-        partSize: Math.max(16 * 1024 ** 2, Math.ceil(input.size / 10000)),
-        checksumMode: mode,
+        partSize: options.partSize,
+        checksumMode: options.checksumMode,
         state: 'uploading',
         checksums: {},
         expiresAt: new Date(Date.now() + 24 * 3600_000),
@@ -149,7 +228,7 @@ export class UploadsService {
         await this.storage.abort(s).catch(() => undefined);
         throw e;
       }
-      return this.view(s, []);
+      return s;
     });
   }
   private view(s: VideoUpload, parts: StoredPart[]) {

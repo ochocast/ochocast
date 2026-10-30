@@ -2,15 +2,14 @@ import {
   BadRequestException,
   Inject,
   Injectable,
-  NotFoundException,
   ServiceUnavailableException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { v4 as uuid } from 'uuid';
 import { IRecordingRepositoryGateway } from '../gateways/recording-repository.gateway';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
+import { getOrganizedTrack } from '../trackOrganizer';
 import { IMergeJobDispatcher } from '../gateways/merge-job-dispatcher.gateway';
 import { RecordingObject } from '../recording';
 
@@ -50,25 +49,16 @@ export class MergeRecordingsUsecase {
       );
     }
 
-    const tracks = await this.trackGateway.getTracks({ id: trackId });
-    if (!tracks || tracks.length === 0) {
-      throw new NotFoundException(`Track not found: ${trackId}`);
-    }
-
-    const currentUser = await this.userGateway.getUserByEmail(email);
-    if (!currentUser) {
-      throw new NotFoundException(`User with email ${email} not found`);
-    }
-
-    const track = tracks[0];
-    if (!track.canBeEditBy(currentUser)) {
-      const event = await this.eventGateway.getEventById(track.eventId);
-      if (!event || !event.canBeEditBy(currentUser)) {
-        throw new UnauthorizedException(
-          'Only the organizer can merge the recordings of this track',
-        );
-      }
-    }
+    await getOrganizedTrack(
+      {
+        trackGateway: this.trackGateway,
+        userGateway: this.userGateway,
+        eventGateway: this.eventGateway,
+      },
+      trackId,
+      email,
+      'Only the organizer can merge the recordings of this track',
+    );
 
     // All requested ids must be unlisted raw segments of this track.
     const unlisted = await this.recordingRepository.getRecordingsByTrack(
@@ -91,8 +81,6 @@ export class MergeRecordingsUsecase {
 
     const mergedId = uuid();
     const targetKey = `recordings/${trackId}/merged/${mergedId}.mp4`;
-    const nextIndex =
-      unlisted.reduce((max, r) => Math.max(max, r.segmentIndex), -1) + 1;
 
     const merged = new RecordingObject(
       mergedId,
@@ -100,7 +88,8 @@ export class MergeRecordingsUsecase {
       targetKey,
       'unlisted',
       false,
-      nextIndex,
+      // Sorts with its first segment; segment numbering is left untouched.
+      selected[0].segmentIndex,
       null,
       new Date(),
       'merged',

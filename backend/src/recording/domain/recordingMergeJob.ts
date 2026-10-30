@@ -20,5 +20,7 @@ export interface RecordingMergeResult {
   success: boolean;
   duration: number;
   error?: string;
+  /** A failure that a retry cannot fix (unreadable segment, too large...). */
+  permanent?: boolean;
   processedAt: number;
 }

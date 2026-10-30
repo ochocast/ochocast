@@ -16,7 +16,9 @@ import { RecordingMergeJobEntity } from './recording-merge-job.entity';
 /**
  * US-3 — Lease and result of merge jobs, mirroring TranscodingJobsService:
  * a row lock makes claims exclusive, and a repeated or late callback never
- * overwrites a success. The montage recording follows the job status.
+ * overwrites a success. The montage stays `processing` while a transient
+ * failure is retried, and becomes `failed` on a permanent failure or once
+ * the attempts are exhausted.
  */
 @Injectable()
 export class RecordingMergeJobsService {
@@ -61,7 +63,10 @@ export class RecordingMergeJobsService {
       // A deleted montage cascades to its job: 410 tells the worker to drop
       // the message, while a 404 means a routing error and is retried.
       if (!job) throw new GoneException('Merge job not found');
-      if (job.status === 'ready') return { status: 'completed' as const };
+      // A montage that failed for good is never retried: the organizer goes
+      // back and merges again.
+      if (job.status === 'ready' || job.status === 'failed')
+        return { status: 'completed' as const };
       if (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > Date.now()) {
         throw new ConflictException('Merge job is already running');
       }
@@ -108,10 +113,11 @@ export class RecordingMergeJobsService {
       if (!job) throw new GoneException('Merge job not found');
       // A delayed failure or repeated callback must never overwrite a success.
       if (job.status === 'ready') return;
+      // The failure of this lease is already stored (repeated callback).
       if (
-        job.status === 'failed' &&
+        !result.success &&
         job.leaseToken === leaseToken &&
-        !result.success
+        !job.leaseExpiresAt
       )
         return;
       if (
@@ -121,17 +127,27 @@ export class RecordingMergeJobsService {
       ) {
         throw new ConflictException('Merge lease expired or replaced');
       }
-      job.status = result.success ? 'ready' : 'failed';
       job.result = result;
       job.leaseExpiresAt = null;
-      await repository.save(job);
-      await manager.update(
-        RecordingEntity,
-        job.recordingId,
-        result.success
-          ? { status: 'ready', duration: result.duration }
-          : { status: 'failed' },
-      );
+      if (result.success) {
+        job.status = 'ready';
+        await repository.save(job);
+        await manager.update(RecordingEntity, job.recordingId, {
+          status: 'ready',
+          duration: result.duration,
+        });
+      } else if (result.permanent || job.attempts >= this.maxAttempts) {
+        job.status = 'failed';
+        await repository.save(job);
+        await manager.update(RecordingEntity, job.recordingId, {
+          status: 'failed',
+        });
+      } else {
+        // The queue redelivers the message: the montage stays `processing`
+        // instead of flickering to `failed` between attempts.
+        job.status = 'pending';
+        await repository.save(job);
+      }
     });
   }
 }

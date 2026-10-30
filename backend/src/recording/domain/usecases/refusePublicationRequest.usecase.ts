@@ -4,9 +4,9 @@ import { PublicationRequestObject } from '../publicationRequest';
 import {
   assertPending,
   assertTarget,
-  getCurrentUser,
   getSettledRequest,
 } from '../publicationRequestAccess';
+import { getCurrentUser } from '../trackOrganizer';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 
 /**

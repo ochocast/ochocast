@@ -1,7 +1,8 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { IPublicationRequestGateway } from '../gateways/publication-request.gateway';
 import { PublicationRequestObject } from '../publicationRequest';
-import { getCurrentUser, getSettledRequest } from '../publicationRequestAccess';
+import { getSettledRequest } from '../publicationRequestAccess';
+import { getCurrentUser } from '../trackOrganizer';
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 
 /**

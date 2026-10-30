@@ -1,5 +1,10 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { MarkRecordingPublishedUsecase } from 'src/recording/domain/usecases/markRecordingPublished.usecase';
+import { makeRequest, makeRequestGateway } from './publicationRequest.fixtures';
 
 describe('MarkRecordingPublishedUsecase', () => {
   const recordingId = '22222222-2222-4222-8222-222222222222';
@@ -8,6 +13,8 @@ describe('MarkRecordingPublishedUsecase', () => {
   const stranger = { id: 'stranger-id', email: 'nobody@example.com' };
 
   let recordingRepository: any;
+  let requestGateway: ReturnType<typeof makeRequestGateway>;
+  let videoGateway: any;
   let usecase: MarkRecordingPublishedUsecase;
 
   beforeEach(() => {
@@ -18,10 +25,18 @@ describe('MarkRecordingPublishedUsecase', () => {
         visibility: 'unlisted',
         status: 'ready',
       }),
-      updateRecording: jest.fn(),
+      markPublished: jest.fn().mockResolvedValue(true),
+    };
+    requestGateway = makeRequestGateway();
+    videoGateway = {
+      getVideos: jest
+        .fn()
+        .mockResolvedValue([{ id: videoId, creator: { id: organizer.id } }]),
     };
     usecase = new MarkRecordingPublishedUsecase(
       recordingRepository,
+      requestGateway,
+      videoGateway,
       {
         getTracks: jest.fn().mockResolvedValue([
           {
@@ -46,10 +61,9 @@ describe('MarkRecordingPublishedUsecase', () => {
   it('records when, on whose channel and as which video it was published', async () => {
     await usecase.execute(recordingId, organizer.email, videoId);
 
-    expect(recordingRepository.updateRecording).toHaveBeenCalledWith(
+    expect(recordingRepository.markPublished).toHaveBeenCalledWith(
       recordingId,
       {
-        visibility: 'published',
         publishedAt: expect.any(Date),
         publishedById: organizer.id,
         publishedVideoId: videoId,
@@ -61,7 +75,7 @@ describe('MarkRecordingPublishedUsecase', () => {
     await expect(
       usecase.execute(recordingId, stranger.email, videoId),
     ).rejects.toThrow(UnauthorizedException);
-    expect(recordingRepository.updateRecording).not.toHaveBeenCalled();
+    expect(recordingRepository.markPublished).not.toHaveBeenCalled();
   });
 
   it('rejects an already published recording', async () => {
@@ -74,6 +88,34 @@ describe('MarkRecordingPublishedUsecase', () => {
 
     await expect(
       usecase.execute(recordingId, organizer.email, videoId),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('refuses while a speaker is asked to publish the recording', async () => {
+    requestGateway.findPendingByRecording.mockResolvedValue(makeRequest());
+
+    await expect(
+      usecase.execute(recordingId, organizer.email, videoId),
+    ).rejects.toThrow(ConflictException);
+    expect(recordingRepository.markPublished).not.toHaveBeenCalled();
+  });
+
+  it('refuses a video that is not on the organizer channel', async () => {
+    videoGateway.getVideos.mockResolvedValue([
+      { id: videoId, creator: { id: stranger.id } },
+    ]);
+
+    await expect(
+      usecase.execute(recordingId, organizer.email, videoId),
     ).rejects.toThrow(BadRequestException);
+    expect(recordingRepository.markPublished).not.toHaveBeenCalled();
+  });
+
+  it('loses against a concurrent publication of the same recording', async () => {
+    recordingRepository.markPublished.mockResolvedValue(false);
+
+    await expect(
+      usecase.execute(recordingId, organizer.email, videoId),
+    ).rejects.toThrow(ConflictException);
   });
 });
