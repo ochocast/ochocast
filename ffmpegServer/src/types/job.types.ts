@@ -38,6 +38,8 @@ export interface VideoTranscodingResult {
   videoId: string;
   success: boolean;
   duration: number;
+  has_audio?: boolean;
+  audio_key?: string | null;
   subtitle_id?: string | null;
   error?: string;
   processedAt: number;

@@ -4,6 +4,15 @@
   margin: 1rem;
 }
 
+.loadFailed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
 /* === Layout type YouTube === */
 .watchLayout {
   display: grid;

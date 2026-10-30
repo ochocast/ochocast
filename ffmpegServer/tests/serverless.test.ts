@@ -488,6 +488,52 @@ test('a backend predating permanent failures (400) receives a plain failure inst
   }
 });
 
+test('a backend predating automatic subtitles (400) keeps the permanent failure fields', async (t) => {
+  const bodies: Array<{ result: VideoTranscodingResult }> = [];
+  let known = ['permanent', 'reason', 'sourceCodecsPlayable'];
+  t.mock.method(
+    globalThis,
+    'fetch',
+    async (_url: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body));
+      bodies.push(body);
+      const accepted = Object.keys(body.result).every(
+        (key) => key in result || key === 'error' || known.includes(key),
+      );
+      return new Response('{}', { status: accepted ? 200 : 400 });
+    },
+  );
+  t.mock.method(console, 'warn', () => {});
+  const client = new BackendClient('http://backend/api', secret);
+  const longVideo: VideoTranscodingResult = {
+    ...result,
+    success: false,
+    error: 'too long',
+    permanent: true,
+    reason: 'duration_exceeded',
+    sourceCodecsPlayable: true,
+  };
+  const withAudio: VideoTranscodingResult = {
+    ...longVideo,
+    has_audio: true,
+    audio_key: 'video/audio.flac',
+  };
+  // Without the audio fields, it still publishes the video from its source.
+  await client.complete(job.jobId, randomUUID(), withAudio);
+  assert.equal(bodies.length, 2);
+  assert.deepEqual(bodies[1].result, longVideo);
+  // Predating permanent failures as well, it stores a plain failure.
+  known = [];
+  bodies.length = 0;
+  await client.complete(job.jobId, randomUUID(), withAudio);
+  assert.equal(bodies.length, 3);
+  assert.deepEqual(bodies[2].result, {
+    ...result,
+    success: false,
+    error: 'too long',
+  });
+});
+
 test('backend client retries transient callbacks, but rejects an expired lease', async (t) => {
   let calls = 0;
   const fetchMock = t.mock.method(globalThis, 'fetch', async () => {

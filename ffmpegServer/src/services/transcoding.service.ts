@@ -32,6 +32,9 @@ import { createReadStream } from 'node:fs';
 const BROWSER_VIDEO_CODECS = new Set(['h264', 'vp8', 'vp9', 'av1']);
 const BROWSER_PIXEL_FORMATS = new Set(['yuv420p', 'yuvj420p']);
 const BROWSER_AUDIO_CODECS = new Set(['aac', 'mp3', 'opus', 'vorbis', 'flac']);
+// Containers the backend plays as is when a video is too long to transcode
+// (its PLAYABLE_AS_IS).
+const SOURCE_PLAYBACK_CONTAINERS = new Set(['m4v', 'mov', 'mp4', 'webm']);
 
 interface ProbedStream {
   codec_type?: string;
@@ -294,8 +297,9 @@ export class TranscodingService {
   }
 
   /**
-   * Extract the audio track to FLAC: losslessly compressed 16-bit PCM with the
-   * same samples as the former WAV (44.1 kHz stereo), typically half its size.
+   * Extract the audio track for Whisper to FLAC: losslessly compressed 16-bit
+   * PCM at 16 kHz mono, the input Whisper resamples any audio to. About
+   * 60 MB per hour of speech, under the worker's download limit for long videos.
    */
   async extractAudioFlac(inputPath: string, outputPath: string): Promise<void> {
     await this.runProcess(process.env.FFMPEG_PATH || 'ffmpeg', [
@@ -308,9 +312,9 @@ export class TranscodingService {
       '-sample_fmt',
       's16',
       '-ar',
-      '44100',
+      '16000',
       '-ac',
-      '2',
+      '1',
       outputPath,
     ]);
   }
@@ -496,6 +500,8 @@ export class TranscodingService {
     const tempAudioPath = path.join(workDir, 'audio.flac');
     let duration = 0;
     let sourceCodecsPlayable: boolean | undefined;
+    let hasAudioTrack: boolean | undefined;
+    let uploadedAudioKey: string | undefined;
 
     try {
       console.log(`\nStarting transcoding job: ${job.jobId}`);
@@ -509,7 +515,11 @@ export class TranscodingService {
 
       // Get video duration; an unreadable source fails permanently
       const probe = await this.probeSource(tempInputPath);
-      ({ duration, codecsPlayable: sourceCodecsPlayable } = probe);
+      ({
+        duration,
+        codecsPlayable: sourceCodecsPlayable,
+        hasAudio: hasAudioTrack,
+      } = probe);
       console.log(`   Duration: ${duration}s`);
 
       let generatedSubtitleId: string | undefined;
@@ -547,30 +557,56 @@ export class TranscodingService {
         generatedSubtitleId = job.subtitle_id;
       }
 
-      const maxDuration = maxDurationSeconds();
-      if (duration > maxDuration)
-        throw new PermanentJobError(
-          'duration_exceeded',
-          `Video duration ${duration} s exceeds TRANSCODING_MAX_DURATION_SECONDS (${maxDuration} s)`,
-        );
-
       // A misconfiguration must not cost a whole encode before failing.
       uploadConcurrency();
+
+      // A video too long to transcode is played from its source only when
+      // browsers can play it: only then is its audio worth extracting, and a
+      // failed extraction must not cost it that playback.
+      const maxDuration = maxDurationSeconds();
+      const tooLong = duration > maxDuration;
+      const sourcePlayable =
+        sourceCodecsPlayable === true &&
+        SOURCE_PLAYBACK_CONTAINERS.has(
+          path.extname(job.originalKey).slice(1).toLowerCase(),
+        );
 
       // Extract and upload FLAC audio when the source has an audio track. Done
       // before the encode: a deadline after the HLS upload would otherwise
       // count as a long encode and discard a finished HLS set.
       const audioKey = `${job.videoId}/audio.flac`;
-      if (probe.hasAudio) {
-        await this.extractAudioFlac(tempInputPath, tempAudioPath);
-        await this.uploadFile(
-          tempAudioPath,
-          S3_CONFIG.mediaBucket,
-          audioKey,
-          'audio/flac',
-        );
-        console.log(`FLAC audio uploaded: ${audioKey}`);
+      const extractAudio = process.env.TRANSCODING_EXTRACT_AUDIO !== 'false';
+      if (probe.hasAudio && extractAudio && (!tooLong || sourcePlayable)) {
+        try {
+          await this.extractAudioFlac(tempInputPath, tempAudioPath);
+          await this.uploadFile(
+            tempAudioPath,
+            S3_CONFIG.mediaBucket,
+            audioKey,
+            'audio/flac',
+          );
+          uploadedAudioKey = audioKey;
+          console.log(`FLAC audio uploaded: ${audioKey}`);
+        } catch (error) {
+          // Only FFmpeg failing on this audio is skipped. An abort (shutdown,
+          // deadline) or an upload failure is retried with the whole job.
+          if (
+            !tooLong ||
+            typeof (error as { exitCode?: unknown }).exitCode !== 'number'
+          )
+            throw error;
+          console.warn(
+            `FLAC audio skipped for job ${job.jobId}; its source is still played`,
+            error,
+          );
+        }
       }
+
+      if (tooLong)
+        throw new PermanentJobError(
+          'duration_exceeded',
+          `Video duration ${duration} s exceeds TRANSCODING_MAX_DURATION_SECONDS (${maxDuration} s)`,
+        );
 
       // Transcode to HLS. A deadline during the encode, or after one that used
       // half the budget or more, means the video is too long to transcode: the
@@ -617,6 +653,8 @@ export class TranscodingService {
         success: true,
         videoId: job.videoId,
         duration,
+        has_audio: probe.hasAudio,
+        audio_key: uploadedAudioKey ?? null,
         ...(generatedSubtitleId ? { subtitle_id: generatedSubtitleId } : {}),
         processedAt: Date.now(),
       };
@@ -636,6 +674,8 @@ export class TranscodingService {
         success: false,
         videoId: job.videoId,
         duration,
+        ...(hasAudioTrack !== undefined ? { has_audio: hasAudioTrack } : {}),
+        ...(uploadedAudioKey ? { audio_key: uploadedAudioKey } : {}),
         subtitle_id: null,
         error: (error instanceof Error ? error.message : String(error)).slice(
           -2000,

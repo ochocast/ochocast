@@ -27,6 +27,24 @@ export class VideoEntity {
   @Column({ nullable: true })
   subtitle_id: string;
 
+  @Column({ nullable: true })
+  audio_key: string;
+
+  @Column({ type: 'boolean', nullable: true })
+  has_audio: boolean;
+
+  @Column({ default: 'waiting_audio' })
+  transcription_status: string;
+
+  @Column({ type: 'text', nullable: true })
+  transcription_error: string;
+
+  @Column({ default: 0 })
+  transcription_attempts: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  transcription_retry_at: Date;
+
   @Column()
   title: string;
 

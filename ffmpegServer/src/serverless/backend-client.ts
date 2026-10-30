@@ -67,6 +67,21 @@ export class BackendClient {
         console.log(`Transcoding job ${jobId} deleted; result discarded`);
         return;
       }
+      // A backend predating automatic subtitles rejects the audio fields (400):
+      // drop only them first, so one that knows permanent failures still
+      // publishes a long video from its source.
+      if (
+        response.status === 400 &&
+        (result.has_audio !== undefined || result.audio_key !== undefined)
+      ) {
+        console.warn(
+          `Backend rejected audio fields for job ${jobId}; retrying without them`,
+        );
+        const withoutAudio = { ...result };
+        delete withoutAudio.has_audio;
+        delete withoutAudio.audio_key;
+        return this.complete(jobId, leaseToken, withoutAudio);
+      }
       // A backend predating permanent failures rejects their fields (400):
       // store a plain failure instead. Deploy the backend first to keep them.
       // sourceCodecsPlayable also comes with transient failures after the probe.
