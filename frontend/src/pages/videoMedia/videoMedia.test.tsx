@@ -181,7 +181,7 @@ describe('VideoMedia', () => {
     render(<VideoMedia />);
     await settle();
     const player = screen.getByTestId('player');
-    expect(player.querySelector('track')).toBeNull();
+    expect(player).toBeEmptyDOMElement();
 
     (getSubtitle as jest.Mock).mockResolvedValue({
       ok: true,
@@ -194,16 +194,16 @@ describe('VideoMedia', () => {
       await settle();
     }
 
-    const track = player.querySelector('track');
-    expect(track).toHaveAttribute('src', subtitleUrl);
-    expect(track).toHaveAttribute('label', 'Français');
+    // The page injects the track into the media element: no query reaches it.
+    expect(player.innerHTML).toContain(`src="${subtitleUrl}"`);
+    expect(player.innerHTML).toContain('label="Français"');
     expect(getMedia).toHaveBeenCalledTimes(1);
   });
 
-  const advance = async (...waits: number[]) => {
-    for (const wait of waits) {
+  const advance = async (...delays: number[]) => {
+    for (const ms of delays) {
       await act(async () => {
-        jest.advanceTimersByTime(wait);
+        jest.advanceTimersByTime(ms);
       });
       await settle();
     }
@@ -249,7 +249,7 @@ describe('VideoMedia', () => {
       await advance(6000);
       const player = screen.getByTestId('player');
       expect(player).toHaveAttribute('data-url', mediaUrl);
-      expect(player.querySelector('track')).toHaveAttribute('src', subtitleUrl);
+      expect(player.innerHTML).toContain(`src="${subtitleUrl}"`);
     },
   );
 
@@ -279,7 +279,7 @@ describe('VideoMedia', () => {
 
     const player = screen.getByTestId('player');
     expect(player).toHaveAttribute('data-url', mediaUrl);
-    expect(player.querySelector('track')).toBeNull();
+    expect(player).toBeEmptyDOMElement();
   });
 
   // A ready upload whose reads keep failing (an expired session answers 401)
