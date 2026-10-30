@@ -28,8 +28,13 @@ import {
   getPublicationRequestMediaUrl,
   acceptPublicationRequest,
   refusePublicationRequest,
+  prepareRecordingUpload,
+  preparePublicationRequestUpload,
 } from '../../utils/api';
-import { uploadVideoWithProgress } from '../../utils/uploadService';
+import {
+  completeCopiedUpload,
+  uploadVideoWithProgress,
+} from '../../utils/uploadService';
 import { useUploadContext } from '../../context/UploadContext';
 import { Tag_video } from '../../utils/VideoProperties';
 import { Video } from '../../utils/VideoProperties';
@@ -164,8 +169,21 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     const objectUrl = URL.createObjectURL(
       new Blob([media_tmp], { type: media_tmp.type }),
     );
+    readVideoPreview(objectUrl, sizeFormatted, () =>
+      URL.revokeObjectURL(objectUrl),
+    );
+  };
+
+  // Reads the duration and captures a frame as the preview thumbnail.
+  const readVideoPreview = (
+    src: string,
+    sizeFormatted: string,
+    cleanup: () => void = () => undefined,
+  ) => {
     const videoElement = document.createElement('video');
-    videoElement.src = objectUrl;
+    // A remote recording is drawn on a canvas: it must be fetched with CORS.
+    if (!src.startsWith('blob:')) videoElement.crossOrigin = 'anonymous';
+    videoElement.src = src;
     videoElement.muted = true;
     videoElement.playsInline = true;
 
@@ -173,7 +191,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       const width = videoElement.videoWidth;
       const height = videoElement.videoHeight;
       if (!width || !height) {
-        URL.revokeObjectURL(objectUrl);
+        cleanup();
         return;
       }
 
@@ -181,12 +199,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext('2d');
-      if (context) {
-        context.drawImage(videoElement, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setMiniatureUrl(dataUrl);
+      try {
+        if (context) {
+          context.drawImage(videoElement, 0, 0, width, height);
+          setMiniatureUrl(canvas.toDataURL('image/jpeg'));
+        }
+      } catch {
+        // A tainted canvas (no CORS on the storage): keep the default tile.
       }
-      URL.revokeObjectURL(objectUrl);
+      cleanup();
     };
 
     videoElement.addEventListener('loadedmetadata', () => {
@@ -237,22 +258,22 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [refusalReason, setRefusalReason] = useState('');
   const location = useLocation();
 
-  // Best-effort: the user can still pick a file manually.
-  const preloadRemoteMedia = async (
+  // The recording stays in storage: it is previewed from a short-lived URL and
+  // copied server side on publication, never downloaded by the browser.
+  const [remoteMediaUrl, setRemoteMediaUrl] = useState<string | null>(null);
+  const previewRemoteMedia = async (
     getUrl: () => Promise<{ ok: boolean; data?: unknown }>,
   ) => {
-    try {
-      const res = await getUrl();
-      const url = res.ok
-        ? (res.data as { url?: string } | undefined)?.url
-        : null;
-      if (!url) return;
-      const blob = await fetch(url).then((r) => r.blob());
-      const file = new File([blob], 'montage.mp4', { type: 'video/mp4' });
-      processMediaFile(file);
-    } catch {
-      // keep the manual file picker
+    const res = await getUrl().catch(() => null);
+    const url = res?.ok
+      ? (res.data as { url?: string } | undefined)?.url
+      : undefined;
+    if (!url) {
+      setToast({ message: t('RecordingPreviewError'), type: 'error' });
+      return;
     }
+    setRemoteMediaUrl(url);
+    if (!manualMiniatureSelected) readVideoPreview(url, '');
   };
 
   const loadChannelOptions = async (trackId: string) => {
@@ -283,7 +304,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         .filter((name) => name.length > 0),
     );
     if (request.status === 'pending') {
-      preloadRemoteMedia(() => getPublicationRequestMediaUrl(id));
+      previewRemoteMedia(() => getPublicationRequestMediaUrl(id));
     }
   };
 
@@ -303,7 +324,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     setRecordingSourceId(recordingId);
     if (state.title) setTitle(state.title);
     if (state.trackId) loadChannelOptions(state.trackId);
-    preloadRemoteMedia(() => getRecordingMediaUrl(recordingId));
+    previewRemoteMedia(() => getRecordingMediaUrl(recordingId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -659,7 +680,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     const list_by_title = await getVideosMatchingTitle();
 
     let err = '';
-    if (media === undefined) err += '- ' + t('missingVideoFile') + '\n';
+    // Arriving from a recording, the media is the recording unless a file is picked.
+    const fromRecording =
+      media === undefined &&
+      !!remoteMediaUrl &&
+      !!(recordingSourceId || reviewedRequest);
+    if (media === undefined && !fromRecording)
+      err += '- ' + t('missingVideoFile') + '\n';
     else if (
       media?.name.split('.').pop() !== undefined &&
       !accepted_media_formats.includes(media?.name.split('.').pop() as string)
@@ -722,7 +749,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
 
     addUpload({
       id: uploadId,
-      fileName: media!.name,
+      fileName: fromRecording ? t('RecordingAsMedia') : media!.name,
       title: title,
       progress: 0,
       status: 'uploading',
@@ -736,6 +763,11 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
     });
 
     navigate('/videos');
+
+    if (fromRecording) {
+      void publishRecordingCopy(uploadId, form);
+      return;
+    }
 
     uploadVideoWithProgress(
       form,
@@ -754,25 +786,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         },
         // The finalized upload returns its id, which is also the new video id.
         onComplete: (response: { id: string }) => {
-          updateUpload(uploadId, {
-            progress: 100,
-            status: 'completed',
-            videoId: undefined,
-          });
-          // US-6: the speaker accepted the request by publishing it.
-          // US-4: otherwise the source recording is now published; take it
-          // out of the unlisted working set (best-effort).
-          if (reviewedRequest) {
-            acceptPublicationRequest(reviewedRequest.id, response.id)
-              .then(() =>
-                window.dispatchEvent(new Event(PUBLICATION_REQUESTS_CHANGED)),
-              )
-              .catch(() => undefined);
-          } else if (recordingSourceId) {
-            markRecordingPublished(recordingSourceId, response.id).catch(
-              () => undefined,
-            );
-          }
+          void finishPublication(uploadId, response.id);
         },
         onError: (error: string) => {
           updateUpload(uploadId, {
@@ -783,6 +797,64 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       },
       uploadId,
     );
+  };
+
+  // US-4 / US-6: the recording is copied server side into an upload, which is
+  // then completed with the metadata like a file sent from the browser.
+  const publishRecordingCopy = async (uploadId: string, form: FormData) => {
+    try {
+      const prepared = reviewedRequest
+        ? await preparePublicationRequestUpload(reviewedRequest.id)
+        : await prepareRecordingUpload(recordingSourceId);
+      const sessionId = prepared.ok
+        ? (prepared.data as { id?: string } | undefined)?.id
+        : undefined;
+      if (!sessionId) {
+        throw new Error(
+          (prepared.data as { message?: string } | undefined)?.message ||
+            t('RecordingCopyError'),
+        );
+      }
+      updateUpload(uploadId, { sessionId });
+      const result = await completeCopiedUpload(sessionId, form, (progress) =>
+        updateUpload(uploadId, { progress, status: 'uploading' }),
+      );
+      await finishPublication(uploadId, result.id);
+    } catch (error) {
+      updateUpload(uploadId, {
+        status: 'error',
+        errorMessage:
+          error instanceof Error ? error.message : t('RecordingCopyError'),
+      });
+    }
+  };
+
+  // The video exists: record it on the recording (US-4) or answer the request
+  // (US-6). A failure is shown on the upload, never swallowed.
+  const finishPublication = async (uploadId: string, newVideoId: string) => {
+    if (reviewedRequest || recordingSourceId) {
+      const res = await (
+        reviewedRequest
+          ? acceptPublicationRequest(reviewedRequest.id, newVideoId)
+          : markRecordingPublished(recordingSourceId, newVideoId)
+      ).catch(() => null);
+      if (!res?.ok) {
+        updateUpload(uploadId, {
+          status: 'error',
+          // The upload itself is done: nothing left to resume or cancel.
+          sessionId: undefined,
+          errorMessage: t('RecordingPublicationNotRecorded'),
+        });
+        return;
+      }
+      if (reviewedRequest)
+        window.dispatchEvent(new Event(PUBLICATION_REQUESTS_CHANGED));
+    }
+    updateUpload(uploadId, {
+      progress: 100,
+      status: 'completed',
+      videoId: undefined,
+    });
   };
 
   const handleArchiveClick = () => {
@@ -1196,7 +1268,9 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                         ? media.name
                         : baseVideo?.media_id !== undefined
                           ? baseVideo.media_id
-                          : t('addMedia')
+                          : remoteMediaUrl
+                            ? t('RecordingAsMedia')
+                            : t('addMedia')
                     }
                     onChange={handleMediaChange}
                     disable={videoId !== undefined}
@@ -1208,8 +1282,13 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
                 </span>
                 {videoMetadata && (
                   <div className={styles.videoMetadata}>
-                    {t('videoSize')} {videoMetadata.size}
-                    {videoMetadata.duration && ` • ${videoMetadata.duration}`}
+                    {[
+                      videoMetadata.size &&
+                        `${t('videoSize')} ${videoMetadata.size}`,
+                      videoMetadata.duration,
+                    ]
+                      .filter(Boolean)
+                      .join(' • ')}
                   </div>
                 )}
               </div>

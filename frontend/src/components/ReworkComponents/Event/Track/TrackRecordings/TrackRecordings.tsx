@@ -65,6 +65,8 @@ const formatDate = (iso: string): string => {
  */
 // Beyond this, a refusal reason is clamped (roughly three lines).
 const REASON_PREVIEW_LENGTH = 180;
+// Media URLs are valid 300 s; renew a little before an error can only mean expiry.
+const URL_RENEW_AFTER_MS = 4 * 60_000;
 
 const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
   const { t } = useTranslation();
@@ -88,6 +90,9 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   // Track which ids we've already requested a URL for, to avoid refetching.
   const requestedUrls = useRef<Set<string>>(new Set());
+  // When each URL was obtained, and where to resume after renewing one.
+  const urlFetchedAt = useRef<Record<string, number>>({});
+  const resumeAt = useRef<Record<string, number>>({});
 
   const loadThumbnails = useCallback((recs: Recording[]) => {
     recs
@@ -102,7 +107,10 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
         try {
           const res = await getRecordingMediaUrl(r.id);
           const url = res.ok && (res.data as { url?: string })?.url;
-          if (url) setMediaUrls((prev) => ({ ...prev, [r.id]: url }));
+          if (url) {
+            urlFetchedAt.current[r.id] = Date.now();
+            setMediaUrls((prev) => ({ ...prev, [r.id]: url }));
+          }
         } catch (err) {
           logger.error({ err, id: r.id }, 'Failed to load recording media');
         }
@@ -175,6 +183,31 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
     }, 3000);
     return () => clearInterval(interval);
   }, [recordings, fetchRecordings]);
+
+  // Media URLs expire after 5 minutes, while a segment lasts up to hours: once
+  // expired, the next range request (seek, buffering) fails. Renew the URL and
+  // resume where playback was. A URL failing sooner has another problem, and
+  // renewing it would loop.
+  const renewMediaUrl = async (id: string, video: HTMLVideoElement) => {
+    if (Date.now() - (urlFetchedAt.current[id] ?? 0) < URL_RENEW_AFTER_MS)
+      return;
+    urlFetchedAt.current[id] = Date.now();
+    resumeAt.current[id] = video.currentTime;
+    try {
+      const res = await getRecordingMediaUrl(id);
+      const url = res.ok && (res.data as { url?: string })?.url;
+      if (url) setMediaUrls((prev) => ({ ...prev, [id]: url }));
+    } catch (err) {
+      logger.error({ err, id }, 'Failed to renew recording media');
+    }
+  };
+
+  const resumePlayback = (id: string, video: HTMLVideoElement) => {
+    const position = resumeAt.current[id];
+    if (!position) return;
+    delete resumeAt.current[id];
+    video.currentTime = position;
+  };
 
   const manualRefresh = () => {
     requestedUrls.current = new Set();
@@ -382,6 +415,8 @@ const TrackRecordings: FC<TrackRecordingsProps> = ({ trackId, trackName }) => {
               src={url}
               controls
               preload="metadata"
+              onError={(e) => void renewMediaUrl(rec.id, e.currentTarget)}
+              onLoadedMetadata={(e) => resumePlayback(rec.id, e.currentTarget)}
             />
           ) : (
             <div className={styles.thumbPlaceholder}>

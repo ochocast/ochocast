@@ -225,6 +225,12 @@ export const mergeRecordings = (trackId, segmentIds) =>
 export const deleteRecording = (recordingId) =>
   api.delete(`/recordings/${recordingId}`);
 // US-4: mark a recording as published (after creating a video via the editor)
+// US-4 / US-6: copy a recording server side into a new video upload, which the
+// editor completes (the browser never downloads the recording)
+export const prepareRecordingUpload = (recordingId) =>
+  api.post(`/recordings/${recordingId}/upload`);
+export const preparePublicationRequestUpload = (id) =>
+  api.post(`/publication-requests/${id}/upload`);
 export const markRecordingPublished = (recordingId, videoId) =>
   api.post(`/recordings/${recordingId}/mark-published`, { videoId });
 
