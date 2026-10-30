@@ -2,7 +2,11 @@
 import io
 import json
 import os
+import socket
+import subprocess
+import sys
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -80,9 +84,10 @@ class ServerTest(unittest.TestCase):
         except server.Refused as error:
             return error.status
 
-    def post(self, body):
+    def post(self, body, base=None):
+        base = base or f"http://127.0.0.1:{self.api.server_port}"
         request = urllib.request.Request(
-            f"http://127.0.0.1:{self.api.server_port}/v1/audio/transcriptions",
+            f"{base}/v1/audio/transcriptions",
             data=body, method="POST",
             headers={"Authorization": "Bearer " + "k" * 32})
         try:
@@ -104,13 +109,45 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.download("/ok"), 403)
 
     def test_audio_limit_must_be_a_positive_integer(self):
-        # Checked at startup: a bad value must not answer 500 per request.
         for value in ["", "0", "-1", "5e8", "512MiB", "536870912.0", "²"]:
             os.environ["TRANSCRIPT_MAX_AUDIO_BYTES"] = value
             with self.assertRaises(ValueError, msg=value):
                 server.max_audio_bytes()
         os.environ["TRANSCRIPT_MAX_AUDIO_BYTES"] = "536870912"
         self.assertEqual(server.max_audio_bytes(), 536870912)
+
+    def test_a_bad_limit_is_reported_by_health_at_startup(self):
+        # Started as in the image: the backend reads /health before sending any
+        # audio, so its batch fails at once, naming the setting, and no request
+        # answers 500.
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        worker = subprocess.Popen(
+            [sys.executable, "-B", "server.py"],
+            cwd=os.path.dirname(os.path.abspath(server.__file__)),
+            env=dict(os.environ, TRANSCRIPT_MAX_AUDIO_BYTES="512MiB",
+                     TRANSCRIPT_PORT=str(port)),
+            stderr=subprocess.DEVNULL)
+        self.addCleanup(worker.wait, 5)
+        self.addCleanup(worker.terminate)
+        base = f"http://127.0.0.1:{port}"
+        for _ in range(100):
+            try:
+                urllib.request.urlopen(base + "/health", timeout=1).close()
+                self.fail("/health must not be ready")
+            except urllib.error.HTTPError as error:
+                health = error.code, json.load(error)
+                error.close()
+                break
+            except OSError:
+                time.sleep(0.05)
+        else:
+            self.fail("the worker did not start")
+        self.assertEqual(health, (500, {
+            "ready": False, "failed": True,
+            "error": "TRANSCRIPT_MAX_AUDIO_BYTES must be a positive integer"}))
+        self.assertEqual(self.post(b"{}", base)[0], 503)
 
     def test_only_a_malformed_request_is_a_400(self):
         self.assertEqual(self.post(b"[]")[0], 400)

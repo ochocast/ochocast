@@ -15,6 +15,9 @@ from urllib.request import build_opener, HTTPRedirectHandler
 LOG = logging.getLogger("transcript")
 MODEL = None
 MODEL_FAILED = False
+# An invalid setting found at startup. /health reports it, so the backend fails
+# its batch at once and names it, instead of waiting for a worker that exits.
+CONFIG_ERROR = None
 BUSY = threading.Lock()
 
 
@@ -34,7 +37,8 @@ class Refused(Exception):
 
 
 def max_audio_bytes():
-    """The download limit; checked at startup, so a bad value never answers 500."""
+    """The download limit; checked at startup, so a bad value never answers 500
+    per request."""
     value = os.environ.get("TRANSCRIPT_MAX_AUDIO_BYTES", str(512 * 1024 * 1024))
     if not re.fullmatch(r"[1-9][0-9]*", value):
         raise ValueError("TRANSCRIPT_MAX_AUDIO_BYTES must be a positive integer")
@@ -103,7 +107,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            self.send_json(500 if MODEL_FAILED else 200 if MODEL is not None else 503, {"ready": MODEL is not None, "failed": MODEL_FAILED})
+            failed = MODEL_FAILED or CONFIG_ERROR is not None
+            body = {"ready": MODEL is not None, "failed": failed}
+            if CONFIG_ERROR:
+                body["error"] = CONFIG_ERROR
+            self.send_json(500 if failed else 200 if MODEL is not None else 503, body)
         else:
             self.send_json(404, {"error": "Not found"})
 
@@ -116,7 +124,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(401, {"error": "Unauthorized"})
             return
         if MODEL is None:
-            self.send_json(503, {"error": "Model is loading"})
+            self.send_json(503, {"error": CONFIG_ERROR or "Model is loading"})
             return
         if not BUSY.acquire(blocking=False):
             self.send_json(409, {"error": "Worker is busy"})
@@ -182,8 +190,10 @@ if __name__ == "__main__":
     try:
         max_audio_bytes()
     except ValueError as error:
-        raise SystemExit(str(error))
-    # HTTP health responds 503 during loading so the backend can wait for readiness.
-    threading.Thread(target=load_model, daemon=True).start()
+        CONFIG_ERROR = str(error)
+        LOG.error("%s", CONFIG_ERROR)
+    else:
+        # HTTP health responds 503 during loading so the backend can wait for readiness.
+        threading.Thread(target=load_model, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("TRANSCRIPT_PORT", "8080"))), Handler)
     server.serve_forever()
