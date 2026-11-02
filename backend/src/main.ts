@@ -29,6 +29,7 @@ async function bootstrap() {
     .addTag('Tracks')
     .addTag('Users')
     .addTag('Videos')
+    .addTag('Video edits')
     .addTag('Comments')
     .addTag('Tags')
     .build();
