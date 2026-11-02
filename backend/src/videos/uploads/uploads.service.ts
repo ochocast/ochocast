@@ -6,9 +6,10 @@ import {
   NotFoundException,
   UnauthorizedException,
   Logger,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, LessThan } from 'typeorm';
 import { randomUUID } from 'crypto';
 import { extname } from 'path';
 import { isUUID } from 'class-validator';
@@ -17,6 +18,7 @@ import { MultipartStorage, StoredPart } from './multipart-storage';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
 import { VideoEntity } from '../infra/gateways/entities/video.entity';
 import { VideoGateway } from '../infra/gateways/video.gateway';
+import { annotate, meter, untraced, withSpan } from 'src/common/telemetry';
 
 export function validateParts(s: VideoUpload, parts: StoredPart[]) {
   const count = Math.ceil(Number(s.size) / s.partSize);
@@ -36,13 +38,58 @@ export function validateParts(s: VideoUpload, parts: StoredPart[]) {
   });
 }
 @Injectable()
-export class UploadsService {
+export class UploadsService implements OnModuleInit {
   private readonly logger = new Logger(UploadsService.name);
   private sweeping = false;
   constructor(
     private readonly db: DataSource,
     private readonly storage: MultipartStorage,
   ) {}
+
+  // Gauges read from PostgreSQL at each metric export, so they reflect every
+  // replica's sessions. A failed query skips one data point.
+  onModuleInit() {
+    meter
+      .createObservableGauge('ochocast.uploads', {
+        description: 'Upload sessions by state.',
+      })
+      .addCallback(async (result) => {
+        try {
+          const rows = await untraced(() =>
+            this.db
+              .getRepository(VideoUpload)
+              .createQueryBuilder('s')
+              .select('s.state', 'state')
+              .addSelect('COUNT(*)::int', 'count')
+              .groupBy('s.state')
+              .getRawMany(),
+          );
+          for (const row of rows)
+            result.observe(row.count, { 'upload.state': row.state });
+        } catch {
+          /* database unavailable: no data point */
+        }
+      });
+    meter
+      .createObservableGauge('ochocast.uploads.expired_pending', {
+        description:
+          'Sessions still uploading after expiry: maintenance is not cleaning them up.',
+      })
+      .addCallback(async (result) => {
+        try {
+          result.observe(
+            await untraced(() =>
+              this.db.getRepository(VideoUpload).countBy({
+                state: 'uploading',
+                expiresAt: LessThan(new Date()),
+              }),
+            ),
+          );
+        } catch {
+          /* database unavailable: no data point */
+        }
+      });
+  }
 
   private async owner(email: string, m = this.db.manager) {
     if (!email) throw new UnauthorizedException();
@@ -127,6 +174,15 @@ export class UploadsService {
         await this.storage.abort(s).catch(() => undefined);
         throw e;
       }
+      annotate({ 'upload.id': id, 'upload.size_bytes': input.size });
+      this.logger.log(
+        {
+          event: 'upload.created',
+          'upload.id': id,
+          'upload.size_bytes': input.size,
+        },
+        'upload created',
+      );
       return this.view(s, []);
     });
   }
@@ -173,6 +229,7 @@ export class UploadsService {
     });
   }
   async sign(id: string, email: string, number: number, checksum: string) {
+    annotate({ 'upload.id': id, 'upload.part': number });
     return this.locked(id, email, async (s, m) => {
       this.active(s);
       if (
@@ -207,6 +264,7 @@ export class UploadsService {
     fields: Record<string, any>,
     files: Express.Multer.File[] = [],
   ) {
+    annotate({ 'upload.id': id });
     return this.locked(id, email, async (s, m) => {
       if (s.state === 'uploaded') return { id: s.id }; // Same response after HTTP retry.
       this.active(s);
@@ -295,6 +353,15 @@ export class UploadsService {
       s.state = 'uploaded';
       s.completedAt = new Date();
       await m.save(s);
+      this.logger.log(
+        {
+          event: 'upload.completed',
+          'upload.id': s.id,
+          'upload.size_bytes': Number(s.size),
+          'video.id': s.id,
+        },
+        'upload completed',
+      );
       return { id: s.id };
     });
   }
@@ -307,6 +374,14 @@ export class UploadsService {
       await this.storage.remove(s); // Also handles a lost Complete response.
       s.state = 'aborted';
       await m.save(s);
+      this.logger.log(
+        {
+          event: 'upload.aborted',
+          'upload.id': s.id,
+          'upload.reason': 'cancelled',
+        },
+        'upload aborted',
+      );
     });
   }
   @Interval(5000)
@@ -314,25 +389,42 @@ export class UploadsService {
     if (this.sweeping) return;
     this.sweeping = true;
     try {
-      await this.db.transaction(async (m) => {
-        const expired = await m
-          .createQueryBuilder(VideoUpload, 's')
-          .setLock('pessimistic_write')
-          .setOnLocked('skip_locked')
-          .where("s.state = 'uploading' AND s.expiresAt < :now", {
-            now: new Date(),
-          })
-          .take(10)
-          .getMany();
-        for (const s of expired) {
-          await this.storage.abort(s);
-          await this.storage.remove(s);
-          s.state = 'aborted';
-          await m.save(s);
-        }
+      await withSpan('uploads.maintain', {}, async () => {
+        const expired = await this.db.transaction(async (m) => {
+          const sessions = await m
+            .createQueryBuilder(VideoUpload, 's')
+            .setLock('pessimistic_write')
+            .setOnLocked('skip_locked')
+            .where("s.state = 'uploading' AND s.expiresAt < :now", {
+              now: new Date(),
+            })
+            .take(10)
+            .getMany();
+          for (const s of sessions) {
+            await this.storage.abort(s);
+            await this.storage.remove(s);
+            s.state = 'aborted';
+            await m.save(s);
+          }
+          return sessions.map((s) => s.id);
+        });
+        annotate({ 'uploads.expired': expired.length });
+        if (expired.length)
+          this.logger.log(
+            {
+              event: 'upload.aborted',
+              'upload.reason': 'expired',
+              'uploads.expired': expired.length,
+              'upload.ids': expired,
+            },
+            'expired uploads aborted',
+          );
       });
     } catch (e) {
-      this.logger.warn(`Upload maintenance deferred: ${e.message}`);
+      this.logger.warn(
+        { event: 'uploads.maintenance_deferred', err: e },
+        'upload maintenance deferred',
+      );
     } finally {
       this.sweeping = false;
     }

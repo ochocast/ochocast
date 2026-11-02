@@ -16,9 +16,12 @@ import { ChatModule } from './chat/chat.module';
 import { PollsModule } from './polls/polls.module';
 import { RecordingModule } from './recording/recording.module';
 import { QueueModule } from './queue/queue.module';
+import { LoggerModule } from 'nestjs-pino';
+import { loggerConfig } from './config/logger.config';
 
 @Module({
   imports: [
+    LoggerModule.forRoot(loggerConfig),
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,

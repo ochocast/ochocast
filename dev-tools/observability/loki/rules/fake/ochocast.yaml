@@ -1,0 +1,20 @@
+# Log-based alerts evaluated by the Loki ruler ("fake" = single tenant).
+groups:
+  - name: ochocast-logs
+    rules:
+      # Alloy masks signatures; an unmasked one means a new leak path.
+      - alert: SecretInLogs
+        expr: |
+          sum by (service_name) (count_over_time({service_name=~".+"} |= "X-Amz-Signature=" != "X-Amz-Signature=REDACTED" [5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Signature S3 non masquée dans les logs de {{ $labels.service_name }}'
+
+      - alert: RecordingFailures
+        expr: |
+          sum by (service_name) (count_over_time({service_name="ochocast-backend"} | event="recording.failed" [15m])) >= 3
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value }} événements recording.failed sur 15 min'

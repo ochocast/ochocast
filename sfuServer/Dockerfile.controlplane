@@ -24,7 +24,7 @@ WORKDIR /root/
 COPY --from=builder /app/controlplane .
 
 # Expose control plane port
-EXPOSE 8090
+EXPOSE 8090 9464
 
 # Run the control plane
 CMD ["./controlplane"]

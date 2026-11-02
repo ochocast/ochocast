@@ -21,8 +21,6 @@ export class VideoGateway implements IVideoGateway {
   ) {}
 
   async createNewVideo(videoDetails: VideoObject): Promise<VideoObject> {
-    console.log(videoDetails);
-
     const entityManager = this.videosRepository.manager;
     const tagsRepository = entityManager.getRepository(TagEntity);
     const usersRepository = entityManager.getRepository(UserEntity);
@@ -120,7 +118,6 @@ export class VideoGateway implements IVideoGateway {
   }
 
   getVideos(filter: any): Promise<VideoObject[]> {
-    console.log(filter);
     return this.videosRepository.find({
       where: {
         ...filter,
@@ -158,9 +155,6 @@ export class VideoGateway implements IVideoGateway {
 
   async deleteVideoAdmin(videoId: string): Promise<VideoObject> {
     const video = await this.videosRepository.findOneBy({ id: videoId });
-
-    console.log('video to delete found !');
-    console.log(video);
 
     if (video.media_id.includes('/')) {
       await this.deleteMediaPrefix(

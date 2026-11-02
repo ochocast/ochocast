@@ -1,0 +1,52 @@
+# Metrics, logs and traces cross-linked: a latency point opens its trace
+# (exemplars), a trace opens its logs, a log line opens its trace.
+apiVersion: 1
+
+datasources:
+  - name: Mimir
+    uid: mimir
+    type: prometheus
+    url: http://mimir:9009/prometheus
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Loki
+    uid: loki
+    type: loki
+    url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: Trace
+          matcherType: label
+          matcherRegex: trace_id
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: Voir la trace
+
+  - name: Tempo
+    uid: tempo
+    type: tempo
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        customQuery: true
+        query: '{service_name="$${__span.tags["service.name"]}"} | trace_id="$${__trace.traceId}"'
+      tracesToMetrics:
+        datasourceUid: mimir
+      serviceMap:
+        datasourceUid: mimir
+      nodeGraph:
+        enabled: true
+
+  - name: Alertmanager
+    uid: alertmanager
+    type: alertmanager
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

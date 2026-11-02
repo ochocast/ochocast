@@ -12,24 +12,15 @@ export class GetSubtitleUsecase {
   ) {}
 
   async execute(id: any): Promise<string | null> {
-    console.log('GetSubtitle - Video ID:', id);
     const videos = await this.videoGateway.getVideos({ id: id });
-    console.log('GetSubtitle - Video found:', videos ? videos.length : 0);
 
     if (!videos || videos.length === 0) {
-      console.log('GetSubtitle - No video found');
       return null;
     }
 
     if (!videos[0].subtitle_id) {
-      console.log(
-        'GetSubtitle - Video has no subtitle_id:',
-        videos[0].subtitle_id,
-      );
       return null;
     }
-
-    console.log('GetSubtitle - Subtitle ID:', videos[0].subtitle_id);
 
     // Determine Content-Type based on file extension
     const isVtt = videos[0].subtitle_id.endsWith('.vtt');
@@ -44,7 +35,6 @@ export class GetSubtitleUsecase {
 
     // Generate a signed URL valid for a limited time (e.g., 1 hour)
     const url = await getSignedUrl(this.s3Client, command, { expiresIn: 3600 });
-    console.log('GetSubtitle - Generated URL:', url);
     return url;
   }
 }

@@ -1,0 +1,64 @@
+# Single-process Mimir with local storage and ruler.
+multitenancy_enabled: false
+target: all
+
+server:
+  http_listen_port: 9009
+  log_level: warn
+
+common:
+  storage:
+    backend: filesystem
+    filesystem:
+      dir: /data/common
+
+blocks_storage:
+  backend: filesystem
+  filesystem:
+    dir: /data/blocks
+  bucket_store:
+    sync_dir: /data/tsdb-sync
+  tsdb:
+    dir: /data/tsdb
+
+compactor:
+  data_dir: /data/compactor
+  sharding_ring:
+    kvstore:
+      store: memberlist
+
+distributor:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+
+ingester:
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: memberlist
+    replication_factor: 1
+
+store_gateway:
+  sharding_ring:
+    replication_factor: 1
+
+# Rules are files in the repo: mimir/rules/anonymous/*.yaml
+ruler_storage:
+  backend: local
+  local:
+    directory: /etc/mimir/rules
+
+ruler:
+  rule_path: /data/ruler
+  alertmanager_url: http://alertmanager:9093
+  evaluation_interval: 30s
+  poll_interval: 30s
+  ring:
+    kvstore:
+      store: memberlist
+
+limits:
+  # Exemplars link a latency point to the trace that produced it.
+  max_global_exemplars_per_user: 100000

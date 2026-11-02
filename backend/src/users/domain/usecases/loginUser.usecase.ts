@@ -10,7 +10,6 @@ export class LoginUserUseCase {
   ) {}
 
   async execute(keycloak_user: any): Promise<UserObject> {
-    console.table(keycloak_user);
     const user = new UserObject(
       uuid(),
       keycloak_user.preferred_username,

@@ -2,6 +2,7 @@ package autoscaler
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strconv"
@@ -78,8 +79,14 @@ func (p *Provisioner) MetricsHandler() http.Handler {
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
-		_, _ = fmt.Fprint(w, renderPrometheus(p.MetricsSnapshot()))
+		p.WritePrometheus(w)
 	})
+}
+
+// WritePrometheus writes the autoscaler metrics in Prometheus text format, for
+// endpoints that also serve other control-plane metrics.
+func (p *Provisioner) WritePrometheus(w io.Writer) {
+	_, _ = fmt.Fprint(w, renderPrometheus(p.MetricsSnapshot()))
 }
 
 func renderPrometheus(m MetricsSnapshot) string {

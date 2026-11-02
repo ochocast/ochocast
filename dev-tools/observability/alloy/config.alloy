@@ -1,0 +1,124 @@
+// Single collector: the backend only knows this OTLP endpoint. Swapping Loki,
+// Mimir or Tempo for a hosted offer only changes the exporters at the bottom.
+//
+// receiver -> environment label -> redaction -> debug filter -> batch -> exporters
+// In the cluster, otelcol.processor.k8sattributes goes after the receiver.
+
+otelcol.receiver.otlp "default" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  http { endpoint = "0.0.0.0:4318" }
+
+  output {
+    metrics = [otelcol.processor.transform.normalize.input]
+    logs    = [otelcol.processor.transform.normalize.input]
+    traces  = [otelcol.processor.transform.normalize.input]
+  }
+}
+
+otelcol.processor.transform "normalize" {
+  error_mode = "ignore"
+
+  // Process details added by the SDK resource detectors: noise in every log
+  // line and series, and the command line can carry configuration.
+  metric_statements {
+    context    = "resource"
+    statements = [
+      `delete_key(attributes, "process.command_args")`,
+      `delete_key(attributes, "process.command")`,
+      `delete_key(attributes, "process.executable.path")`,
+      `delete_key(attributes, "process.owner")`,
+      `delete_key(attributes, "host.id")`,
+    ]
+  }
+  log_statements {
+    context    = "resource"
+    statements = [
+      `delete_key(attributes, "process.command_args")`,
+      `delete_key(attributes, "process.command")`,
+      `delete_key(attributes, "process.executable.path")`,
+      `delete_key(attributes, "process.owner")`,
+      `delete_key(attributes, "host.id")`,
+    ]
+  }
+  trace_statements {
+    context    = "resource"
+    statements = [
+      `delete_key(attributes, "process.command_args")`,
+      `delete_key(attributes, "process.command")`,
+      `delete_key(attributes, "process.executable.path")`,
+      `delete_key(attributes, "process.owner")`,
+      `delete_key(attributes, "host.id")`,
+    ]
+  }
+
+  // Mimir keeps service.name as `job` but drops other resource attributes:
+  // copy the environment onto every series so dashboards can filter on it.
+  metric_statements {
+    context    = "datapoint"
+    statements = [
+      `set(attributes["deployment_environment"], resource.attributes["deployment.environment.name"])`,
+    ]
+  }
+
+  // Presigned S3 URLs and bearer tokens never reach storage, whatever the
+  // service logged by mistake.
+  log_statements {
+    context    = "log"
+    statements = [
+      `replace_pattern(body, "X-Amz-Signature=[^&\\s\"]+", "X-Amz-Signature=REDACTED")`,
+      `replace_all_patterns(attributes, "value", "X-Amz-Signature=[^&\\s\"]+", "X-Amz-Signature=REDACTED")`,
+      `replace_pattern(body, "Bearer [A-Za-z0-9._-]+", "Bearer REDACTED")`,
+    ]
+  }
+
+  trace_statements {
+    context    = "span"
+    statements = [
+      `replace_all_patterns(attributes, "value", "X-Amz-Signature=[^&\\s\"]+", "X-Amz-Signature=REDACTED")`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+    logs    = [otelcol.processor.filter.debug.input]
+    traces  = [otelcol.processor.batch.default.input]
+  }
+}
+
+// Debug logs are kept everywhere except production.
+otelcol.processor.filter "debug" {
+  error_mode = "ignore"
+
+  logs {
+    log_record = [
+      `resource.attributes["deployment.environment.name"] == "production" and severity_number < SEVERITY_NUMBER_INFO and severity_number != SEVERITY_NUMBER_UNSPECIFIED`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    metrics = [otelcol.exporter.otlphttp.mimir.input]
+    logs    = [otelcol.exporter.otlphttp.loki.input]
+    traces  = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlphttp "mimir" {
+  client { endpoint = "http://mimir:9009/otlp" }
+}
+
+otelcol.exporter.otlphttp "loki" {
+  client { endpoint = "http://loki:3100/otlp" }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls { insecure = true }
+  }
+}

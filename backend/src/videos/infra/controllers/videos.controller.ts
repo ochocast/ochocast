@@ -73,7 +73,6 @@ export class VideosController {
       'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
   })
   findVideos(@Query() filter: any): Promise<VideoObject[]> {
-    console.log('passed by');
     return this.getVideosUsecase.execute(filter);
   }
 
@@ -84,7 +83,6 @@ export class VideosController {
       'This request accepts query parameters in order to filter the results. Only the filter by id will expand the event field.',
   })
   findValidVideos(@Query() filter: any): Promise<VideoObject[]> {
-    console.log('passed by');
     return this.getVideosAdminUsecase.execute(filter);
   }
 

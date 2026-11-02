@@ -21,6 +21,8 @@ func main() {
 
 	// Configuration from environment
 	port := getEnv("CONTROL_PLANE_PORT", "8090")
+	// Separate listener so /metrics never goes through the public ingress.
+	metricsPort := getEnv("METRICS_PORT", "9464")
 	maxFanout := 5            // Maximum children per SFU node
 	rebalanceThreshold := 0.8 // 80% CPU/Memory triggers rebalance consideration
 
@@ -33,9 +35,11 @@ func main() {
 	// Enable on-demand SFU autoscaling when Scaleway credentials are present.
 	// Without them the control-plane behaves as before (hard-fails room creation
 	// when no SFU is registered).
-	if err := wireAutoscaler(cp); err != nil {
+	prov, err := wireAutoscaler(cp)
+	if err != nil {
 		log.Printf("[CP] on-demand autoscaler disabled: %v", err)
 	}
+	go serveMetrics(":"+metricsPort, cp, prov)
 
 	// Register HTTP handlers with CORS middleware
 	http.HandleFunc("/health", corsMiddleware(handleHealth))
@@ -81,6 +85,27 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// serveMetrics exposes the SFU load reported by heartbeats and, when the
+// autoscaler is enabled, its lifecycle metrics, in Prometheus text format.
+func serveMetrics(addr string, cp *controlplane.ControlPlane, prov *autoscaler.Provisioner) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Only GET is supported", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		cp.WritePrometheus(w)
+		if prov != nil {
+			prov.WritePrometheus(w)
+		}
+	})
+	log.Printf("Metrics listening on %s", addr)
+	if err := http.ListenAndServe(addr, mux); err != nil {
+		log.Fatalf("Metrics server failed: %v", err)
+	}
+}
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -103,13 +128,13 @@ func getEnv(key, defaultValue string) string {
 //
 // ponytail: config straight from env for now; task 7.4 moves the secret values
 // to injected Kubernetes Secrets, but the read sites stay the same.
-func wireAutoscaler(cp *controlplane.ControlPlane) error {
+func wireAutoscaler(cp *controlplane.ControlPlane) (*autoscaler.Provisioner, error) {
 	if os.Getenv("SCW_ACCESS_KEY") == "" {
-		return fmt.Errorf("SCW_ACCESS_KEY not set")
+		return nil, fmt.Errorf("SCW_ACCESS_KEY not set")
 	}
 	store := cp.LifecycleStore()
 	if store == nil {
-		return fmt.Errorf("lifecycle store unavailable; refusing to run autoscaler without durable worker records")
+		return nil, fmt.Errorf("lifecycle store unavailable; refusing to run autoscaler without durable worker records")
 	}
 
 	adapter, err := scaleway.New(scaleway.Config{
@@ -122,7 +147,7 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		SecurityGroupID: os.Getenv("SFU_WORKER_SECURITY_GROUP_ID"),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	workerBootstrap := bootstrap.WorkerConfig{
@@ -140,9 +165,13 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		TURNServer:      os.Getenv("TURN_SERVER"),
 		TURNUsername:    os.Getenv("TURN_USERNAME"),
 		TURNPassword:    os.Getenv("TURN_PASSWORD"),
+		Environment:     os.Getenv("DEPLOYMENT_ENVIRONMENT"),
+		LokiURL:         os.Getenv("SFU_LOKI_URL"),
+		LokiUsername:    os.Getenv("SFU_LOKI_USERNAME"),
+		LokiPassword:    os.Getenv("SFU_LOKI_PASSWORD"),
 	}
 	if err := workerBootstrap.Validate(); err != nil {
-		return fmt.Errorf("worker bootstrap config: %w", err)
+		return nil, fmt.Errorf("worker bootstrap config: %w", err)
 	}
 
 	maxWorkers := 1
@@ -158,14 +187,13 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		},
 	})
 	cp.SetProvisioner(prov)
-	http.Handle("/metrics", prov.MetricsHandler())
 
 	ctx := context.Background()
 	go prov.Run(ctx) // startup-timeout reaping (task 4.3)
 	go janitor(ctx, prov)
 
 	log.Printf("[CP] on-demand SFU autoscaler enabled (max_workers=%d)", maxWorkers)
-	return nil
+	return prov, nil
 }
 
 func firstNonEmpty(values ...string) string {

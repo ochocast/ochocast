@@ -1,0 +1,73 @@
+# Alert rules evaluated by the Mimir ruler ("anonymous" = single tenant).
+# Thresholds are starting points, to calibrate on two weeks of staging data.
+# `for` durations are shortened in this POC so alerts fire within minutes.
+groups:
+  - name: ochocast-backend
+    rules:
+      - alert: BackendHighErrorRate
+        expr: |
+          sum by (deployment_environment) (rate(http_server_request_duration_count{job="ochocast-backend", http_response_status_code=~"5.."}[5m]))
+            /
+          sum by (deployment_environment) (rate(http_server_request_duration_count{job="ochocast-backend"}[5m]))
+            > 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Backend : {{ $value | humanizePercentage }} de réponses 5xx sur 5 min'
+          runbook_url: ops-architecture-lab/docs/runbooks/backend-high-error-rate.md
+
+      - alert: BackendSlow
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le, deployment_environment) (rate(http_server_request_duration_bucket{job="ochocast-backend"}[10m]))
+          ) > 1.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Backend : latence p95 de {{ $value | humanizeDuration }} sur 10 min'
+
+      - alert: RecordingStartFailing
+        expr: |
+          sum by (service) (increase(traces_spanmetrics_calls_total{service="ochocast-backend", span_name="recording.start", status_code="STATUS_CODE_ERROR"}[15m]))
+            >= 3
+        labels:
+          severity: critical
+        annotations:
+          summary: '{{ $value | printf "%.0f" }} démarrages d''enregistrement en échec sur 15 min'
+
+      - alert: UploadsExpiredPending
+        expr: max by (deployment_environment) (ochocast_uploads_expired_pending) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ $value }} uploads expirés non nettoyés : la maintenance ne tourne plus'
+
+      - alert: BackendTelemetryMissing
+        expr: absent_over_time(http_server_request_duration_count{job="ochocast-backend"}[10m]) and absent_over_time(ochocast_uploads_expired_pending{job="ochocast-backend"}[10m])
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Plus aucune métrique du backend depuis 10 min : backend ou collecte arrêté'
+
+  # SFU control-plane series (existing /metrics). Inactive locally, kept so the
+  # rules live in one place when the control-plane is scraped in the cluster.
+  - name: ochocast-sfu
+    rules:
+      - alert: SfuCapacityUnavailable
+        expr: increase(ochocast_sfu_room_readiness_failures_total[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Des rooms n''obtiennent pas de worker SFU prêt'
+
+      - alert: SfuOrphanWorker
+        expr: ochocast_sfu_active_workers > 0 and on() (sum(ochocast_sfu_worker_runtime_seconds) > 1800)
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Worker SFU actif depuis plus de 30 min : vérifier qu''une room l''utilise'

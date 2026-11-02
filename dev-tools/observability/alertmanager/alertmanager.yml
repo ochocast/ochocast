@@ -1,0 +1,21 @@
+# Critical alerts and warnings both go to the local sink here; in staging and
+# production the receivers become Slack (and on-call for critical).
+route:
+  receiver: ops
+  group_by: [alertname, deployment_environment]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  routes:
+    - matchers: [severity="critical"]
+      receiver: oncall
+
+receivers:
+  - name: ops
+    webhook_configs:
+      - url: http://alert-sink:8080/slack/ops
+        send_resolved: true
+  - name: oncall
+    webhook_configs:
+      - url: http://alert-sink:8080/slack/oncall
+        send_resolved: true

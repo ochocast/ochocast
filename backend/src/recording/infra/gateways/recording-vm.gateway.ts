@@ -14,27 +14,35 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     this.vmUrl = process.env.RECORDING_VM_URL || 'http://localhost:8080';
     this.controlPlaneUrl =
       process.env.CONTROL_PLANE_URL || 'http://localhost:8090';
-    this.logger.log(`Recording VM URL: ${this.vmUrl}`);
-    this.logger.log(`Control Plane URL: ${this.controlPlaneUrl}`);
+    this.logger.log(
+      {
+        'recording.vm_url': this.vmUrl,
+        'sfu.control_plane_url': this.controlPlaneUrl,
+      },
+      'recording gateway configured',
+    );
   }
 
   async startRecording(config: StartRecordingConfig): Promise<void> {
-    this.logger.log(`Starting recording for room: ${config.roomId}`);
-
     // Step 1: Discover ingestion SFU from Control Plane (same pattern as frontend /viewer)
     const discoveryUrl = `${this.controlPlaneUrl}/recorder?room_id=${config.roomId}`;
-    this.logger.log(`Discovering SFU from control plane: ${discoveryUrl}`);
 
     const cpResponse = await fetch(discoveryUrl);
 
     if (!cpResponse.ok) {
       const errorText = await cpResponse.text();
-      this.logger.error(`Failed to discover SFU: ${errorText}`);
       throw new Error(`Failed to discover SFU: ${errorText}`);
     }
 
     const cpData = await cpResponse.json();
-    this.logger.log(`SFU discovery response: ${JSON.stringify(cpData)}`);
+    // The response carries the room key: log the SFU only.
+    this.logger.log(
+      {
+        'recording.room_id': config.roomId,
+        'recording.sfu_url': cpData.sfu_url,
+      },
+      'ingestion SFU discovered',
+    );
 
     // Step 2: Start recording with the discovered SFU URL and key
     const response = await fetch(`${this.vmUrl}/recording/start`, {
@@ -50,18 +58,11 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
     if (!response.ok) {
       const errorText = await response.text();
-      this.logger.error(`Failed to start recording: ${errorText}`);
       throw new Error(`Failed to start recording: ${errorText}`);
     }
-
-    this.logger.log(
-      `Recording started successfully for room: ${config.roomId}`,
-    );
   }
 
   async stopRecording(roomId: string): Promise<void> {
-    this.logger.log(`Stopping recording for room: ${roomId}`);
-
     const response = await fetch(`${this.vmUrl}/recording/stop`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,11 +71,8 @@ export class RecordingVMGateway implements IRecordingVMGateway {
 
     if (!response.ok) {
       const errorText = await response.text();
-      this.logger.error(`Failed to stop recording: ${errorText}`);
       throw new Error(`Failed to stop recording: ${errorText}`);
     }
-
-    this.logger.log(`Recording stopped successfully for room: ${roomId}`);
   }
 
   async getStatus(): Promise<{

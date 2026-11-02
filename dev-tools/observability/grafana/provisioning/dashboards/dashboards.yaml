@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: ochocast
+    folder: Ochocast
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

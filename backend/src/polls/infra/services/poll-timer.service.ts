@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PollEntity } from '../gateways/entities/poll.entity';
 import { ChatGateway } from 'src/chat/chat.gateway';
+import { withSpan } from 'src/common/telemetry';
 
 /**
  * Service responsible for managing poll timers dynamically.
@@ -34,8 +35,11 @@ export class PollTimerService {
       `⏱️ Scheduled poll ${pollId} to close in ${durationSeconds}s (${delayMs}ms)`,
     );
 
+    // Timer callbacks run outside any request: give the close its own trace.
     const timeout = setTimeout(async () => {
-      await this.closePollByTimer(pollId);
+      await withSpan('polls.close_by_timer', { 'poll.id': pollId }, () =>
+        this.closePollByTimer(pollId),
+      );
     }, delayMs);
 
     this.pollTimers.set(pollId, timeout);

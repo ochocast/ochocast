@@ -1,5 +1,6 @@
 import {
   Inject,
+  Logger,
   Injectable,
   ForbiddenException,
   BadRequestException,
@@ -11,6 +12,8 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { v4 as uuid } from 'uuid';
 import e from 'express';
+
+const logger = new Logger('AddConfigFileUsecase');
 
 @Injectable()
 export class AddConfigFileUsecase {
@@ -92,7 +95,7 @@ export class AddConfigFileUsecase {
       // Sauvegarder en base de données
       return await this.configGateway.addConfigFile(configObject);
     } catch (error) {
-      console.error('Failed to upload config file:', error);
+      logger.error({ err: error }, 'config file upload failed');
 
       throw new BadRequestException(
         `Failed to upload config file: ${error.message}`,

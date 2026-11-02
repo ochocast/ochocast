@@ -1,0 +1,143 @@
+# Local observability POC: the backend's dependencies plus the target stack
+# (Grafana Alloy -> Mimir, Loki, Tempo -> Grafana), on ports that do not clash
+# with the main dev-tools compose. The backend itself runs on the host.
+#
+#   docker compose up -d
+#   ./run-backend.sh          # in another terminal
+#   ./scenario.sh             # generates traffic, errors included
+#
+# Grafana: http://localhost:3002 (anonymous admin)
+
+name: ochocast-obs
+
+services:
+  # --- Backend dependencies ---------------------------------------------------
+  postgres:
+    image: postgres:15.17-alpine@sha256:fceb6f86328c36f2438fae3b851b0cc57c4a7e69a58c866d9ce24281f2cf0c9c
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: ochocast-db
+    ports:
+      - '127.0.0.1:5433:5432'
+    volumes:
+      - postgres:/var/lib/postgresql/data
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0.5@sha256:bfa8852e52c279f0857fe8da239c0ad6bbd2cc07793a28a6770f7e24c1e25444
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - ../localKeycloak/config/:/opt/keycloak/data/import/:ro
+      - ../localKeycloak/start-local.sh:/opt/keycloak/local/start-local.sh:ro
+    entrypoint: ['/bin/sh', '/opt/keycloak/local/start-local.sh']
+
+  # S3 stand-in (MinIO images are no longer pullable). Buckets are created
+  # by s3/init-buckets.sh once LocalStack is ready.
+  s3:
+    image: localstack/localstack:4.4
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: eu-west-3 # LocalStack only accepts AWS regions
+    ports:
+      - '127.0.0.1:4566:4566'
+    volumes:
+      - ./s3/init-buckets.sh:/etc/localstack/init/ready.d/init-buckets.sh:ro
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - '127.0.0.1:5672:5672'
+
+  # --- Observability stack ----------------------------------------------------
+  alloy:
+    image: grafana/alloy:v1.7.5
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    ports:
+      - '127.0.0.1:4317:4317' # OTLP gRPC
+      - '127.0.0.1:4318:4318' # OTLP HTTP (backend)
+      - '127.0.0.1:12345:12345' # Alloy UI: pipeline graph
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+    depends_on: [loki, mimir, tempo]
+
+  mimir:
+    image: grafana/mimir:2.15.0
+    user: root
+    command: ['-config.file=/etc/mimir/mimir.yaml']
+    ports:
+      - '127.0.0.1:9009:9009'
+    volumes:
+      - ./mimir/mimir.yaml:/etc/mimir/mimir.yaml:ro
+      - ./mimir/rules:/etc/mimir/rules:ro
+      - mimir:/data
+
+  loki:
+    image: grafana/loki:3.4.2
+    user: root
+    command: ['-config.file=/etc/loki/loki.yaml']
+    ports:
+      - '127.0.0.1:3100:3100'
+    volumes:
+      - ./loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - ./loki/rules:/etc/loki/rules:ro
+      - loki:/loki
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    user: root
+    command: ['-config.file=/etc/tempo/tempo.yaml']
+    ports:
+      - '127.0.0.1:3200:3200'
+    volumes:
+      - ./tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo:/var/tempo
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: 'true'
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    ports:
+      - '127.0.0.1:3002:3000'
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on: [loki, mimir, tempo]
+
+  # Receives alerts from the Mimir and Loki rulers, groups and routes them.
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.external-url=http://localhost:9093
+    ports:
+      - '127.0.0.1:9093:9093'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+  # Stands in for Slack: prints every Alertmanager notification on stdout.
+  #   docker compose logs -f alert-sink
+  alert-sink:
+    image: mendhak/http-https-echo:31
+    environment:
+      LOG_IGNORE_PATH: /healthz
+
+volumes:
+  postgres:
+  mimir:
+  loki:
+  tempo:

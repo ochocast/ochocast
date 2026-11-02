@@ -15,7 +15,6 @@ export class UserGateway implements IUserGateway {
   ) {}
 
   async createNewUser(userDetails: UserObject): Promise<UserObject> {
-    console.table('\n\n\n\n\n\n\n\n' + userDetails);
     const user: UserEntity = new UserEntity({
       ...userDetails,
       events: userDetails.events?.map(toEventEntity),
@@ -70,7 +69,6 @@ export class UserGateway implements IUserGateway {
       }
       user = toUserObject(foundUser);
     } else {
-      console.table(keycloak_user);
       user = await this.createNewUser(keycloak_user);
     }
 

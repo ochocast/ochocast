@@ -30,6 +30,13 @@ type WorkerConfig struct {
 	TURNServer      string
 	TURNUsername    string
 	TURNPassword    string
+
+	// Optional log shipping: the worker pushes its container logs to Loki
+	// when LokiURL is set. Environment labels them like the cluster logs.
+	Environment  string
+	LokiURL      string
+	LokiUsername string
+	LokiPassword string
 }
 
 // Validate fails closed before the autoscaler is enabled. This prevents it
@@ -52,6 +59,9 @@ func (c WorkerConfig) Validate() error {
 		if c.TURNServer == "" || c.TURNUsername == "" || c.TURNPassword == "" {
 			return fmt.Errorf("TURN_SERVER, TURN_USERNAME and TURN_PASSWORD are required when ICE_RELAY_ONLY=true")
 		}
+	}
+	if c.LokiURL == "" && (c.LokiUsername != "" || c.LokiPassword != "") {
+		return fmt.Errorf("SFU_LOKI_URL must be set with SFU_LOKI_USERNAME and SFU_LOKI_PASSWORD")
 	}
 	if c.ICEUDPPortMin != "" || c.ICEUDPPortMax != "" {
 		if c.ICEUDPPortMin == "" || c.ICEUDPPortMax == "" {
@@ -99,6 +109,10 @@ func (c WorkerConfig) Render(sfuID, roomID string) string {
 		{"TURN_SERVER", c.TURNServer},
 		{"TURN_USERNAME", c.TURNUsername},
 		{"TURN_PASSWORD", c.TURNPassword},
+		{"DEPLOYMENT_ENVIRONMENT", c.Environment},
+		{"LOKI_URL", c.LokiURL},
+		{"LOKI_USERNAME", c.LokiUsername},
+		{"LOKI_PASSWORD", c.LokiPassword},
 	}
 
 	var rendered strings.Builder

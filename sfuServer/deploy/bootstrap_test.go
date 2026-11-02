@@ -31,6 +31,7 @@ func TestWorkerConfigValidate(t *testing.T) {
 		{"missing TURN password", func(c *WorkerConfig) { c.TURNPassword = "" }},
 		{"partial ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMax = "" }},
 		{"reversed ICE UDP range", func(c *WorkerConfig) { c.ICEUDPPortMin = "50101" }},
+		{"Loki credentials without URL", func(c *WorkerConfig) { c.LokiPassword = "secret" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -56,6 +57,10 @@ func TestWorkerConfigRender(t *testing.T) {
 		TURNPassword:    "turn-secret",
 		ICEUDPPortMin:   "50000",
 		ICEUDPPortMax:   "50100",
+		Environment:     "staging",
+		LokiURL:         "https://logs.example.com/loki/api/v1/push",
+		LokiUsername:    "123",
+		LokiPassword:    "loki-secret",
 	}
 
 	rendered := cfg.Render("sfu-123", "room-456")
@@ -72,6 +77,10 @@ func TestWorkerConfigRender(t *testing.T) {
 		"-e ICE_UDP_PORT_MIN=\"${ICE_UDP_PORT_MIN:-}\"",
 		"conf?format=json",
 		".public_ips_v4[0].address // .public_ip.address // empty",
+		"export DEPLOYMENT_ENVIRONMENT='staging'",
+		"export LOKI_URL='https://logs.example.com/loki/api/v1/push'",
+		"export LOKI_PASSWORD='loki-secret'",
+		"start_log_shipper || echo",
 	}
 	for _, want := range wants {
 		if !strings.Contains(rendered, want) {

@@ -11,6 +11,7 @@ fi
 REGISTRY="${SFU_REGISTRY:-rg.fr-par.scw.cloud/sfu-server}"
 IMAGE="${REGISTRY}/sfu:${SFU_IMAGE_TAG}"
 CONTAINER_NAME="${SFU_CONTAINER_NAME:-ochocast-sfu-worker}"
+LOG_SHIPPER_IMAGE="docker.io/grafana/alloy:v1.21.3"
 SFU_PORT="${SFU_PORT:-8090}"
 ICE_RELAY_ONLY="${ICE_RELAY_ONLY:-true}"
 STUN_SERVERS="${STUN_SERVERS:-stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302}"
@@ -70,6 +71,84 @@ registry_login() {
   fi
 }
 
+# Pushes the logs of the worker's containers (SFU, recorder) to Loki when
+# credentials were provided. Logs are best-effort: a failure here must not
+# prevent the worker from serving.
+start_log_shipper() {
+  if [ -z "${LOKI_URL:-}" ]; then
+    return
+  fi
+
+  mkdir -p /etc/alloy
+  cat > /etc/alloy/config.alloy <<'ALLOY'
+discovery.docker "local" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// One stream per container, named after it (ochocast-sfu-worker, ...).
+discovery.relabel "containers" {
+  targets = discovery.docker.local.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/ochocast-log-shipper"
+    action        = "drop"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "service_name"
+  }
+}
+
+loki.source.docker "containers" {
+  host    = "unix:///var/run/docker.sock"
+  targets = discovery.relabel.containers.output
+  labels  = {
+    deployment_environment_name = sys.env("DEPLOYMENT_ENVIRONMENT"),
+  }
+  forward_to = [loki.process.sfu.receiver]
+}
+
+// Worker IDs are unbounded over time: structured metadata, not a label.
+loki.process "sfu" {
+  stage.template {
+    source   = "sfu_id"
+    template = sys.env("SFU_ID")
+  }
+  stage.structured_metadata {
+    values = { sfu_id = "" }
+  }
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = sys.env("LOKI_URL")
+
+    basic_auth {
+      username = sys.env("LOKI_USERNAME")
+      password = sys.env("LOKI_PASSWORD")
+    }
+  }
+}
+ALLOY
+
+  docker rm -f ochocast-log-shipper >/dev/null 2>&1 || true
+  docker run \
+    --detach \
+    --name ochocast-log-shipper \
+    --restart unless-stopped \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v /etc/alloy/config.alloy:/etc/alloy/config.alloy:ro \
+    -e SFU_ID="$SFU_ID" \
+    -e DEPLOYMENT_ENVIRONMENT="${DEPLOYMENT_ENVIRONMENT:-}" \
+    -e LOKI_URL="$LOKI_URL" \
+    -e LOKI_USERNAME="${LOKI_USERNAME:-}" \
+    -e LOKI_PASSWORD="${LOKI_PASSWORD:-}" \
+    "$LOG_SHIPPER_IMAGE" run /etc/alloy/config.alloy
+}
+
 install_docker
 registry_login
 
@@ -107,3 +186,5 @@ docker run \
   -e ICE_UDP_PORT_MAX="${ICE_UDP_PORT_MAX:-}" \
   -e SERVER_PORT="$SFU_PORT" \
   "$IMAGE"
+
+start_log_shipper || echo "Log shipper failed to start; the SFU keeps running" >&2

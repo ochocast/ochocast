@@ -1,10 +1,14 @@
+import './instrumentation';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
+    // Hold boot logs until pino is ready, so every line shares one format.
+    bufferLogs: true,
     cors: {
       origin: [
         'http://localhost:3000',
@@ -15,6 +19,8 @@ async function bootstrap() {
       allowedHeaders: 'Content-Type, Authorization',
     },
   });
+  // Route every `new Logger(Context)` call through pino.
+  app.useLogger(app.get(Logger));
 
   // Swagger configuration
   const config = new DocumentBuilder()

@@ -46,10 +46,7 @@ export class TracksController {
     if (!isUUID(id)) {
       throw new HttpException('Id must be an UUID', HttpStatus.BAD_REQUEST);
     }
-    return this.getTrackByIdUsecase.execute(id).then((e) => {
-      console.log('\n\n\n', e, '\n\n\n');
-      return e;
-    });
+    return this.getTrackByIdUsecase.execute(id);
   }
 
   @Put(':id')

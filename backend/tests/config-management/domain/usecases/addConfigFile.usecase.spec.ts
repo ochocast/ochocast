@@ -3,7 +3,11 @@ import { IConfigGateway } from '../../../../src/config-management/domain/gateway
 import { IUserGateway } from '../../../../src/users/domain/gateways/users.gateway';
 import { ConfigObject } from '../../../../src/config-management/domain/config';
 import { UserObject } from '../../../../src/users/domain/user';
-import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 
@@ -22,7 +26,7 @@ describe('AddConfigFileUsecase', () => {
   let configGatewayMock: jest.Mocked<IConfigGateway>;
   let userGatewayMock: jest.Mocked<IUserGateway>;
   let s3ClientMock: jest.Mocked<S3Client>;
-  let consoleErrorSpy: jest.SpyInstance;
+  let loggerErrorSpy: jest.SpyInstance;
 
   const mockUser: UserObject = {
     id: 'user-id',
@@ -88,12 +92,14 @@ describe('AddConfigFileUsecase', () => {
 
     process.env.STOCK_BRANDING_BUCKET = 'test-bucket';
 
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    loggerErrorSpy = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy.mockRestore();
+    loggerErrorSpy.mockRestore();
   });
 
   describe('execute', () => {
@@ -267,10 +273,10 @@ describe('AddConfigFileUsecase', () => {
         addConfigFileUsecase.execute(userEmail, mockConfigFile),
       ).rejects.toThrow(BadRequestException);
 
-      // Verify that console.error was called with the expected message
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Failed to upload config file:',
-        expect.any(Error),
+      // The failure is logged with its cause.
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        { err: expect.any(Error) },
+        'config file upload failed',
       );
     });
   });
