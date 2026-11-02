@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,16 +24,6 @@ func (t sfuTokenTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		r.Header.Set(controlTokenHeader, token)
 	}
 	return t.base.RoundTrip(r)
-}
-
-// controlTokenValid reports whether r carries SFU_CONTROL_TOKEN. Only the backend drives the
-// recorder: with a token configured, /recording/* refuses everyone else.
-func controlTokenValid(r *http.Request) bool {
-	token := os.Getenv("SFU_CONTROL_TOKEN")
-	if token == "" {
-		return true
-	}
-	return subtle.ConstantTimeCompare([]byte(r.Header.Get(controlTokenHeader)), []byte(token)) == 1
 }
 
 // discoverIngestion asks the control plane (CONTROL_PLANE_URL) which worker carries roomID's

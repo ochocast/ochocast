@@ -114,6 +114,57 @@ function sendPart(
   });
 }
 
+/** Completes an upload whose parts are stored, with the metadata of `formData`. */
+export function completeUpload(
+  sessionId: string,
+  formData: FormData,
+  signal?: AbortSignal,
+): Promise<{ id: string }> {
+  const metadata = new FormData();
+  formData.forEach((value, name) => {
+    if (name !== 'file') metadata.append(name, value);
+  });
+  return uploadRequest(`/${sessionId}/complete`, 'POST', metadata, signal);
+}
+
+const COPY_POLL_MS = 2000;
+// No new copied part for this long: the backend restarted mid-copy (the copy
+// runs in its memory) or storage stalls. The session is then cancelled, so it
+// does not hold one of the user's active upload slots until it expires.
+const COPY_STALL_MS = 10 * 60_000;
+
+/**
+ * US-4 / US-6: a recording is copied into the upload server side. Follows the
+ * copy until every part is stored with its ETag, then completes the upload.
+ */
+export async function completeCopiedUpload(
+  sessionId: string,
+  formData: FormData,
+  onProgress: (progress: number) => void,
+): Promise<{ id: string }> {
+  let stored = -1;
+  let progressAt = Date.now();
+  for (;;) {
+    const session: Session = await uploadRequest(`/${sessionId}`);
+    if (session.state === 'aborted')
+      throw new Error('La copie de l’enregistrement a échoué');
+    if (session.state !== 'uploading') return { id: sessionId };
+    const count = Math.ceil(session.size / session.partSize);
+    const copied = session.parts.filter((p) => p.checksum).length;
+    if (copied === count) break;
+    if (session.parts.length !== stored) {
+      stored = session.parts.length;
+      progressAt = Date.now();
+    } else if (Date.now() - progressAt > COPY_STALL_MS) {
+      await uploadRequest(`/${sessionId}`, 'DELETE').catch(() => undefined);
+      throw new Error('La copie de l’enregistrement ne progresse plus');
+    }
+    onProgress(Math.floor((session.parts.length / count) * 95));
+    await new Promise((resolve) => setTimeout(resolve, COPY_POLL_MS));
+  }
+  return completeUpload(sessionId, formData);
+}
+
 /** Resume survives reload: reselect the same file. Only a session ID is persisted, never signed URLs. */
 export function uploadVideoWithProgress(
   formData: FormData,
@@ -260,16 +311,7 @@ export function uploadVideoWithProgress(
       await Promise.allSettled(workers);
       if (failure) throw failure;
       if (signal.aborted) return;
-      const metadata = new FormData();
-      formData.forEach((value, name) => {
-        if (name !== 'file') metadata.append(name, value);
-      });
-      const result = await uploadRequest(
-        `/${sessionId}/complete`,
-        'POST',
-        metadata,
-        signal,
-      );
+      const result = await completeUpload(sessionId, formData, signal);
       done = true;
       localStorage.removeItem(key);
       callbacks.onProgress(100);

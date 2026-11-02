@@ -3,6 +3,7 @@ import {
   S3Client,
   CreateMultipartUploadCommand,
   UploadPartCommand,
+  UploadPartCopyCommand,
   ListPartsCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
@@ -30,6 +31,16 @@ export abstract class MultipartStorage {
   abstract parts(s: VideoUpload): Promise<StoredPart[]>;
   abstract complete(s: VideoUpload, parts: StoredPart[]): Promise<void>;
   abstract head(s: VideoUpload): Promise<{ size: number; session: string }>;
+  /** Size of a file of the media bucket. */
+  abstract size(key: string): Promise<number>;
+  /** Copies bytes first..last of a media bucket file as a part; returns its ETag. */
+  abstract copyPart(
+    s: VideoUpload,
+    part: number,
+    sourceKey: string,
+    first: number,
+    last: number,
+  ): Promise<string>;
   abstract abort(s: VideoUpload): Promise<void>;
   abstract remove(s: VideoUpload): Promise<void>;
   abstract put(
@@ -111,6 +122,38 @@ export class S3MultipartStorage extends MultipartStorage {
   async head(s: VideoUpload) {
     const r = await this.client.send(new HeadObjectCommand(this.ref(s)));
     return { size: r.ContentLength, session: r.Metadata?.session };
+  }
+  async size(key: string) {
+    const r = await this.client.send(
+      new HeadObjectCommand({
+        Bucket: process.env.STOCK_MEDIA_BUCKET,
+        Key: key,
+      }),
+    );
+    if (!r.ContentLength) throw new Error(`Empty or missing media: ${key}`);
+    return r.ContentLength;
+  }
+  async copyPart(
+    s: VideoUpload,
+    part: number,
+    sourceKey: string,
+    first: number,
+    last: number,
+  ) {
+    const r = await this.client.send(
+      new UploadPartCopyCommand({
+        ...this.ref(s),
+        PartNumber: part,
+        CopySource: `${process.env.STOCK_MEDIA_BUCKET}/${sourceKey
+          .split('/')
+          .map(encodeURIComponent)
+          .join('/')}`,
+        CopySourceRange: `bytes=${first}-${last}`,
+      }),
+    );
+    if (!r.CopyPartResult?.ETag)
+      throw new Error('Storage did not return a copied part ETag');
+    return r.CopyPartResult.ETag;
   }
   async abort(s: VideoUpload) {
     if (!s.uploadId) return;

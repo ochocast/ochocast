@@ -21,6 +21,7 @@ export function toTrackObject(entity: TrackEntity): TrackObject {
       ? entity.speakers.map((e) => new PublicUserObject(toUserObject(e)))
       : [],
     null,
+    entity.recordingArmed ?? false,
   );
 }
 

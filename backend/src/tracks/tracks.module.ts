@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TracksController } from './infra/controllers/tracks.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TrackEntity } from './infra/gateways/entities/track.entity';
@@ -14,9 +14,13 @@ import { EventGateway } from 'src/events/infra/gateways/event.gateway';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
 import { LiveRoomUsecase } from './domain/usecases/liveRoom.usecase';
 import { LiveRoomGateway } from './infra/gateways/live-room.gateway';
+import { RecordingModule } from 'src/recording/recording.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TrackEntity, UserEntity, EventEntity])],
+  imports: [
+    TypeOrmModule.forFeature([TrackEntity, UserEntity, EventEntity]),
+    forwardRef(() => RecordingModule),
+  ],
   controllers: [TracksController],
   providers: [
     {
@@ -42,6 +46,6 @@ import { LiveRoomGateway } from './infra/gateways/live-room.gateway';
     CloseTrackUsecase,
     LiveRoomUsecase,
   ],
-  exports: ['TrackGateway', 'EventGateway'],
+  exports: ['TrackGateway', 'EventGateway', 'UserGateway'],
 })
 export class TracksModule {}

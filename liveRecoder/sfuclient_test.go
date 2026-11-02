@@ -6,18 +6,6 @@ import (
 	"testing"
 )
 
-func TestControlTokenValid(t *testing.T) {
-	t.Setenv("SFU_CONTROL_TOKEN", "s3cret")
-	r := httptest.NewRequest(http.MethodPost, "/recording/start", nil)
-	if controlTokenValid(r) {
-		t.Fatal("request without the token accepted")
-	}
-	r.Header.Set(controlTokenHeader, "s3cret")
-	if !controlTokenValid(r) {
-		t.Fatal("request with the token refused")
-	}
-}
-
 func TestDiscoverIngestionAsksTheControlPlane(t *testing.T) {
 	t.Setenv("SFU_CONTROL_TOKEN", "s3cret")
 	cp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

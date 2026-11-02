@@ -34,6 +34,7 @@ export interface Track {
   createdAt: Date;
   startDate: Date;
   endDate: Date;
+  recordingArmed?: boolean;
 }
 
 export interface User {

@@ -19,8 +19,11 @@ import Modal from '../../components/ReworkComponents/generic/modal/modal';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import EventDashboard from '../../components/ReworkComponents/Event/EventDashboard/EventDashboard';
 import Toggle from '../../components/newComponents/Toggle/Toggle';
+import TrackRecordings from '../../components/ReworkComponents/Event/Track/TrackRecordings/TrackRecordings';
+import RecordingStatus from '../../components/ReworkComponents/Event/Track/RecordingStatus/RecordingStatus';
 
 import { useTrackSettings } from './useTrackSettings';
+import { useRecordingStatus } from '../../hooks/useRecordingStatus';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
 import {
@@ -28,8 +31,7 @@ import {
   getLiveRoom,
   getLiveRoomStatus,
   openLiveRoom,
-  startRecording,
-  stopRecording,
+  setTrackRecordingArmed,
 } from '../../utils/api';
 
 import styles from './trackSettings.module.css';
@@ -37,6 +39,9 @@ import getEnv from '../../utils/env';
 const CONTROL_PLANE_URL = getEnv('REACT_APP_SFU_CONTROL_PLANE_URL');
 const ROOM_STATUS_POLL_INTERVAL_MS = 3000;
 const ROOM_STATUS_TIMEOUT_MS = 8 * 60 * 1000;
+// Reason set by the control plane when it cleans up a room after the live
+// ended (grace period elapsed): the normal end of a session, not a failure.
+const IDLE_TIMEOUT_REASON = 'idle timeout';
 
 type RoomLifecycleState =
   | 'provisioning'
@@ -106,9 +111,6 @@ const TrackSettings: FC = () => {
     type: 'success' | 'error';
   } | null>(null);
   const [isCloseTrackModalOpen, setIsCloseTrackModalOpen] = useState(false);
-  const [isRecordingEnabled, setIsRecordingEnabled] = useState(false);
-  const [sfuRoomId, setSfuRoomId] = useState<string | null>(null);
-  const [sfuRoomKey, setSfuRoomKey] = useState<string | null>(null);
   const [isRecordingLoading, setIsRecordingLoading] = useState(false);
 
   const qrCodeRef = useRef<HTMLDivElement>(null);
@@ -167,6 +169,17 @@ const TrackSettings: FC = () => {
     setIsCheckingRoom(true);
     try {
       const status = await fetchRoomStatus(trackId);
+      const closedForInactivity =
+        (status?.state === 'terminated' || status?.state === 'draining') &&
+        status.reason === IDLE_TIMEOUT_REASON;
+      if (closedForInactivity) {
+        // No active room: the organizer simply starts a new live.
+        setRoomLifecycleState(null);
+        setRoomStatusMessage('');
+        setSfuUrl('');
+        return;
+      }
+
       if (status?.state === 'failed' || status?.state === 'terminated') {
         setRoomLifecycleState(status.state);
         setRoomStatusMessage(
@@ -280,16 +293,18 @@ const TrackSettings: FC = () => {
     }
   };
 
-  if (trackId && !track) {
-    return <div className="loading">{t('LoadingTrack')}</div>;
-  }
-
   const userString = localStorage.getItem('backendUser');
   const userId = userString ? JSON.parse(userString)?.id || '' : '';
   const canEdit =
     event?.creatorId === userId ||
     track?.speakers?.some((e) => e.id === userId);
   const closed = track?.closed || event?.closed;
+  const { status: recordingStatus, refresh: refreshRecordingStatus } =
+    useRecordingStatus(trackId, !!trackId && !!canEdit);
+
+  if (trackId && !track) {
+    return <div className="loading">{t('LoadingTrack')}</div>;
+  }
 
   const toggle = () => {
     setIsOpen(!isOpen);
@@ -312,9 +327,6 @@ const TrackSettings: FC = () => {
       }
 
       const data = response.data as CreateRoomResponse;
-      // Store room info for recording
-      setSfuRoomId(data.room_id);
-      setSfuRoomKey(data.key);
 
       const state = data.state || (data.ready ? 'ready' : 'provisioning');
       setRoomLifecycleState(state);
@@ -413,57 +425,24 @@ const TrackSettings: FC = () => {
   };
 
   const handleRecordingToggle = async (e: ChangeEvent<HTMLInputElement>) => {
-    const enabled = e.target.checked;
-
-    if (!sfuRoomId || !sfuRoomKey || !trackId) {
-      setToast({
-        message: t('StartLiveFirst'),
-        type: 'error',
-      });
-      return;
-    }
+    const armed = e.target.checked;
+    if (!trackId) return;
 
     setIsRecordingLoading(true);
-
     try {
-      if (enabled) {
-        // Start recording
-        const response = await startRecording({
-          trackId: trackId,
-          roomId: sfuRoomId,
-          roomKey: sfuRoomKey,
-          sfuUrl: CONTROL_PLANE_URL,
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to start recording');
-        }
-
-        setIsRecordingEnabled(true);
-        setToast({
-          message: t('RecordingStarted'),
-          type: 'success',
-        });
-      } else {
-        // Stop recording
-        const response = await stopRecording(trackId);
-
-        if (!response.ok) {
-          throw new Error('Failed to stop recording');
-        }
-
-        setIsRecordingEnabled(false);
-        setToast({
-          message: t('RecordingStopped'),
-          type: 'success',
-        });
+      const response = await setTrackRecordingArmed(trackId, armed);
+      if (!response.ok) {
+        throw new Error('Failed to update recording setting');
       }
+      setTrack({ ...track, recordingArmed: response.data.recordingArmed });
+      refreshRecordingStatus();
+      setToast({
+        message: armed ? t('RecordingArmed') : t('RecordingDisarmed'),
+        type: 'success',
+      });
     } catch (error) {
       console.error('Recording toggle error:', error);
-      setToast({
-        message: enabled ? t('RecordingStartError') : t('RecordingStopError'),
-        type: 'error',
-      });
+      setToast({ message: t('RecordingArmError'), type: 'error' });
     } finally {
       setIsRecordingLoading(false);
     }
@@ -479,11 +458,12 @@ const TrackSettings: FC = () => {
         {trackId && (
           <div className={styles.liveControls}>
             <Toggle
-              checked={isRecordingEnabled}
+              checked={!!track.recordingArmed}
               onChange={handleRecordingToggle}
-              label={t('EnableRecording')}
-              disabled={!!closed || !sfuRoomId || isRecordingLoading}
+              label={t('RecordTrackLives')}
+              disabled={!!closed || isRecordingLoading}
             />
+            <RecordingStatus status={recordingStatus} />
             <Button
               label={t('StartLive')}
               onClick={toggle}
@@ -581,8 +561,8 @@ const TrackSettings: FC = () => {
             onChange={(e) => {
               const [hours, minutes] = e.target.value.split(':').map(Number);
               const current = new Date(track.startDate || new Date());
-              current.setUTCHours(hours);
-              current.setUTCMinutes(minutes);
+              current.setHours(hours);
+              current.setMinutes(minutes);
               current.setSeconds(0);
               current.setMilliseconds(0);
               setTrack({ ...track, startDate: current });
@@ -602,8 +582,8 @@ const TrackSettings: FC = () => {
             onChange={(e) => {
               const [hours, minutes] = e.target.value.split(':').map(Number);
               const current = new Date(track.endDate || new Date());
-              current.setUTCHours(hours);
-              current.setUTCMinutes(minutes);
+              current.setHours(hours);
+              current.setMinutes(minutes);
               current.setSeconds(0);
               current.setMilliseconds(0);
               setTrack({ ...track, endDate: current });
@@ -615,6 +595,8 @@ const TrackSettings: FC = () => {
           />
         </div>
       </div>
+
+      {trackId && <TrackRecordings trackId={trackId} trackName={track.name} />}
 
       <div className={styles.controlsContainer}>
         <Button

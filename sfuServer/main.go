@@ -21,11 +21,13 @@ func main() {
 		log.Println("Warning: No .env file found, using default values")
 	}
 
-	// NOW create the SFU server instance with the loaded environment variables
-	// Every outgoing call of a worker goes to the control plane or another worker:
-	// carry the control token (SFU_CONTROL_TOKEN) on all of them.
+	// Outgoing calls of a worker go to the control plane or another worker: they carry the
+	// control token (SFU_CONTROL_TOKEN). The live webhook goes to the backend with its own
+	// secret, so it keeps the plain transport.
+	liveWebhookClient.Transport = http.DefaultTransport
 	http.DefaultTransport = controlauth.Wrap(http.DefaultTransport)
 
+	// NOW create the SFU server instance with the loaded environment variables
 	sfuServer = NewSFUServer()
 
 	// Only the control plane, other workers and the recorder call a worker: with
@@ -43,6 +45,9 @@ func main() {
 		log.Printf("Connected to Control Plane: %s", sfuServer.controlPlaneURL)
 	} else {
 		log.Println("Warning: No control plane configured, cluster functionality will be limited")
+	}
+	if os.Getenv("BACKEND_URL") == "" || os.Getenv("SFU_WEBHOOK_SECRET") == "" {
+		log.Println("Warning: BACKEND_URL or SFU_WEBHOOK_SECRET not set, armed tracks will not be recorded automatically")
 	}
 
 	if enableHTTPS {

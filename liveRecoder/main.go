@@ -1,15 +1,46 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
+	"time"
 )
 
+// loadDotEnv reads .env file and sets env vars (only if not already set)
+func loadDotEnv() {
+	f, err := os.Open(".env")
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		val := strings.TrimSpace(parts[1])
+		if os.Getenv(key) == "" {
+			os.Setenv(key, val)
+		}
+	}
+}
+
 func main() {
+	loadDotEnv()
+
 	// Get SFU base URL from environment variable, fallback to default
 	sfuDefault := os.Getenv("SFU_BASE_URL")
 	if sfuDefault == "" {
@@ -41,23 +72,29 @@ func runHTTPServer(addr, outputDir string) {
 
 	server := NewRecordingServer(outputDir)
 
+	// Recordings are written to the OS temp dir (rec.go): sweep the ones left
+	// behind by failed uploads, at startup then every hour.
+	go func() {
+		retention := recordingRetention()
+		for {
+			cleanupStaleRecordings(os.TempDir(), retention)
+			time.Sleep(time.Hour)
+		}
+	}()
+
 	// Handle graceful shutdown
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		<-sigChan
 		log.Println("\nShutdown signal received...")
+		go func() {
+			<-sigChan
+			log.Println("Second signal, exiting without waiting for uploads")
+			os.Exit(1)
+		}()
 
-		// Stop all active recordings
-		server.mu.Lock()
-		for roomID, session := range server.sessions {
-			if session.isRecording {
-				log.Printf("Stopping recording for room: %s", roomID)
-				session.Stop()
-			}
-		}
-		server.mu.Unlock()
-
+		server.shutdown(shutdownGrace())
 		os.Exit(0)
 	}()
 
@@ -80,6 +117,37 @@ func runHTTPServer(addr, outputDir string) {
 	}
 }
 
+// shutdown stops the active recordings, then waits for the uploads in flight
+// (also those started earlier and still retrying), at most grace. Returns
+// false when uploads were still running at the end of the grace.
+func (s *RecordingServer) shutdown(grace time.Duration) bool {
+	s.mu.Lock()
+	s.shuttingDown = true
+	for roomID, session := range s.sessions {
+		if session.isRecording {
+			log.Printf("Stopping recording for room: %s", roomID)
+			session.Stop()
+		}
+	}
+	s.mu.Unlock()
+
+	log.Printf("Waiting up to %s for %d upload(s)...", grace, s.uploads.pending.Load())
+	if !s.uploads.wait(grace) {
+		log.Printf("[WARN] Shutdown grace expired, %d upload(s) interrupted (files left in %s)", s.uploads.pending.Load(), os.TempDir())
+		return false
+	}
+	return true
+}
+
+// shutdownGrace reads RECORDER_SHUTDOWN_GRACE_SECONDS (default 600): how long
+// a stop waits for the uploads. The container's stop timeout must be longer.
+func shutdownGrace() time.Duration {
+	if seconds, err := strconv.Atoi(os.Getenv("RECORDER_SHUTDOWN_GRACE_SECONDS")); err == nil && seconds >= 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	return 10 * time.Minute
+}
+
 // runCLIMode runs the original CLI mode for manual recording
 func runCLIMode(roomID, roomKey, sfuBaseURL, outputDir string) {
 	log.Println("Live Recorder - CLI Mode")
@@ -89,7 +157,7 @@ func runCLIMode(roomID, roomKey, sfuBaseURL, outputDir string) {
 	log.Println("Recording directly to MP4 with synchronized A/V")
 
 	// Create recording session (use roomID as eventID for filename)
-	// In CLI mode, no auto-publish (no backend/keycloak config)
+	// In CLI mode, no auto-publish (no backend config)
 	session, err := NewRecordingSession(RecordingConfig{
 		EventID:    roomID,
 		RoomID:     roomID,
