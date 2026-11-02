@@ -36,7 +36,6 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     }
 
     const cpData = await cpResponse.json();
-    this.logger.log(`SFU discovery response: ${JSON.stringify(cpData)}`);
 
     // Step 2: Start recording with the discovered SFU URL and key
     // The recorder only answers callers holding the control token, and finds the live's

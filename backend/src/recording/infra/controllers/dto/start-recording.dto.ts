@@ -1,24 +1,30 @@
-import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsUUID } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class StartRecordingDto {
   @ApiProperty({ description: 'Track ID to record' })
   @IsNotEmpty()
-  @IsString()
+  @IsUUID()
   trackId: string;
 
   @ApiProperty({ description: 'SFU Room ID' })
   @IsNotEmpty()
-  @IsString()
+  @IsUUID()
   roomId: string;
 
-  @ApiProperty({ description: 'SFU Room Key for authentication' })
-  @IsNotEmpty()
+  @ApiProperty({
+    description: 'Legacy field, ignored; the backend discovers the key',
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  roomKey: string;
+  roomKey?: string;
 
-  @ApiProperty({ description: 'SFU Server URL' })
-  @IsNotEmpty()
+  @ApiProperty({
+    description: 'Legacy field, ignored; the backend discovers the SFU',
+    required: false,
+  })
+  @IsOptional()
   @IsString()
-  sfuUrl: string;
+  sfuUrl?: string;
 }

@@ -60,13 +60,22 @@ func Require(next http.HandlerFunc) http.HandlerFunc {
 // RequireExcept wraps a whole mux: every path but the exempt ones needs the token.
 func RequireExcept(next http.Handler, exempt ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A preflight must never reach protected handlers: the mux includes a file
+		// server, which serves files even when the request method is OPTIONS.
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-SFU-Control-Token")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		for _, p := range exempt {
 			if r.URL.Path == p {
 				next.ServeHTTP(w, r)
 				return
 			}
 		}
-		if r.Method != http.MethodOptions && !Valid(r) {
+		if !Valid(r) {
 			http.Error(w, "missing or invalid control token", http.StatusUnauthorized)
 			return
 		}

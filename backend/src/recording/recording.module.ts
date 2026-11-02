@@ -6,15 +6,18 @@ import { StopRecordingUsecase } from './domain/usecases/stopRecording.usecase';
 import { PublishRecordingUsecase } from './domain/usecases/publishRecording.usecase';
 import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
+import { UsersModule } from 'src/users/users.module';
+import { RecordingAuthorizationService } from './domain/recording-authorization.service';
 
 @Module({
-  imports: [VideosModule, TracksModule],
+  imports: [VideosModule, TracksModule, UsersModule],
   controllers: [RecordingController],
   providers: [
     {
       provide: 'RecordingVMGateway',
       useClass: RecordingVMGateway,
     },
+    RecordingAuthorizationService,
     StartRecordingUsecase,
     StopRecordingUsecase,
     PublishRecordingUsecase,

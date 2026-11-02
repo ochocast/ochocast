@@ -28,13 +28,29 @@ func serveWithDrain(srv *http.Server, listen func() error) {
 		log.Printf("[DRAIN] %s received: no new lives, waiting for the current ones to end", s)
 	}
 
-	if sfuServer.metricsCollector != nil {
-		sfuServer.metricsCollector.SetDraining()
-	}
-
 	var deadline time.Time
 	if d, err := time.ParseDuration(os.Getenv("DRAIN_TIMEOUT")); err == nil && d > 0 {
 		deadline = time.Now().Add(d)
+	}
+	if sfuServer.metricsCollector != nil {
+		notified := sfuServer.metricsCollector.SetDraining()
+		// Wait briefly for the control plane to learn about draining, including
+		// for an idle worker, without delaying a deadline or a second signal.
+		wait := 3 * time.Second
+		if !deadline.IsZero() && time.Until(deadline) < wait {
+			wait = time.Until(deadline)
+		}
+		select {
+		case <-notified:
+		case <-time.After(wait):
+			log.Println("[DRAIN] control plane notification timed out")
+		case s := <-sig:
+			log.Printf("[DRAIN] second %s: stopping now", s)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = srv.Shutdown(ctx)
+			return
+		}
 	}
 
 wait:
@@ -49,8 +65,12 @@ wait:
 			break
 		}
 		log.Printf("[DRAIN] waiting for %d live(s) (%d viewer(s)) to end", hosts, viewers)
+		wait := 10 * time.Second
+		if !deadline.IsZero() && time.Until(deadline) < wait {
+			wait = time.Until(deadline)
+		}
 		select {
-		case <-time.After(10 * time.Second):
+		case <-time.After(wait):
 		case s := <-sig:
 			log.Printf("[DRAIN] second %s: stopping now", s)
 			break wait

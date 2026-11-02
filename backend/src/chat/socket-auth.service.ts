@@ -1,6 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { KEYCLOAK_INSTANCE } from 'nest-keycloak-connect';
 
+export interface SocketIdentity {
+  email: string;
+  expiresAt: number;
+}
+
 // Checks the Keycloak access token a chat client sends when it connects (socket.io
 // "auth.token"), the same way the HTTP guard checks the Authorization header.
 @Injectable()
@@ -12,8 +17,8 @@ export class SocketAuthService {
     @Inject(KEYCLOAK_INSTANCE) private readonly keycloak: any,
   ) {}
 
-  // The token's e-mail when the token is valid, null otherwise.
-  async emailFromToken(jwt?: string): Promise<string | null> {
+  // Retain the verified lifetime, so writes need no per-message introspection.
+  async identityFromToken(jwt?: string): Promise<SocketIdentity | null> {
     if (!jwt) return null;
     try {
       const gm = this.keycloak.grantManager;
@@ -27,7 +32,16 @@ export class SocketAuthService {
       } else if (mode !== 'NONE') {
         if ((await gm.validateAccessToken(token)) !== token) return null;
       }
-      return token.content?.email ?? null;
+      const { email, exp } = token.content ?? {};
+      if (
+        typeof email !== 'string' ||
+        !email ||
+        typeof exp !== 'number' ||
+        !Number.isFinite(exp) ||
+        exp * 1000 <= Date.now()
+      )
+        return null;
+      return { email, expiresAt: exp * 1000 };
     } catch (err) {
       this.logger.verbose(`Chat token refused: ${err}`);
       return null;

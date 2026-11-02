@@ -1,46 +1,35 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
-import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
+import { Injectable, Logger } from '@nestjs/common';
 import { CreateNewVideoUsecase } from 'src/videos/domain/usecases/createNewVideo.usecase';
 import { CreateVideoDto } from 'src/videos/infra/controllers/dto/create-video.dto';
 import { UserEntity } from 'src/users/infra/gateways/entities/user.entity';
+import {
+  RecordingAuthorizationService,
+  RecordingPrincipal,
+} from '../recording-authorization.service';
 
 @Injectable()
 export class PublishRecordingUsecase {
   private readonly logger = new Logger(PublishRecordingUsecase.name);
 
   constructor(
-    @Inject('TrackGateway')
-    private trackGateway: ITrackGateway,
-    @Inject('EventGateway')
-    private eventGateway: IEventGateway,
+    private readonly authorization: RecordingAuthorizationService,
     private createNewVideoUsecase: CreateNewVideoUsecase,
   ) {}
 
   async execute(
     trackId: string,
     file: Express.Multer.File,
+    principal: RecordingPrincipal,
   ): Promise<{ videoId: string }> {
     this.logger.log(`Publishing recording for track: ${trackId}`);
 
-    // 1. Get track info
-    const tracks = await this.trackGateway.getTracks({ id: trackId });
-    if (!tracks || tracks.length === 0) {
-      throw new Error(`Track not found: ${trackId}`);
-    }
-    const track = tracks[0];
+    const { track, event } = await this.authorization.authorize(
+      trackId,
+      principal,
+      true,
+    );
 
-    this.logger.log(`Found track: ${track.name}`);
-
-    // 2. Get event info for tags and creator
-    const event = await this.eventGateway.getEventById(track.eventId);
-    if (!event) {
-      throw new Error(`Event not found: ${track.eventId}`);
-    }
-
-    this.logger.log(`Found event: ${event.name}`);
-
-    // 3. Build video metadata from track/event
+    // Build video metadata from the authorized track/event
     const videoTitle = `${track.name} - Enregistrement Live`;
     const videoDescription =
       track.description || event.description || 'Enregistrement automatique';
@@ -77,7 +66,7 @@ export class PublishRecordingUsecase {
 
     this.logger.log(`Creating video: ${videoTitle}`);
 
-    // 4. Create the video (will transcode, generate thumbnail, upload to S3)
+    // Create the video (will transcode, generate thumbnail, upload to S3)
     const video = await this.createNewVideoUsecase.execute(
       videoDto,
       file,

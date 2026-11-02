@@ -27,6 +27,7 @@ describe('ChatGateway authorization', () => {
     const errors: unknown[] = [];
     return {
       id: 'socket',
+      connected: true,
       data: {} as Record<string, unknown>,
       handshake: { auth: {} as Record<string, string> },
       errors,
@@ -58,8 +59,10 @@ describe('ChatGateway authorization', () => {
       addReaction: jest.fn(),
     } as unknown as jest.Mocked<ChatService>;
     const auth = {
-      emailFromToken: jest.fn(
-        async (t?: string) => (t ? tokens[t] : null) ?? null,
+      identityFromToken: jest.fn(async (t?: string) =>
+        t && tokens[t]
+          ? { email: tokens[t], expiresAt: Date.now() + 60000 }
+          : null,
       ),
     } as unknown as SocketAuthService;
     const users = {

@@ -74,3 +74,17 @@ func TestWrapAddsToken(t *testing.T) {
 		t.Fatalf("token not sent: %q", got)
 	}
 }
+
+func TestRequireExceptOptionsDoesNotReachProtectedHandler(t *testing.T) {
+	t.Setenv("SFU_CONTROL_TOKEN", "s3cret")
+	called := false
+	h := RequireExcept(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		_, _ = w.Write([]byte("sensitive file contents"))
+	}), "/health")
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest(http.MethodOptions, "/.env", nil))
+	if called || w.Body.Len() != 0 {
+		t.Fatalf("unauthenticated OPTIONS reached protected handler: called=%v body=%q", called, w.Body.String())
+	}
+}

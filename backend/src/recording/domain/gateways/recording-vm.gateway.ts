@@ -1,8 +1,6 @@
 export interface StartRecordingConfig {
   roomId: string;
-  roomKey: string;
-  sfuUrl: string;
-  trackId?: string;
+  trackId: string;
 }
 
 export interface IRecordingVMGateway {
