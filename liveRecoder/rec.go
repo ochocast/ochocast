@@ -415,6 +415,9 @@ func (rs *RecordingSession) stop(failed bool) error {
 		return fmt.Errorf("no recording in progress")
 	}
 	rs.isRecording = false
+	// Counted as an upload from now on, under the same lock: a shutdown or a
+	// control-plane check landing while the file is finalized waits for it.
+	rs.uploads.start()
 	rs.mu.Unlock()
 
 	log.Println("Stopping recording...")
@@ -464,7 +467,9 @@ func (rs *RecordingSession) stop(failed bool) error {
 		if meta.Problematic {
 			log.Printf("[WARN] Recording flagged problematic (webrtc failure=%t, close error=%v)", failed, closeErr)
 		}
-		publishAsync(rs.uploads, rs.backendURL, rs.trackID, rs.mp4FilePath, rs.sharedSecret, meta)
+		publishCounted(rs.uploads, rs.backendURL, rs.trackID, rs.mp4FilePath, rs.sharedSecret, meta)
+	} else {
+		rs.uploads.done() // nothing to upload
 	}
 
 	return nil

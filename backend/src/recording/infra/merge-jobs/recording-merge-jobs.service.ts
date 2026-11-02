@@ -3,8 +3,10 @@ import {
   ConflictException,
   GoneException,
   Injectable,
+  Logger,
 } from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
+import { Interval } from '@nestjs/schedule';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import {
   RecordingMergeJob,
@@ -17,11 +19,12 @@ import { RecordingMergeJobEntity } from './recording-merge-job.entity';
  * US-3 — Lease and result of merge jobs, mirroring TranscodingJobsService:
  * a row lock makes claims exclusive, and a repeated or late callback never
  * overwrites a success. The montage stays `processing` while a transient
- * failure is retried, and becomes `failed` on a permanent failure or once
- * the attempts are exhausted.
+ * failure is retried, and becomes `failed` on a permanent failure, once
+ * the attempts are exhausted, or once nothing has claimed it for too long.
  */
 @Injectable()
 export class RecordingMergeJobsService {
+  private readonly logger = new Logger(RecordingMergeJobsService.name);
   private readonly leaseSeconds = Number(
     process.env.RECORDING_MERGE_LEASE_SECONDS ||
       process.env.TRANSCODING_LEASE_SECONDS ||
@@ -30,6 +33,13 @@ export class RecordingMergeJobsService {
   private readonly maxAttempts = Number(
     process.env.RECORDING_MERGE_MAX_ATTEMPTS || 5,
   );
+  // Merges have no redispatch: deliveries that never reach a claim (worker
+  // busy, lease running) also use up the queue's receive count, so a message
+  // can be dead-lettered while its job still waits. Past this inactivity the
+  // montage is failed, so the organizer sees it and can merge again.
+  private readonly staleSeconds = Number(
+    process.env.RECORDING_MERGE_STALE_SECONDS || 3 * this.leaseSeconds,
+  );
 
   constructor(private readonly dataSource: DataSource) {
     if (!Number.isInteger(this.leaseSeconds) || this.leaseSeconds < 60) {
@@ -37,6 +47,70 @@ export class RecordingMergeJobsService {
     }
     if (!Number.isInteger(this.maxAttempts) || this.maxAttempts < 1) {
       throw new Error('RECORDING_MERGE_MAX_ATTEMPTS must be an integer >= 1');
+    }
+    if (
+      !Number.isInteger(this.staleSeconds) ||
+      this.staleSeconds <= this.leaseSeconds
+    ) {
+      throw new Error(
+        'RECORDING_MERGE_STALE_SECONDS must be an integer above the lease',
+      );
+    }
+  }
+
+  /** Last sign of life: the lease end, the last result, or the dispatch. */
+  private isStale(job: RecordingMergeJobEntity, now: number): boolean {
+    const lastActivity =
+      job.status === 'processing'
+        ? job.leaseExpiresAt?.getTime()
+        : (job.result?.processedAt ?? job.payload?.timestamp);
+    return (
+      (job.status === 'pending' || job.status === 'processing') &&
+      lastActivity !== undefined &&
+      lastActivity < now - this.staleSeconds * 1000
+    );
+  }
+
+  @Interval(60_000)
+  async failStaleJobs(now = Date.now()): Promise<void> {
+    try {
+      const candidates = await this.dataSource
+        .getRepository(RecordingMergeJobEntity)
+        .find({ where: { status: In(['pending', 'processing']) } });
+      for (const candidate of candidates) {
+        if (!this.isStale(candidate, now)) continue;
+        await this.dataSource.transaction(async (manager) => {
+          const repository = manager.getRepository(RecordingMergeJobEntity);
+          // Rechecked under the claim's row lock: a claim may have just won.
+          const job = await repository.findOne({
+            where: { id: candidate.id },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!job || !this.isStale(job, now)) return;
+          job.status = 'failed';
+          job.leaseExpiresAt = null;
+          job.result = {
+            jobId: job.id,
+            recordingId: job.recordingId,
+            success: false,
+            duration: 0,
+            error: 'No merge worker picked the job up any more',
+            processedAt: now,
+            permanent: true,
+          };
+          await repository.save(job);
+          await manager.update(RecordingEntity, job.recordingId, {
+            status: 'failed',
+          });
+          this.logger.warn(`Merge job ${job.id} failed: no activity`);
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Stale merge job sweep deferred: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
 

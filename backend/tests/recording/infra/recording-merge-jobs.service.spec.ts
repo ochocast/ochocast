@@ -11,6 +11,7 @@ function fakeDataSource(row: Partial<RecordingMergeJobEntity> | null) {
   const recordingUpdates: unknown[] = [];
   const state = { row };
   const repository = {
+    find: jest.fn(async () => (state.row ? [{ ...state.row }] : [])),
     findOne: jest.fn(async () => (state.row ? { ...state.row } : null)),
     save: jest.fn(async (saved) => {
       state.row = { ...saved };
@@ -30,6 +31,7 @@ function fakeDataSource(row: Partial<RecordingMergeJobEntity> | null) {
   };
   const dataSource = {
     transaction: (fn: (m: typeof manager) => unknown) => fn(manager),
+    getRepository: () => repository,
   } as any;
   return { dataSource, state, recordingUpdates };
 }
@@ -196,5 +198,62 @@ describe('RecordingMergeJobsService', () => {
     await expect(
       service.complete(JOB_ID, 'lease', result(true)),
     ).rejects.toThrow(ConflictException);
+  });
+
+  describe('stale jobs (no redispatch for merges)', () => {
+    const HOUR = 3_600_000;
+    const now = Date.now();
+
+    it('fails a montage whose job waits since a transient failure, once its message is gone', async () => {
+      const { dataSource, state, recordingUpdates } = fakeDataSource(
+        pendingJob({
+          attempts: 2,
+          leaseToken: 'lease',
+          result: { ...result(false), processedAt: now - 3 * HOUR - 1 },
+        }),
+      );
+      const service = new RecordingMergeJobsService(dataSource);
+
+      await service.failStaleJobs(now);
+
+      expect(state.row.status).toBe('failed');
+      expect(recordingUpdates).toEqual([{ status: 'failed' }]);
+    });
+
+    it('fails a montage never claimed, and one whose worker died long ago', async () => {
+      for (const row of [
+        pendingJob({
+          payload: { timestamp: now - 4 * HOUR } as any,
+        }),
+        pendingJob({
+          status: 'processing',
+          leaseToken: 'lease',
+          leaseExpiresAt: new Date(now - 3 * HOUR - 1),
+        }),
+      ]) {
+        const { dataSource, recordingUpdates } = fakeDataSource(row);
+        await new RecordingMergeJobsService(dataSource).failStaleJobs(now);
+        expect(recordingUpdates).toEqual([{ status: 'failed' }]);
+      }
+    });
+
+    it('leaves a job still waiting for its redelivery, a running one and a finished one', async () => {
+      for (const row of [
+        pendingJob({ result: { ...result(false), processedAt: now - HOUR } }),
+        pendingJob({ payload: { timestamp: now - HOUR } as any }),
+        pendingJob({
+          status: 'processing',
+          leaseExpiresAt: new Date(now + HOUR),
+        }),
+        pendingJob({
+          status: 'ready',
+          payload: { timestamp: now - 10 * HOUR } as any,
+        }),
+      ]) {
+        const { dataSource, recordingUpdates } = fakeDataSource(row);
+        await new RecordingMergeJobsService(dataSource).failStaleJobs(now);
+        expect(recordingUpdates).toEqual([]);
+      }
+    });
   });
 });

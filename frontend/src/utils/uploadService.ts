@@ -128,7 +128,10 @@ export function completeUpload(
 }
 
 const COPY_POLL_MS = 2000;
-const COPY_TIMEOUT_MS = 30 * 60_000;
+// No new copied part for this long: the backend restarted mid-copy (the copy
+// runs in its memory) or storage stalls. The session is then cancelled, so it
+// does not hold one of the user's active upload slots until it expires.
+const COPY_STALL_MS = 10 * 60_000;
 
 /**
  * US-4 / US-6: a recording is copied into the upload server side. Follows the
@@ -139,7 +142,8 @@ export async function completeCopiedUpload(
   formData: FormData,
   onProgress: (progress: number) => void,
 ): Promise<{ id: string }> {
-  const deadline = Date.now() + COPY_TIMEOUT_MS;
+  let stored = -1;
+  let progressAt = Date.now();
   for (;;) {
     const session: Session = await uploadRequest(`/${sessionId}`);
     if (session.state === 'aborted')
@@ -148,9 +152,14 @@ export async function completeCopiedUpload(
     const count = Math.ceil(session.size / session.partSize);
     const copied = session.parts.filter((p) => p.checksum).length;
     if (copied === count) break;
+    if (session.parts.length !== stored) {
+      stored = session.parts.length;
+      progressAt = Date.now();
+    } else if (Date.now() - progressAt > COPY_STALL_MS) {
+      await uploadRequest(`/${sessionId}`, 'DELETE').catch(() => undefined);
+      throw new Error('La copie de l’enregistrement ne progresse plus');
+    }
     onProgress(Math.floor((session.parts.length / count) * 95));
-    if (Date.now() > deadline)
-      throw new Error('La copie de l’enregistrement prend trop de temps');
     await new Promise((resolve) => setTimeout(resolve, COPY_POLL_MS));
   }
   return completeUpload(sessionId, formData);

@@ -169,3 +169,43 @@ func TestShutdownGrace(t *testing.T) {
 		t.Fatalf("grace = %s", got)
 	}
 }
+
+// The upload is counted as soon as the session stops recording, before the
+// file is finalized (about 0.5 s): a shutdown or a control-plane check landing
+// in that window must not see an idle recorder.
+func TestStopCountsTheUploadBeforeFinalizing(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+		io.Copy(io.Discard, r.Body)
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	uploads := &uploadTracker{}
+	rs, err := NewRecordingSession(RecordingConfig{
+		EventID: "room", RoomID: "room", OutputDir: t.TempDir(),
+		BackendURL: srv.URL, TrackID: "track-1", Uploads: uploads,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs.isRecording = true
+
+	stopped := make(chan struct{})
+	go func() {
+		rs.stop(false)
+		close(stopped)
+	}()
+	time.Sleep(100 * time.Millisecond) // inside the finalization
+	if got := uploads.pending.Load(); got != 1 {
+		t.Fatalf("pending uploads while finalizing = %d, want 1", got)
+	}
+	<-stopped
+	close(release)
+	if !uploads.wait(5 * time.Second) {
+		t.Fatal("upload never finished")
+	}
+	if got := uploads.pending.Load(); got != 0 {
+		t.Fatalf("pending uploads after the upload = %d, want 0", got)
+	}
+}

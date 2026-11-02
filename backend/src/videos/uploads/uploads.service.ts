@@ -45,8 +45,9 @@ export function validateParts(s: VideoUpload, parts: StoredPart[]) {
       throw new BadRequestException('Part checksum mismatch');
   });
 }
-// Server-side copies use large parts (S3 accepts up to 5 GiB per copied part).
-const COPY_PART_BYTES = 512 * 1024 ** 2;
+// Server-side copies use larger parts than browsers, yet small enough that
+// each copy answers well within the S3 client's 120 s socket timeout.
+const COPY_PART_BYTES = 128 * 1024 ** 2;
 const COPY_CONCURRENCY = 4;
 function positiveInteger(name: string, fallback: number) {
   const value = Number(process.env[name] || fallback);

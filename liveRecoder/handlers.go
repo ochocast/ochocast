@@ -265,6 +265,11 @@ type segmentMeta struct {
 // shutdown waits for it and the status reports it to the control plane.
 func publishAsync(uploads *uploadTracker, backendURL, trackID, filePath, sharedSecret string, meta segmentMeta) {
 	uploads.start()
+	publishCounted(uploads, backendURL, trackID, filePath, sharedSecret, meta)
+}
+
+// publishCounted is publishAsync for an upload already counted in uploads.
+func publishCounted(uploads *uploadTracker, backendURL, trackID, filePath, sharedSecret string, meta segmentMeta) {
 	go func() {
 		defer uploads.done()
 		if err := publishWithRetry(backendURL, trackID, filePath, sharedSecret, meta); err != nil {

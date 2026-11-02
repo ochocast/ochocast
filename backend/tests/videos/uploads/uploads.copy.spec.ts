@@ -68,23 +68,20 @@ describe('Upload copied server side from a stored recording', () => {
     expect(sessions.get(view.id).checksums).toEqual({});
     await view.copied;
 
-    // 512 MiB parts: two full parts and the remaining 276 MiB.
+    // 128 MiB parts: ten full parts and the remaining 20 MiB.
+    expect(storage.copyPart).toHaveBeenCalledTimes(11);
     expect(storage.copyPart.mock.calls.map((c) => c.slice(1))).toEqual(
       expect.arrayContaining([
-        [1, 'recordings/t/merged/m.mp4', 0, 512 * MiB - 1],
-        [2, 'recordings/t/merged/m.mp4', 512 * MiB, 1024 * MiB - 1],
-        [3, 'recordings/t/merged/m.mp4', 1024 * MiB, size - 1],
+        [1, 'recordings/t/merged/m.mp4', 0, 128 * MiB - 1],
+        [2, 'recordings/t/merged/m.mp4', 128 * MiB, 256 * MiB - 1],
+        [11, 'recordings/t/merged/m.mp4', 1280 * MiB, size - 1],
       ]),
     );
-    expect(storage.copyPart).toHaveBeenCalledTimes(3);
     const session = sessions.get(view.id);
     expect(session.checksumMode).toBe('etag');
     expect(session.key).toBe(`${view.id}/source/original.mp4`);
-    expect(session.checksums).toEqual({
-      1: '"etag-1"',
-      2: '"etag-2"',
-      3: '"etag-3"',
-    });
+    expect(Object.keys(session.checksums)).toHaveLength(11);
+    expect(session.checksums[11]).toBe('"etag-11"');
   });
 
   it('is not limited by the browser upload cap', async () => {

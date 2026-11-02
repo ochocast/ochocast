@@ -35,7 +35,7 @@ import { RecordingMergeDispatcher } from './infra/merge-jobs/recording-merge-dis
 import { PrepareRecordingUploadUsecase } from './domain/usecases/prepareRecordingUpload.usecase';
 import { PreparePublicationRequestUploadUsecase } from './domain/usecases/preparePublicationRequestUpload.usecase';
 import { UploadsModule } from 'src/videos/uploads/uploads.module';
-import { UploadsService } from 'src/videos/uploads/uploads.service';
+import { VideoUploadGateway } from './infra/gateways/video-upload.gateway';
 import { VideosModule } from 'src/videos/videos.module';
 import { TracksModule } from 'src/tracks/tracks.module';
 import { S3Module } from 'src/s3.module';
@@ -76,7 +76,7 @@ import { S3Module } from 'src/s3.module';
       useClass: PublicationRequestGateway,
     },
     // US-4 / US-6: recordings are published through a server-side copy.
-    { provide: 'VideoUploadGateway', useExisting: UploadsService },
+    { provide: 'VideoUploadGateway', useClass: VideoUploadGateway },
     StartRecordingUsecase,
     StopRecordingUsecase,
     CreateRecordingSegmentFromFileUsecase,
