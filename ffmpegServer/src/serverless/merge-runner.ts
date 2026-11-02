@@ -99,9 +99,10 @@ export class MergeRunner {
       await this.merger.remove(key);
       console.log(`Merge job ${jobId} deleted; removed its uploaded ${key}`);
     } catch (error) {
+      // One string, never a format: the job id and key come from the message.
+      const reason = error instanceof Error ? error.message : String(error);
       console.error(
-        `Merge job ${jobId} deleted; could not remove ${key}:`,
-        error instanceof Error ? error.message : String(error),
+        `Merge job ${jobId} deleted; could not remove ${key}: ${reason}`,
       );
     }
   }
