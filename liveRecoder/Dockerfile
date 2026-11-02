@@ -34,13 +34,8 @@ RUN mkdir -p /var/recordings
 ENV OUTPUT_DIR=/var/recordings
 ENV HTTP_PORT=8080
 
-# Environment variables for auto-publish (set these in production)
-# ENV BACKEND_PUBLIC_URL=https://api.example.com
-# ENV KEYCLOAK_TOKEN_URL=https://keycloak.example.com/realms/xxx/protocol/openid-connect/token
-# ENV KEYCLOAK_CLIENT_ID=nest-back
-# ENV KEYCLOAK_CLIENT_SECRET=your-secret
-# ENV RECORDING_USER_USERNAME=recorder
-# ENV RECORDING_USER_PASSWORD=your-password
+# Runtime configuration (see .env.example): RECORDING_SHARED_SECRET,
+# BACKEND_PUBLIC_URL and, on an SFU worker, RECORDER_SFU_URL.
 
 # Expose HTTP port
 EXPOSE 8080

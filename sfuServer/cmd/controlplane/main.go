@@ -126,20 +126,25 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 	}
 
 	workerBootstrap := bootstrap.WorkerConfig{
-		ImageTag:        os.Getenv("SFU_IMAGE_TAG"),
-		ControlPlaneURL: firstNonEmpty(os.Getenv("SFU_CONTROL_PLANE_URL"), os.Getenv("CONTROL_PLANE_URL")),
-		Registry:        os.Getenv("SFU_REGISTRY"),
-		RegistryUser:    os.Getenv("SFU_REGISTRY_USERNAME"),
-		RegistryPass:    os.Getenv("SFU_REGISTRY_PASSWORD"),
-		SFUPort:         getEnv("SFU_WORKER_PORT", "8090"),
-		ICERelayOnly:    envBool("ICE_RELAY_ONLY", true),
-		EnableICETCP:    envBool("ENABLE_ICE_TCP", false),
-		ICEUDPPortMin:   os.Getenv("ICE_UDP_PORT_MIN"),
-		ICEUDPPortMax:   os.Getenv("ICE_UDP_PORT_MAX"),
-		STUNServers:     os.Getenv("STUN_SERVERS"),
-		TURNServer:      os.Getenv("TURN_SERVER"),
-		TURNUsername:    os.Getenv("TURN_USERNAME"),
-		TURNPassword:    os.Getenv("TURN_PASSWORD"),
+		ImageTag:         os.Getenv("SFU_IMAGE_TAG"),
+		ControlPlaneURL:  firstNonEmpty(os.Getenv("SFU_CONTROL_PLANE_URL"), os.Getenv("CONTROL_PLANE_URL")),
+		Registry:         os.Getenv("SFU_REGISTRY"),
+		RegistryUser:     os.Getenv("SFU_REGISTRY_USERNAME"),
+		RegistryPass:     os.Getenv("SFU_REGISTRY_PASSWORD"),
+		SFUPort:          getEnv("SFU_WORKER_PORT", "8090"),
+		ICERelayOnly:     envBool("ICE_RELAY_ONLY", true),
+		EnableICETCP:     envBool("ENABLE_ICE_TCP", false),
+		ICEUDPPortMin:    os.Getenv("ICE_UDP_PORT_MIN"),
+		ICEUDPPortMax:    os.Getenv("ICE_UDP_PORT_MAX"),
+		STUNServers:      os.Getenv("STUN_SERVERS"),
+		TURNServer:       os.Getenv("TURN_SERVER"),
+		TURNUsername:     os.Getenv("TURN_USERNAME"),
+		TURNPassword:     os.Getenv("TURN_PASSWORD"),
+		BackendURL:       os.Getenv("BACKEND_URL"),
+		WebhookSecret:    os.Getenv("SFU_WEBHOOK_SECRET"),
+		RecorderImageTag: os.Getenv("SFU_RECORDER_IMAGE_TAG"),
+		RecordingSecret:  os.Getenv("RECORDING_SHARED_SECRET"),
+		RecorderPort:     os.Getenv("SFU_RECORDER_PORT"),
 	}
 	if err := workerBootstrap.Validate(); err != nil {
 		return fmt.Errorf("worker bootstrap config: %w", err)
@@ -158,6 +163,9 @@ func wireAutoscaler(cp *controlplane.ControlPlane) error {
 		},
 	})
 	cp.SetProvisioner(prov)
+	if workerBootstrap.RecorderImageTag != "" {
+		cp.SetRecorder(workerBootstrap.RecorderPortOrDefault(), workerBootstrap.RecordingSecret)
+	}
 	http.Handle("/metrics", prov.MetricsHandler())
 
 	ctx := context.Background()

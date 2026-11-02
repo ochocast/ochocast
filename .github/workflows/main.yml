@@ -364,7 +364,8 @@ jobs:
         needs.detect-changes.outputs.frontend_changed == 'true' ||
         needs.detect-changes.outputs.backend_changed == 'true' ||
         needs.detect-changes.outputs.sfu_controlplane_changed == 'true' ||
-        needs.detect-changes.outputs.sfu_worker_changed == 'true'
+        needs.detect-changes.outputs.sfu_worker_changed == 'true' ||
+        needs.detect-changes.outputs.live_recorder_changed == 'true'
       )
     steps:
       - name: Checkout ops repository
@@ -381,6 +382,7 @@ jobs:
           FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend_changed }}
           SFU_CONTROLPLANE_CHANGED: ${{ needs.detect-changes.outputs.sfu_controlplane_changed }}
           SFU_WORKER_CHANGED: ${{ needs.detect-changes.outputs.sfu_worker_changed }}
+          LIVE_RECORDER_CHANGED: ${{ needs.detect-changes.outputs.live_recorder_changed }}
           IMAGE_TAG: ${{ needs.detect-changes.outputs.image_tag }}
           VALUES_FILE: ops-architecture-lab/${{ needs.detect-changes.outputs.values_file }}
         with:
@@ -396,6 +398,10 @@ jobs:
             fi
             if [ "$SFU_WORKER_CHANGED" = "true" ]; then
               yq -i '.sfuControlPlane.workerImage.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+            fi
+            # The liveRecorder runs on each on-demand SFU worker, next to the SFU.
+            if [ "$LIVE_RECORDER_CHANGED" = "true" ]; then
+              yq -i '.sfuControlPlane.recorderImage.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
             fi
       - name: Create promotion pull request
         if: needs.detect-changes.outputs.dry_run != 'true'

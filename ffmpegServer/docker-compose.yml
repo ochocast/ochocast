@@ -22,3 +22,28 @@ services:
       FFMPEG_THREADS: 2
     extra_hosts:
       - host.docker.internal:host-gateway
+
+  # US-3 — Same image in merge mode, fed by the ochocast-local-merge queue.
+  ffmpeg-merge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8082:8080'
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      FFMPEG_WORKER_MODE: merge
+      TRANSCODING_BACKEND_URL: ${LOCAL_TRANSCODING_BACKEND_URL:-http://host.docker.internal:3001/api}
+      TRANSCODING_DISPATCH_SECRET: ${TRANSCODING_DISPATCH_SECRET:?Set TRANSCODING_DISPATCH_SECRET}
+      TRANSCODING_CALLBACK_SECRET: ${TRANSCODING_CALLBACK_SECRET:?Set TRANSCODING_CALLBACK_SECRET}
+      MINIO_ENDPOINT: host.docker.internal
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_USE_SSL: 'false'
+      STOCK_MEDIA_BUCKET: ${STOCK_MEDIA_BUCKET:-media}
+      STOCK_MINIATURE_BUCKET: ${STOCK_MINIATURE_BUCKET:-miniature}
+      FFMPEG_THREADS: 2
+    extra_hosts:
+      - host.docker.internal:host-gateway
