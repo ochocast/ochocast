@@ -11,6 +11,10 @@ import { parseMergeEnvelope } from './serverless/merge-envelope';
 import { MergeRunner } from './serverless/merge-runner';
 import { MergeService } from './services/merge.service';
 import { VideoTranscodingJob } from './types/job.types';
+import { RenderBackendClient } from './serverless/render-backend-client';
+import { parseRenderEnvelope } from './serverless/render-envelope';
+import { RenderRunner } from './serverless/render-runner';
+import { RenderService, renderFontFile } from './services/render.service';
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -148,31 +152,44 @@ function main() {
     throw new Error('Invalid TRANSCODING_JOB_TIMEOUT_MS (1000..3300000)');
   checkTranscodingSettings();
   const s3 = createS3Client();
-  // One image, two deployments: the transcoding container (default) and the
-  // merge container (US-3), each behind its own queue and trigger. A trigger
-  // always posts to the container root, so the mode is set by environment.
+  // One image, three deployments: the transcoding container (default), the
+  // merge container (US-3) and the montage render container, each behind its
+  // own queue and trigger. A trigger always posts to the container root, so
+  // the mode is set by environment.
   const mode = process.env.FFMPEG_WORKER_MODE || 'transcode';
-  if (mode !== 'transcode' && mode !== 'merge')
-    throw new Error('FFMPEG_WORKER_MODE must be transcode or merge');
+  if (mode !== 'transcode' && mode !== 'merge' && mode !== 'render')
+    throw new Error('FFMPEG_WORKER_MODE must be transcode, merge or render');
+  // A render without its font would fail every job with text: refuse to boot.
+  if (mode === 'render') renderFontFile();
   const { server, shutdown } =
-    mode === 'merge'
+    mode === 'render'
       ? createWorkerServer(
-          new MergeRunner(
-            new MergeBackendClient(backendUrl, callbackSecret),
-            new MergeService(s3),
+          new RenderRunner(
+            new RenderBackendClient(backendUrl, callbackSecret),
+            new RenderService(s3),
             timeoutMs,
           ),
           dispatchSecret,
-          { parse: parseMergeEnvelope, alias: '/merge' },
+          { parse: parseRenderEnvelope, alias: '/render' },
         )
-      : createWorkerServer(
-          new JobRunner(
-            new BackendClient(backendUrl, callbackSecret),
-            new JobProcessorService(s3),
-            timeoutMs,
-          ),
-          dispatchSecret,
-        );
+      : mode === 'merge'
+        ? createWorkerServer(
+            new MergeRunner(
+              new MergeBackendClient(backendUrl, callbackSecret),
+              new MergeService(s3),
+              timeoutMs,
+            ),
+            dispatchSecret,
+            { parse: parseMergeEnvelope, alias: '/merge' },
+          )
+        : createWorkerServer(
+            new JobRunner(
+              new BackendClient(backendUrl, callbackSecret),
+              new JobProcessorService(s3),
+              timeoutMs,
+            ),
+            dispatchSecret,
+          );
   server.listen(Number(process.env.PORT || 8080), '0.0.0.0', () =>
     console.log(`HTTP ${mode} worker listening`),
   );

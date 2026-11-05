@@ -20,7 +20,7 @@ RUN npm run build
 FROM node:22-alpine
 
 # Install FFmpeg and other runtime dependencies
-RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache ffmpeg font-dejavu
 
 WORKDIR /app
 

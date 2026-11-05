@@ -70,7 +70,7 @@ export const maxSourceBytes = (): number => {
 };
 
 /** Threads of each x264 encoder (FFMPEG_THREADS, default 2). */
-const ffmpegThreads = (): string => {
+export const ffmpegThreads = (): string => {
   const value = process.env.FFMPEG_THREADS || '2';
   if (!/^[1-9][0-9]*$/.test(value)) throw new Error('Invalid FFMPEG_THREADS');
   return value;

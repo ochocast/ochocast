@@ -92,3 +92,58 @@ export interface RecordingMergeResult {
    */
   permanent?: boolean;
 }
+
+/**
+ * Montage render (render worker). Kept in sync with
+ * backend/src/video-edits/domain/videoEditRenderJob.ts.
+ */
+
+/** Signed queue message: small, the full job comes with the claim. */
+export interface VideoEditRenderMessage {
+  jobId: string;
+  editId: string;
+  videoId: string;
+  version: number;
+  timestamp: number;
+}
+
+export type TextPosition = 'top' | 'center' | 'bottom';
+export type TextColor = 'white' | 'black' | 'green';
+
+export interface RenderTextLayer {
+  content: string;
+  position: TextPosition;
+  color: TextColor;
+  /** Seconds from the start of its segment. */
+  startOffset: number;
+  duration: number;
+}
+
+export interface RenderSegment {
+  /** Seconds in the source video. */
+  sourceStart: number;
+  sourceEnd: number;
+  textLayers: RenderTextLayer[];
+}
+
+export interface VideoEditRenderJob extends VideoEditRenderMessage {
+  /** Original file in the media bucket, read only. */
+  sourceKey: string;
+  /** `${videoId}/edits/${jobId}`: this render's own folder. */
+  outputPrefix: string;
+  /** In playback order. */
+  segments: RenderSegment[];
+}
+
+export interface VideoEditRenderResult {
+  jobId: string;
+  editId: string;
+  success: boolean;
+  duration: number;
+  /** `${outputPrefix}/master.m3u8` on success. */
+  mediaId?: string;
+  error?: string;
+  permanent?: boolean;
+  reason?: 'invalid_source' | 'source_too_large' | 'deadline_exceeded';
+  processedAt: number;
+}
