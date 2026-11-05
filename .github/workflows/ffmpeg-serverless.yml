@@ -13,6 +13,9 @@ on:
       - 'dev-tools/localMinio/Dockerfile.test'
       - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
+      - 'backend/src/video-edits/**'
+      - 'backend/tests/video-edits/**'
+      - 'backend/src/migrations/*VideoEdit*'
       - 'backend/package*.json'
       - '.github/workflows/ffmpeg-serverless.yml'
   push:
@@ -28,6 +31,9 @@ on:
       - 'dev-tools/localMinio/Dockerfile.test'
       - 'backend/scripts/**'
       - 'backend/src/migrations/*Transcoding*'
+      - 'backend/src/video-edits/**'
+      - 'backend/tests/video-edits/**'
+      - 'backend/src/migrations/*VideoEdit*'
       - 'backend/package*.json'
       - '.github/workflows/ffmpeg-serverless.yml'
   workflow_dispatch:
@@ -56,8 +62,23 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Its own database: both suites create video_entity, and each refuses
+      # a database that already has application tables.
+      postgres-video-edit:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: video_edit_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       TRANSCODING_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/transcoding_test
+      VIDEO_EDIT_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5433/video_edit_test
     defaults:
       run:
         working-directory: backend
@@ -103,7 +124,8 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: ffmpegServer/package-lock.json
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      # DejaVu: the font of the montage texts, as font-dejavu in the image.
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-dejavu-core
       - run: npm ci
       - run: npm run build
       - run: npm test
