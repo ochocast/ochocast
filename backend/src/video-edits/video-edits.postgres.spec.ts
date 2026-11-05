@@ -2,6 +2,8 @@ import { DataSource } from 'typeorm';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { CreateVideoEdits1793638092000 } from '../migrations/1793638092000-CreateVideoEdits';
+import { AddVideoEditRenderJobs1793891216000 } from '../migrations/1793891216000-AddVideoEditRenderJobs';
+import { AddTranscodingJobs1789574400000 } from '../migrations/1789574400000-AddTranscodingJobs';
 import { VideoEditGateway } from './infra/gateways/video-edit.gateway';
 import { SegmentInput } from './domain/videoEdit';
 
@@ -15,11 +17,16 @@ integration(
     let database: DataSource;
     let gateway: VideoEditGateway;
 
-    const migration = new CreateVideoEdits1793638092000();
+    const migrations = [
+      new AddTranscodingJobs1789574400000(),
+      new CreateVideoEdits1793638092000(),
+      new AddVideoEditRenderJobs1793891216000(),
+    ];
     const run = async (step: 'up' | 'down') => {
       const runner = database.createQueryRunner();
       try {
-        await migration[step](runner);
+        const ordered = step === 'up' ? migrations : [...migrations].reverse();
+        for (const migration of ordered) await migration[step](runner);
       } finally {
         await runner.release();
       }
@@ -154,11 +161,11 @@ integration(
       ).toEqual({ status: 'render_in_progress', renderStatus: 'pending' });
 
       // Failing a render that is no longer the pending one changes nothing.
-      await gateway.markRenderFailed(edit.id, 1, 'stale');
+      await gateway.abortRender(randomUUID(), edit.id, 1, 'stale');
       expect((await gateway.findByVideoId(videoId)).renderStatus).toBe(
         'pending',
       );
-      await gateway.markRenderFailed(edit.id, 2, 'queue down');
+      await gateway.abortRender(randomUUID(), edit.id, 2, 'queue down');
       expect(await gateway.findByVideoId(videoId)).toMatchObject({
         renderStatus: 'failed',
         renderError: 'queue down',
@@ -173,6 +180,86 @@ integration(
         status: 'ok',
         edit: { version: 3, renderError: null },
       });
+    });
+
+    it('registers the render job with the montage, and drops it when unpublished', async () => {
+      const videoId = await newVideo();
+      const edit = await gateway.create(videoId, montage);
+      const jobId = randomUUID();
+
+      await gateway.replaceContent(videoId, montage, {
+        expectedVersion: 1,
+        renderStatus: 'pending',
+        renderJob: { jobId, sourceKey: `${videoId}/source/original.mp4` },
+      });
+
+      const [job] = await database.query(
+        'SELECT * FROM "video_edit_render_job" WHERE "id" = $1',
+        [jobId],
+      );
+      expect(job).toMatchObject({
+        editId: edit.id,
+        version: 2,
+        status: 'pending',
+        attempts: 0,
+      });
+      expect(job.payload).toMatchObject({
+        jobId,
+        editId: edit.id,
+        videoId,
+        version: 2,
+        sourceKey: `${videoId}/source/original.mp4`,
+        outputPrefix: `${videoId}/edits/${jobId}`,
+        segments: [
+          {
+            sourceStart: 1270.25,
+            sourceEnd: 2205.5,
+            textLayers: [
+              { content: 'Merci !', position: 'center', color: 'green' },
+              { content: 'Partie 2' },
+            ],
+          },
+          { sourceStart: 120, sourceEnd: 870, textLayers: [] },
+        ],
+      });
+
+      await gateway.abortRender(jobId, edit.id, 2, 'queue down');
+      expect(
+        await database.query(
+          'SELECT 1 FROM "video_edit_render_job" WHERE "id" = $1',
+          [jobId],
+        ),
+      ).toEqual([]);
+      expect((await gateway.findByVideoId(videoId)).renderStatus).toBe(
+        'failed',
+      );
+    });
+
+    it('finds the original kept by transcoding, else a played source', async () => {
+      const kept = await newVideo();
+      await database.query(
+        `INSERT INTO "transcoding_job" ("id", "videoId", "payload")
+          VALUES ($1, $2, $3)`,
+        [
+          randomUUID(),
+          kept,
+          { originalKey: `${kept}/source/original.mov`, timestamp: 1 },
+        ],
+      );
+      expect(await gateway.findSourceKey(kept, `${kept}/master.m3u8`)).toBe(
+        `${kept}/source/original.mov`,
+      );
+      expect(
+        await gateway.findSourceKey(
+          await newVideo(),
+          'recordings/t/merged.mp4',
+        ),
+      ).toBe('recordings/t/merged.mp4');
+      // Only the HLS output is left.
+      const legacy = await newVideo();
+      expect(
+        await gateway.findSourceKey(legacy, `${legacy}/master.m3u8`),
+      ).toBeNull();
     });
 
     it('lets exactly one of two concurrent saves of a version through', async () => {

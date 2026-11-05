@@ -14,6 +14,9 @@ import {
 import { VideoEditEntity } from './entities/video-edit.entity';
 import { VideoEditSegmentEntity } from './entities/video-edit-segment.entity';
 import { VideoEditTextLayerEntity } from './entities/video-edit-text-layer.entity';
+import { VideoEditRenderJobEntity } from '../render-jobs/video-edit-render-job.entity';
+import { renditionPrefix } from '../../domain/videoEditRenderJob';
+import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
 
 const isDuplicateMontage = (error: unknown) =>
   error instanceof QueryFailedError &&
@@ -30,6 +33,7 @@ export function toVideoEditObject(entity: VideoEditEntity): VideoEditObject {
     renderStatus: entity.render_status,
     renderError: entity.render_error,
     renderedMediaId: entity.rendered_media_id,
+    renderedDuration: entity.rendered_duration,
     version: entity.version,
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
@@ -130,8 +134,42 @@ export class VideoEditGateway implements IVideoEditGateway {
         version: edit.version + 1,
         render_status: options.renderStatus,
         render_error: null,
-        ...(options.clearRenderedMedia ? { rendered_media_id: null } : {}),
+        ...(options.clearRenderedMedia
+          ? { rendered_media_id: null, rendered_duration: null }
+          : {}),
       });
+      if (options.renderJob) {
+        const { jobId, sourceKey } = options.renderJob;
+        // Same transaction: a pending montage always has its job, which the
+        // stale sweep fails if nothing ever runs it.
+        await manager.getRepository(VideoEditRenderJobEntity).insert({
+          id: jobId,
+          editId: edit.id,
+          version: edit.version + 1,
+          status: 'pending',
+          attempts: 0,
+          payload: {
+            jobId,
+            editId: edit.id,
+            videoId,
+            version: edit.version + 1,
+            timestamp: Date.now(),
+            sourceKey,
+            outputPrefix: renditionPrefix(videoId, jobId),
+            segments: segments.map((s) => ({
+              sourceStart: s.sourceStart,
+              sourceEnd: s.sourceEnd,
+              textLayers: (s.textLayers ?? []).map((l) => ({
+                content: l.content.trim(),
+                position: l.position,
+                color: l.color,
+                startOffset: l.startOffset,
+                duration: l.duration,
+              })),
+            })),
+          },
+        });
+      }
       return {
         status: 'ok' as const,
         edit: await this.findByVideoId(videoId, manager),
@@ -139,17 +177,41 @@ export class VideoEditGateway implements IVideoEditGateway {
     });
   }
 
-  async markRenderFailed(
+  async abortRender(
+    jobId: string,
     editId: string,
     version: number,
     error: string,
   ): Promise<void> {
-    await this.dataSource
-      .getRepository(VideoEditEntity)
-      .update(
-        { id: editId, version, render_status: 'pending' },
-        { render_status: 'failed', render_error: error },
-      );
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .getRepository(VideoEditRenderJobEntity)
+        .delete({ id: jobId });
+      await manager
+        .getRepository(VideoEditEntity)
+        .update(
+          { id: editId, version, render_status: 'pending' },
+          { render_status: 'failed', render_error: error },
+        );
+    });
+  }
+
+  async findSourceKey(
+    videoId: string,
+    mediaId: string,
+  ): Promise<string | null> {
+    // The multipart upload keeps its original for retries
+    // (`${videoId}/source/original.<ext>`): the job knows its key.
+    const job = await this.dataSource
+      .getRepository(TranscodingJobEntity)
+      .createQueryBuilder('job')
+      .where('job.videoId = :videoId', { videoId })
+      .orderBy("(job.payload->>'timestamp')::bigint", 'DESC')
+      .getOne();
+    if (job?.payload?.originalKey) return job.payload.originalKey;
+    // Played from its source (transcoding disabled, published recording).
+    if (mediaId && !mediaId.endsWith('/master.m3u8')) return mediaId;
+    return null;
   }
 
   private async insertContent(

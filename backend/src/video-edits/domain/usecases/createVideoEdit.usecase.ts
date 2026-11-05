@@ -5,6 +5,9 @@ import { IVideoEditGateway } from '../gateways/video-edits.gateway';
 import { editableDuration, getEditableVideo } from '../videoEditAccess';
 import { VideoEditObject } from '../videoEdit';
 
+export const NO_ORIGINAL =
+  'The original file of this video is not kept: it cannot be edited';
+
 /** Starts the montage of a video with one segment covering all of it. */
 @Injectable()
 export class CreateVideoEditUsecase {
@@ -28,6 +31,10 @@ export class CreateVideoEditUsecase {
       throw new ConflictException(
         'The video can be edited once it is processed and its duration known',
       );
+    }
+
+    if (!(await this.videoEditGateway.findSourceKey(videoId, video.media_id))) {
+      throw new ConflictException(NO_ORIGINAL);
     }
 
     const edit = await this.videoEditGateway.create(videoId, [

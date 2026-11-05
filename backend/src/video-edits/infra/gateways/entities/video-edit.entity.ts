@@ -34,6 +34,10 @@ export class VideoEditEntity {
   @Column({ type: 'varchar', nullable: true })
   rendered_media_id: string | null;
 
+  /** Seconds of the rendered version viewers get. */
+  @Column({ type: 'double precision', nullable: true })
+  rendered_duration: number | null;
+
   // Bumped by hand on each write, inside the row lock (optimistic locking).
   @Column({ type: 'integer', default: 1 })
   version: number;

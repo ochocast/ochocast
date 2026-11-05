@@ -21,7 +21,7 @@ describe('VideoEditsController (HTTP)', () => {
 
   let app: INestApplication;
   let stored: VideoEditObject | null;
-  let dispatcher: { enabled: boolean; dispatch: jest.Mock };
+  let dispatcher: { enabled: boolean; publish: jest.Mock };
 
   const validBody = () => ({
     version: 1,
@@ -53,6 +53,7 @@ describe('VideoEditsController (HTTP)', () => {
         renderStatus: 'draft',
         renderError: null,
         renderedMediaId: null,
+        renderedDuration: null,
         version: 1,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -88,11 +89,12 @@ describe('VideoEditsController (HTTP)', () => {
       };
       return { status: 'ok', edit: stored };
     }),
-    markRenderFailed: jest.fn(),
+    abortRender: jest.fn(),
+    findSourceKey: jest.fn(async (id: string) => `${id}/source/original.mp4`),
   };
 
   beforeAll(async () => {
-    dispatcher = { enabled: true, dispatch: jest.fn() };
+    dispatcher = { enabled: true, publish: jest.fn() };
     const moduleRef = await Test.createTestingModule({
       controllers: [VideoEditsController],
       providers: [
@@ -141,7 +143,7 @@ describe('VideoEditsController (HTTP)', () => {
   beforeEach(() => {
     stored = null;
     dispatcher.enabled = true;
-    dispatcher.dispatch.mockReset();
+    dispatcher.publish.mockReset();
   });
 
   const as = (user: { email: string }) => ({ 'x-test-user': user.email });
@@ -166,7 +168,7 @@ describe('VideoEditsController (HTTP)', () => {
     expect(saved.body.segments.map((s) => s.sourceStart)).toEqual([1270, 120]);
     // Omitted text layers default to none.
     expect(saved.body.segments[1].textLayers).toEqual([]);
-    expect(dispatcher.dispatch).toHaveBeenCalledWith(
+    expect(dispatcher.publish).toHaveBeenCalledWith(
       expect.objectContaining({ videoId, version: 2 }),
     );
 

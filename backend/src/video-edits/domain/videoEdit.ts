@@ -109,6 +109,13 @@ export class VideoEditObject {
   renderedMediaId: string | null;
 
   @ApiProperty({
+    required: false,
+    nullable: true,
+    description: 'Seconds of the rendered version viewers get.',
+  })
+  renderedDuration: number | null;
+
+  @ApiProperty({
     example: 1,
     description: 'Send it back with PUT: a stale version is refused (409).',
   })

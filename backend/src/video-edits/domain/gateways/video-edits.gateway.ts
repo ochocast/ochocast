@@ -13,6 +13,8 @@ export interface ReplaceContentOptions {
   renderStatus: RenderStatus;
   /** Drops the rendered version: viewers get the original back. */
   clearRenderedMedia?: boolean;
+  /** Registers the render job of the new version in the same transaction. */
+  renderJob?: { jobId: string; sourceKey: string };
 }
 
 export interface IVideoEditGateway {
@@ -31,10 +33,20 @@ export interface IVideoEditGateway {
     segments: SegmentInput[],
     options: ReplaceContentOptions,
   ): Promise<ReplaceContentResult>;
-  /** Marks the render of `version` failed, if it is still the pending one. */
-  markRenderFailed(
+  /**
+   * The job could not be published: deletes it and fails the render of
+   * `version`, if that is still the pending one.
+   */
+  abortRender(
+    jobId: string,
     editId: string,
     version: number,
     error: string,
   ): Promise<void>;
+  /**
+   * The original file to render from, never modified: the upload kept by
+   * transcoding, else a video played from its source. Null when only the
+   * HLS output is left.
+   */
+  findSourceKey(videoId: string, mediaId: string): Promise<string | null>;
 }

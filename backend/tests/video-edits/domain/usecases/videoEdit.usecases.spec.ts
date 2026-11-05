@@ -52,6 +52,7 @@ describe('Video edit use cases', () => {
     renderStatus: 'draft',
     renderError: null,
     renderedMediaId: null,
+    renderedDuration: null,
     version: 1,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -66,9 +67,10 @@ describe('Video edit use cases', () => {
     findByVideoId: jest.Mock;
     create: jest.Mock;
     replaceContent: jest.Mock;
-    markRenderFailed: jest.Mock;
+    abortRender: jest.Mock;
+    findSourceKey: jest.Mock;
   };
-  let dispatcher: { enabled: boolean; dispatch: jest.Mock };
+  let dispatcher: { enabled: boolean; publish: jest.Mock };
 
   beforeEach(() => {
     video = {
@@ -98,9 +100,12 @@ describe('Video edit use cases', () => {
         status: 'ok',
         edit: edit({ version: 2, renderStatus: 'pending' }),
       }),
-      markRenderFailed: jest.fn(),
+      abortRender: jest.fn(),
+      findSourceKey: jest
+        .fn()
+        .mockResolvedValue(`${videoId}/source/original.mp4`),
     };
-    dispatcher = { enabled: true, dispatch: jest.fn() };
+    dispatcher = { enabled: true, publish: jest.fn() };
   });
 
   const create = () =>
@@ -176,6 +181,18 @@ describe('Video edit use cases', () => {
       expect(editGateway.create).not.toHaveBeenCalled();
     });
 
+    it('refuses a video whose original is not kept with 409', async () => {
+      editGateway.findSourceKey.mockResolvedValue(null);
+      await expect(create().execute(videoId, creator.email)).rejects.toThrow(
+        'The original file of this video is not kept',
+      );
+      expect(editGateway.findSourceKey).toHaveBeenCalledWith(
+        videoId,
+        video.media_id,
+      );
+      expect(editGateway.create).not.toHaveBeenCalled();
+    });
+
     it('refuses a second montage with 409', async () => {
       editGateway.create.mockResolvedValue(null);
       await expect(create().execute(videoId, creator.email)).rejects.toThrow(
@@ -217,10 +234,21 @@ describe('Video edit use cases', () => {
         {
           expectedVersion: 1,
           renderStatus: 'pending',
+          renderJob: {
+            jobId: expect.any(String),
+            sourceKey: `${videoId}/source/original.mp4`,
+          },
         },
       );
-      expect(dispatcher.dispatch).toHaveBeenCalledWith(
-        expect.objectContaining({ editId: 'edit-id', videoId, version: 2 }),
+      const { jobId } = editGateway.replaceContent.mock.calls[0][2].renderJob;
+      // The message published is the job registered with the montage.
+      expect(dispatcher.publish).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jobId,
+          editId: 'edit-id',
+          videoId,
+          version: 2,
+        }),
       );
       expect(saved).toMatchObject({ version: 2, renderStatus: 'pending' });
     });
@@ -266,9 +294,17 @@ describe('Video edit use cases', () => {
           .catch((e) => e);
         expect(error).toBeInstanceOf(ConflictException);
         expect(error.message).toContain(message);
-        expect(dispatcher.dispatch).not.toHaveBeenCalled();
+        expect(dispatcher.publish).not.toHaveBeenCalled();
       },
     );
+
+    it('answers 409 without writing when the original is gone', async () => {
+      editGateway.findSourceKey.mockResolvedValue(null);
+      await expect(
+        save().execute(videoId, 1, segments, creator.email),
+      ).rejects.toThrow(ConflictException);
+      expect(editGateway.replaceContent).not.toHaveBeenCalled();
+    });
 
     it('answers 404 when the montage was never created', async () => {
       editGateway.replaceContent.mockResolvedValue({ status: 'not_found' });
@@ -278,11 +314,13 @@ describe('Video edit use cases', () => {
     });
 
     it('marks the render failed when it cannot be queued', async () => {
-      dispatcher.dispatch.mockRejectedValue(new Error('queue down'));
+      dispatcher.publish.mockRejectedValue(new Error('queue down'));
       await expect(
         save().execute(videoId, 1, segments, creator.email),
       ).rejects.toThrow(ServiceUnavailableException);
-      expect(editGateway.markRenderFailed).toHaveBeenCalledWith(
+      const { jobId } = editGateway.replaceContent.mock.calls[0][2].renderJob;
+      expect(editGateway.abortRender).toHaveBeenCalledWith(
+        jobId,
         'edit-id',
         2,
         'The render could not be started',

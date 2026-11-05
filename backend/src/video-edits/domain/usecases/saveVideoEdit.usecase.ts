@@ -15,6 +15,7 @@ import {
   ReplaceContentResult,
 } from '../gateways/video-edits.gateway';
 import { IVideoEditRenderDispatcher } from '../gateways/render-dispatcher.gateway';
+import { NO_ORIGINAL } from './createVideoEdit.usecase';
 import { editableDuration, getEditableVideo } from '../videoEditAccess';
 import { validateEditContent } from '../videoEditRules';
 import { SegmentInput, VideoEditObject } from '../videoEdit';
@@ -82,24 +83,33 @@ export class SaveVideoEditUsecase {
     if (errors.length > 0) throw new BadRequestException(errors);
 
     // Checked before writing: the montage must not wait for a render that
-    // nothing will run.
+    // nothing will run (no render queue on this environment).
     if (!this.renderDispatcher.enabled) {
       throw new ServiceUnavailableException(
         'Video rendering is not available on this environment',
       );
     }
 
+    const sourceKey = await this.videoEditGateway.findSourceKey(
+      videoId,
+      video.media_id,
+    );
+    if (!sourceKey) throw new ConflictException(NO_ORIGINAL);
+
+    // The job is registered with the montage, in its transaction.
+    const jobId = randomUUID();
     const edit = assertReplaced(
       await this.videoEditGateway.replaceContent(videoId, segments, {
         expectedVersion: version,
         renderStatus: 'pending',
+        renderJob: { jobId, sourceKey },
       }),
       videoId,
     );
 
     try {
-      await this.renderDispatcher.dispatch({
-        jobId: randomUUID(),
+      await this.renderDispatcher.publish({
+        jobId,
         editId: edit.id,
         videoId,
         version: edit.version,
@@ -109,7 +119,8 @@ export class SaveVideoEditUsecase {
       // Saved but not queued: failed lets the user edit and save again.
       const message = 'The render could not be started';
       this.logger.error(`${message} for montage ${edit.id}: ${error}`);
-      await this.videoEditGateway.markRenderFailed(
+      await this.videoEditGateway.abortRender(
+        jobId,
         edit.id,
         edit.version,
         message,
