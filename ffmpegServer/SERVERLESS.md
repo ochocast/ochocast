@@ -16,6 +16,7 @@ La plateforme peut réduire à zéro le nombre d'instances inactives. Le serveur
 - `ffmpegServer/src/services/job-processor.service.ts` : téléchargement en flux vers le disque, transcodage et checkpoint S3.
 - `.github/workflows/ffmpeg-serverless.yml` : tests, construction `linux/amd64` et publication de l'image.
 - `backend/src/recording/infra/merge-jobs/` et `ffmpegServer/src/serverless/merge-*.ts` : fusion des enregistrements (US-3), voir plus bas.
+- `backend/src/video-edits/infra/render-jobs/`, `ffmpegServer/src/serverless/render-*.ts` et `ffmpegServer/src/services/render.service.ts` : rendu des montages vidéo, voir « Rendu des montages ».
 
 Les ressources Scaleway, secrets d'environnement et déploiements restent dans `ops-architecture-lab`.
 Le workflow existant de promotion frontend/backend n'est pas un déploiement de FFmpeg. L'image FFmpeg est publiée séparément ; son digest doit être renseigné dans le staging ops.
@@ -283,3 +284,60 @@ Container de fusion : mêmes variables que le container de transcodage, plus `FF
 Un montage au-delà de cette limite échoue aussitôt et définitivement, sans rien télécharger. Une limite trop haute coûte plus cher : l'échéance est un échec transitoire, rejoué jusqu'à `RECORDING_MERGE_MAX_ATTEMPTS` fois (jusqu'à 5 × 55 min de calcul) avant que le montage passe `failed`. Les paramètres d'encodage de la normalisation sont fixes ; seuls la taille du container, son disque et `FFMPEG_THREADS` se règlent. En mode fusion, `FFMPEG_THREADS` s'applique à l'**unique** encodeur x264 de chaque normalisation : ne pas reprendre la valeur du transcodage (4, prévue pour trois encodeurs) ; l'omettre laisse x264 utiliser tous les vCPU.
 
 En local : `ffmpegServer/docker-compose.yml` démarre aussi `ffmpeg-merge` (port 8082) et ElasticMQ crée la queue `ochocast-local-merge`. Avec le provider `local`, renseigner `RECORDING_MERGE_QUEUE_URL=http://127.0.0.1:9324/000000000000/ochocast-local-merge` ; le backend relaie alors chaque message vers `LOCAL_MERGE_BRIDGE_WORKER_URL` (défaut `http://127.0.0.1:8082/`).
+
+## Rendu des montages
+
+Le rendu des montages vidéo (`docs/docs/documentation/utilisation/04-montage-video.md`) utilise **la même image**, déployée une troisième fois avec `FFMPEG_WORKER_MODE=render`, derrière **sa propre queue et son propre trigger**, comme la fusion. Un rendu long ne retarde ainsi ni le transcodage des uploads ni les fusions.
+
+Parcours : `PUT /api/videos/:id/edit → queue de rendu → trigger → FFmpeg (mode render) → S3 + callbacks /api/internal/video-edits/render-jobs/:id/claim|result`.
+
+- Le message est petit et signé comme les autres (HMAC de `JSON.stringify(job)` avec `TRANSCODING_DISPATCH_SECRET`) : `jobId`, `editId`, `videoId`, `version`, `timestamp`. La description complète (fichier original, passages, textes, dossier de sortie) arrive dans la réponse au `claim`, car 100 passages × 10 textes dépasseraient la limite de 64 KiB du message. Les callbacks utilisent `X-Transcoding-Token` (`TRANSCODING_CALLBACK_SECRET`).
+- Le worker lit l'original (jamais modifié), découpe chaque passage dans l'ordre de lecture vers un canevas 1280×720 à 30 i/s avec ses textes (`drawtext`, police DejaVu Sans Bold fournie par le paquet `font-dejavu` de l'image), concatène, puis encode la même échelle HLS que le transcodage dans `<videoId>/edits/<jobId>/`, `master.m3u8` en dernier. Un point de reprise `_result.json` évite un second rendu si le callback se perd.
+- Verrou et résultat : table `video_edit_render_job`, même modèle que `recording_merge_job`. Le job est enregistré dans la même transaction que le montage. Un job dont la version n'est plus celle du montage n'est jamais exécuté (`claim` répond `completed`).
+- Échecs : **définitif** pour un original introuvable ou illisible, une source au-delà de `TRANSCODING_MAX_SOURCE_BYTES`, ou l'échéance `TRANSCODING_JOB_TIMEOUT_MS` atteinte une fois l'encodage commencé (le résultat porte `permanent: true`, le message est acquitté). **Transitoire** sinon : le job repasse `pending` et le worker répond `503` pour que la queue rejoue. Après `VIDEO_EDIT_RENDER_MAX_ATTEMPTS` acquisitions (3), le montage passe `failed`. Sans activité pendant `VIDEO_EDIT_RENDER_STALE_SECONDS` (3 × le bail), par exemple après un départ en DLQ, le backend passe le job et le montage `failed`.
+- Vidéo supprimée pendant un rendu : le callback répond `410`, le worker supprime les fichiers envoyés puis acquitte.
+- Les fichiers d'un rendu que plus personne ne lit (remplacé, échoué, retour à l'original) sont supprimés par le backend 24 h après la fin du job (`VIDEO_EDIT_RENDER_ORPHAN_GRACE_SECONDS`).
+
+### À créer dans ops-architecture-lab
+
+1. **Queue** standard dédiée au rendu, avec une file d'échec (DLQ) et une alerte. Visibilité de **3900 s** (supérieure au timeout HTTP du container), `max_receive_count` comme pour la fusion.
+2. **Credentials** : publication sur cette queue pour le backend (ou réutilisation des clés `TRANSCODING_QUEUE_*`), consommation pour le trigger.
+3. **Container** depuis la même image FFmpeg (le digest qui contient le mode `render` et `font-dejavu`), port `8080`, probe `GET /health`, disque éphémère monté sur `/work/transcoding`.
+4. **Trigger** Queues → `POST /` du container de rendu.
+5. **Autoscaling** : concurrence **1**, minimum **0**, maximum à mesurer (2 en staging pour commencer).
+6. **Timeouts** : HTTP **3300 s**, `TRANSCODING_JOB_TIMEOUT_MS=3000000`, bail backend `VIDEO_EDIT_RENDER_LEASE_SECONDS=3600` (le bail doit dépasser le timeout du job d'au moins 30 s).
+7. **Logs et alertes** : DLQ, jobs `failed`, âge des messages, saturation disque/RAM.
+
+Variables du **container de rendu** : les mêmes que le container de transcodage (section « Configuration du container FFmpeg ») plus :
+
+```dotenv
+FFMPEG_WORKER_MODE=render
+# Optionnel : police des textes (défaut : DejaVu Sans Bold de l'image)
+# FFMPEG_FONT_FILE=/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf
+```
+
+Le worker en mode `render` refuse de démarrer sans police. `TRANSCODING_EXTRACT_AUDIO` et `TRANSCODING_MAX_DURATION_SECONDS` ne s'appliquent pas au rendu ; la durée est bornée côté backend par `VIDEO_EDIT_MAX_DURATION_SECONDS`.
+
+Variables du **backend** :
+
+```dotenv
+VIDEO_EDIT_RENDER_QUEUE_URL=<URL de la queue de rendu créée par ops>
+# Optionnel, sinon TRANSCODING_QUEUE_ACCESS_KEY / SECRET_KEY
+VIDEO_EDIT_RENDER_QUEUE_ACCESS_KEY=<clé de publication de la queue de rendu>
+VIDEO_EDIT_RENDER_QUEUE_SECRET_KEY=<secret de publication de la queue de rendu>
+VIDEO_EDIT_RENDER_LEASE_SECONDS=3600
+# Optionnels (valeurs par défaut)
+VIDEO_EDIT_RENDER_MAX_ATTEMPTS=3
+VIDEO_EDIT_RENDER_STALE_SECONDS=10800
+VIDEO_EDIT_RENDER_ORPHAN_GRACE_SECONDS=86400
+VIDEO_EDIT_MAX_DURATION_SECONDS=1800
+```
+
+Sans `VIDEO_EDIT_RENDER_QUEUE_URL`, ou avec `TRANSCODING_QUEUE_PROVIDER` autre que `scaleway`/`local`, le rendu est désactivé : `PUT /api/videos/:id/edit` répond `503` sans rien enregistrer. Déployer le backend (migration `1793891216000-AddVideoEditRenderJobs`) avant de publier des messages dans la queue de rendu.
+
+### Dimensionner le déploiement de rendu
+
+- **Disque** : l'original entier, puis les passages découpés (720p, CRF 18), la vidéo assemblée et les trois rendus HLS. Prévoir au moins 3 fois la taille de l'original.
+- **Temps** : deux encodages, celui des passages puis celui des trois rendus HLS, doivent tenir dans `TRANSCODING_JOB_TIMEOUT_MS` (55 min au plus). La limite provisoire de 30 min de vidéo montée est à confirmer par une mesure en staging sur le vrai container. `FFMPEG_THREADS` s'applique à l'encodeur unique de chaque passage puis à chacun des trois encodeurs HLS.
+
+En local : `ffmpegServer/docker-compose.yml` démarre aussi `ffmpeg-render` (port 8084) et ElasticMQ crée la queue `ochocast-local-render`. Avec le provider `local`, renseigner `VIDEO_EDIT_RENDER_QUEUE_URL=http://127.0.0.1:9324/000000000000/ochocast-local-render` ; le backend relaie alors chaque message vers `LOCAL_RENDER_BRIDGE_WORKER_URL` (défaut `http://127.0.0.1:8084/`).
