@@ -35,12 +35,13 @@ describe('validateEditContent', () => {
     expect(validateEditContent(mockup, duration, 3600)).toEqual([]);
   });
 
-  it('caps the edited video at 30 minutes by default', () => {
-    // 36:35 in the mockup: over the provisional cap.
-    expect(validateEditContent(mockup, duration)).toEqual([
-      'The edited video lasts 2195s, more than the 1800s allowed',
+  it('caps the edited video at 45 minutes by default', () => {
+    // 36:35 in the mockup: within the provisional cap.
+    expect(validateEditContent(mockup, duration)).toEqual([]);
+    expect(validateEditContent([segment(0, 2700)], duration)).toEqual([]);
+    expect(validateEditContent([segment(0, 2701)], duration)).toEqual([
+      'The edited video lasts 2701s, more than the 2700s allowed',
     ]);
-    expect(validateEditContent([segment(0, 1800)], duration)).toEqual([]);
   });
 
   describe('maxEditedDuration', () => {

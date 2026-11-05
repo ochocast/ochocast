@@ -330,7 +330,7 @@ VIDEO_EDIT_RENDER_LEASE_SECONDS=3600
 VIDEO_EDIT_RENDER_MAX_ATTEMPTS=3
 VIDEO_EDIT_RENDER_STALE_SECONDS=10800
 VIDEO_EDIT_RENDER_ORPHAN_GRACE_SECONDS=86400
-VIDEO_EDIT_MAX_DURATION_SECONDS=1800
+VIDEO_EDIT_MAX_DURATION_SECONDS=2700
 ```
 
 Sans `VIDEO_EDIT_RENDER_QUEUE_URL`, ou avec `TRANSCODING_QUEUE_PROVIDER` autre que `scaleway`/`local`, le rendu est désactivé : `PUT /api/videos/:id/edit` répond `503` sans rien enregistrer. Déployer le backend (migration `1793891216000-AddVideoEditRenderJobs`) avant de publier des messages dans la queue de rendu.
@@ -338,6 +338,6 @@ Sans `VIDEO_EDIT_RENDER_QUEUE_URL`, ou avec `TRANSCODING_QUEUE_PROVIDER` autre q
 ### Dimensionner le déploiement de rendu
 
 - **Disque** : l'original entier, puis les passages découpés (720p, CRF 18), la vidéo assemblée et les trois rendus HLS. Prévoir au moins 3 fois la taille de l'original.
-- **Temps** : deux encodages, celui des passages puis celui des trois rendus HLS, doivent tenir dans `TRANSCODING_JOB_TIMEOUT_MS` (55 min au plus). La limite provisoire de 30 min de vidéo montée est à confirmer par une mesure en staging sur le vrai container. `FFMPEG_THREADS` s'applique à l'encodeur unique de chaque passage puis à chacun des trois encodeurs HLS.
+- **Temps** : deux encodages, celui des passages puis celui des trois rendus HLS, doivent tenir dans `TRANSCODING_JOB_TIMEOUT_MS` (55 min au plus). La limite provisoire de 45 min de vidéo montée (`VIDEO_EDIT_MAX_DURATION_SECONDS=2700`) est à confirmer par une mesure en préproduction sur le vrai container : deux encodages de 45 min doivent tenir en 55 min. `FFMPEG_THREADS` s'applique à l'encodeur unique de chaque passage puis à chacun des trois encodeurs HLS.
 
 En local : `ffmpegServer/docker-compose.yml` démarre aussi `ffmpeg-render` (port 8084) et ElasticMQ crée la queue `ochocast-local-render`. Avec le provider `local`, renseigner `VIDEO_EDIT_RENDER_QUEUE_URL=http://127.0.0.1:9324/000000000000/ochocast-local-render` ; le backend relaie alors chaque message vers `LOCAL_RENDER_BRIDGE_WORKER_URL` (défaut `http://127.0.0.1:8084/`).

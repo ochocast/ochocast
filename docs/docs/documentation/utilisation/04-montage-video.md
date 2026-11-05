@@ -82,7 +82,7 @@ Toutes les durées sont en secondes.
 
 - La vidéo doit être traitée (`transcoding_status = ready`) et sa durée connue.
 - Le fichier original doit être conservé (voir « Vidéos sans original » ci-dessous).
-- La vidéo montée dure au plus `VIDEO_EDIT_MAX_DURATION_SECONDS` (30 minutes par défaut, valeur provisoire) pour tenir dans le délai du worker. Le montage initial d'une vidéo plus longue (la vidéo entière) doit donc être raccourci avant d'être enregistré.
+- La vidéo montée dure au plus `VIDEO_EDIT_MAX_DURATION_SECONDS` (2700 s, soit 45 minutes par défaut ; valeur provisoire, à confirmer par une mesure en préproduction) pour tenir dans le délai du worker. Le montage initial d'une vidéo plus longue (la vidéo entière) doit donc être raccourci avant d'être enregistré.
 - Un montage compte de 1 à 100 passages. Chaque passage dure au moins 1 s et reste dans la durée de la vidéo.
 - Un même passage de la source ne peut apparaître qu'une fois : deux passages ne se chevauchent pas dans la source. Des passages bout à bout sont acceptés.
 - Un passage porte au plus 10 textes. Chaque texte compte de 1 à 500 caractères, tient sur 3 lignes de 40 caractères (retour à la ligne entre les mots) et se termine dans son passage. Les textes d'un même passage peuvent se superposer dans le temps.

@@ -8,7 +8,7 @@ import { TEXT_LINE_LENGTH, TEXT_MAX_LINES, wrapText } from './textWrap';
 
 /** Longest edited video the worker renders within its deadline (seconds). */
 export function maxEditedDuration(): number {
-  const value = Number(process.env.VIDEO_EDIT_MAX_DURATION_SECONDS || 1800);
+  const value = Number(process.env.VIDEO_EDIT_MAX_DURATION_SECONDS || 2700);
   if (!Number.isFinite(value) || value < 1) {
     throw new Error('VIDEO_EDIT_MAX_DURATION_SECONDS must be a number >= 1');
   }
