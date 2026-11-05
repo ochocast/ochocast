@@ -92,6 +92,13 @@ export const updateTrack = (trackId, track) =>
   api.put('/tracks/' + trackId, track);
 export const closeTrack = (trackId) => api.put('/tracks/' + trackId + '/close');
 export const deleteTrack = (trackId) => api.delete('/tracks/' + trackId);
+// Live room of a track (stream key, WHIP URL): speakers and the event's creator only.
+export const openLiveRoom = (trackId) =>
+  api.post('/tracks/' + trackId + '/live-room');
+export const getLiveRoom = (trackId) =>
+  api.get('/tracks/' + trackId + '/live-room');
+export const getLiveRoomStatus = (trackId) =>
+  api.get('/tracks/' + trackId + '/live-room/status');
 
 // Videos
 export const createVideo = (formData) => api.post('/videos/', formData);

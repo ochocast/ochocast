@@ -30,6 +30,9 @@ type WorkerConfig struct {
 	TURNServer      string
 	TURNUsername    string
 	TURNPassword    string
+	// ControlToken is SFU_CONTROL_TOKEN: the worker presents it to the control plane
+	// and requires it from callers.
+	ControlToken string
 	// US-5: the worker notifies the backend when a live starts or stops, so
 	// armed tracks are recorded automatically.
 	BackendURL    string
@@ -134,6 +137,7 @@ func (c WorkerConfig) Render(sfuID, roomID string) string {
 		{"TURN_SERVER", c.TURNServer},
 		{"TURN_USERNAME", c.TURNUsername},
 		{"TURN_PASSWORD", c.TURNPassword},
+		{"SFU_CONTROL_TOKEN", c.ControlToken},
 		{"BACKEND_URL", c.BackendURL},
 		{"SFU_WEBHOOK_SECRET", c.WebhookSecret},
 		{"RECORDER_IMAGE_TAG", c.RecorderImageTag},

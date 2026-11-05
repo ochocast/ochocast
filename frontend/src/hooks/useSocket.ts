@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useAuth } from 'react-oidc-context';
 import getEnv from '../utils/env';
 
 interface UseSocketProps {
@@ -25,6 +26,13 @@ export interface ChatMessage {
 }
 
 export const useSocket = ({ trackId, username }: UseSocketProps) => {
+  const auth = useAuth();
+  // OIDC is the source of truth, including on public pages and before the
+  // asynchronous backend-user lookup has populated localStorage.
+  const accessToken =
+    auth.isAuthenticated && !auth.user?.expired
+      ? auth.user?.access_token
+      : undefined;
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -38,6 +46,9 @@ export const useSocket = ({ trackId, username }: UseSocketProps) => {
     // Create socket connection
     const newSocket = io(wsUrl, {
       transports: ['websocket', 'polling'],
+      // Recreate the socket when the OIDC identity changes; anonymous users
+      // still connect for read-only chat and public polls.
+      auth: (cb) => cb({ token: accessToken }),
     });
 
     newSocket.on('connect', () => {
@@ -176,7 +187,7 @@ export const useSocket = ({ trackId, username }: UseSocketProps) => {
         newSocket.disconnect();
       }
     };
-  }, [trackId, username]);
+  }, [trackId, username, accessToken]);
 
   const sendMessage = useCallback(
     (message: string, userId: string) => {

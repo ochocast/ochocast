@@ -24,12 +24,13 @@ import (
 
 	"whip-server/internal/lifecycle"
 	"whip-server/internal/models"
+	"whip-server/pkg/controlauth"
 )
 
 // Global HTTP client with connection pooling and keep-alive
 var httpClient = &http.Client{
 	Timeout: 5 * time.Second,
-	Transport: &http.Transport{
+	Transport: controlauth.Wrap(&http.Transport{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
 		MaxConnsPerHost:     10,
@@ -40,13 +41,13 @@ var httpClient = &http.Client{
 		TLSHandshakeTimeout:   10 * time.Second,
 		DisableKeepAlives:     false,
 		ResponseHeaderTimeout: 5 * time.Second,
-	},
+	}),
 }
 
 // Global HTTP client for longer operations (cascade setup)
 var httpClientLong = &http.Client{
 	Timeout: 30 * time.Second,
-	Transport: &http.Transport{
+	Transport: controlauth.Wrap(&http.Transport{
 		MaxIdleConns:        50,
 		MaxIdleConnsPerHost: 5,
 		MaxConnsPerHost:     5,
@@ -57,7 +58,7 @@ var httpClientLong = &http.Client{
 		TLSHandshakeTimeout:   10 * time.Second,
 		DisableKeepAlives:     false,
 		ResponseHeaderTimeout: 30 * time.Second,
-	},
+	}),
 }
 
 // Goroutine semaphore for controlling concurrency
@@ -202,6 +203,12 @@ type SFUInfo struct {
 	Metrics       *models.SFUMetrics
 	LastHeartbeat time.Time
 	Active        bool
+}
+
+// draining reports whether the worker announced its shutdown: it keeps its current
+// lives and viewers but receives no new room, relay or viewer placement.
+func (s *SFUInfo) draining() bool {
+	return s.Metrics != nil && s.Metrics.Draining
 }
 
 type operatorSFUStatus struct {
@@ -840,6 +847,9 @@ func (cp *ControlPlane) JoinHost(req *models.JoinHostRequest, currentSFUID strin
 // candidates stop taking new rooms while still serving their current one
 // (task 5.5). SFUs with no worker record (statically-run SFUs) always accept.
 func (cp *ControlPlane) acceptsNewRooms(sfuID string) bool {
+	if sfu, ok := cp.sfus[sfuID]; ok && sfu.draining() {
+		return false // the worker announced its shutdown in a heartbeat
+	}
 	if cp.roomState == nil {
 		return true
 	}
@@ -926,7 +936,7 @@ func (cp *ControlPlane) selectOptimalViewerSFU(roomID, currentSFUID string) stri
 	topology := cp.rooms[roomID]
 
 	// First, check if current SFU can handle it
-	if currentSFU, ok := cp.sfus[currentSFUID]; ok && currentSFU.Active {
+	if currentSFU, ok := cp.sfus[currentSFUID]; ok && currentSFU.Active && !currentSFU.draining() {
 		if currentSFU.Metrics != nil {
 			load := (currentSFU.Metrics.CPU + currentSFU.Metrics.Memory) / 2.0
 			if load < 0.8 { // If current SFU has capacity
@@ -952,6 +962,9 @@ func (cp *ControlPlane) selectOptimalViewerSFU(roomID, currentSFUID string) stri
 			// Prefer nodes with fewer viewers
 			score -= float64(sfu.Metrics.ActiveViewers) / 1000.0
 		}
+		if sfu.draining() {
+			score -= 10 // last resort: any worker that is not shutting down comes first
+		}
 
 		if score > bestScore {
 			bestScore = score
@@ -962,7 +975,7 @@ func (cp *ControlPlane) selectOptimalViewerSFU(roomID, currentSFUID string) stri
 	// If no good SFU in topology, consider adding a new one
 	if bestScore < 0.5 {
 		for sfuID, sfu := range cp.sfus {
-			if !sfu.Active {
+			if !sfu.Active || sfu.draining() {
 				continue
 			}
 			if _, inTopology := topology.Nodes[sfuID]; inTopology {
@@ -1027,7 +1040,7 @@ func (cp *ControlPlane) createRelayNode(roomID string, topology *models.RoomTopo
 	// Take read lock to find best SFU and get origin info
 	cp.mu.RLock()
 	for sfuID, sfu := range cp.sfus {
-		if !sfu.Active {
+		if !sfu.Active || sfu.draining() {
 			continue
 		}
 		// Skip SFUs already in topology (including ingestion)
@@ -1763,6 +1776,7 @@ func (cp *ControlPlane) HandleWHIP(w http.ResponseWriter, r *http.Request) {
 
 	// Create reverse proxy
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Transport = controlauth.Wrap(nil)
 
 	// Custom director to preserve original request details
 	originalDirector := proxy.Director
@@ -1860,6 +1874,7 @@ func (cp *ControlPlane) HandleWHIPResource(w http.ResponseWriter, r *http.Reques
 	targetURL.RawQuery = ""
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
+	proxy.Transport = controlauth.Wrap(nil)
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
@@ -2119,6 +2134,7 @@ func (cp *ControlPlane) HandleViewer(w http.ResponseWriter, r *http.Request) {
 
 		log.Printf("[CP-VIEWER] Proxying viewer SDP for room %s to SFU %s", roomID, targetSFUID)
 		proxy := httputil.NewSingleHostReverseProxy(target)
+		proxy.Transport = controlauth.Wrap(nil)
 		originalDirector := proxy.Director
 		proxy.Director = func(req *http.Request) {
 			originalDirector(req)
@@ -2277,7 +2293,7 @@ func (cp *ControlPlane) HandleStreamStatus(w http.ResponseWriter, r *http.Reques
 
 	// Query the ingestion SFU for actual stream status
 	statusURL := fmt.Sprintf("%s/stream-status?room_id=%s", ingestionURL, roomID)
-	client := &http.Client{Timeout: 3 * time.Second}
+	client := &http.Client{Timeout: 3 * time.Second, Transport: controlauth.Wrap(nil)}
 
 	resp, err := client.Get(statusURL)
 	if err != nil {
@@ -2393,7 +2409,7 @@ func (cp *ControlPlane) HandleRoomViewerCount(w http.ResponseWriter, r *http.Req
 			result := sfuResult{sfuID: id}
 
 			viewersURL := fmt.Sprintf("%s/room/viewers?room_id=%s", url, roomID)
-			client := &http.Client{Timeout: 3 * time.Second}
+			client := &http.Client{Timeout: 3 * time.Second, Transport: controlauth.Wrap(nil)}
 
 			resp, err := client.Get(viewersURL)
 			if err != nil {
@@ -2501,7 +2517,8 @@ func (cp *ControlPlane) HandleRoomExists(w http.ResponseWriter, r *http.Request)
 		"state":   string(state),
 		"ready":   ready,
 	}
-	if ready {
+	// The WHIP URL carries the room key: only for the backend (control token), which checks the user.
+	if ready && controlauth.Valid(r) {
 		response["whip_url"] = cp.publicWHIPURL(r, roomID, roomKey)
 	}
 
@@ -2681,7 +2698,7 @@ func (cp *ControlPlane) HandleRoomStatus(w http.ResponseWriter, r *http.Request)
 	if reason != "" {
 		resp["reason"] = reason
 	}
-	if ready && key != "" {
+	if ready && key != "" && controlauth.Valid(r) {
 		resp["whip_url"] = cp.publicWHIPURL(r, roomID, key)
 	}
 	json.NewEncoder(w).Encode(resp)

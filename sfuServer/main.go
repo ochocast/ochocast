@@ -8,6 +8,8 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+
+	"whip-server/pkg/controlauth"
 )
 
 // Global SFU server instance
@@ -19,10 +21,21 @@ func main() {
 		log.Println("Warning: No .env file found, using default values")
 	}
 
+	// Outgoing calls of a worker go to the control plane or another worker: they carry the
+	// control token (SFU_CONTROL_TOKEN). The live webhook goes to the backend with its own
+	// secret, so it keeps the plain transport.
+	liveWebhookClient.Transport = http.DefaultTransport
+	http.DefaultTransport = controlauth.Wrap(http.DefaultTransport)
+
 	// NOW create the SFU server instance with the loaded environment variables
 	sfuServer = NewSFUServer()
 
-	mux := newServerMux()
+	// Only the control plane, other workers and the recorder call a worker: with
+	// SFU_CONTROL_TOKEN set, everything but /health needs the token.
+	var mux http.Handler = controlauth.RequireExcept(newServerMux(), "/health")
+	if !controlauth.Enabled() {
+		log.Println("WARNING: SFU_CONTROL_TOKEN is empty, the worker API is open (development only)")
+	}
 
 	// Get configuration from environment variables
 	enableHTTPS := getEnvAsBool("ENABLE_HTTPS", false)
@@ -44,13 +57,15 @@ func main() {
 		httpsPort := getEnv("HTTPS_PORT", "443")
 
 		fmt.Printf("Server listening on :%s (HTTPS)\n", httpsPort)
-		log.Fatal(http.ListenAndServeTLS(":"+httpsPort, certFile, keyFile, mux))
+		srv := &http.Server{Addr: ":" + httpsPort, Handler: mux}
+		serveWithDrain(srv, func() error { return srv.ListenAndServeTLS(certFile, keyFile) })
 	} else {
 		// HTTP Configuration
 		httpPort := getEnv("SERVER_PORT", "8090")
 
 		fmt.Printf("Server listening on :%s (HTTP)\n", httpPort)
-		log.Fatal(http.ListenAndServe(":"+httpPort, mux))
+		srv := &http.Server{Addr: ":" + httpPort, Handler: mux}
+		serveWithDrain(srv, srv.ListenAndServe)
 	}
 }
 

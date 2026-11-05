@@ -21,7 +21,7 @@ if ($LASTEXITCODE -eq 0) {
 
 # Build SFU Server
 Write-Host "Building SFU Server..." -ForegroundColor Yellow
-go build -o bin/whip-server.exe main.go server.go handlers.go models.go room.go broadcaster.go utils.go
+go build -o bin/whip-server.exe main.go server.go handlers.go models.go room.go broadcaster.go utils.go drain.go
 if ($LASTEXITCODE -eq 0) {
     Write-Host "✓ SFU Server built -> bin/whip-server.exe" -ForegroundColor Green
 } else {

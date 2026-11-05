@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"whip-server/internal/models"
@@ -40,6 +42,23 @@ type Collector struct {
 	collectionCount int64
 	// ⚡ CPU MEASUREMENT: Track /proc/stat for real CPU usage (not goroutine-based)
 	lastCPU cpuStats
+	// draining is reported in every heartbeat once the worker starts shutting down.
+	draining  atomic.Bool
+	collectMu sync.Mutex
+}
+
+// SetDraining marks the worker as shutting down and starts a bounded heartbeat.
+// The returned channel closes when the notification finishes.
+func (c *Collector) SetDraining() <-chan struct{} {
+	c.draining.Store(true)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if c.controlPlaneURL != "" {
+			c.collectAndSend()
+		}
+	}()
+	return done
 }
 
 // NewCollector creates a new metrics collector
@@ -97,6 +116,10 @@ func (c *Collector) Stop() {
 
 // collectAndSend collects current metrics and sends them to the control plane
 func (c *Collector) collectAndSend() {
+	// Periodic and shutdown-triggered collections may overlap. Serialize them
+	// so a stale heartbeat cannot arrive after a draining heartbeat.
+	c.collectMu.Lock()
+	defer c.collectMu.Unlock()
 	metrics := c.collectMetrics()
 	if err := c.sendToControlPlane(metrics); err != nil {
 		log.Printf("[METRICS] Failed to send metrics: %v", err)
@@ -169,6 +192,7 @@ func (c *Collector) collectMetrics() *models.SFUMetrics {
 		Timestamp:     time.Now(),
 		RoomStats:     roomStats,
 		GCCount:       gcCount,
+		Draining:      c.draining.Load(),
 	}
 }
 
@@ -249,7 +273,8 @@ func (c *Collector) sendToControlPlane(metrics *models.SFUMetrics) error {
 		return fmt.Errorf("failed to marshal metrics: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewReader(jsonData))
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Post(url, "application/json", bytes.NewReader(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}

@@ -91,8 +91,8 @@ func NewRecordingSession(config RecordingConfig) (*RecordingSession, error) {
 }
 
 // sfuStatusClient bounds the stream status check, also made when a session
-// fails (stopOnFailure).
-var sfuStatusClient = &http.Client{Timeout: 5 * time.Second}
+// fails (stopOnFailure). It carries the control token, as sfuClient does.
+var sfuStatusClient = &http.Client{Timeout: 5 * time.Second, Transport: sfuClient.Transport}
 
 // CheckStreamStatus checks if the stream is active in the room
 func (rs *RecordingSession) CheckStreamStatus() (bool, error) {
@@ -205,7 +205,7 @@ func (rs *RecordingSession) StartRecording() error {
 	recorderURL := rs.sfuBaseURL + "/recorder?" + query.Encode()
 	log.Printf("Recorder URL: %s/recorder?room_id=%s", rs.sfuBaseURL, rs.roomID)
 
-	resp, err := http.Post(recorderURL, "application/sdp",
+	resp, err := sfuClient.Post(recorderURL, "application/sdp",
 		bytes.NewReader([]byte(pc.LocalDescription().SDP)))
 	if err != nil {
 		return fmt.Errorf("failed to send offer to SFU: %w", err)

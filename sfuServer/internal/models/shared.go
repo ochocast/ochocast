@@ -39,6 +39,9 @@ type SFUMetrics struct {
 	Timestamp     time.Time            `json:"timestamp"`
 	RoomStats     map[string]RoomStats `json:"room_stats,omitempty"` // RoomID -> stats
 	GCCount       int                  `json:"gc_count,omitempty"`   // Number of garbage collections for debugging
+	// Draining: the worker is shutting down. It keeps serving its lives but takes no new
+	// room or viewer placement, and exits once its lives have ended.
+	Draining bool `json:"draining,omitempty"`
 }
 
 // RoomStats contains per-room statistics
