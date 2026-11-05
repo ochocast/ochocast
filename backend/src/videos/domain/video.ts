@@ -95,6 +95,23 @@ export class VideoObject {
   duration?: number;
 
   @ApiProperty({
+    example: true,
+    required: false,
+    description:
+      'True when viewers get a rendered montage instead of the original.',
+  })
+  edited?: boolean;
+
+  @ApiProperty({
+    example: 2195,
+    required: false,
+    nullable: true,
+    description:
+      'Duration in seconds of what viewers get: the rendered montage when it is active, otherwise the original (same as duration).',
+  })
+  renderedDuration?: number | null;
+
+  @ApiProperty({
     enum: ['pending', 'ready', 'failed'],
     description: 'Current state of the asynchronous transcoding job.',
   })

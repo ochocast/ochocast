@@ -6,6 +6,8 @@ import { AddVideoEditRenderJobs1793891216000 } from '../migrations/1793891216000
 import { AddTranscodingJobs1789574400000 } from '../migrations/1789574400000-AddTranscodingJobs';
 import { VideoEditGateway } from './infra/gateways/video-edit.gateway';
 import { SegmentInput } from './domain/videoEdit';
+import { VideoGateway } from '../videos/infra/gateways/video.gateway';
+import { VideoEntity } from '../videos/infra/gateways/entities/video.entity';
 
 const integration = process.env.VIDEO_EDIT_TEST_DATABASE_URL
   ? describe
@@ -308,6 +310,31 @@ integration(
         [edit.id],
       );
       expect(count).toBe(0);
+    });
+
+    it('lets the video side find the active rendition and its duration', async () => {
+      const videoId = await newVideo();
+      const other = await newVideo();
+      const edit = await gateway.create(videoId, montage);
+      const videos = new VideoGateway(
+        database.getRepository(VideoEntity),
+        null,
+      );
+      expect(await videos.getRenderedMediaId(videoId)).toBeNull();
+      expect(await videos.getRenderedDurations([videoId, other])).toEqual(
+        new Map(),
+      );
+
+      await database.query(
+        `UPDATE "video_edit" SET "rendered_media_id" = 'r/master.m3u8',
+          "rendered_duration" = 1685.25 WHERE "id" = $1`,
+        [edit.id],
+      );
+      expect(await videos.getRenderedMediaId(videoId)).toBe('r/master.m3u8');
+      expect(await videos.getRenderedDurations([videoId, other])).toEqual(
+        new Map([[videoId, 1685.25]]),
+      );
+      expect(await videos.getRenderedDurations([])).toEqual(new Map());
     });
 
     it('enforces the bounds in the database too', async () => {

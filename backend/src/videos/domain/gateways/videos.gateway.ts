@@ -17,4 +17,6 @@ export interface IVideoGateway {
   incrementVideoViews: (id: string) => Promise<VideoObject>;
   /** Master playlist of the montage viewers get instead, if any. */
   getRenderedMediaId(id: string): Promise<string | null>;
+  /** Duration of the active rendered montage of each video that has one. */
+  getRenderedDurations(ids: string[]): Promise<Map<string, number | null>>;
 }

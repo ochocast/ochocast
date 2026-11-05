@@ -245,6 +245,19 @@ export class VideoGateway implements IVideoGateway {
     return row?.rendered_media_id ?? null;
   }
 
+  async getRenderedDurations(
+    ids: string[],
+  ): Promise<Map<string, number | null>> {
+    if (ids.length === 0) return new Map();
+    const rows: { videoId: string; rendered_duration: number | null }[] =
+      await this.videosRepository.manager.query(
+        `SELECT "videoId", "rendered_duration" FROM "video_edit"
+          WHERE "videoId" = ANY($1::uuid[]) AND "rendered_media_id" IS NOT NULL`,
+        [ids],
+      );
+    return new Map(rows.map((row) => [row.videoId, row.rendered_duration]));
+  }
+
   async modifyVideo(
     video: Partial<VideoObject> & Pick<VideoObject, 'id'>,
   ): Promise<VideoObject> {

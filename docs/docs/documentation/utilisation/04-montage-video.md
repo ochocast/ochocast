@@ -35,6 +35,13 @@ Tant qu'un rendu est en cours (`pending` ou `processing`), le montage ne peut pa
 ## Ce que voient les spectateurs
 
 - Quand un rendu est prêt, les spectateurs lisent la version montée : `GET /api/videos/media/:id` renvoie `/api/videos/media-content/:id/e-<jobId>/master.m3u8`. Chaque rendu a son propre chemin : les playlists sont mises en cache un an, l'original et chaque version montée ne se mélangent donc jamais.
+- `GET /api/videos` (dont `GET /api/videos?id=…`, utilisé par la page vidéo) et `GET /api/videos/:userId` ajoutent deux champs à chaque vidéo :
+
+  | Champ | Type | Contenu |
+  |-------|------|---------|
+  | `edited` | booléen | `true` quand les spectateurs voient une version montée (badge « Modifiée ») |
+  | `renderedDuration` | nombre ou `null` | Durée en secondes de ce que voient les spectateurs : celle de la version montée si elle est active, sinon celle de l'original. `duration` reste toujours la durée de l'original |
+
 - Pendant un nouveau rendu, ils gardent la version précédente (ou l'original s'il n'y en a pas) jusqu'à ce que le nouveau rendu soit prêt.
 - Après un retour à l'original, ils lisent de nouveau l'original, et l'adresse de l'ancienne version montée répond `404`.
 - Les sous-titres suivent la chronologie de l'original : ils sont masqués (`GET /api/videos/subtitle/:id` renvoie `null`) tant que la version montée est affichée, et reviennent avec l'original.
