@@ -13,6 +13,7 @@ describe('HLS public content with retained transcoding sources', () => {
           transcoding_status: 'ready',
         },
       ],
+      getRenderedMediaId: async () => null,
     } as any,
     { send } as any,
   );
@@ -53,6 +54,7 @@ describe('Source playback when transcoding is disabled', () => {
     getVideos: async () => [
       { id: 'video', media_id, transcoding_status: 'ready', duration },
     ],
+    getRenderedMediaId: async () => null,
   });
   const signer = new S3Client({
     region: 'us-east-1',
@@ -143,5 +145,86 @@ describe('Source playback when transcoding is disabled', () => {
     expect(JSON.stringify((console.log as jest.Mock).mock.calls)).not.toContain(
       new URL(url).searchParams.get('X-Amz-Signature'),
     );
+  });
+});
+
+describe('Rendered montage', () => {
+  const videoId = 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2';
+  const jobId = '11111111-1111-4111-8111-111111111111';
+  const send = jest.fn();
+  let rendered: string | null;
+  const service = (media_id = `${videoId}/master.m3u8`) =>
+    new GetMediaUsecase(
+      {
+        getVideos: async () => [
+          { id: videoId, media_id, transcoding_status: 'ready' },
+        ],
+        getRenderedMediaId: async () => rendered,
+      } as any,
+      { send } as any,
+    );
+
+  beforeEach(() => {
+    send.mockReset().mockResolvedValue({
+      Body: { transformToByteArray: async () => Buffer.from('media') },
+    });
+    rendered = `${videoId}/edits/${jobId}/master.m3u8`;
+  });
+
+  it.each([
+    ['an HLS original', `${videoId}/master.m3u8`],
+    ['a source played as is', `${videoId}/source/original.mp4`],
+  ])('gives viewers the rendition of %s on its own path', async (_, media) => {
+    await expect(
+      service(media).execute(videoId, 'http://api.test/api'),
+    ).resolves.toBe(
+      `http://api.test/api/videos/media-content/${videoId}/e-${jobId}/master.m3u8`,
+    );
+  });
+
+  it('gives the original back once reverted', async () => {
+    rendered = null;
+    await expect(
+      service().execute(videoId, 'http://api.test/api'),
+    ).resolves.toBe(
+      `http://api.test/api/videos/media-content/${videoId}/master.m3u8`,
+    );
+  });
+
+  it.each(['master.m3u8', '720p.m3u8', '720p3.ts'])(
+    'serves %s of the active rendition from its folder',
+    async (file) => {
+      await service().getContent(videoId, `e-${jobId}/${file}`);
+      expect(send.mock.calls[0][0].input.Key).toBe(
+        `${videoId}/edits/${jobId}/${file}`,
+      );
+    },
+  );
+
+  it('hides a replaced or reverted rendition', async () => {
+    const old = '22222222-2222-4222-8222-222222222222';
+    await expect(
+      service().getContent(videoId, `e-${old}/master.m3u8`),
+    ).rejects.toThrow('Media is not available');
+    rendered = null;
+    await expect(
+      service().getContent(videoId, `e-${jobId}/master.m3u8`),
+    ).rejects.toThrow('Media is not available');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it.each(['_result.json', '../master.m3u8', 'sub/720p.m3u8'])(
+    'never proxies %s of a rendition',
+    async (file) => {
+      await expect(
+        service().getContent(videoId, `e-${jobId}/${file}`),
+      ).rejects.toThrow(NotFoundException);
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps serving the original path of an edited video', async () => {
+    await service().getContent(videoId, 'master.m3u8');
+    expect(send.mock.calls[0][0].input.Key).toBe(`${videoId}/master.m3u8`);
   });
 });

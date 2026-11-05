@@ -21,6 +21,12 @@ export class GetSubtitleUsecase {
       return null;
     }
 
+    // Subtitles follow the original's timeline: hidden while viewers get a
+    // rendered montage, back with the original.
+    if (await this.videoGateway.getRenderedMediaId(videos[0].id)) {
+      return null;
+    }
+
     if (!videos[0].subtitle_id) {
       console.log(
         'GetSubtitle - Video has no subtitle_id:',

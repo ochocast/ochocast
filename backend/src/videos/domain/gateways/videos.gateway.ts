@@ -15,4 +15,6 @@ export interface IVideoGateway {
   searchVideoAdmin(data: string): Promise<VideoObject[]>;
   restoreVideo: (id: string) => Promise<VideoObject>;
   incrementVideoViews: (id: string) => Promise<VideoObject>;
+  /** Master playlist of the montage viewers get instead, if any. */
+  getRenderedMediaId(id: string): Promise<string | null>;
 }

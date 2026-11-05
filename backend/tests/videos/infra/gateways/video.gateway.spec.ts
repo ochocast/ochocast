@@ -150,6 +150,57 @@ describe('VideoGateway', () => {
     );
   });
 
+  it('also deletes the rendered montages of a video stored as one file', async () => {
+    const previous = { ...process.env };
+    process.env.STOCK_MEDIA_BUCKET = 'media';
+    process.env.STOCK_MINIATURE_BUCKET = 'miniature';
+    jest.spyOn(console, 'log').mockImplementation();
+    try {
+      const video = {
+        id: 'video-1',
+        media_id: '1700000000000.legacy.mp4',
+        miniature_id: 'miniature-video-1.jpg',
+      } as VideoEntity;
+      videoRepositoryMock.findOneBy = jest.fn().mockResolvedValue(video);
+      videoRepositoryMock.remove = jest.fn().mockResolvedValue(video);
+      const send = jest.fn(async (command) =>
+        command.constructor.name === 'ListObjectsV2Command'
+          ? { Contents: [{ Key: 'video-1/edits/job/master.m3u8' }] }
+          : {},
+      );
+      await new VideoGateway(
+        videoRepositoryMock as any,
+        {
+          send,
+        } as any,
+      ).deleteVideoAdmin('video-1');
+      const calls = send.mock.calls.map(([command]) => [
+        command.constructor.name,
+        command.input,
+      ]);
+      expect(calls.slice(0, 3)).toEqual([
+        [
+          'ListObjectsV2Command',
+          expect.objectContaining({ Prefix: 'video-1/edits/' }),
+        ],
+        [
+          'DeleteObjectsCommand',
+          expect.objectContaining({
+            Delete: expect.objectContaining({
+              Objects: [{ Key: 'video-1/edits/job/master.m3u8' }],
+            }),
+          }),
+        ],
+        [
+          'DeleteObjectCommand',
+          { Bucket: 'media', Key: '1700000000000.legacy.mp4' },
+        ],
+      ]);
+    } finally {
+      process.env = previous;
+    }
+  });
+
   /*
     deleteVideoAdmin — a video played from its source after a transcoding fallback
    */

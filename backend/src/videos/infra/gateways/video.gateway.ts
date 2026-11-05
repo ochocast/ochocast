@@ -168,6 +168,13 @@ export class VideoGateway implements IVideoGateway {
         `${video.id}/`,
       );
     } else {
+      // Rendered montages live under the video's folder even when the
+      // video itself plays from a single source file; deleting the video
+      // cascades to their jobs, which can then no longer remove them.
+      await this.deleteMediaPrefix(
+        process.env.STOCK_MEDIA_BUCKET,
+        `${video.id}/edits/`,
+      );
       await this.s3Client.send(
         new DeleteObjectCommand({
           Bucket: process.env.STOCK_MEDIA_BUCKET,
@@ -227,6 +234,15 @@ export class VideoGateway implements IVideoGateway {
       }
       continuationToken = listed.NextContinuationToken;
     } while (continuationToken);
+  }
+
+  async getRenderedMediaId(id: string): Promise<string | null> {
+    const [row] = await this.videosRepository.manager.query(
+      `SELECT "rendered_media_id" FROM "video_edit"
+        WHERE "videoId" = $1 AND "rendered_media_id" IS NOT NULL`,
+      [id],
+    );
+    return row?.rendered_media_id ?? null;
   }
 
   async modifyVideo(

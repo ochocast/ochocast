@@ -5,6 +5,13 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { NotFoundException } from '@nestjs/common';
 import { extname } from 'path';
 import { VIDEO_CONTENT_TYPES } from 'src/queue/transcoding-plan';
+import { renditionJobId } from 'src/video-edits/domain/videoEditRenderJob';
+
+// Public HLS assets only: retained sources and job checkpoints stay private.
+const HLS_ASSET = /^[a-zA-Z0-9_-]+\.(m3u8|ts)$/;
+// A rendered montage has its own path, so the year-long cache of the
+// original's playlists never serves it (and the reverse).
+const RENDITION_PATH = /^e-([0-9a-f-]{36})\/(.+)$/i;
 
 // Only transcoder output is HLS. A source file (served when transcoding is
 // disabled or the video was too long to transcode) keeps a presigned URL, even
@@ -45,6 +52,18 @@ export class GetMediaUsecase {
       throw new NotFoundException('Video transcoding failed');
     }
 
+    // Viewers get the rendered montage, and keep the previous one while a
+    // new render runs; going back to the original clears it.
+    const renditionId = renditionJobId(
+      id,
+      await this.videoGateway.getRenderedMediaId(id),
+    );
+    if (renditionId) {
+      if (!apiBaseUrl)
+        throw new Error('API base URL is required for HLS media');
+      return `${apiBaseUrl}/videos/media-content/${id}/e-${renditionId}/master.m3u8`;
+    }
+
     if (isHls(videos[0].media_id)) {
       if (!apiBaseUrl)
         throw new Error('API base URL is required for HLS media');
@@ -75,24 +94,37 @@ export class GetMediaUsecase {
     cacheControl?: string;
   }> {
     const videos = await this.videoGateway.getVideos({ id });
-    if (
-      !videos.length ||
-      videos[0].transcoding_status !== 'ready' ||
-      !isHls(videos[0].media_id)
-    ) {
+    if (!videos.length || videos[0].transcoding_status !== 'ready') {
       throw new NotFoundException('Media is not available');
     }
 
-    const mediaPrefix = videos[0].media_id.slice(
-      0,
-      videos[0].media_id.lastIndexOf('/') + 1,
-    );
-    const normalizedPath = requestedPath.replace(/^\/+/, '');
+    let normalizedPath = requestedPath.replace(/^\/+/, '');
+    let mediaPrefix: string;
+    const rendition = RENDITION_PATH.exec(normalizedPath);
+    if (rendition) {
+      // Only the rendition viewers get: a replaced or reverted one is gone.
+      const active = renditionJobId(
+        id,
+        await this.videoGateway.getRenderedMediaId(id),
+      );
+      if (!active || active.toLowerCase() !== rendition[1].toLowerCase()) {
+        throw new NotFoundException('Media is not available');
+      }
+      mediaPrefix = `${id}/edits/${active}/`;
+      normalizedPath = rendition[2];
+    } else {
+      if (!isHls(videos[0].media_id)) {
+        throw new NotFoundException('Media is not available');
+      }
+      mediaPrefix = videos[0].media_id.slice(
+        0,
+        videos[0].media_id.lastIndexOf('/') + 1,
+      );
+    }
     if (
       !normalizedPath ||
       normalizedPath.includes('..') ||
-      // Only public HLS assets: retained sources and job checkpoints stay private.
-      !/^[a-zA-Z0-9_-]+\.(m3u8|ts)$/.test(normalizedPath)
+      !HLS_ASSET.test(normalizedPath)
     ) {
       throw new NotFoundException('Invalid media path');
     }
