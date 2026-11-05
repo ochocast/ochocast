@@ -1,4 +1,8 @@
-import { validateEditContent } from 'src/video-edits/domain/videoEditRules';
+import {
+  maxEditedDuration,
+  validateEditContent,
+} from 'src/video-edits/domain/videoEditRules';
+import { wrapText } from 'src/video-edits/domain/textWrap';
 import {
   SegmentInput,
   TextLayerInput,
@@ -21,21 +25,50 @@ describe('validateEditContent', () => {
     textLayers: TextLayerInput[] = [],
   ): SegmentInput => ({ sourceStart, sourceEnd, textLayers });
 
-  it('accepts the montage of the mockup, in any playback order', () => {
-    expect(
-      validateEditContent(
-        [
-          segment(1270, 2205, [text({ content: 'Partie 2' })]),
-          segment(120, 870, [text()]),
-          segment(2460, 2970, [text({ position: 'center', duration: 275 })]),
-        ],
-        duration,
-      ),
-    ).toEqual([]);
+  const mockup = [
+    segment(1270, 2205, [text({ content: 'Partie 2' })]),
+    segment(120, 870, [text()]),
+    segment(2460, 2970, [text({ position: 'center', duration: 275 })]),
+  ];
+
+  it('accepts the montage of the mockup, in any playback order, under a 1h cap', () => {
+    expect(validateEditContent(mockup, duration, 3600)).toEqual([]);
+  });
+
+  it('caps the edited video at 30 minutes by default', () => {
+    // 36:35 in the mockup: over the provisional cap.
+    expect(validateEditContent(mockup, duration)).toEqual([
+      'The edited video lasts 2195s, more than the 1800s allowed',
+    ]);
+    expect(validateEditContent([segment(0, 1800)], duration)).toEqual([]);
+  });
+
+  describe('maxEditedDuration', () => {
+    const original = process.env.VIDEO_EDIT_MAX_DURATION_SECONDS;
+    afterEach(() => {
+      if (original === undefined)
+        delete process.env.VIDEO_EDIT_MAX_DURATION_SECONDS;
+      else process.env.VIDEO_EDIT_MAX_DURATION_SECONDS = original;
+    });
+
+    it('reads VIDEO_EDIT_MAX_DURATION_SECONDS', () => {
+      process.env.VIDEO_EDIT_MAX_DURATION_SECONDS = '600';
+      expect(maxEditedDuration()).toBe(600);
+      expect(validateEditContent([segment(0, 601)], duration)).toHaveLength(1);
+    });
+
+    it('refuses an invalid value', () => {
+      process.env.VIDEO_EDIT_MAX_DURATION_SECONDS = 'soon';
+      expect(() => maxEditedDuration()).toThrow(
+        'VIDEO_EDIT_MAX_DURATION_SECONDS',
+      );
+    });
   });
 
   it('accepts the whole video as one segment, and touching segments', () => {
-    expect(validateEditContent([segment(0, duration)], duration)).toEqual([]);
+    expect(
+      validateEditContent([segment(0, duration)], duration, duration),
+    ).toEqual([]);
     expect(
       validateEditContent([segment(10, 20), segment(0, 10)], duration),
     ).toEqual([]);
@@ -91,6 +124,7 @@ describe('validateEditContent', () => {
       validateEditContent(
         [segment(0, 0.1 + 0.2 + 9.7), segment(10, duration + 1e-9)],
         duration,
+        duration,
       ),
     ).toEqual([]);
   });
@@ -119,6 +153,26 @@ describe('validateEditContent', () => {
       ).toEqual([
         'segments[0].textLayers[0]: the text must end within its segment',
       ]);
+    });
+
+    it('refuses a text that does not fit in 3 lines of 40 characters', () => {
+      const fourLines = Array.from({ length: 4 }, () => 'x'.repeat(40)).join(
+        ' ',
+      );
+      expect(
+        validateEditContent(
+          [segment(0, 600, [text({ content: fourLines })])],
+          duration,
+        ),
+      ).toEqual([
+        'segments[0].textLayers[0]: content must fit in 3 lines of 40 characters',
+      ]);
+      expect(
+        validateEditContent(
+          [segment(0, 600, [text({ content: fourLines.slice(0, 122) })])],
+          duration,
+        ),
+      ).toEqual([]);
     });
 
     it('refuses more texts than the limit', () => {
@@ -166,11 +220,35 @@ describe('validateEditContent', () => {
       validateEditContent(
         [segment(-5, 0), segment(0, 4000, [text({ content: '' })])],
         duration,
+        5000,
       ),
     ).toEqual([
       'segments[0]: sourceStart must be >= 0',
       'segments[1]: sourceEnd exceeds the video duration (3012s)',
       'segments[1].textLayers[0]: content must have 1 to 500 characters',
     ]);
+  });
+
+  describe('wrapText', () => {
+    it('wraps words at 40 characters', () => {
+      expect(
+        wrapText('Partie 2 : démonstration du nouveau lecteur vidéo en direct'),
+      ).toEqual([
+        'Partie 2 : démonstration du nouveau',
+        'lecteur vidéo en direct',
+      ]);
+    });
+
+    it('collapses whitespace and line breaks', () => {
+      expect(wrapText('  Merci\n\n  à tous  ')).toEqual(['Merci à tous']);
+    });
+
+    it('cuts a word longer than a line', () => {
+      expect(wrapText(`a ${'y'.repeat(45)} b`)).toEqual([
+        'a',
+        'y'.repeat(40),
+        'yyyyy b',
+      ]);
+    });
   });
 });

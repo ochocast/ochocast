@@ -282,6 +282,7 @@ describe('VideoEditsController (HTTP)', () => {
       }).expect(400);
       expect(response.body.message).toEqual([
         'segments[1]: sourceEnd exceeds the video duration (3012s)',
+        'The edited video lasts 3150s, more than the 1800s allowed',
         'segments[1] overlaps segments[0] in the source video',
       ]);
     });

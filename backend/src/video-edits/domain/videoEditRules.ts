@@ -4,6 +4,16 @@ import {
   TEXT_POSITIONS,
   VIDEO_EDIT_LIMITS,
 } from './videoEdit';
+import { TEXT_LINE_LENGTH, TEXT_MAX_LINES, wrapText } from './textWrap';
+
+/** Longest edited video the worker renders within its deadline (seconds). */
+export function maxEditedDuration(): number {
+  const value = Number(process.env.VIDEO_EDIT_MAX_DURATION_SECONDS || 1800);
+  if (!Number.isFinite(value) || value < 1) {
+    throw new Error('VIDEO_EDIT_MAX_DURATION_SECONDS must be a number >= 1');
+  }
+  return value;
+}
 
 // Absorbs float noise from the client (e.g. 12.3 + 0.1); never enough to
 // let a real overlap or overflow through.
@@ -21,6 +31,7 @@ const label = (index: number) => `segments[${index}]`;
 export function validateEditContent(
   segments: SegmentInput[],
   videoDuration: number,
+  maxDuration: number = maxEditedDuration(),
 ): string[] {
   const errors: string[] = [];
 
@@ -58,6 +69,19 @@ export function validateEditContent(
       ),
     );
   });
+
+  const total = segments.reduce(
+    (sum, s) =>
+      isTime(s.sourceStart) && isTime(s.sourceEnd)
+        ? sum + Math.max(0, s.sourceEnd - s.sourceStart)
+        : sum,
+    0,
+  );
+  if (total > maxDuration + EPSILON) {
+    errors.push(
+      `The edited video lasts ${Math.round(total)}s, more than the ${maxDuration}s allowed`,
+    );
+  }
 
   // A passage of the source may appear only once in the montage.
   const byStart = segments
@@ -99,6 +123,10 @@ function validateTextLayers(
     ) {
       errors.push(
         `${at}: content must have 1 to ${VIDEO_EDIT_LIMITS.maxTextLength} characters`,
+      );
+    } else if (wrapText(content).length > TEXT_MAX_LINES) {
+      errors.push(
+        `${at}: content must fit in ${TEXT_MAX_LINES} lines of ${TEXT_LINE_LENGTH} characters`,
       );
     }
     if (!TEXT_POSITIONS.includes(layer.position)) {

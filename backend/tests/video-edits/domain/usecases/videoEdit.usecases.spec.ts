@@ -237,6 +237,7 @@ describe('Video edit use cases', () => {
       expect(error).toBeInstanceOf(BadRequestException);
       expect(error.getResponse().message).toEqual([
         'segments[0]: sourceEnd exceeds the video duration (3012s)',
+        'The edited video lasts 5010s, more than the 1800s allowed',
         'segments[1] overlaps segments[0] in the source video',
       ]);
       expect(editGateway.replaceContent).not.toHaveBeenCalled();
