@@ -524,6 +524,10 @@
   "Selected dates": "Selected dates",
   "Delete all": "Delete all",
   "backendLoginFailed": "Unable to sign in to the OchoCast server.",
+  "videoSearch": {
+    "startBanner": "Playing from {{time}} · passage found for “{{query}}”",
+    "backToResults": "← Back to results for “{{query}}”"
+  },
   "searchResult": {
     "foundIn": "Found in:",
     "matchedIn": {

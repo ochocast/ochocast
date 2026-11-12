@@ -15,7 +15,13 @@ import {
   getVideoSuggestions,
   incrementVideoViews,
 } from '../../utils/api';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import { CommentObject, User, Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
@@ -43,8 +49,12 @@ import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbna
 import { Root, RootContent } from 'mdast';
 import CopyButtonIcon from '../../assets/copy.svg';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import { formatTimestamp } from '../../utils/formatTimestamp';
+import { parseStartTime } from './parseStartTime';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
+
+const START_BANNER_MS = 4500;
 
 const PERSONA_IMAGE = '/branding/persona.png';
 
@@ -124,6 +134,11 @@ const VideoMedia: FC = () => {
   }>({});
 
   const { videoId } = useParams();
+  // Arriving from the search results: `t` is the start of the passage that
+  // was clicked, `q` the words that were searched.
+  const [searchParams] = useSearchParams();
+  const startParam = searchParams.get('t');
+  const searchQuery = searchParams.get('q')?.trim() ?? '';
   const [url, setUrl] = useState<string>('');
   const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<Video>();
@@ -233,8 +248,31 @@ const VideoMedia: FC = () => {
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [qualityOptions, setQualityOptions] = useState<QualityOption[]>([]);
   const [selectedQuality, setSelectedQuality] = useState(-1);
+  // The video already positioned at `t`: the player is ready again after a
+  // quality switch or a reload of the media, which must not seek again.
+  const positionedVideoId = useRef<string | null>(null);
+  const [startBanner, setStartBanner] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (startBanner === null) return;
+    const timer = setTimeout(() => setStartBanner(null), START_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [startBanner]);
 
   const handlePlayerReady = (player: _ReactPlayer) => {
+    if (positionedVideoId.current !== videoId) {
+      positionedVideoId.current = videoId ?? null;
+      const start = parseStartTime(
+        startParam,
+        player.getDuration() || video?.duration || null,
+      );
+      if (start !== null) {
+        // No autoplay: browsers block it with sound.
+        player.seekTo(start, 'seconds');
+        if (searchQuery) setStartBanner(start);
+      }
+    }
+
     const hls = player.getInternalPlayer('hls') as HlsPlayer | null;
     if (hls?.levels?.length) {
       setQualityOptions(
@@ -687,6 +725,14 @@ const VideoMedia: FC = () => {
       <div className={styles.watchLayout}>
         {/* COLONNE PRINCIPALE */}
         <main className={styles.mainColumn}>
+          {searchQuery && (
+            <Link
+              className={styles.backToResults}
+              to={`/search?q=${encodeURIComponent(searchQuery)}`}
+            >
+              {t('videoSearch.backToResults', { query: searchQuery })}
+            </Link>
+          )}
           {/* Player */}
           <div className={styles.playerWrapper}>
             {video.transcoding_status === 'pending' ? (
@@ -752,6 +798,15 @@ const VideoMedia: FC = () => {
                   </label>
                 )}
               </>
+            )}
+
+            {startBanner !== null && (
+              <p className={styles.startBanner} role="status">
+                {t('videoSearch.startBanner', {
+                  time: formatTimestamp(startBanner),
+                  query: searchQuery,
+                })}
+              </p>
             )}
 
             {/* ✅ END SCREEN OVERLAY (visible même en plein écran) */}

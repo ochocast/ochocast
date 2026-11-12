@@ -12,11 +12,25 @@ import {
   isVideoFavorite,
 } from '../../utils/api';
 import VideoMedia from './videoMedia';
+import '../../testUtils/initTestI18n';
 
 // Jest here cannot load react-router 7 (package exports): the route is
 // stubbed.
+let mockSearch = '';
 jest.mock('react-router-dom', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => children,
+  Link: ({
+    to,
+    children,
+    ...rest
+  }: {
+    to: string;
+    children: React.ReactNode;
+  }) => (
+    <a href={to} {...rest}>
+      {children}
+    </a>
+  ),
+  useSearchParams: () => [new URLSearchParams(mockSearch)],
   useLocation: () => ({ pathname: '/video/A', state: null }),
   useNavigate: () => jest.fn(),
   useParams: () => ({ videoId: 'A' }),
@@ -43,22 +57,35 @@ jest.mock('react-markdown', () => ({
     jest.requireActual('react').createElement('div', null, children),
 }));
 
+// The stub exposes what the page calls on the player, and a way to fire
+// `onReady` like the real player does once the media is loaded.
+const mockSeekTo = jest.fn();
+let mockPlayerDuration = 2712;
 jest.mock('react-player/lazy', () => {
   const { createElement, forwardRef, useImperativeHandle, useRef } =
     jest.requireActual('react');
   return {
     __esModule: true,
-    default: forwardRef(({ url }: { url: string }, ref: unknown) => {
-      const element = useRef(null);
-      useImperativeHandle(ref, () => ({
-        getInternalPlayer: () => element.current,
-      }));
-      return createElement('video', {
-        'data-testid': 'player',
-        'data-url': url,
-        ref: element,
-      });
-    }),
+    default: forwardRef(
+      (
+        { url, onReady }: { url: string; onReady: (player: unknown) => void },
+        ref: unknown,
+      ) => {
+        const element = useRef(null);
+        const handle = {
+          getInternalPlayer: () => element.current,
+          getDuration: () => mockPlayerDuration,
+          seekTo: (...args: unknown[]) => mockSeekTo(...args),
+        };
+        useImperativeHandle(ref, () => handle);
+        return createElement('video', {
+          'data-testid': 'player',
+          'data-url': url,
+          ref: element,
+          onCanPlay: () => onReady(handle),
+        });
+      },
+    ),
   };
 });
 
@@ -125,6 +152,8 @@ beforeEach(() => {
     .mockResolvedValue({ ok: true, data: sourceUrl(2) });
   window.scrollTo = jest.fn();
   sessionStorage.clear();
+  mockSearch = '';
+  mockPlayerDuration = 2712;
 });
 
 afterEach(() => {
@@ -302,7 +331,9 @@ describe('VideoMedia', () => {
 
     await advance(HOUR);
     expect(getMedia).toHaveBeenCalledTimes(6);
-    expect(screen.getByRole('button', { name: 'retry' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Réessayer' }),
+    ).toBeInTheDocument();
   });
 
   it('shows the not-found page for an unknown video', async () => {
@@ -310,7 +341,7 @@ describe('VideoMedia', () => {
     render(<VideoMedia />);
     await settle();
 
-    expect(screen.getByText('404')).toBeInTheDocument();
+    expect(screen.getByText('404 - Page introuvable')).toBeInTheDocument();
   });
 
   // Offline, an existing video is neither an endless spinner nor a not-found
@@ -331,14 +362,113 @@ describe('VideoMedia', () => {
       .mockResolvedValue({ ok: true, data: sourceUrl(1) });
     render(<VideoMedia />);
     await settle();
-    expect(screen.getByText('errorLoadingVideo')).toBeInTheDocument();
-    expect(screen.queryByText('404')).toBeNull();
+    expect(
+      screen.getByText('Erreur lors du chargement de la vidéo'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('404 - Page introuvable')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
     await settle();
     expect(screen.getByTestId('player')).toHaveAttribute(
       'data-url',
       sourceUrl(1),
     );
+  });
+
+  describe('opened from the search results', () => {
+    const ready = () => fireEvent.canPlay(screen.getByTestId('player'));
+
+    const open = async (search: string) => {
+      mockSearch = search;
+      render(<VideoMedia />);
+      await settle();
+      ready();
+    };
+
+    it('seeks to t when the player is ready', async () => {
+      await open('?t=1012&q=kubernetes');
+
+      expect(mockSeekTo).toHaveBeenCalledTimes(1);
+      expect(mockSeekTo).toHaveBeenCalledWith(1012, 'seconds');
+    });
+
+    it('seeks once per video, not again when the player reloads', async () => {
+      await open('?t=1012&q=kubernetes');
+      ready();
+
+      expect(mockSeekTo).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['-5', 'abc', ''])('ignores invalid t (%p)', async (t) => {
+      await open(`?t=${t}&q=kubernetes`);
+
+      expect(mockSeekTo).not.toHaveBeenCalled();
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('does not seek without t', async () => {
+      await open('?q=kubernetes');
+
+      expect(mockSeekTo).not.toHaveBeenCalled();
+    });
+
+    it('clamps t to duration', async () => {
+      await open('?t=1e9&q=kubernetes');
+
+      expect(mockSeekTo).toHaveBeenCalledWith(2712, 'seconds');
+    });
+
+    it('clamps t to the duration of the video when the player has none yet', async () => {
+      mockPlayerDuration = 0;
+      await open('?t=1e9&q=kubernetes');
+
+      expect(mockSeekTo).toHaveBeenCalledWith(7200, 'seconds');
+    });
+
+    it('shows the banner with q for 4.5 s', async () => {
+      await open('?t=1012&q=kubernetes');
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Lecture à 16:52 · passage trouvé pour « kubernetes »',
+      );
+
+      await advance(4400);
+      expect(screen.getByRole('status')).toBeInTheDocument();
+      await advance(200);
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('does not show the banner again on re-render or reload of the player', async () => {
+      await open('?t=1012&q=kubernetes');
+      await advance(5000);
+      ready();
+      await settle();
+
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('shows no banner without q', async () => {
+      await open('?t=1012');
+
+      expect(mockSeekTo).toHaveBeenCalledWith(1012, 'seconds');
+      expect(screen.queryByRole('status')).toBeNull();
+    });
+
+    it('shows a back link to the results when q is present', async () => {
+      await open('?t=1012&q=kube%20%26%20k8s');
+
+      const link = screen.getByRole('link', {
+        name: '← Retour aux résultats pour « kube & k8s »',
+      });
+      expect(link).toHaveAttribute('href', '/search?q=kube%20%26%20k8s');
+    });
+
+    it('shows no back link without q', async () => {
+      await open('?t=1012');
+
+      expect(
+        screen.queryByRole('link', { name: /Retour aux résultats/ }),
+      ).toBeNull();
+    });
   });
 });

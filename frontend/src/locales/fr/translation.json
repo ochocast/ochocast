@@ -524,6 +524,10 @@
   "Selected dates": "Dates sélectionnées",
   "Delete all": "Tout effacer",
   "backendLoginFailed": "Impossible de se connecter au serveur OchoCast.",
+  "videoSearch": {
+    "startBanner": "Lecture à {{time}} · passage trouvé pour « {{query}} »",
+    "backToResults": "← Retour aux résultats pour « {{query}} »"
+  },
   "searchResult": {
     "foundIn": "Trouvé dans :",
     "matchedIn": {
