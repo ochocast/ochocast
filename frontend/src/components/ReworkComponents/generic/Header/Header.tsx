@@ -1,4 +1,11 @@
-import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  FC,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styles from './Header.module.css';
@@ -44,6 +51,8 @@ const Header: FC<HeaderProps> = () => {
   } | null>(null);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [searchWrapperHeight, setSearchWrapperHeight] = useState(0);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchHelpId = useId();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -130,6 +139,9 @@ const Header: FC<HeaderProps> = () => {
     favoris: false,
     archived: false,
   });
+
+  // Syntax help: only while the field is focused and empty.
+  const showSearchHelp = searchFocused && searchQuery === '';
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const closeMenu = () => setMenuOpen(false);
@@ -406,7 +418,14 @@ const Header: FC<HeaderProps> = () => {
               handleTagsChange(filters.tags.filter((t) => t !== tag))
             }
             hideTagsRow
+            inputDescribedBy={showSearchHelp ? searchHelpId : undefined}
+            onInputFocusChange={setSearchFocused}
           />
+          {showSearchHelp && (
+            <p id={searchHelpId} className={styles.SearchHelp}>
+              {t('searchSyntaxHelp')}
+            </p>
+          )}
           {showFilters && (
             <div
               className={styles.FilterPanelWrapper}

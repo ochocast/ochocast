@@ -64,6 +64,22 @@
   margin-right: 2rem;
 }
 
+.SearchHelp {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  background-color: var(--theme-color-white);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #606060;
+}
+
 .FilterPanelWrapper {
   position: absolute;
   right: 0;

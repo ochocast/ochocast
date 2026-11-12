@@ -20,6 +20,10 @@ export interface GlobalSearchBarProps {
   selectedTags?: string[];
   onRemoveTag?: (tag: string) => void;
   hideTagsRow?: boolean;
+  /** Id of the element describing the input (e.g. the syntax help line). */
+  inputDescribedBy?: string;
+  /** Called when the input gains or loses focus. */
+  onInputFocusChange?: (focused: boolean) => void;
 }
 
 const GlobalSearchBar = ({
@@ -34,6 +38,8 @@ const GlobalSearchBar = ({
   selectedTags = [],
   onRemoveTag,
   hideTagsRow = false,
+  inputDescribedBy,
+  onInputFocusChange,
 }: GlobalSearchBarProps) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialValue || '');
@@ -182,7 +188,12 @@ const GlobalSearchBar = ({
             value={query}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            onFocus={() => setShowSuggestions(combinedSuggestions.length > 0)}
+            onFocus={() => {
+              setShowSuggestions(combinedSuggestions.length > 0);
+              onInputFocusChange?.(true);
+            }}
+            onBlur={() => onInputFocusChange?.(false)}
+            aria-describedby={inputDescribedBy}
             placeholder={placeholder || t('Searching')}
             className={styles.searchInput}
           />

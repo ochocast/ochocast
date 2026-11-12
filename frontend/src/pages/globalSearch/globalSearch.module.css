@@ -166,6 +166,7 @@
 
 .sectionHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
@@ -229,16 +230,132 @@
   color: var(--theme-color-white);
 }
 
-.videoGrid {
+.videoList {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 
-.videoCard {
-  min-width: 0;
-  flex: 1 1 22rem;
-  max-width: 22rem;
+.passagesChip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #b9e6d2;
+  border-radius: 999px;
+  padding: 0.55rem 0.8rem;
+  background: #e3f6ee;
+  color: #0b3d2a;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+}
+
+.sortGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: #606060;
+}
+
+.sortLabel {
+  margin-right: 0.15rem;
+}
+
+.sortButton {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 999px;
+  background: var(--theme-color-white);
+  color: var(--theme-color-black);
+  font-family: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.sortButton:hover {
+  background: #f5f5f5;
+}
+
+.sortButtonActive,
+.sortButtonActive:hover {
+  background: var(--theme-color);
+  border-color: var(--theme-color);
+  color: var(--theme-color-white);
+  font-weight: 500;
+}
+
+.noVideosMessage {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tips {
+  margin-top: 0.75rem;
+  color: #344054;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.tipsTitle {
+  margin: 0 0 0.25rem !important;
+  font-weight: 600;
+}
+
+.tips ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  text-align: left;
+}
+
+.videosError {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 0.75rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  background: #fff4f4;
+  border: 1px solid rgba(255, 102, 102, 0.28);
+}
+
+.videosError p {
+  margin: 0;
+}
+
+.actionButton {
+  min-height: 44px;
+  padding: 0 1.25rem;
+  border: 1px solid var(--theme-color-black);
+  border-radius: 999px;
+  background: var(--theme-color-white);
+  color: var(--theme-color-black);
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.actionButton:hover:not(:disabled) {
+  background: var(--theme-color-black);
+  color: var(--theme-color-white);
+}
+
+.actionButton:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.loadMore {
+  display: block;
+  margin: 1rem auto 0;
+}
+
+.emptyState .tips {
+  max-width: 42rem;
+  margin: 0.75rem auto 0;
 }
 
 .eventGrid {
@@ -304,12 +421,10 @@
     border-radius: 18px;
   }
 
-  .videoGrid,
   .eventGrid {
     flex-direction: column;
   }
 
-  .videoCard,
   .eventCard {
     max-width: 100%;
   }
