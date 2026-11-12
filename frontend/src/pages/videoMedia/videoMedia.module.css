@@ -14,24 +14,107 @@
 }
 
 /* === Layout type YouTube === */
+/* One grid, five areas. Up to 1024 px, one column: the transcript panel sits
+   under the passage strip, before the title. Above, the player and its strip
+   are on the left and the panel is beside them, on the right, above the
+   suggestions. */
 .watchLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'back'
+    'player'
+    'panel'
+    'info'
+    'side';
+  column-gap: 2rem;
   align-items: start;
 }
 
-.mainColumn {
+.backToResults {
+  grid-area: back;
+  justify-self: start;
+}
+
+.playerArea {
+  grid-area: player;
+  min-width: 0;
+}
+
+.infoColumn {
+  grid-area: info;
   min-width: 0;
 }
 
 .sideColumn {
+  grid-area: side;
   min-width: 0;
+  margin-top: 2rem;
 }
 
-.sideSticky {
-  position: sticky;
-  top: 1rem;
+/* The strip is the player's width, right under it; nothing is left of it
+   when there is no passage. */
+.stripArea {
+  margin-top: 0.5rem;
+}
+
+.stripArea:empty {
+  display: none;
+}
+
+/* The panel fills this area. It is absent when the video has no transcript. */
+.panelArea {
+  grid-area: panel;
+  min-width: 0;
+  margin-top: 0.75rem;
+}
+
+.panelArea:empty {
+  display: none;
+}
+
+.panelArea > aside {
+  max-height: 50vh;
+}
+
+@media (min-width: 1025px) {
+  .watchLayout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'back back'
+      'player panel'
+      'info side';
+  }
+
+  /* Same top as the player, same height as the player and its strip: the
+     area is as tall as the row, the panel scrolls inside it. */
+  .panelArea {
+    position: relative;
+    align-self: stretch;
+    min-height: 22rem;
+    margin-top: 0;
+  }
+
+  .panelArea > aside {
+    position: absolute;
+    inset: 0;
+    max-height: none;
+  }
+
+  .sideColumn {
+    margin-top: 1rem;
+  }
+
+  /* Without a panel, the suggestions stay beside the player. */
+  .watchLayout:has(.panelArea:empty) .sideColumn {
+    grid-row: 2 / span 2;
+    margin-top: 0;
+  }
+
+  .sideSticky {
+    position: sticky;
+    top: 1rem;
+  }
 }
 
 /* === Player === */
@@ -332,17 +415,6 @@
 .thumbnailWrapper {
   width: 100%;
   box-sizing: border-box;
-}
-
-/* === Responsive === */
-@media (max-width: 1100px) {
-  .watchLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .sideSticky {
-    position: static;
-  }
 }
 
 .copyButtonIcon {

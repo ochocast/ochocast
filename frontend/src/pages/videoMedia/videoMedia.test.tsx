@@ -11,6 +11,7 @@ import {
   incrementVideoViews,
   isVideoFavorite,
 } from '../../utils/api';
+import { getTranscript, TranscriptResult } from '../../utils/searchApi';
 import VideoMedia from './videoMedia';
 import '../../testUtils/initTestI18n';
 
@@ -49,6 +50,12 @@ jest.mock('../../utils/api', () => ({
   incrementVideoViews: jest.fn(),
   isVideoFavorite: jest.fn(),
   removeFromFavorites: jest.fn(),
+}));
+
+// The transcript request of the panel never leaves the test.
+jest.mock('../../utils/searchApi', () => ({
+  getTranscript: jest.fn(),
+  SearchApiError: class SearchApiError extends Error {},
 }));
 
 jest.mock('react-markdown', () => ({
@@ -103,6 +110,33 @@ jest.mock(
 
 const HOUR = 60 * 60 * 1000;
 
+// Segments of the k8s video of the reference data set (annex A).
+const K8S_LINES: Array<[number, string]> = [
+  [12, 'Bonjour à tous, merci d’être venus à cette conférence.'],
+  [95, 'On a choisi Kubernetes parce qu’on voulait redéployer.'],
+  [260, 'Le cluster tourne sur Talos, chez Scaleway.'],
+  [498, 'Le transcodage passe par FFmpeg dans des conteneurs.'],
+  [754, 'Notre première erreur : des pods sans limite de mémoire.'],
+  [1012, 'Kubernetes redémarre le pod, mais la vidéo est perdue.'],
+  [1290, 'Les données personnelles restent dans la base managée.'],
+  [1544, 'Pour les sauvegardes, on s’appuie sur celles de l’hébergeur.'],
+  [1870, 'Les sous-titres sont générés la nuit.'],
+  [2210, 'Si c’était à refaire, on commencerait avec moins de microservices.'],
+  [2560, 'Merci, je prends vos questions sur Kubernetes et sur le reste.'],
+];
+
+const k8sTranscript = (matches: number[]): TranscriptResult => ({
+  videoId: 'A',
+  source: 'auto',
+  status: 'ready',
+  segments: K8S_LINES.map(([start, text], index) => ({
+    start,
+    end: K8S_LINES[index + 1]?.[0] ?? 2712,
+    parts: [{ text, hit: matches.includes(index) }],
+  })),
+  matches,
+});
+
 /** A long video is served from its source, through a presigned URL. */
 const sourceUrl = (signature: number) =>
   `https://bucket.example/A/source/original.mp4?X-Amz-Signature=${signature}`;
@@ -154,6 +188,17 @@ beforeEach(() => {
   sessionStorage.clear();
   mockSearch = '';
   mockPlayerDuration = 2712;
+  (getTranscript as jest.Mock).mockImplementation((_id: string, q: string) =>
+    Promise.resolve(k8sTranscript(q ? [1, 5, 10] : [])),
+  );
+  // jsdom has no layout: the strip measures a 900 px track.
+  (window as { ResizeObserver?: unknown }).ResizeObserver = class {
+    constructor(private callback: (entries: unknown[]) => void) {}
+    observe() {
+      this.callback([{ contentRect: { width: 900 } }]);
+    }
+    disconnect() {}
+  };
 });
 
 afterEach(() => {
@@ -469,6 +514,78 @@ describe('VideoMedia', () => {
       expect(
         screen.queryByRole('link', { name: /Retour aux résultats/ }),
       ).toBeNull();
+    });
+  });
+  describe('passage strip and transcript panel', () => {
+    const open = async (search: string) => {
+      mockSearch = search;
+      render(<VideoMedia />);
+      await settle();
+      fireEvent.canPlay(screen.getByTestId('player'));
+      await settle();
+    };
+
+    const markers = () => screen.queryAllByRole('button', { name: /^Aller à/ });
+    const line = (time: string) =>
+      screen.getByRole('button', { name: new RegExp(`^${time}`) });
+
+    it('renders the strip under the player when there are matches', async () => {
+      await open('?q=kubernetes');
+
+      expect(markers()).toHaveLength(3);
+      const strip = screen.getByRole('group', {
+        name: 'Passages trouvés dans la vidéo',
+      });
+      const player = screen.getByTestId('player');
+      expect(
+        player.compareDocumentPosition(strip) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(getTranscript).toHaveBeenCalledTimes(1);
+      expect(getTranscript).toHaveBeenCalledWith('A', 'kubernetes');
+    });
+
+    it('hides the strip without matches', async () => {
+      await open('');
+
+      expect(screen.getByTestId('transcript-list')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('group', { name: 'Passages trouvés dans la vidéo' }),
+      ).toBeNull();
+    });
+
+    it('hides the strip when the search finds nothing', async () => {
+      (getTranscript as jest.Mock).mockResolvedValue(k8sTranscript([]));
+      await open('?q=nothing');
+
+      expect(screen.getByTestId('transcript-list')).toBeInTheDocument();
+      expect(markers()).toHaveLength(0);
+    });
+
+    it('clicking a strip marker activates the panel line', async () => {
+      await open('?t=1012&q=kubernetes');
+
+      expect(line('16:52')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByText('2 / 3')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /^Aller à 42:40/ }));
+      await settle();
+
+      expect(mockSeekTo).toHaveBeenLastCalledWith(2560, 'seconds');
+      expect(line('42:40')).toHaveAttribute('aria-current', 'true');
+      expect(line('16:52')).not.toHaveAttribute('aria-current');
+      expect(screen.getByText('3 / 3')).toBeInTheDocument();
+    });
+
+    it('clicking a transcript line seeks and follows immediately', async () => {
+      await open('?q=kubernetes');
+
+      fireEvent.click(line('1:35'));
+      await settle();
+
+      expect(mockSeekTo).toHaveBeenLastCalledWith(95, 'seconds');
+      expect(line('1:35')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByText('1 / 3')).toBeInTheDocument();
     });
   });
 });

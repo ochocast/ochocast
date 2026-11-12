@@ -51,10 +51,16 @@ import CopyButtonIcon from '../../assets/copy.svg';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
 import { formatTimestamp } from '../../utils/formatTimestamp';
 import { parseStartTime } from './parseStartTime';
+import PassageStrip, {
+  StripPassage,
+} from '../../components/video/PassageStrip';
+import TranscriptPanel from '../../components/video/TranscriptPanel';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
 
 const START_BANNER_MS = 4500;
+
+const TOUCH_QUERY = '(pointer: coarse)';
 
 const PERSONA_IMAGE = '/branding/persona.png';
 
@@ -252,6 +258,39 @@ const VideoMedia: FC = () => {
   // quality switch or a reload of the media, which must not seek again.
   const positionedVideoId = useRef<string | null>(null);
   const [startBanner, setStartBanner] = useState<number | null>(null);
+  // Playback position shared by the strip and the transcript panel.
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playerDuration, setPlayerDuration] = useState(0);
+  const [passages, setPassages] = useState<StripPassage[]>([]);
+  // No hover on a touch screen: the markers get bigger hit areas.
+  const [isTouch, setIsTouch] = useState(
+    () =>
+      typeof window.matchMedia === 'function' &&
+      Boolean(window.matchMedia(TOUCH_QUERY)?.matches),
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia(TOUCH_QUERY);
+    if (!query) return;
+    const update = () => setIsTouch(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  // Another video starts from the beginning.
+  useEffect(() => {
+    setCurrentTime(0);
+    setPlayerDuration(0);
+  }, [videoId]);
+
+  // The strip, the panel and the arrival at `t` all go through here: the
+  // video moves and the panel line follows at once, even while paused.
+  const handleSeek = (seconds: number) => {
+    playerRef.current?.seekTo(seconds, 'seconds');
+    setCurrentTime(seconds);
+  };
 
   useEffect(() => {
     if (startBanner === null) return;
@@ -269,6 +308,7 @@ const VideoMedia: FC = () => {
       if (start !== null) {
         // No autoplay: browsers block it with sound.
         player.seekTo(start, 'seconds');
+        setCurrentTime(start);
         if (searchQuery) setStartBanner(start);
       }
     }
@@ -722,17 +762,17 @@ const VideoMedia: FC = () => {
 
   return (
     <div className={styles.containerGlobal}>
-      <div className={styles.watchLayout}>
+      <main className={styles.watchLayout}>
         {/* COLONNE PRINCIPALE */}
-        <main className={styles.mainColumn}>
-          {searchQuery && (
-            <Link
-              className={styles.backToResults}
-              to={`/search?q=${encodeURIComponent(searchQuery)}`}
-            >
-              {t('videoSearch.backToResults', { query: searchQuery })}
-            </Link>
-          )}
+        {searchQuery && (
+          <Link
+            className={styles.backToResults}
+            to={`/search?q=${encodeURIComponent(searchQuery)}`}
+          >
+            {t('videoSearch.backToResults', { query: searchQuery })}
+          </Link>
+        )}
+        <div className={styles.playerArea}>
           {/* Player */}
           <div className={styles.playerWrapper}>
             {video.transcoding_status === 'pending' ? (
@@ -754,6 +794,11 @@ const VideoMedia: FC = () => {
                   }}
                   onPause={() => setIsPlaying(false)}
                   onEnded={handleVideoEnded}
+                  progressInterval={500}
+                  onProgress={({ playedSeconds }) =>
+                    setCurrentTime(playedSeconds)
+                  }
+                  onDuration={setPlayerDuration}
                   onReady={handlePlayerReady}
                   config={{
                     file: {
@@ -844,6 +889,33 @@ const VideoMedia: FC = () => {
             )}
           </div>
 
+          {/* Barre des passages, sous le lecteur */}
+          <div className={styles.stripArea}>
+            <PassageStrip
+              duration={
+                playerDuration > 0 ? playerDuration : video.duration || null
+              }
+              passages={passages}
+              currentTime={currentTime}
+              isTouch={isTouch}
+              onSeek={handleSeek}
+            />
+          </div>
+        </div>
+
+        {/* Panneau Transcription */}
+        <div className={styles.panelArea}>
+          <TranscriptPanel
+            videoId={video.id}
+            initialQuery={searchQuery}
+            currentTime={currentTime}
+            transcriptionStatus={video.transcription_status || ''}
+            onSeek={handleSeek}
+            onMatchesChange={setPassages}
+          />
+        </div>
+
+        <div className={styles.infoColumn}>
           {/* Titre + tags */}
           <section className={styles.titleBlock}>
             <div className={styles.titleLeft}>
@@ -1037,7 +1109,7 @@ const VideoMedia: FC = () => {
                   })}
             </div>
           </section>
-        </main>
+        </div>
 
         {/* SIDEBAR */}
         <aside className={styles.sideColumn}>
@@ -1062,7 +1134,7 @@ const VideoMedia: FC = () => {
             </div>
           </div>
         </aside>
-      </div>
+      </main>
       {toast && (
         <Toast
           message={toast.message}
