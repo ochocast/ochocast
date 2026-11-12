@@ -160,3 +160,10 @@
 .active .mark {
   background: #ffffff;
 }
+
+.notice {
+  flex: none;
+  margin: 0;
+  font-size: 13.6px;
+  color: #b42318;
+}

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import HighlightedText from '../search/HighlightedText';
 import {
   getTranscript,
+  SearchApiError,
   TranscriptResult,
   TranscriptSegment,
 } from '../../utils/searchApi';
@@ -35,6 +36,8 @@ interface Loaded {
   /** Query the result was fetched for. */
   query: string;
   failed: boolean;
+  /** HTTP status of the failed request, when there is one. */
+  errorStatus?: number;
 }
 
 const segmentText = (segment: TranscriptSegment): string =>
@@ -107,9 +110,16 @@ const Panel: React.FC<TranscriptPanelProps> = ({
       .then((result) => {
         if (!cancelled) setLoaded({ result, query: trimmed, failed: false });
       })
-      .catch(() => {
-        if (!cancelled)
-          setLoaded({ result: null, query: trimmed, failed: true });
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        const errorStatus =
+          error instanceof SearchApiError ? error.status : undefined;
+        // Once a transcript has been shown, a failed search keeps it.
+        setLoaded((previous) =>
+          previous?.result?.status === 'ready'
+            ? { ...previous, failed: true, errorStatus }
+            : { result: null, query: trimmed, failed: true, errorStatus },
+        );
       });
     return () => {
       cancelled = true;
@@ -118,27 +128,35 @@ const Panel: React.FC<TranscriptPanelProps> = ({
 
   const result = loaded?.result ?? null;
   const ready = result?.status === 'ready';
-  const segments = useMemo(
-    () => (ready && result ? result.segments : []),
-    [ready, result],
-  );
+  const searchFailed = loaded?.failed === true;
+  const segments = useMemo(() => {
+    if (!ready || !result) return [];
+    if (!searchFailed) return result.segments;
+    // Highlights would contradict the query that just failed.
+    return result.segments.map((segment) => ({
+      ...segment,
+      parts: [{ text: segmentText(segment), hit: false }],
+    }));
+  }, [ready, result, searchFailed]);
 
   const matchStarts = useMemo(() => {
-    if (!ready || !result || !loaded?.query) return [];
+    if (!ready || !result || !loaded?.query || searchFailed) return [];
     return result.matches
       .map((index) => result.segments[index]?.start)
       .filter((start): start is number => typeof start === 'number');
-  }, [ready, result, loaded]);
+  }, [ready, result, loaded, searchFailed]);
 
   const passages = useMemo<StripPassage[]>(() => {
-    if (!ready || !result || !loaded?.query) return NO_PASSAGES;
+    if (!ready || !result || !loaded?.query || searchFailed) {
+      return NO_PASSAGES;
+    }
     return result.matches
       .filter((index) => result.segments[index])
       .map((index) => ({
         start: result.segments[index].start,
         excerpt: segmentText(result.segments[index]),
       }));
-  }, [ready, result, loaded]);
+  }, [ready, result, loaded, searchFailed]);
 
   useEffect(() => {
     onMatchesRef.current(passages);
@@ -197,7 +215,7 @@ const Panel: React.FC<TranscriptPanelProps> = ({
       current: currentOccurrence + 1,
       total,
     });
-  } else if (loaded?.query) {
+  } else if (loaded?.query && !searchFailed) {
     counter = t('transcriptPanel.noOccurrence');
   }
 
@@ -282,6 +300,13 @@ const Panel: React.FC<TranscriptPanelProps> = ({
           </>
         )}
       </div>
+      {searchFailed && (
+        <p role="status" className={styles.notice}>
+          {loaded?.errorStatus === 400
+            ? t('transcriptPanel.tooLong')
+            : t('transcriptPanel.unavailable')}
+        </p>
+      )}
       <ul className={styles.list} ref={listRef} data-testid="transcript-list">
         {segments.map((segment, index) => (
           <TranscriptLine

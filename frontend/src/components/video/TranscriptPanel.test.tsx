@@ -1,11 +1,22 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';
-import { getTranscript, TranscriptResult } from '../../utils/searchApi';
+import {
+  getTranscript,
+  SearchApiError,
+  TranscriptResult,
+} from '../../utils/searchApi';
 import TranscriptPanel from './TranscriptPanel';
 
 jest.mock('../../utils/searchApi', () => ({
   getTranscript: jest.fn(),
+  SearchApiError: class SearchApiError extends Error {
+    status: number;
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
 }));
 
 const mockedGetTranscript = getTranscript as jest.MockedFunction<
@@ -368,6 +379,82 @@ describe('TranscriptPanel', () => {
 
     expect(screen.getByText('<b>test</b>')).toBeInTheDocument();
     expect(document.querySelector('b')).toBeNull();
+  });
+
+  describe('when a search in the panel fails', () => {
+    const typeAndFlush = async (value: string) => {
+      fireEvent.change(screen.getByRole('searchbox'), { target: { value } });
+      await act(async () => {
+        jest.advanceTimersByTime(300);
+      });
+    };
+
+    const renderReady = async () => {
+      jest.useFakeTimers();
+      mockedGetTranscript.mockResolvedValueOnce(k8s({ highlight: true }));
+      return renderPanel({ initialQuery: 'kubernetes', currentTime: 1015 });
+    };
+
+    const expectPanelKept = (typed: string) => {
+      expect(screen.getByRole('searchbox')).toHaveValue(typed);
+      expect(lineButtons()).toHaveLength(11);
+      expect(document.querySelector('mark')).toBeNull();
+      expect(screen.queryByText(/\d \/ \d/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Occurrence suivante' }),
+      ).not.toBeInTheDocument();
+    };
+
+    it('keeps the panel and says the search is too long on a 400', async () => {
+      const { onMatchesChange } = await renderReady();
+      mockedGetTranscript.mockRejectedValueOnce(
+        new SearchApiError('too long', 400),
+      );
+
+      await typeAndFlush('un deux trois');
+
+      expectPanelKept('un deux trois');
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Recherche trop longue : 10 mots ou expressions et 200 caractères au plus.',
+      );
+      expect(onMatchesChange).toHaveBeenLastCalledWith([]);
+    });
+
+    it('keeps the panel and says the search is unavailable otherwise', async () => {
+      const { onMatchesChange } = await renderReady();
+      mockedGetTranscript.mockRejectedValueOnce(
+        new SearchApiError('down', 503),
+      );
+
+      await typeAndFlush('cluster');
+
+      expectPanelKept('cluster');
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Recherche indisponible pour le moment.',
+      );
+      expect(onMatchesChange).toHaveBeenLastCalledWith([]);
+    });
+
+    it('recovers when the next search succeeds', async () => {
+      const { onMatchesChange } = await renderReady();
+      mockedGetTranscript.mockRejectedValueOnce(
+        new SearchApiError('too long', 400),
+      );
+      await typeAndFlush('un deux trois');
+      expect(screen.getByRole('status')).toBeInTheDocument();
+
+      mockedGetTranscript.mockResolvedValueOnce(k8s({ highlight: true }));
+      await typeAndFlush('kubernetes');
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(document.querySelectorAll('mark')).toHaveLength(3);
+      expect(screen.getByText('2 / 3')).toBeInTheDocument();
+      expect(onMatchesChange).toHaveBeenLastCalledWith([
+        expect.objectContaining({ start: 95 }),
+        expect.objectContaining({ start: 1012 }),
+        expect.objectContaining({ start: 2560 }),
+      ]);
+    });
   });
 
   describe('auto-scroll', () => {
