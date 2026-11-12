@@ -1,0 +1,15 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-11-05T15:30:00Z"},
+  "title": "Maquette recherche par contenu",
+  "launch": {"view": "focused", "file": "Main.dc.html"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html": {"x": 0, "y": 0, "w": 1440, "h": 1500, "title": "Prototype · recherche dans le contenu des vidéos", "expand": "fill", "is_interactive": true}
+  },
+  "order": ["Main.dc.html"],
+  "notes": {
+    "parcours": {"x": 1520, "y": 0, "w": 460, "text": "Parcours à tester\n\n1. Cliquer dans la barre de recherche : des exemples apparaissent.\n2. « kubernetes » : vidéos classées, passages horodatés, mot surligné.\n3. Cliquer un passage : la vidéo s’ouvre à cet instant, la transcription suit la lecture.\n4. « conférences » trouve « conférence », « ecole » trouve « école ».\n5. ffmpeg -audio : exclut la vidéo qui parle d’audio.\n6. « kubernets » : aucun résultat, suggestion prévue en V1.1.\n\nContenu et sous-titres fictifs. Interface, logo, icônes et miniatures repris de staging.demo.ochocast.fr.", "color": "green", "size": "m"}
+  },
+  "designSystems": []
+}
