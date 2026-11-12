@@ -88,32 +88,106 @@ export class SearchApiError extends Error {
   }
 }
 
-async function get<T>(
+interface Answer {
+  data: unknown;
+  /** HTTP status, 0 when there is none. */
+  status: number;
+}
+
+async function get(
   url: string,
   params: Record<string, string | number | boolean | undefined>,
-): Promise<T> {
+): Promise<Answer> {
   const query = Object.fromEntries(
     Object.entries(params).filter(
       ([, value]) => value !== undefined && value !== '',
     ),
   );
-  const response = await api.get<T>(url, query);
+  const response = await api.get<unknown>(url, query);
   if (!response.ok) {
     throw new SearchApiError(
       `Request to ${url} failed (${response.problem})`,
       response.status ?? 0,
     );
   }
-  return response.data as T;
+  return { data: response.data, status: response.status ?? 0 };
 }
 
-export const searchContent = (params: SearchParams): Promise<SearchResult> =>
-  get<SearchResult>('/search', { ...params });
+export const searchContent = async (
+  params: SearchParams,
+): Promise<SearchResult> =>
+  (await get('/search', { ...params })).data as SearchResult;
 
-export const getTranscript = (
+type Json = Record<string, unknown>;
+
+const isObject = (value: unknown): value is Json =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const toParts = (raw: Json): TextPart[] => {
+  const text = typeof raw.text === 'string' ? raw.text : '';
+  const parts = Array.isArray(raw.parts)
+    ? raw.parts
+        .filter(isObject)
+        .filter((part) => typeof part.text === 'string')
+        .map((part) => ({ text: part.text as string, hit: part.hit === true }))
+    : [];
+  return parts.length > 0 ? parts : [{ text, hit: false }];
+};
+
+/**
+ * Turns a 200 answer of the transcript route into a `TranscriptResult` the
+ * panel can render whatever the body holds. `matches` index the raw segment
+ * list: they are moved to the kept segments, and those of dropped segments
+ * are dropped too.
+ */
+const toTranscript = (
+  videoId: string,
+  { data, status: httpStatus }: Answer,
+): TranscriptResult => {
+  if (!isObject(data)) {
+    throw new SearchApiError('Malformed transcript', httpStatus);
+  }
+  const status =
+    data.status === 'ready' || data.status === 'pending' ? data.status : 'none';
+  const result: TranscriptResult = {
+    videoId: typeof data.videoId === 'string' ? data.videoId : videoId,
+    source: data.source === 'provided' ? 'provided' : 'auto',
+    status,
+    segments: [],
+    matches: [],
+  };
+  if (status !== 'ready' || !Array.isArray(data.segments)) return result;
+
+  const keptIndex: number[] = [];
+  data.segments.forEach((raw: unknown, index) => {
+    if (!isObject(raw) || !isFiniteNumber(raw.start)) return;
+    keptIndex[index] = result.segments.length;
+    result.segments.push({
+      start: raw.start,
+      end: isFiniteNumber(raw.end) ? raw.end : raw.start,
+      parts: toParts(raw),
+    });
+  });
+  if (Array.isArray(data.matches)) {
+    const matches = new Set<number>();
+    data.matches.forEach((index: unknown) => {
+      if (Number.isInteger(index) && keptIndex[index as number] !== undefined) {
+        matches.add(keptIndex[index as number]);
+      }
+    });
+    result.matches = Array.from(matches).sort((a, b) => a - b);
+  }
+  return result;
+};
+
+export const getTranscript = async (
   videoId: string,
   q?: string,
 ): Promise<TranscriptResult> =>
-  get<TranscriptResult>(`/videos/${encodeURIComponent(videoId)}/transcript`, {
-    q,
-  });
+  toTranscript(
+    videoId,
+    await get(`/videos/${encodeURIComponent(videoId)}/transcript`, { q }),
+  );

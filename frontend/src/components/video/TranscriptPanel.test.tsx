@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';
+import { api } from '../../utils/api';
 import {
   getTranscript,
   SearchApiError,
@@ -19,9 +20,21 @@ jest.mock('../../utils/searchApi', () => ({
   },
 }));
 
+// Reached only through the real `getTranscript`, for the malformed answers.
+jest.mock('../../utils/api', () => ({ api: { get: jest.fn() } }));
+
 const mockedGetTranscript = getTranscript as jest.MockedFunction<
   typeof getTranscript
 >;
+
+/** Lets the real `getTranscript` read `data` as a 200 answer. */
+const answerWith = (data: unknown) => {
+  (api.get as jest.Mock).mockResolvedValue({ ok: true, status: 200, data });
+  const actual = jest.requireActual<typeof import('../../utils/searchApi')>(
+    '../../utils/searchApi',
+  );
+  mockedGetTranscript.mockImplementation(actual.getTranscript);
+};
 
 const LINES: Array<[number, string]> = [
   [12, 'Bonjour à tous, merci d’être venus à cette conférence.'],
@@ -393,6 +406,39 @@ describe('TranscriptPanel', () => {
 
     expect(screen.getByText('<b>test</b>')).toBeInTheDocument();
     expect(document.querySelector('b')).toBeNull();
+  });
+
+  describe('with a malformed 200 answer', () => {
+    it('shows lines whose parts and matches are missing', async () => {
+      answerWith({
+        videoId: 'k8s',
+        status: 'ready',
+        segments: [{ start: 12, end: 17 }, { start: 95 }, { start: 'x' }],
+      });
+      const { onMatchesChange } = await renderPanel({
+        initialQuery: 'kubernetes',
+      });
+
+      expect(lineButtons()).toHaveLength(2);
+      expect(lineButtons()[1]).toHaveTextContent('1:35');
+      expect(screen.getByText('Aucune occurrence')).toBeInTheDocument();
+      expect(onMatchesChange).toHaveBeenLastCalledWith([]);
+    });
+
+    it('shows an empty panel when the segments are missing', async () => {
+      answerWith({ status: 'ready' });
+      await renderPanel({ initialQuery: 'kubernetes' });
+
+      expect(screen.getByRole('searchbox')).toBeInTheDocument();
+      expect(screen.getByTestId('transcript-list')).toBeEmptyDOMElement();
+    });
+
+    it('renders nothing for a body that is not an object', async () => {
+      answerWith('<html>Bad gateway</html>');
+      const { container } = await renderPanel();
+
+      expect(container).toBeEmptyDOMElement();
+    });
   });
 
   describe('when a search in the panel fails', () => {
