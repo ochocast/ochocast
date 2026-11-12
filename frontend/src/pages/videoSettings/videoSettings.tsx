@@ -257,6 +257,15 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
   const [isRefuseModalOpen, setIsRefuseModalOpen] = useState(false);
   const [refusalReason, setRefusalReason] = useState('');
   const location = useLocation();
+  // Publishing a recording (or a speaker's request) prefills its own title:
+  // a draft left by another upload must not overwrite it.
+  const navigationState = location.state as {
+    recordingId?: string;
+    publicationRequestId?: string;
+  } | null;
+  const publishingRecording = !!(
+    navigationState?.recordingId || navigationState?.publicationRequestId
+  );
 
   // The recording stays in storage: it is previewed from a short-lived URL and
   // copied server side on publication, never downloaded by the browser.
@@ -1088,16 +1097,10 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       }
     };
 
-    // Publishing a recording (or a speaker's request) prefills its own title:
-    // a draft left by another upload must not overwrite it.
-    const source = location.state as {
-      recordingId?: string;
-      publicationRequestId?: string;
-    } | null;
     if (videoId !== undefined) {
       clearLocalStorage();
       void get_video();
-    } else if (source?.recordingId || source?.publicationRequestId) {
+    } else if (publishingRecording) {
       clearLocalStorage();
     } else {
       try {
@@ -1116,7 +1119,7 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
         console.error('Error loading from localStorage:', error);
       }
     }
-  }, [videoId]);
+  }, [videoId, publishingRecording]);
 
   useEffect(() => {
     if (!baseVideo) {
