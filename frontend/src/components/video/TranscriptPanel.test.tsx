@@ -20,6 +20,20 @@ jest.mock('../../utils/searchApi', () => ({
   },
 }));
 
+// Counts the lines that render again; the text is rendered as usual.
+const mockLineRenders = jest.fn();
+jest.mock('../search/HighlightedText', () => {
+  const { createElement } = jest.requireActual('react');
+  const actual = jest.requireActual('../search/HighlightedText');
+  return {
+    __esModule: true,
+    default: (props: object) => {
+      mockLineRenders();
+      return createElement(actual.default, props);
+    },
+  };
+});
+
 // Reached only through the real `getTranscript`, for the malformed answers.
 jest.mock('../../utils/api', () => ({ api: { get: jest.fn() } }));
 
@@ -406,6 +420,116 @@ describe('TranscriptPanel', () => {
 
     expect(screen.getByText('<b>test</b>')).toBeInTheDocument();
     expect(document.querySelector('b')).toBeNull();
+  });
+
+  describe('keyboard', () => {
+    const tabStops = () =>
+      lineButtons().filter((button) => button.tabIndex === 0);
+
+    it('puts a single line in the tab order: the active one', async () => {
+      await renderPanel({ currentTime: 1015 });
+
+      expect(tabStops()).toHaveLength(1);
+      expect(tabStops()[0]).toHaveTextContent('16:52');
+      expect(
+        lineButtons().filter((button) => button.tabIndex === -1),
+      ).toHaveLength(10);
+    });
+
+    it('puts the first line in the tab order before playback reaches one', async () => {
+      await renderPanel({ currentTime: 0 });
+
+      expect(tabStops()).toHaveLength(1);
+      expect(tabStops()[0]).toHaveTextContent('0:12');
+    });
+
+    it('moves focus with the arrow keys, Home and End', async () => {
+      await renderPanel({ currentTime: 1015 });
+      const lines = lineButtons();
+      act(() => lines[5].focus());
+
+      fireEvent.keyDown(lines[5], { key: 'ArrowDown' });
+      expect(document.activeElement).toBe(lines[6]);
+      fireEvent.keyDown(lines[6], { key: 'ArrowUp' });
+      fireEvent.keyDown(lines[5], { key: 'ArrowUp' });
+      expect(document.activeElement).toBe(lines[4]);
+      fireEvent.keyDown(lines[4], { key: 'End' });
+      expect(document.activeElement).toBe(lines[10]);
+      fireEvent.keyDown(lines[10], { key: 'ArrowDown' });
+      expect(document.activeElement).toBe(lines[10]);
+      fireEvent.keyDown(lines[10], { key: 'Home' });
+      expect(document.activeElement).toBe(lines[0]);
+      fireEvent.keyDown(lines[0], { key: 'ArrowUp' });
+      expect(document.activeElement).toBe(lines[0]);
+      // The tab stop is where the user moved to.
+      expect(tabStops()).toEqual([lines[0]]);
+    });
+
+    it('prevents the page from scrolling on those keys only', async () => {
+      const { onSeek } = await renderPanel({ currentTime: 1015 });
+      const lines = lineButtons();
+      act(() => lines[5].focus());
+
+      expect(fireEvent.keyDown(lines[5], { key: 'ArrowDown' })).toBe(false);
+      expect(fireEvent.keyDown(lines[6], { key: 'Enter' })).toBe(true);
+      expect(fireEvent.keyDown(lines[6], { key: ' ' })).toBe(true);
+      expect(fireEvent.keyDown(lines[6], { key: 'Tab' })).toBe(true);
+      fireEvent.click(lines[6]);
+      expect(onSeek).toHaveBeenCalledWith(1290);
+    });
+
+    it('keeps the tab stop on the focused line while playback moves', async () => {
+      const { rerender, onSeek, onMatchesChange } = await renderPanel({
+        currentTime: 1015,
+      });
+      const lines = lineButtons();
+      act(() => lines[5].focus());
+      fireEvent.keyDown(lines[5], { key: 'ArrowUp' });
+
+      const props = {
+        videoId: 'k8s',
+        initialQuery: '',
+        transcriptionStatus: 'ready',
+        onSeek,
+        onMatchesChange,
+      };
+      rerender(<TranscriptPanel {...props} currentTime={1300} />);
+      expect(tabStops()).toEqual([lines[4]]);
+
+      // Once focus leaves the list, the tab stop follows playback again.
+      act(() => lines[4].blur());
+      expect(tabStops()).toEqual([lines[6]]);
+      rerender(<TranscriptPanel {...props} currentTime={1550} />);
+      expect(tabStops()).toEqual([lines[7]]);
+    });
+
+    it('renders again only the lines whose state changes', async () => {
+      const { rerender, onSeek, onMatchesChange } = await renderPanel({
+        currentTime: 1015,
+      });
+      const props = {
+        videoId: 'k8s',
+        initialQuery: '',
+        transcriptionStatus: 'ready',
+        onSeek,
+        onMatchesChange,
+      };
+      const lines = lineButtons();
+
+      mockLineRenders.mockClear();
+      rerender(<TranscriptPanel {...props} currentTime={1016} />);
+      expect(mockLineRenders).not.toHaveBeenCalled();
+
+      // The active line and the tab stop move from 16:52 to 21:30.
+      rerender(<TranscriptPanel {...props} currentTime={1300} />);
+      expect(mockLineRenders).toHaveBeenCalledTimes(2);
+
+      mockLineRenders.mockClear();
+      act(() => lines[6].focus());
+      expect(mockLineRenders).not.toHaveBeenCalled();
+      fireEvent.keyDown(lines[6], { key: 'ArrowDown' });
+      expect(mockLineRenders).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('with a malformed 200 answer', () => {

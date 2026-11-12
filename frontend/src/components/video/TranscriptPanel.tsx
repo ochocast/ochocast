@@ -32,6 +32,15 @@ interface TranscriptPanelProps {
 const DEBOUNCE_MS = 300;
 const NO_PASSAGES: StripPassage[] = [];
 
+/** Index of the transcript line holding `element`, null for anything else. */
+const lineIndexOf = (element: EventTarget | null): number | null => {
+  if (!(element instanceof HTMLElement)) return null;
+  const index = Number(element.dataset.index);
+  return element.dataset.index !== undefined && Number.isInteger(index)
+    ? index
+    : null;
+};
+
 interface Loaded {
   result: TranscriptResult | null;
   /** Query the result was fetched for. */
@@ -53,15 +62,18 @@ interface LineProps {
   index: number;
   segment: TranscriptSegment;
   active: boolean;
+  /** The single line of the list that Tab reaches. */
+  tabbable: boolean;
   onSeek: (seconds: number) => void;
 }
 
 const TranscriptLine = React.memo<LineProps>(
-  ({ index, segment, active, onSeek }) => (
+  ({ index, segment, active, tabbable, onSeek }) => (
     <li>
       <button
         type="button"
         data-index={index}
+        tabIndex={tabbable ? 0 : -1}
         className={`${styles.line} ${active ? styles.active : ''}`}
         aria-current={active ? 'true' : undefined}
         onClick={() => onSeek(segment.start)}
@@ -89,6 +101,9 @@ const Panel: React.FC<TranscriptPanelProps> = ({
   const [query, setQuery] = useState(initialQuery);
   const [fetchQuery, setFetchQuery] = useState(initialQuery);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
+  // The line focus was moved to while the list has focus; null once focus
+  // leaves it, so that the tab stop follows the active line again.
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const onSeekRef = useRef(onSeek);
   const onMatchesRef = useRef(onMatchesChange);
@@ -168,6 +183,52 @@ const Panel: React.FC<TranscriptPanelProps> = ({
     [segments],
   );
   const activeIndex = lastReachedIndex(segmentStarts, currentTime);
+
+  // Roving tab stop: one line only is in the tab order, the arrow keys move
+  // between lines.
+  let tabStop = activeIndex >= 0 ? activeIndex : 0;
+  if (focusedIndex !== null && focusedIndex < segments.length) {
+    tabStop = focusedIndex;
+  }
+
+  const handleListFocus = (event: React.FocusEvent<HTMLUListElement>) => {
+    const index = lineIndexOf(event.target);
+    if (index !== null) setFocusedIndex(index);
+  };
+
+  const handleListBlur = (event: React.FocusEvent<HTMLUListElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      setFocusedIndex(null);
+    }
+  };
+
+  const handleListKeyDown = (event: React.KeyboardEvent<HTMLUListElement>) => {
+    const from = lineIndexOf(event.target);
+    if (from === null || segments.length === 0) return;
+    const last = segments.length - 1;
+    let to: number;
+    switch (event.key) {
+      case 'ArrowDown':
+        to = Math.min(from + 1, last);
+        break;
+      case 'ArrowUp':
+        to = Math.max(from - 1, 0);
+        break;
+      case 'Home':
+        to = 0;
+        break;
+      case 'End':
+        to = last;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    setFocusedIndex(to);
+    event.currentTarget
+      .querySelector<HTMLElement>(`[data-index="${to}"]`)
+      ?.focus();
+  };
 
   // Follow the playback inside the list only, never the page.
   useEffect(() => {
@@ -305,13 +366,22 @@ const Panel: React.FC<TranscriptPanelProps> = ({
             : t('transcriptPanel.unavailable')}
         </p>
       )}
-      <ul className={styles.list} ref={listRef} data-testid="transcript-list">
+      {/* The lines are buttons: the list only routes the arrow keys. */}
+      <ul
+        className={styles.list}
+        ref={listRef}
+        data-testid="transcript-list"
+        onFocus={handleListFocus}
+        onBlur={handleListBlur}
+        onKeyDown={handleListKeyDown}
+      >
         {segments.map((segment, index) => (
           <TranscriptLine
             key={index}
             index={index}
             segment={segment}
             active={index === activeIndex}
+            tabbable={index === tabStop}
             onSeek={seek}
           />
         ))}
