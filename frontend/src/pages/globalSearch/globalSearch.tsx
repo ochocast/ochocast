@@ -188,6 +188,7 @@ const getMatchingTracks = (event: PublicEvent, query: string): string[] => {
 };
 
 const PAGE_SIZE = 20;
+const SEARCH_DEBOUNCE_MS = 300;
 
 type VideosStatus = 'idle' | 'loading' | 'loadingMore' | 'error' | 'moreError';
 
@@ -275,6 +276,7 @@ const GlobalSearchPage = () => {
   const [videosFirstLoadDone, setVideosFirstLoadDone] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const requestSeq = useRef(0);
+  const previousQuery = useRef<string | null>(null);
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [eventMiniatures, setEventMiniatures] = useState<
     Record<string, string>
@@ -331,39 +333,56 @@ const GlobalSearchPage = () => {
     };
   }, [getImageUrl, t]);
 
-  // Videos come from the API; a response that arrives after the URL changed
-  // (or after the page was left) is ignored through `requestSeq`.
+  // Videos come from the API. A response that arrives after the URL changed
+  // (or after the page was left) is ignored through `requestSeq`. The header
+  // navigates on every keystroke, so a change of `q` waits for the typing to
+  // pause; the first load, sort, filters and retry go out immediately.
   useEffect(() => {
     if (!criteriaActive) {
+      previousQuery.current = null;
       setVideoResults(null);
       setVideosStatus('idle');
       return;
     }
 
-    const requestId = ++requestSeq.current;
+    const currentQuery = apiParams.q ?? '';
+    const queryChanged =
+      previousQuery.current !== null && previousQuery.current !== currentQuery;
+    previousQuery.current = currentQuery;
+
     setVideosStatus('loading');
 
-    searchContent({ ...apiParams, limit: PAGE_SIZE, offset: 0 })
-      .then((response) => {
-        if (requestSeq.current !== requestId) return;
-        setVideoResults({
-          q: apiParams.q ?? '',
-          hits: response.videos,
-          total: response.total,
-          passageTotal: response.passageTotal,
+    const fetchFirstPage = () => {
+      const requestId = ++requestSeq.current;
+
+      searchContent({ ...apiParams, limit: PAGE_SIZE, offset: 0 })
+        .then((response) => {
+          if (requestSeq.current !== requestId) return;
+          setVideoResults({
+            q: currentQuery,
+            hits: response.videos,
+            total: response.total,
+            passageTotal: response.passageTotal,
+          });
+          setVideosStatus('idle');
+          setVideosFirstLoadDone(true);
+        })
+        .catch((searchError) => {
+          if (requestSeq.current !== requestId) return;
+          logger.error({ err: searchError }, 'Error searching videos');
+          setVideoResults(null);
+          setVideosStatus('error');
+          setVideosFirstLoadDone(true);
         });
-        setVideosStatus('idle');
-        setVideosFirstLoadDone(true);
-      })
-      .catch((searchError) => {
-        if (requestSeq.current !== requestId) return;
-        logger.error({ err: searchError }, 'Error searching videos');
-        setVideoResults(null);
-        setVideosStatus('error');
-        setVideosFirstLoadDone(true);
-      });
+    };
+
+    const timer = queryChanged
+      ? setTimeout(fetchFirstPage, SEARCH_DEBOUNCE_MS)
+      : undefined;
+    if (!queryChanged) fetchFirstPage();
 
     return () => {
+      if (timer !== undefined) clearTimeout(timer);
       requestSeq.current += 1;
     };
   }, [apiParams, criteriaActive, retryCount]);

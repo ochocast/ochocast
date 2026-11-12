@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';
 import GlobalSearchPage from './globalSearch';
 import { SearchHit, SearchResult } from '../../utils/searchApi';
@@ -118,6 +118,10 @@ const renderPage = (search: string) => {
   mockSearch = search;
   return render(<GlobalSearchPage />);
 };
+
+afterEach(() => {
+  jest.useRealTimers();
+});
 
 beforeEach(() => {
   mockSearch = '';
@@ -349,5 +353,30 @@ describe('GlobalSearchPage', () => {
     expect(screen.getAllByTestId('event-card')).toHaveLength(1);
     expect(screen.queryByText('Cours de cuisine')).not.toBeInTheDocument();
     expect(searchContent).toHaveBeenCalledTimes(1);
+  });
+
+  it('debounces the search while the query changes', async () => {
+    jest.useFakeTimers();
+    const { rerender } = renderPage('?tags=devops');
+    await screen.findByText('Déployer une plateforme vidéo sur Kubernetes');
+    expect(searchContent).toHaveBeenCalledTimes(1);
+
+    for (const q of ['k', 'ku', 'kub']) {
+      mockSearch = `?tags=devops&q=${q}`;
+      rerender(<GlobalSearchPage />);
+      act(() => {
+        jest.advanceTimersByTime(100);
+      });
+    }
+    expect(searchContent).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+
+    expect(searchContent).toHaveBeenCalledTimes(2);
+    expect(searchContent).toHaveBeenLastCalledWith(
+      expect.objectContaining({ q: 'kub', tags: 'devops', offset: 0 }),
+    );
   });
 });
