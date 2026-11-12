@@ -263,7 +263,11 @@ const Panel: React.FC<TranscriptPanelProps> = ({
 
   if (isPreparing) {
     return (
-      <aside className={`${styles.panel} ${className ?? ''}`}>
+      <aside
+        className={`${styles.panel} ${className ?? ''}`}
+        aria-label={t('transcriptPanel.region')}
+        data-state="preparing"
+      >
         <p className={styles.preparing}>{t('transcriptPanel.preparing')}</p>
       </aside>
     );

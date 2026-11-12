@@ -112,6 +112,26 @@
     margin-top: 0;
   }
 
+  /* « Transcription en préparation » is one line: the panel is as tall as
+     its content and the suggestions follow it, beside the player. */
+  .watchLayout:has(.panelArea [data-state='preparing']) {
+    grid-template-areas:
+      'back back'
+      'player panel'
+      'player side'
+      'info side';
+  }
+
+  .panelArea:has([data-state='preparing']) {
+    align-self: start;
+    min-height: 0;
+  }
+
+  .panelArea > aside[data-state='preparing'] {
+    position: static;
+    height: auto;
+  }
+
   .sideSticky {
     position: sticky;
     top: 1rem;

@@ -438,6 +438,10 @@ describe('TranscriptPanel', () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
     expect(onMatchesChange).toHaveBeenLastCalledWith([]);
+    // Named like the full panel; the page lays it out by its state.
+    expect(
+      screen.getByRole('complementary', { name: 'Transcription de la vidéo' }),
+    ).toHaveAttribute('data-state', 'preparing');
   });
 
   it('renders preparing when the video is still being transcribed', async () => {
