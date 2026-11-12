@@ -307,6 +307,7 @@ const Panel: React.FC<TranscriptPanelProps> = ({
           type="search"
           className={styles.input}
           value={query}
+          maxLength={200}
           onChange={(event) => setQuery(event.target.value)}
           aria-label={t('transcriptPanel.search')}
           placeholder={t('transcriptPanel.search')}
