@@ -541,5 +541,11 @@
     "morePassages_one": "Voir l'autre passage",
     "morePassages_other": "Voir les {{count}} autres passages",
     "lessPassages": "Afficher moins de passages"
+  },
+  "passageStrip": {
+    "region": "Passages trouvés dans la vidéo",
+    "goTo": "Aller à {{time}} : {{excerpt}}",
+    "goToGroup_one": "Aller à {{time}} : {{excerpt}} (+{{count}} passage)",
+    "goToGroup_other": "Aller à {{time}} : {{excerpt}} (+{{count}} passages)"
   }
 }
