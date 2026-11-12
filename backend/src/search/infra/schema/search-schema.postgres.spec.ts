@@ -53,9 +53,15 @@ integration('content search schema (dedicated test database)', () => {
 
   it('migration down then up leaves a working schema', async () => {
     const runner = db.createQueryRunner();
+    // In a transaction, like `migration:run` does.
+    await runner.startTransaction();
     try {
       await new AddContentSearch1794470400000().down(runner);
       await new AddContentSearch1794470400000().up(runner);
+      await runner.commitTransaction();
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
     } finally {
       await runner.release();
     }

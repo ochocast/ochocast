@@ -7,6 +7,13 @@ import { DataSource, QueryRunner } from 'typeorm';
  * touch generated tsvector columns or text search configurations. The SQL is
  * idempotent so that the same function serves the production migration, the
  * development bootstrap (`SearchModule`) and the integration tests.
+ *
+ * Rule: `ensureSearchSchema` is append-only. Never edit or remove an existing
+ * statement. Add new objects with `IF NOT EXISTS` (or a guarded `DO` block),
+ * and never make them depend on anything created by a later migration. Every
+ * addition ships in a NEW migration (which may call `ensureSearchSchema`
+ * again): AddContentSearch has already run on staging and production and will
+ * not run again.
  */
 export async function ensureSearchSchema(
   db: DataSource | QueryRunner,

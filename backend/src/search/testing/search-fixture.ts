@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { DataSource, EntityManager } from 'typeorm';
 import { toWebVtt } from '../../transcription/webvtt';
@@ -10,9 +10,8 @@ import { ensureSearchSchema } from '../infra/schema/search-schema';
  * WebVTT file (`fixtureVtt`) and the rows of `video_transcript_segment`, so
  * the two can never disagree.
  *
- * This file is compiled into `dist` (tsconfig.build.json is untouched): it
- * must import nothing that is only available in development (jest,
- * @nestjs/testing).
+ * Test helper only: `tsconfig.build.json` excludes every `testing` directory,
+ * so this file is not part of the production build.
  */
 
 export type FixtureIds = Record<
@@ -453,34 +452,61 @@ export async function loadSearchFixture(db: DataSource): Promise<FixtureIds> {
   });
 }
 
+/** `test` must be a whole `_`/`-` separated word: "search_test" yes, "latest" no. */
+const TEST_DATABASE_NAME = /(^|[_-])test([_-]|$)/;
+
 /**
  * Opens the dedicated test DataSource shared by every `*.postgres.spec.ts`
- * under `src/search`: all entities, then the search schema, on a database
- * rebuilt from scratch (`dropSchema` + `synchronize`).
+ * under `src/search`: all entities, then the search schema.
  *
- * `dropSchema` wipes the whole database, so this throws unless the database
- * name in the URL contains `test`.
+ * The database of the URL is only a base: each call creates its own database
+ * (`<base>_<8 hex>`) and the returned DataSource's `destroy()` drops it. Spec
+ * files run in parallel workers (and several worktrees may share one server),
+ * so a shared database wiped with `dropSchema` would make them race.
+ *
+ * Creating and dropping databases is destructive, so this throws unless the
+ * base database name contains `test` as a whole word.
  */
 export async function openSearchTestDatabase(url: string): Promise<DataSource> {
-  const databaseName = decodeURIComponent(new URL(url).pathname.slice(1));
-  if (!databaseName.includes('test')) {
+  const baseName = decodeURIComponent(new URL(url).pathname.slice(1));
+  if (!TEST_DATABASE_NAME.test(baseName)) {
     throw new Error(
-      `Refusing to wipe database "${databaseName}": its name must contain "test".`,
+      `Refusing to use database "${baseName}": its name must contain "test" as a word (e.g. search_test).`,
     );
   }
-  const db = new DataSource({
-    type: 'postgres',
-    url,
-    entities: [join(__dirname, '../../**/*.entity.ts')],
-    dropSchema: true,
-    synchronize: true,
-  });
-  await db.initialize();
+  // 54 + "_" + 8 hex = 63, the PostgreSQL identifier limit.
+  const name = `${baseName.slice(0, 54)}_${randomBytes(4).toString('hex')}`;
+  const quoted = `"${name.replace(/"/g, '""')}"`;
+  const testUrl = new URL(url);
+  testUrl.pathname = `/${encodeURIComponent(name)}`;
+
+  const admin = new DataSource({ type: 'postgres', url });
+  await admin.initialize();
+  let db: DataSource | undefined;
   try {
+    await admin.query(`CREATE DATABASE ${quoted}`);
+    db = new DataSource({
+      type: 'postgres',
+      url: testUrl.toString(),
+      entities: [join(__dirname, '../../**/*.entity.ts')],
+      synchronize: true,
+    });
+    await db.initialize();
     await ensureSearchSchema(db);
   } catch (error) {
-    await db.destroy();
+    await db?.destroy().catch(() => undefined);
+    await admin.query(`DROP DATABASE IF EXISTS ${quoted} WITH (FORCE)`);
+    await admin.destroy();
     throw error;
   }
+  const destroy = db.destroy.bind(db);
+  db.destroy = async () => {
+    try {
+      await destroy();
+    } finally {
+      await admin.query(`DROP DATABASE IF EXISTS ${quoted} WITH (FORCE)`);
+      await admin.destroy();
+    }
+  };
   return db;
 }

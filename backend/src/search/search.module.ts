@@ -7,10 +7,9 @@ export class SearchModule implements OnModuleInit {
   constructor(private readonly dataSource: DataSource) {}
 
   async onModuleInit(): Promise<void> {
-    // Same condition as `synchronize` in config/database.config.ts: the
-    // search tables are not entities, so nothing else creates them there.
-    // Production creates them through the AddContentSearch migration.
-    if (process.env.NODE_ENV === 'development') {
+    // Design section 3: bootstrap only when `synchronize` is active, because the
+    // search tables are not entities. Production uses the AddContentSearch migration.
+    if (this.dataSource.options.synchronize) {
       await ensureSearchSchema(this.dataSource);
     }
   }
