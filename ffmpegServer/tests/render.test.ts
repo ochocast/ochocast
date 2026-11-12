@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { createHmac, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { cp, mkdtemp, readdir, rm, stat } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { test, TestContext } from 'node:test';
@@ -459,9 +459,22 @@ test('renders segments in playback order with their texts, as HLS', async (t) =>
 test('fails for good when the original is gone', async (t) => {
   const root = await workRoot(t);
   process.env.TRANSCODING_WORK_DIR = root;
-  t.after(() => delete process.env.TRANSCODING_WORK_DIR);
+  // A placeholder font, never read: the source is missing before any
+  // encoding, so the test does not need DejaVu installed.
+  const fontFile = path.join(root, 'placeholder-font.ttf');
+  await writeFile(fontFile, '');
+  const previousFont = process.env.FFMPEG_FONT_FILE;
+  process.env.FFMPEG_FONT_FILE = fontFile;
+  t.after(() => {
+    delete process.env.TRANSCODING_WORK_DIR;
+    if (previousFont === undefined) delete process.env.FFMPEG_FONT_FILE;
+    else process.env.FFMPEG_FONT_FILE = previousFont;
+  });
+  const job = fullJob(message());
+  const asked: string[] = [];
   const s3 = {
-    send: async () => {
+    send: async (command: { input: { Key?: string } }) => {
+      asked.push(command.input.Key!);
       throw Object.assign(new Error('missing'), {
         name: 'NotFound',
         $metadata: { httpStatusCode: 404 },
@@ -469,10 +482,9 @@ test('fails for good when the original is gone', async (t) => {
     },
   } as unknown as S3Client;
   await assert.rejects(
-    new RenderService(s3).render(
-      fullJob(message()),
-      new AbortController().signal,
-    ),
+    new RenderService(s3).render(job, new AbortController().signal),
     (e) => e instanceof PermanentJobError && e.reason === 'invalid_source',
   );
+  // It failed on the original itself, not before reaching it.
+  assert.ok(asked.includes(job.sourceKey), `source never asked: ${asked}`);
 });
