@@ -32,6 +32,7 @@
     "test:transcription": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand src/transcription src/transcoding-jobs/transcoding-jobs.spec.ts",
     "local:queue-bridge": "node --env-file=.env -r ts-node/register scripts/local-queue-bridge.ts",
     "local:queue-config": "node scripts/configure-local-scaleway-queue.mjs",
+    "test:search": "jest --runInBand src/search",
     "test:local-queue-config": "node --test scripts/configure-local-scaleway-queue.test.mjs"
   },
   "dependencies": {
