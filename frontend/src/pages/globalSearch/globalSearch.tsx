@@ -10,7 +10,12 @@ import { useTranslation } from 'react-i18next';
 
 import styles from './globalSearch.module.css';
 import { getEventsMiniature, getPublishedEvents } from '../../utils/api';
-import { SearchHit, SearchParams, searchContent } from '../../utils/searchApi';
+import {
+  SearchApiError,
+  SearchHit,
+  SearchParams,
+  searchContent,
+} from '../../utils/searchApi';
 import { PublicEvent } from '../../utils/EventsProperties';
 import SearchVideoResult from '../../components/search/SearchVideoResult';
 import EventBox from '../../components/ReworkComponents/Event/EventBox/EventBox';
@@ -190,7 +195,14 @@ const getMatchingTracks = (event: PublicEvent, query: string): string[] => {
 const PAGE_SIZE = 20;
 const SEARCH_DEBOUNCE_MS = 300;
 
-type VideosStatus = 'idle' | 'loading' | 'loadingMore' | 'error' | 'moreError';
+type VideosStatus =
+  | 'idle'
+  | 'loading'
+  | 'loadingMore'
+  | 'error'
+  /** The API refused the query (400): too many words or characters. */
+  | 'tooLong'
+  | 'moreError';
 
 interface VideoResults {
   /** The query these hits answer (the URL may have changed since). */
@@ -360,9 +372,9 @@ const GlobalSearchPage = () => {
           if (requestSeq.current !== requestId) return;
           setVideoResults({
             q: currentQuery,
-            hits: response.videos,
-            total: response.total,
-            passageTotal: response.passageTotal,
+            hits: response?.videos ?? [],
+            total: response?.total ?? 0,
+            passageTotal: response?.passageTotal ?? 0,
           });
           setVideosStatus('idle');
           setVideosFirstLoadDone(true);
@@ -371,7 +383,11 @@ const GlobalSearchPage = () => {
           if (requestSeq.current !== requestId) return;
           logger.error({ err: searchError }, 'Error searching videos');
           setVideoResults(null);
-          setVideosStatus('error');
+          setVideosStatus(
+            searchError instanceof SearchApiError && searchError.status === 400
+              ? 'tooLong'
+              : 'error',
+          );
           setVideosFirstLoadDone(true);
         });
     };
@@ -401,6 +417,12 @@ const GlobalSearchPage = () => {
       });
       if (requestSeq.current !== requestId) return;
 
+      // Read the response outside the updater: a malformed 2xx must not throw
+      // while React renders.
+      const newHits = response?.videos ?? [];
+      const newTotal = response?.total;
+      const newPassageTotal = response?.passageTotal;
+
       setVideoResults((previous) => {
         if (!previous) return previous;
         const known = new Set(previous.hits.map((hit) => hit.video.id));
@@ -408,10 +430,10 @@ const GlobalSearchPage = () => {
           ...previous,
           hits: [
             ...previous.hits,
-            ...response.videos.filter((hit) => !known.has(hit.video.id)),
+            ...newHits.filter((hit) => !known.has(hit.video.id)),
           ],
-          total: response.total,
-          passageTotal: response.passageTotal,
+          total: newTotal ?? previous.total,
+          passageTotal: newPassageTotal ?? previous.passageTotal,
         };
       });
       setVideosStatus('idle');
@@ -500,8 +522,10 @@ const GlobalSearchPage = () => {
     [query, searchParams, events],
   );
 
+  const videosFailed = videosStatus === 'error' || videosStatus === 'tooLong';
   const videosTotal = videoResults?.total ?? 0;
-  const totalResults = filteredEvents.length + videosTotal;
+  // A failed search says nothing about the videos: leave them out of the counts.
+  const totalResults = filteredEvents.length + (videosFailed ? 0 : videosTotal);
   const videosSettled = videosStatus === 'idle' && videoResults !== null;
   const noResultsAtAll =
     videosSettled && videosTotal === 0 && filteredEvents.length === 0;
@@ -536,8 +560,17 @@ const GlobalSearchPage = () => {
     </div>
   );
 
+  // Retrying cannot help: the query itself has to change.
+  const videosTooLong = (
+    <div className={styles.videosError} role="alert">
+      <p>{t('globalSearchQueryTooLong')}</p>
+    </div>
+  );
+
   let videosBody: React.ReactNode;
-  if (videosStatus === 'error') {
+  if (videosStatus === 'tooLong') {
+    videosBody = videosTooLong;
+  } else if (videosStatus === 'error') {
     videosBody = videosError;
   } else if (!videoResults) {
     videosBody = (
@@ -563,6 +596,7 @@ const GlobalSearchPage = () => {
               key={hit.video.id}
               hit={hit}
               query={videoResults.q}
+              fallbackMiniatureUrl={fallbackMiniatureUrl || undefined}
             />
           ))}
         </div>
@@ -628,36 +662,38 @@ const GlobalSearchPage = () => {
               )}
               {t('globalSearchEventsCount', { count: filteredEvents.length })}
             </button>
-            <button
-              type="button"
-              className={`${styles.resultMetaChip} ${
-                filterType === 'videos'
-                  ? styles.activeChip
-                  : filterType !== 'all'
-                    ? styles.dimmedChip
-                    : ''
-              }`}
-              onClick={() =>
-                setFilterType(filterType === 'videos' ? 'all' : 'videos')
-              }
-            >
-              {filterType === 'videos' && (
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={styles.checkmarkIcon}
-                >
-                  <polyline points="10 3 4.5 8.5 2 6" />
-                </svg>
-              )}
-              {t('globalSearchVideosCount', { count: videosTotal })}
-            </button>
+            {!videosFailed && (
+              <button
+                type="button"
+                className={`${styles.resultMetaChip} ${
+                  filterType === 'videos'
+                    ? styles.activeChip
+                    : filterType !== 'all'
+                      ? styles.dimmedChip
+                      : ''
+                }`}
+                onClick={() =>
+                  setFilterType(filterType === 'videos' ? 'all' : 'videos')
+                }
+              >
+                {filterType === 'videos' && (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={styles.checkmarkIcon}
+                  >
+                    <polyline points="10 3 4.5 8.5 2 6" />
+                  </svg>
+                )}
+                {t('globalSearchVideosCount', { count: videosTotal })}
+              </button>
+            )}
             {query !== '' && videoResults && (
               <span className={styles.passagesChip}>
                 {t('globalSearchPassagesCount', {

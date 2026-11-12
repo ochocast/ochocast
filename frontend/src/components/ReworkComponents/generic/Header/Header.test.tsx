@@ -3,10 +3,11 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../../../testUtils/initTestI18n';
 import Header from './Header';
 
+let mockSearch = '';
 const mockNavigate = jest.fn();
 
 jest.mock('react-router-dom', () => ({
-  useLocation: () => ({ pathname: '/home', search: '' }),
+  useLocation: () => ({ pathname: '/home', search: mockSearch }),
   useNavigate: () => mockNavigate,
 }));
 
@@ -44,6 +45,7 @@ const HELP =
   '"expression exacte" · -mot pour exclure · or pour l’un ou l’autre';
 
 beforeEach(() => {
+  mockSearch = '';
   findTags.mockResolvedValue({ data: [] });
   findUsers.mockResolvedValue({ data: [] });
   // jsdom has no ResizeObserver.
@@ -79,5 +81,47 @@ describe('Header search help', () => {
 
     fireEvent.blur(input);
     expect(screen.queryByText(HELP)).not.toBeInTheDocument();
+  });
+});
+
+describe('Header search navigation', () => {
+  it('keeps the sort of the current search URL', async () => {
+    mockSearch = '?q=kub&sort=recent';
+    render(<Header />);
+    const input = screen.getByPlaceholderText(
+      'Rechercher des vidéos et des événements',
+    );
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'kube' } });
+    });
+
+    expect(mockNavigate).toHaveBeenLastCalledWith(
+      '/search?q=kube&sort=recent',
+      { replace: true },
+    );
+  });
+
+  it('does not add a sort the URL did not have', async () => {
+    mockSearch = '?q=kub';
+    render(<Header />);
+    const input = screen.getByPlaceholderText(
+      'Rechercher des vidéos et des événements',
+    );
+
+    await act(async () => {
+      fireEvent.change(input, { target: { value: 'kube' } });
+    });
+
+    expect(mockNavigate).toHaveBeenLastCalledWith('/search?q=kube', {
+      replace: true,
+    });
+  });
+
+  it('limits the search field to 200 characters', () => {
+    render(<Header />);
+    expect(
+      screen.getByPlaceholderText('Rechercher des vidéos et des événements'),
+    ).toHaveAttribute('maxlength', '200');
   });
 });

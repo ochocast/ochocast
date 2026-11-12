@@ -291,6 +291,19 @@
   }
 }
 
+/* Below the desktop layout the logo and the search field shrink so that the
+   logo, search, profile and hamburger always fit in one row (>= 600px). */
+@media (max-width: 1023px) {
+  .Logo {
+    width: 10rem;
+  }
+
+  .SearchWrapper {
+    min-width: 12rem;
+    margin-right: 1rem;
+  }
+}
+
 /* Small screens: the search bar gets its own full-width row under the logo
    and the profile, so nothing exceeds the viewport (no horizontal scroll). */
 @media (max-width: 599px) {

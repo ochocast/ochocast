@@ -127,7 +127,7 @@
 
 .passage:hover,
 .passage:focus-visible {
-  border-color: #147854;
+  border-color: var(--theme-color-700, #147854);
 }
 
 .timestamp {
@@ -139,7 +139,7 @@
   margin: -10px 0;
   padding: 3px 12px;
   border-radius: 999px;
-  background: #147854;
+  background: var(--theme-color-700, #147854);
   color: #ffffff;
   font-size: 12.8px;
   font-weight: 600;
@@ -162,7 +162,7 @@
   padding: 4px 2px;
   background: none;
   border: 0;
-  color: #147854;
+  color: var(--theme-color-700, #147854);
   font-family: inherit;
   font-size: 13.6px;
   font-weight: 600;
@@ -173,8 +173,8 @@
 .mark {
   padding: 0 2px;
   border-radius: 4px;
-  background: #cdefe0;
-  color: #062218;
+  background: var(--theme-color-200, #cdefe0);
+  color: var(--theme-color-900, #062218);
   font-weight: 600;
 }
 

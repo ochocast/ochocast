@@ -240,11 +240,11 @@
 .passagesChip {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #b9e6d2;
+  border: 1px solid var(--theme-color-300, #b9e6d2);
   border-radius: 999px;
   padding: 0.55rem 0.8rem;
-  background: #e3f6ee;
-  color: #0b3d2a;
+  background: var(--theme-color-100, #e3f6ee);
+  color: var(--theme-color-900, #0b3d2a);
   font-size: 0.82rem;
   letter-spacing: 0.02em;
 }

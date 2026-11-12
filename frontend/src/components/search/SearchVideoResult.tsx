@@ -22,6 +22,8 @@ export interface SearchVideoResultProps {
   hit: SearchHit;
   /** Raw query typed by the user; empty in filter-only mode. */
   query: string;
+  /** Branded default miniature, tried before the bundled static image. */
+  fallbackMiniatureUrl?: string;
 }
 
 // Same units and `timeAgo.*` keys as the video thumbnails.
@@ -36,11 +38,24 @@ const RELATIVE_UNITS = [
 const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
   hit,
   query,
+  fallbackMiniatureUrl,
 }) => {
   const { t } = useTranslation();
   const { video } = hit;
   const [expanded, setExpanded] = useState(false);
-  const [miniatureUrl, setMiniatureUrl] = useState(FALLBACK_MINIATURE);
+  const [loadedMiniatureUrl, setLoadedMiniatureUrl] = useState<string | null>(
+    null,
+  );
+  const miniatureUrl =
+    loadedMiniatureUrl || fallbackMiniatureUrl || FALLBACK_MINIATURE;
+
+  // The backend contract leaves these fields open: never trust them blindly.
+  const speakers = video.speakers ?? [];
+  const allPassages = hit.passages ?? [];
+  const matchedIn = hit.matchedIn ?? [];
+  const titleParts = hit.titleParts?.length
+    ? hit.titleParts
+    : [{ text: video.title, hit: false }];
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +69,7 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
           url &&
           !url.includes('miniatureundefined')
         ) {
-          setMiniatureUrl(url);
+          setLoadedMiniatureUrl(url);
         }
       } catch {
         // keep the fallback image
@@ -84,17 +99,19 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
   const creator =
     video.creator.username ||
     `${video.creator.firstName} ${video.creator.lastName}`.trim();
-  const meta = [creator, relativeDate(), video.speakers.join(', ')]
+  const meta = [creator, relativeDate(), speakers.join(', ')]
     .filter(Boolean)
     .join(' · ');
 
-  const bestPassages = hit.passages.filter((p) => p.best);
-  const shownPassages = expanded
-    ? hit.passages
-    : bestPassages.slice(0, BEST_PASSAGES_SHOWN);
-  const hiddenCount = hit.passages.length - shownPassages.length;
+  // The best passages, or the first ones when the backend flagged none.
+  const bestPassages = allPassages.filter((p) => p.best);
+  const collapsedPassages = (
+    bestPassages.length > 0 ? bestPassages : allPassages
+  ).slice(0, BEST_PASSAGES_SHOWN);
+  const shownPassages = expanded ? allPassages : collapsedPassages;
+  const hiddenCount = allPassages.length - shownPassages.length;
   const canToggle = expanded || hiddenCount > 0;
-  const matches = MATCH_ORDER.filter((m) => hit.matchedIn.includes(m));
+  const matches = MATCH_ORDER.filter((m) => matchedIn.includes(m));
 
   return (
     <article className={styles.card}>
@@ -110,10 +127,17 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
             src={miniatureUrl}
             alt=""
             onError={(event) => {
-              const fallback = new URL(FALLBACK_MINIATURE, window.location.href)
-                .href;
-              if (event.currentTarget.src !== fallback) {
-                event.currentTarget.src = fallback;
+              const image = event.currentTarget;
+              const toAbsolute = (url: string) =>
+                new URL(url, window.location.href).href;
+              if (
+                fallbackMiniatureUrl &&
+                image.src !== toAbsolute(fallbackMiniatureUrl) &&
+                image.src !== toAbsolute(FALLBACK_MINIATURE)
+              ) {
+                image.src = fallbackMiniatureUrl;
+              } else if (image.src !== toAbsolute(FALLBACK_MINIATURE)) {
+                image.src = FALLBACK_MINIATURE;
               }
             }}
           />
@@ -132,7 +156,7 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
       <div className={styles.body}>
         <Link to={videoLink} className={styles.titleLink}>
           <HighlightedText
-            parts={hit.titleParts}
+            parts={titleParts}
             className={`${styles.mark} ${styles.titleMark}`}
           />
         </Link>
@@ -151,7 +175,7 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
           </span>
         )}
 
-        {hit.passages.length > 0 && (
+        {allPassages.length > 0 && (
           <div className={styles.passages}>
             {shownPassages.map((passage, index) => (
               <Link
@@ -160,15 +184,16 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
                 to={`${videoPath}?t=${Math.floor(passage.start)}&q=${encodedQuery}`}
               >
                 <span className={styles.timestamp}>
-                  ▶ {formatTimestamp(passage.start)}
+                  <span aria-hidden="true">▶</span>{' '}
+                  {formatTimestamp(passage.start)}
                 </span>
                 <span className={styles.excerpt}>
-                  «{' '}
+                  <span aria-hidden="true">«</span>{' '}
                   <HighlightedText
                     parts={passage.parts}
                     className={styles.mark}
                   />{' '}
-                  »
+                  <span aria-hidden="true">»</span>
                 </span>
               </Link>
             ))}

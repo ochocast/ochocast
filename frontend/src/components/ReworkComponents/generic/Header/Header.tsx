@@ -22,6 +22,12 @@ import { Video } from '../../../../utils/VideoProperties';
 
 export interface HeaderProps {}
 
+/** The `sort` of a search URL, when it is one the results page understands. */
+const readSort = (search: string): 'relevance' | 'recent' | null => {
+  const sort = new URLSearchParams(search).get('sort');
+  return sort === 'relevance' || sort === 'recent' ? sort : null;
+};
+
 interface SearchState {
   q: string;
   tags: string[];
@@ -117,8 +123,10 @@ const Header: FC<HeaderProps> = () => {
     };
 
     const updateUrl = (newState: SearchState) => {
-      const queryString = serializeSearchState(newState);
-      navigate(`${location.pathname}?${queryString}`, { replace: true });
+      const params = new URLSearchParams(serializeSearchState(newState));
+      const sort = readSort(location.search);
+      if (sort) params.set('sort', sort);
+      navigate(`${location.pathname}?${params.toString()}`, { replace: true });
     };
 
     const setSearchState = (newState: Partial<SearchState>) => {
@@ -319,11 +327,15 @@ const Header: FC<HeaderProps> = () => {
       if (nextState.archived !== null) {
         params.set('archived', String(nextState.archived));
       }
+      // Editing the query or the filters must not reset the chosen sort.
+      const sort = readSort(location.search);
+      if (sort) params.set('sort', sort);
 
       const queryString = params.toString();
       return queryString ? `/search?${queryString}` : '/search';
     },
     [
+      location.search,
       filters.archived,
       filters.endDate,
       filters.startDate,

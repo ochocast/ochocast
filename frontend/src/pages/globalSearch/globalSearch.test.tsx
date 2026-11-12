@@ -1,5 +1,11 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import '../../testUtils/initTestI18n';
 import GlobalSearchPage from './globalSearch';
 import { SearchHit, SearchResult } from '../../utils/searchApi';
@@ -24,6 +30,15 @@ jest.mock('react-router-dom', () => ({
 
 jest.mock('../../utils/searchApi', () => ({
   searchContent: jest.fn(),
+  SearchApiError: class SearchApiError extends Error {
+    status: number;
+
+    constructor(message: string, status: number) {
+      super(message);
+      this.name = 'SearchApiError';
+      this.status = status;
+    }
+  },
 }));
 
 jest.mock('../../utils/api', () => ({
@@ -49,7 +64,9 @@ jest.mock('../../components/ReworkComponents/Event/EventBox/EventBox', () => ({
   ),
 }));
 
-const { searchContent } = jest.requireMock('../../utils/searchApi');
+const { searchContent, SearchApiError } = jest.requireMock(
+  '../../utils/searchApi',
+);
 const { getPublishedEvents, getEventsMiniature, getMiniature } =
   jest.requireMock('../../utils/api');
 
@@ -170,7 +187,9 @@ describe('GlobalSearchPage', () => {
     expect(
       await screen.findByText('3 passages dans les sous-titres'),
     ).toBeInTheDocument();
-    expect(screen.getByText('1 vidéos trouvées', { selector: 'button' }));
+    expect(
+      screen.getByText('1 vidéo trouvée', { selector: 'button' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Résultats totaux: 1')).toBeInTheDocument();
   });
 
@@ -377,6 +396,132 @@ describe('GlobalSearchPage', () => {
     expect(searchContent).toHaveBeenCalledTimes(2);
     expect(searchContent).toHaveBeenLastCalledWith(
       expect.objectContaining({ q: 'kub', tags: 'devops', offset: 0 }),
+    );
+  });
+
+  it('uses singular and plural forms in the counters', async () => {
+    getPublishedEvents.mockResolvedValue({
+      data: [event('e1', 'Atelier Kubernetes')],
+    });
+    searchContent.mockResolvedValue(result([k8s], 4, 3));
+    renderPage('?q=kubernetes');
+
+    expect(
+      await screen.findByText('1 événement trouvé', { selector: 'button' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('4 vidéos trouvées', { selector: 'button' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('4 vidéos trouvées', { selector: 'h2' }),
+    ).toBeInTheDocument();
+  });
+
+  it('explains a 400 and does not offer a retry', async () => {
+    getPublishedEvents.mockResolvedValue({
+      data: [event('e1', 'Atelier Kubernetes')],
+    });
+    searchContent.mockRejectedValueOnce(new SearchApiError('too long', 400));
+    renderPage('?q=kubernetes');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Recherche trop longue : 10 mots ou expressions et 200 caractères au plus.',
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Réessayer' }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Impossible de charger les vidéos.')).toBeNull();
+    // The events section keeps working.
+    expect(screen.getByTestId('event-card')).toBeInTheDocument();
+  });
+
+  it('keeps the retry for other API errors', async () => {
+    searchContent.mockRejectedValueOnce(new SearchApiError('down', 500));
+    renderPage('?q=kubernetes');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Impossible de charger les vidéos.',
+    );
+    expect(screen.getByRole('button', { name: 'Réessayer' })).toBeVisible();
+  });
+
+  it('does not claim 0 videos when the search failed', async () => {
+    getPublishedEvents.mockResolvedValue({
+      data: [event('e1', 'Atelier Kubernetes')],
+    });
+    searchContent.mockRejectedValueOnce(new Error('network down'));
+    renderPage('?q=kubernetes');
+
+    await screen.findByRole('alert');
+    expect(screen.queryByText(/0 vidéo/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/dans les sous-titres/)).not.toBeInTheDocument();
+    expect(screen.getByText('Résultats totaux: 1')).toBeInTheDocument();
+    expect(
+      screen.getByText('1 événement trouvé', { selector: 'button' }),
+    ).toBeInTheDocument();
+  });
+
+  it('ignores an older response that arrives after a newer one', async () => {
+    let resolveOld: (value: SearchResult) => void = () => {};
+    searchContent.mockReturnValueOnce(
+      new Promise<SearchResult>((resolve) => {
+        resolveOld = resolve;
+      }),
+    );
+    searchContent.mockResolvedValueOnce(result([other], 1, 0));
+    const { rerender } = renderPage('?q=kubernetes');
+    await waitFor(() => expect(searchContent).toHaveBeenCalledTimes(1));
+
+    // Sort changes go out immediately: a second request, answered first.
+    mockSearch = '?q=kubernetes&sort=recent';
+    rerender(<GlobalSearchPage />);
+    expect(
+      await screen.findByText('Une autre vidéo sur les conteneurs'),
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      resolveOld(result([k8s], 1, 3));
+    });
+
+    expect(
+      screen.getByText('Une autre vidéo sur les conteneurs'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Déployer une plateforme vidéo sur Kubernetes'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('survives a malformed response when loading more', async () => {
+    searchContent.mockResolvedValueOnce(result([k8s], 2, 3));
+    searchContent.mockResolvedValueOnce({});
+    renderPage('?q=kubernetes');
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Afficher plus de vidéos' }),
+    );
+
+    await waitFor(() => expect(searchContent).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Afficher plus de vidéos' }),
+      ).toBeEnabled(),
+    );
+    expect(
+      screen.getByText('Déployer une plateforme vidéo sur Kubernetes'),
+    ).toBeInTheDocument();
+  });
+
+  it('gives the branded default miniature to the video cards', async () => {
+    mockGetImageUrl.mockResolvedValue('https://cdn/brand-default.png');
+    renderPage('?q=kubernetes');
+
+    const title = await screen.findByText(
+      'Déployer une plateforme vidéo sur Kubernetes',
+    );
+    const card = title.closest('article') as HTMLElement;
+    expect(card.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://cdn/brand-default.png',
     );
   });
 });

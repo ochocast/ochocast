@@ -8,6 +8,9 @@ import BrandingImage from '../../BrandingImage/BrandingImage';
 import FilterIcon from '../../../../assets/filter_icon.svg';
 import CopyButtonIcon from '../../../../assets/copy.svg';
 
+/** Longest query `GET /api/search` accepts (it answers 400 beyond). */
+const MAX_QUERY_LENGTH = 200;
+
 export interface GlobalSearchBarProps {
   onSearch: (query: string) => void;
   onClear?: () => void;
@@ -194,6 +197,7 @@ const GlobalSearchBar = ({
             }}
             onBlur={() => onInputFocusChange?.(false)}
             aria-describedby={inputDescribedBy}
+            maxLength={MAX_QUERY_LENGTH}
             placeholder={placeholder || t('Searching')}
             className={styles.searchInput}
           />

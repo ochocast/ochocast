@@ -88,10 +88,14 @@ const renderCard = async (hit: SearchHit, query: string) => {
   return view;
 };
 
+/** A hit as a backend that omits optional fields could send it. */
+const sparseHit = (overrides: Record<string, unknown>): SearchHit =>
+  ({ ...k8s, ...overrides }) as unknown as SearchHit;
+
 describe('SearchVideoResult', () => {
   it('shows the 3 best passages in time order', async () => {
     await renderCard(k8s, 'kubernetes');
-    const links = await screen.findAllByRole('link', { name: /▶/ });
+    const links = await screen.findAllByRole('link', { name: /^\d+:\d{2}/ });
     expect(links.map((l) => l.textContent)).toEqual([
       expect.stringContaining('1:35'),
       expect.stringContaining('16:52'),
@@ -108,7 +112,7 @@ describe('SearchVideoResult', () => {
 
     fireEvent.click(more);
 
-    const links = screen.getAllByRole('link', { name: /▶/ });
+    const links = screen.getAllByRole('link', { name: /^\d+:\d{2}/ });
     expect(links.map((l) => l.textContent)).toEqual([
       expect.stringContaining('1:35'),
       expect.stringContaining('12:34'),
@@ -122,12 +126,12 @@ describe('SearchVideoResult', () => {
     expect(less).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.click(less);
-    expect(screen.getAllByRole('link', { name: /▶/ })).toHaveLength(3);
+    expect(screen.getAllByRole('link', { name: /^\d+:\d{2}/ })).toHaveLength(3);
   });
 
   it('links a passage to the video at its start', async () => {
     await renderCard(k8s, 'kubernetes');
-    const links = await screen.findAllByRole('link', { name: /▶/ });
+    const links = await screen.findAllByRole('link', { name: /^\d+:\d{2}/ });
     expect(links[0]).toHaveAttribute(
       'href',
       '/video/vid-k8s?t=95&q=kubernetes',
@@ -140,7 +144,7 @@ describe('SearchVideoResult', () => {
 
   it('encodes the query in links', async () => {
     await renderCard(k8s, '"a b" -c');
-    const links = await screen.findAllByRole('link', { name: /▶/ });
+    const links = await screen.findAllByRole('link', { name: /^\d+:\d{2}/ });
     expect(links[0]).toHaveAttribute(
       'href',
       `/video/vid-k8s?t=95&q=${encodeURIComponent('"a b" -c')}`,
@@ -165,7 +169,7 @@ describe('SearchVideoResult', () => {
     });
     expect(title).toHaveAttribute('href', '/video/vid-k8s');
     expect(screen.queryByText('Trouvé dans :')).not.toBeInTheDocument();
-    expect(screen.queryByText(/▶/)).not.toBeInTheDocument();
+    expect(screen.queryByText('▶')).not.toBeInTheDocument();
   });
 
   it('shows found-in badges', async () => {
@@ -210,7 +214,7 @@ describe('SearchVideoResult', () => {
 
   it('highlights hits with mark elements', async () => {
     const { container } = await renderCard(k8s, 'kubernetes');
-    await screen.findAllByRole('link', { name: /▶/ });
+    await screen.findAllByRole('link', { name: /^\d+:\d{2}/ });
     // 1 in the title + 1 per visible passage
     expect(container.querySelectorAll('mark')).toHaveLength(4);
   });
@@ -225,5 +229,116 @@ describe('SearchVideoResult', () => {
     const { container } = await renderCard(hit, 'test');
     expect(await screen.findByText('<b>test</b>')).toBeInTheDocument();
     expect(container.querySelector('b')).toBeNull();
+  });
+
+  it('reads a passage without the decorative symbols', async () => {
+    await renderCard(k8s, 'kubernetes');
+    const link = await screen.findByRole('link', {
+      name: /^16:52 On a choisi Kubernetes pour la suite$/,
+    });
+    const hidden = link.querySelectorAll('[aria-hidden="true"]');
+    expect(Array.from(hidden).map((node) => node.textContent)).toEqual(
+      expect.arrayContaining(['▶', '«', '»']),
+    );
+  });
+
+  describe('when the backend omits fields', () => {
+    it('falls back to the video title when titleParts is missing', async () => {
+      await renderCard(
+        sparseHit({
+          titleParts: undefined,
+          matchedIn: [],
+          passages: [],
+          passageCount: 0,
+        }),
+        '',
+      );
+      expect(
+        await screen.findByRole('link', {
+          name: 'Déployer une plateforme vidéo sur Kubernetes',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('falls back to the video title when titleParts is empty', async () => {
+      await renderCard(
+        sparseHit({
+          titleParts: [],
+          matchedIn: [],
+          passages: [],
+          passageCount: 0,
+        }),
+        '',
+      );
+      expect(
+        await screen.findByRole('link', {
+          name: 'Déployer une plateforme vidéo sur Kubernetes',
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it('renders without speakers, tags, passages and matchedIn', async () => {
+      const hit = sparseHit({
+        video: { ...k8s.video, speakers: undefined, tags: undefined },
+        passages: undefined,
+        matchedIn: undefined,
+      });
+      await renderCard(hit, 'kubernetes');
+      expect(
+        await screen.findByText(/demo · il y a 3 jours$/),
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Trouvé dans :')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    });
+
+    it('shows the first 3 passages when none is marked best', async () => {
+      await renderCard(
+        sparseHit({
+          passages: k8s.passages.map((p) => ({ ...p, best: false })),
+        }),
+        'kubernetes',
+      );
+      const links = await screen.findAllByRole('link', {
+        name: /^\d+:\d{2}/,
+      });
+      expect(links.map((l) => l.textContent)).toEqual([
+        expect.stringContaining('1:35'),
+        expect.stringContaining('12:34'),
+        expect.stringContaining('16:52'),
+      ]);
+      expect(
+        screen.getByRole('button', { name: 'Voir les 2 autres passages' }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('miniature fallback', () => {
+    it('uses the branded fallback when the miniature cannot be loaded', async () => {
+      getMiniature.mockRejectedValue(new Error('404'));
+      const { container } = render(
+        <SearchVideoResult
+          hit={k8s}
+          query="kubernetes"
+          fallbackMiniatureUrl="https://cdn/brand-default.png"
+        />,
+      );
+      await waitFor(() => expect(getMiniature).toHaveBeenCalledWith('vid-k8s'));
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        'https://cdn/brand-default.png',
+      );
+    });
+
+    it('keeps the static image as last resort', async () => {
+      getMiniature.mockRejectedValue(new Error('404'));
+      const { container } = render(
+        <SearchVideoResult hit={k8s} query="kubernetes" />,
+      );
+      await waitFor(() => expect(getMiniature).toHaveBeenCalledWith('vid-k8s'));
+      expect(container.querySelector('img')).toHaveAttribute(
+        'src',
+        '/branding/exemple/image_tuile_event.png',
+      );
+    });
   });
 });
