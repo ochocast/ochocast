@@ -577,6 +577,25 @@ describe('VideoMedia', () => {
       expect(screen.getByText('3 / 3')).toBeInTheDocument();
     });
 
+    // Result links carry whole seconds, automatic subtitles milliseconds: a
+    // start is reached from its whole second.
+    it('arrives on a passage whose start has a fraction of a second', async () => {
+      (getTranscript as jest.Mock).mockImplementation(() => {
+        const transcript = k8sTranscript([1, 5, 10]);
+        transcript.segments[5].start = 1012.48;
+        return Promise.resolve(transcript);
+      });
+      await open('?t=1012&q=kubernetes');
+
+      expect(mockSeekTo).toHaveBeenCalledWith(1012, 'seconds');
+      expect(line('16:52')).toHaveAttribute('aria-current', 'true');
+      expect(line('12:34')).not.toHaveAttribute('aria-current');
+      expect(screen.getByText('2 / 3')).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^Aller à 16:52/ }),
+      ).toHaveAttribute('aria-current', 'true');
+    });
+
     it('clicking a transcript line seeks and follows immediately', async () => {
       await open('?q=kubernetes');
 

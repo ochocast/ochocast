@@ -171,6 +171,22 @@ describe('PassageStrip', () => {
     expect(onSeek).toHaveBeenCalledWith(100);
   });
 
+  it('reaches a passage with a fractional start from its whole second', () => {
+    renderStrip({
+      passages: [
+        { start: 95, excerpt: 'on ouvre la séance' },
+        { start: 1012.48, excerpt: 'le budget est voté' },
+      ],
+      currentTime: 1012,
+    });
+    expect(
+      screen.getByRole('button', { name: /Aller à 16:52/ }),
+    ).toHaveAttribute('aria-current', 'true');
+    expect(
+      screen.getByRole('button', { name: /Aller à 1:35/ }),
+    ).not.toHaveAttribute('aria-current');
+  });
+
   it('marks a group as current when it contains the current passage', () => {
     trackWidth = 331;
     const close: StripPassage[] = [

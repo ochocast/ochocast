@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatTimestamp } from '../../utils/formatTimestamp';
 import { clusterMarkers } from './clusterMarkers';
+import { lastReachedIndex } from './playbackPosition';
 import styles from './PassageStrip.module.css';
 
 export interface StripPassage {
@@ -84,14 +85,12 @@ const PassageStrip: React.FC<PassageStripProps> = ({
     return null;
   }
 
-  // The current marker is the last one starting at or before the playback
-  // position; none before the first passage.
-  let currentIndex = -1;
-  clusters.forEach((cluster, index) => {
-    if (cluster.start <= currentTime) {
-      currentIndex = index;
-    }
-  });
+  // The current marker is the last one the playback position has reached;
+  // none before the first passage.
+  const currentIndex = lastReachedIndex(
+    clusters.map((cluster) => cluster.start),
+    currentTime,
+  );
 
   const cursorPct = clampFraction(currentTime / (duration as number)) * 100;
 
