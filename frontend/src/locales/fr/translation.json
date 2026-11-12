@@ -557,6 +557,8 @@
     "next": "Occurrence suivante",
     "counter": "{{current}} / {{total}}",
     "noOccurrence": "Aucune occurrence",
-    "preparing": "Transcription en préparation"
+    "preparing": "Transcription en préparation",
+    "tooLong": "Recherche trop longue : 10 mots ou expressions et 200 caractères au plus.",
+    "unavailable": "Recherche indisponible pour le moment."
   }
 }

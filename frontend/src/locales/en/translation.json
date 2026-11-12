@@ -557,6 +557,8 @@
     "next": "Next occurrence",
     "counter": "{{current}} / {{total}}",
     "noOccurrence": "No occurrence",
-    "preparing": "Transcript being prepared"
+    "preparing": "Transcript being prepared",
+    "tooLong": "Search too long: at most 10 words or phrases and 200 characters.",
+    "unavailable": "Search unavailable right now."
   }
 }
