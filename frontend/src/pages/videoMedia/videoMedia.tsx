@@ -848,14 +848,22 @@ const VideoMedia: FC = () => {
               </>
             )}
 
-            {startBanner !== null && (
-              <p className={styles.startBanner} role="status">
-                {t('videoSearch.startBanner', {
+            {/* A live region created with its text may not be announced: this
+                one stays mounted, empty and hidden while there is no banner. */}
+            <p
+              className={
+                startBanner !== null
+                  ? styles.startBanner
+                  : styles.startBannerIdle
+              }
+              role="status"
+            >
+              {startBanner !== null &&
+                t('videoSearch.startBanner', {
                   time: formatTimestamp(startBanner),
                   query: searchQuery,
                 })}
-              </p>
-            )}
+            </p>
 
             {/* ✅ END SCREEN OVERLAY (visible même en plein écran) */}
             {showEndScreen && (
