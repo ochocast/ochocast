@@ -623,11 +623,23 @@ describe('VideoMedia', () => {
     const markers = () => screen.queryAllByRole('button', { name: /^Aller à/ });
     const line = (time: string) =>
       screen.getByRole('button', { name: new RegExp(`^${time}`) });
+    const marker = (time: string) =>
+      screen.getByRole('button', { name: new RegExp(`^Aller à ${time} : `) });
 
     it('renders the strip under the player when there are matches', async () => {
       await open('?q=kubernetes');
 
-      expect(markers()).toHaveLength(3);
+      expect(
+        markers().map((button) => button.getAttribute('aria-label')),
+      ).toEqual([
+        'Aller à 1:35 : On a choisi Kubernetes parce qu’on voulait redéployer.',
+        'Aller à 16:52 : Kubernetes redémarre le pod, mais la vidéo est perdue.',
+        'Aller à 42:40 : Merci, je prends vos questions sur Kubernetes et sur le reste.',
+      ]);
+      // Before the first passage, no marker is the current one.
+      markers().forEach((button) =>
+        expect(button).not.toHaveAttribute('aria-current'),
+      );
       const strip = screen.getByRole('group', {
         name: 'Passages trouvés dans la vidéo',
       });
@@ -662,14 +674,39 @@ describe('VideoMedia', () => {
 
       expect(line('16:52')).toHaveAttribute('aria-current', 'true');
       expect(screen.getByText('2 / 3')).toBeInTheDocument();
+      expect(marker('16:52')).toHaveAttribute('aria-current', 'true');
 
-      fireEvent.click(screen.getByRole('button', { name: /^Aller à 42:40/ }));
+      fireEvent.click(marker('42:40'));
       await settle();
 
       expect(mockSeekTo).toHaveBeenLastCalledWith(2560, 'seconds');
       expect(line('42:40')).toHaveAttribute('aria-current', 'true');
       expect(line('16:52')).not.toHaveAttribute('aria-current');
       expect(screen.getByText('3 / 3')).toBeInTheDocument();
+      expect(marker('42:40')).toHaveAttribute('aria-current', 'true');
+      expect(marker('16:52')).not.toHaveAttribute('aria-current');
+    });
+
+    it('follows playback in the panel and on the strip', async () => {
+      await open('?q=kubernetes');
+      expect(screen.getByText('0 / 3')).toBeInTheDocument();
+
+      play(100);
+      expect(line('1:35')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByText('1 / 3')).toBeInTheDocument();
+      expect(marker('1:35')).toHaveAttribute('aria-current', 'true');
+
+      play(1300);
+      expect(line('21:30')).toHaveAttribute('aria-current', 'true');
+      expect(line('1:35')).not.toHaveAttribute('aria-current');
+      expect(screen.getByText('2 / 3')).toBeInTheDocument();
+      expect(marker('16:52')).toHaveAttribute('aria-current', 'true');
+      expect(marker('1:35')).not.toHaveAttribute('aria-current');
+
+      play(2600);
+      expect(line('42:40')).toHaveAttribute('aria-current', 'true');
+      expect(screen.getByText('3 / 3')).toBeInTheDocument();
+      expect(marker('42:40')).toHaveAttribute('aria-current', 'true');
     });
 
     // Result links carry whole seconds, automatic subtitles milliseconds: a
