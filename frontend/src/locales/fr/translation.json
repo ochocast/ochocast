@@ -547,5 +547,16 @@
     "goTo": "Aller à {{time}} : {{excerpt}}",
     "goToGroup_one": "Aller à {{time}} : {{excerpt}} (+{{count}} passage)",
     "goToGroup_other": "Aller à {{time}} : {{excerpt}} (+{{count}} passages)"
+  },
+  "transcriptPanel": {
+    "region": "Transcription de la vidéo",
+    "titleAuto": "Transcription · générée automatiquement",
+    "titleProvided": "Transcription · fournie",
+    "search": "Rechercher dans cette vidéo",
+    "previous": "Occurrence précédente",
+    "next": "Occurrence suivante",
+    "counter": "{{current}} / {{total}}",
+    "noOccurrence": "Aucune occurrence",
+    "preparing": "Transcription en préparation"
   }
 }
