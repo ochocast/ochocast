@@ -279,10 +279,13 @@ const VideoMedia: FC = () => {
     return () => query.removeEventListener?.('change', update);
   }, []);
 
-  // Another video starts from the beginning.
+  // Another video starts from the beginning, without the passages and the
+  // banner of the previous one.
   useEffect(() => {
     setCurrentTime(0);
     setPlayerDuration(0);
+    setPassages([]);
+    setStartBanner(null);
   }, [videoId]);
 
   // The strip, the panel and the arrival at `t` all go through here: the
