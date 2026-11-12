@@ -438,6 +438,8 @@ describe('VideoMedia', () => {
 
   describe('opened from the search results', () => {
     const ready = () => fireEvent.canPlay(screen.getByTestId('player'));
+    // The live region of the banner; empty while there is no banner.
+    const banner = () => screen.getByRole('status');
 
     const open = async (search: string) => {
       mockSearch = search;
@@ -464,7 +466,7 @@ describe('VideoMedia', () => {
       await open(`?t=${t}&q=kubernetes`);
 
       expect(mockSeekTo).not.toHaveBeenCalled();
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(banner()).toBeEmptyDOMElement();
     });
 
     it('does not seek without t', async () => {
@@ -494,9 +496,28 @@ describe('VideoMedia', () => {
       );
 
       await advance(4400);
-      expect(screen.getByRole('status')).toBeInTheDocument();
+      expect(banner()).not.toBeEmptyDOMElement();
       await advance(200);
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(banner()).toBeEmptyDOMElement();
+    });
+
+    // A live region created with its text may not be announced.
+    it('announces the banner through a live region mounted beforehand', async () => {
+      mockSearch = '?t=1012&q=kubernetes';
+      render(<VideoMedia />);
+      await settle();
+      const region = banner();
+      expect(region).toBeEmptyDOMElement();
+
+      ready();
+      expect(banner()).toBe(region);
+      expect(region).toHaveTextContent(
+        'Lecture à 16:52 · passage trouvé pour « kubernetes »',
+      );
+
+      await advance(4600);
+      expect(banner()).toBe(region);
+      expect(region).toBeEmptyDOMElement();
     });
 
     it('does not show the banner again on re-render or reload of the player', async () => {
@@ -505,14 +526,14 @@ describe('VideoMedia', () => {
       ready();
       await settle();
 
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(banner()).toBeEmptyDOMElement();
     });
 
     it('shows no banner without q', async () => {
       await open('?t=1012');
 
       expect(mockSeekTo).toHaveBeenCalledWith(1012, 'seconds');
-      expect(screen.queryByRole('status')).toBeNull();
+      expect(banner()).toBeEmptyDOMElement();
     });
 
     it('shows a back link to the results when q is present', async () => {

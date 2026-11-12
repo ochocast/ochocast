@@ -163,6 +163,21 @@
   pointer-events: none;
 }
 
+/* The banner's live region while it is empty: out of sight, but still in
+   the accessibility tree (not display: none). */
+.startBannerIdle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .qualityControl {
   position: absolute;
   top: 0.75rem;
