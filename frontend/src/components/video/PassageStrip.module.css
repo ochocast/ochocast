@@ -1,0 +1,174 @@
+.strip {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-family: 'Outfit', sans-serif;
+}
+
+.pointer {
+  height: 32px;
+  --hit-width: 12px;
+}
+
+.touch {
+  height: 44px;
+  --hit-width: 44px;
+}
+
+/* Inner track: inset by half the hit width so that the button of a marker
+   at 0 % or 100 % stays inside the strip (no horizontal page scroll). */
+.track {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--hit-width) / 2);
+  right: calc(var(--hit-width) / 2);
+}
+
+.baseline {
+  position: absolute;
+  left: calc(var(--hit-width) / -2);
+  right: calc(var(--hit-width) / -2);
+  height: 4px;
+  border-radius: 999px;
+  background: var(--theme-color-200, #cdefe0);
+}
+
+.pointer .baseline {
+  bottom: 19px;
+}
+
+.touch .baseline {
+  bottom: 25px;
+}
+
+.cursor {
+  position: absolute;
+  width: 2px;
+  margin-left: -1px;
+  top: 0;
+  bottom: 0;
+  border-radius: 1px;
+  background: var(--theme-color-700, #147854);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--hit-width);
+  transform: translateX(-50%);
+  z-index: 2;
+}
+
+.markerButton {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: var(--hit-width);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.markerButton:focus-visible {
+  outline: 2px solid var(--theme-color-700, #147854);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.tick {
+  position: absolute;
+  left: 50%;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--passage-marker-color, #facc15);
+  transition: transform 0.1s ease;
+}
+
+.pointer .tick {
+  bottom: 4px;
+  height: 14px;
+}
+
+.touch .tick {
+  bottom: 8px;
+  height: 18px;
+}
+
+.markerButton:hover .tick {
+  transform: scaleX(1.5);
+}
+
+.tickCurrent {
+  width: 6px;
+  margin-left: -3px;
+  background: var(--passage-marker-current-color, #f59e0b);
+  box-shadow:
+    0 0 0 1px #ffffff,
+    0 0 0 3px var(--theme-color-700, #147854);
+}
+
+.badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 12px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--theme-color-900, #062218);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.touch .badge {
+  top: 2px;
+  font-size: 11px;
+  line-height: 15px;
+  min-width: 16px;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  max-width: min(220px, 70vw);
+  padding: 6px 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(6, 34, 24, 0.92);
+  color: #ffffff;
+  font-size: 13px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tooltipCenter {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.tooltipStart {
+  left: 0;
+}
+
+.tooltipEnd {
+  right: 0;
+}

@@ -41,13 +41,30 @@
   "globalSearchHintTitle": "Ready when you are",
   "globalSearchHintDescription": "Type a keyword in the header search bar to see matching videos and events here.",
   "globalSearchNoResults": "No results found",
-  "globalSearchNoResultsDescription": "We could not find any videos or events matching \"{{query}}\".",
   "globalSearchNoVideos": "No videos match this query.",
   "globalSearchNoEvents": "No events match this query.",
-  "globalSearchVideosCount": "{{count}} videos found",
-  "globalSearchEventsCount": "{{count}} events found",
+  "globalSearchVideosCount_one": "{{count}} video found",
+  "globalSearchVideosCount_other": "{{count}} videos found",
+  "globalSearchEventsCount_one": "{{count}} event found",
+  "globalSearchEventsCount_other": "{{count}} events found",
   "globalSearchTrackMatches": "Matched tracks",
   "globalSearchLoadError": "Unable to load the global search results.",
+  "globalSearchPassagesCount_one": "{{count}} passage in the subtitles",
+  "globalSearchPassagesCount_other": "{{count}} passages in the subtitles",
+  "globalSearchSortBy": "Sort by",
+  "globalSearchSortRelevance": "Relevance",
+  "globalSearchSortRecent": "Most recent",
+  "globalSearchLoadMoreVideos": "Show more videos",
+  "globalSearchLoadingMore": "Loading…",
+  "globalSearchVideosLoading": "Loading videos…",
+  "globalSearchQueryTooLong": "Search too long: at most 10 words or phrases and 200 characters.",
+  "globalSearchVideosError": "Unable to load the videos.",
+  "globalSearchNoVideosFor": "No video matches “{{query}}”.",
+  "globalSearchTipsTitle": "Tips",
+  "globalSearchTipSpelling": "Check the spelling.",
+  "globalSearchTipBroader": "Try a more general word.",
+  "globalSearchTipExclusion": "Remove an excluded term with -.",
+  "searchSyntaxHelp": "\"exact phrase\" · -word to exclude · or for either",
   "publishAVideo": "Publish a video",
   "exemple": "Example: DevOps",
   "vues": "views",
@@ -506,5 +523,42 @@
   "Selected users": "Selected users",
   "Selected dates": "Selected dates",
   "Delete all": "Delete all",
-  "backendLoginFailed": "Unable to sign in to the OchoCast server."
+  "backendLoginFailed": "Unable to sign in to the OchoCast server.",
+  "videoSearch": {
+    "startBanner": "Playing from {{time}} · passage found for “{{query}}”",
+    "backToResults": "← Back to results for “{{query}}”"
+  },
+  "searchResult": {
+    "foundIn": "Found in:",
+    "matchedIn": {
+      "title": "Title",
+      "tags": "Tags",
+      "people": "Speakers",
+      "description": "Description",
+      "transcript_one": "Transcript · {{count}} passage",
+      "transcript_other": "Transcript · {{count}} passages"
+    },
+    "morePassages_one": "Show the other passage",
+    "morePassages_other": "Show the {{count}} other passages",
+    "lessPassages": "Show fewer passages"
+  },
+  "passageStrip": {
+    "region": "Passages found in the video",
+    "goTo": "Go to {{time}}: {{excerpt}}",
+    "goToGroup_one": "Go to {{time}}: {{excerpt}} (+{{count}} passage)",
+    "goToGroup_other": "Go to {{time}}: {{excerpt}} (+{{count}} passages)"
+  },
+  "transcriptPanel": {
+    "region": "Video transcript",
+    "titleAuto": "Transcript · automatically generated",
+    "titleProvided": "Transcript · provided",
+    "search": "Search in this video",
+    "previous": "Previous occurrence",
+    "next": "Next occurrence",
+    "counter": "{{current}} / {{total}}",
+    "noOccurrence": "No occurrence",
+    "preparing": "Transcript being prepared",
+    "tooLong": "Search too long: at most 10 words or phrases and 200 characters.",
+    "unavailable": "Search unavailable right now."
+  }
 }

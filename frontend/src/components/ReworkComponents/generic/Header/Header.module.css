@@ -64,6 +64,22 @@
   margin-right: 2rem;
 }
 
+.SearchHelp {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  background-color: var(--theme-color-white);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #606060;
+}
+
 .FilterPanelWrapper {
   position: absolute;
   right: 0;
@@ -272,5 +288,41 @@
     display: flex;
     justify-content: flex-end;
     margin-left: 0;
+  }
+}
+
+/* Below the desktop layout the logo and the search field shrink so that the
+   logo, search, profile and hamburger always fit in one row (>= 600px). */
+@media (max-width: 1023px) {
+  .Logo {
+    width: 10rem;
+  }
+
+  .SearchWrapper {
+    min-width: 12rem;
+    margin-right: 1rem;
+  }
+}
+
+/* Small screens: the search bar gets its own full-width row under the logo
+   and the profile, so nothing exceeds the viewport (no horizontal scroll). */
+@media (max-width: 599px) {
+  .HeaderMain {
+    flex-wrap: wrap;
+    height: auto;
+    row-gap: 0.5rem;
+    padding: 0.5rem 2%;
+  }
+
+  .Logo {
+    width: 10rem;
+    margin-right: 0;
+  }
+
+  .SearchWrapper {
+    order: 3;
+    flex: 1 1 100%;
+    min-width: 0;
+    margin: 0;
   }
 }
