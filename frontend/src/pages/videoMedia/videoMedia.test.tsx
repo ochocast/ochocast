@@ -59,16 +59,34 @@ jest.mock('../../utils/searchApi', () => ({
   SearchApiError: class SearchApiError extends Error {},
 }));
 
+const mockMarkdownRender = jest.fn();
 jest.mock('react-markdown', () => ({
   __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) =>
-    jest.requireActual('react').createElement('div', null, children),
+  default: ({ children }: { children: React.ReactNode }) => {
+    mockMarkdownRender();
+    return jest.requireActual('react').createElement('div', null, children);
+  },
 }));
 
+// A suggestion card needs the app contexts: the page only lays it out.
+const mockThumbnailRender = jest.fn();
+jest.mock(
+  '../../components/ReworkComponents/video/Thumbnail/Thumbnail',
+  () => ({
+    __esModule: true,
+    default: ({ title }: { title: string }) => {
+      mockThumbnailRender();
+      return jest.requireActual('react').createElement('div', null, title);
+    },
+  }),
+);
+
 // The stub exposes what the page calls on the player, and a way to fire
-// `onReady` like the real player does once the media is loaded.
+// `onReady` like the real player does once the media is loaded, and
+// `onProgress` like it does while the video plays.
 const mockSeekTo = jest.fn();
 let mockPlayerDuration = 2712;
+let mockProgress: (state: { playedSeconds: number }) => void = () => {};
 jest.mock('react-player/lazy', () => {
   const { createElement, forwardRef, useImperativeHandle, useRef } =
     jest.requireActual('react');
@@ -76,9 +94,18 @@ jest.mock('react-player/lazy', () => {
     __esModule: true,
     default: forwardRef(
       (
-        { url, onReady }: { url: string; onReady: (player: unknown) => void },
+        {
+          url,
+          onReady,
+          onProgress,
+        }: {
+          url: string;
+          onReady: (player: unknown) => void;
+          onProgress: (state: { playedSeconds: number }) => void;
+        },
         ref: unknown,
       ) => {
+        mockProgress = onProgress;
         const element = useRef(null);
         const handle = {
           getInternalPlayer: () => element.current,
@@ -588,6 +615,11 @@ describe('VideoMedia', () => {
       await settle();
     };
 
+    const play = (seconds: number) =>
+      act(() => {
+        mockProgress({ playedSeconds: seconds });
+      });
+
     const markers = () => screen.queryAllByRole('button', { name: /^Aller à/ });
     const line = (time: string) =>
       screen.getByRole('button', { name: new RegExp(`^${time}`) });
@@ -657,6 +689,32 @@ describe('VideoMedia', () => {
       expect(
         screen.getByRole('button', { name: /^Aller à 16:52/ }),
       ).toHaveAttribute('aria-current', 'true');
+    });
+
+    // The player reports its position twice a second: what does not depend
+    // on it is not rendered again.
+    it('does not render the description and the suggestions again while playing', async () => {
+      const suggestion = (id: string) => ({
+        ...video,
+        id,
+        title: `Suggestion ${id}`,
+        tags: [{ name: 'kubernetes' }],
+      });
+      (getVideoSuggestions as jest.Mock).mockResolvedValue({
+        ok: true,
+        data: [suggestion('S1'), suggestion('S2'), suggestion('S3')],
+      });
+      await open('?q=kubernetes');
+      expect(screen.getByText('Suggestion S3')).toBeInTheDocument();
+      mockThumbnailRender.mockClear();
+      mockMarkdownRender.mockClear();
+
+      play(100);
+      play(100.5);
+
+      expect(line('1:35')).toHaveAttribute('aria-current', 'true');
+      expect(mockThumbnailRender).not.toHaveBeenCalled();
+      expect(mockMarkdownRender).not.toHaveBeenCalled();
     });
 
     it('clicking a transcript line seeks and follows immediately', async () => {

@@ -1,5 +1,5 @@
 // videoMedia.tsx
-import React, { useEffect, useState, FC, useRef } from 'react';
+import React, { useEffect, useMemo, useState, FC, useRef } from 'react';
 import styles from './videoMedia.module.css';
 import ReactMarkdown from 'react-markdown';
 import { default as _ReactPlayer } from 'react-player/lazy';
@@ -120,6 +120,9 @@ const removeH1 = () => {
     );
   };
 };
+
+// Module scope: the page renders twice a second while the video plays.
+const REMARK_PLUGINS = [removeH1()];
 
 const VideoMedia: FC = () => {
   const { t } = useTranslation();
@@ -736,6 +739,38 @@ const VideoMedia: FC = () => {
     navigate(`/video/${next.id}`);
   };
 
+  // The player reports its position twice a second: what does not depend on
+  // it keeps the same elements, so that React skips it.
+  const videoDescription = video?.description || '';
+  const description = useMemo(
+    () => (
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>
+        {videoDescription}
+      </ReactMarkdown>
+    ),
+    [videoDescription],
+  );
+  const suggestions = useMemo(
+    () =>
+      suggestedVideos.map((vid) => (
+        <div key={vid.id} className={styles.thumbnailWrapper}>
+          <Thumbnail
+            Id={vid.id}
+            title={vid.title}
+            createBy={
+              vid.creator?.username ||
+              `${vid.creator.firstName} ${vid.creator.lastName}`
+            }
+            views={vid.views}
+            createdAt={vid.createdAt.toString()}
+            tags={vid.tags.map((tag) => tag.name)}
+            duration={vid.duration}
+          />
+        </div>
+      )),
+    [suggestedVideos],
+  );
+
   if (isLoading) return <LoadingCircle />;
   if (loadFailed)
     return (
@@ -999,11 +1034,7 @@ const VideoMedia: FC = () => {
           <section className={styles.descriptionBlock}>
             <h3 className={styles.video_description_title}> </h3>
 
-            <div className={styles.video_description}>
-              <ReactMarkdown remarkPlugins={[removeH1()]}>
-                {video.description || ''}
-              </ReactMarkdown>
-            </div>
+            <div className={styles.video_description}>{description}</div>
 
             {/* Orateurs (internal_speakers) */}
             {Array.isArray(video.internal_speakers) &&
@@ -1128,22 +1159,7 @@ const VideoMedia: FC = () => {
         <aside className={styles.sideColumn}>
           <div className={styles.sideSticky}>
             <div className={styles.miniatureList} ref={suggestionsRef}>
-              {suggestedVideos.map((vid) => (
-                <div key={vid.id} className={styles.thumbnailWrapper}>
-                  <Thumbnail
-                    Id={vid.id}
-                    title={vid.title}
-                    createBy={
-                      vid.creator?.username ||
-                      `${vid.creator.firstName} ${vid.creator.lastName}`
-                    }
-                    views={vid.views}
-                    createdAt={vid.createdAt.toString()}
-                    tags={vid.tags.map((tag) => tag.name)}
-                    duration={vid.duration}
-                  />
-                </div>
-              ))}
+              {suggestions}
             </div>
           </div>
         </aside>
