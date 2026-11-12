@@ -114,10 +114,15 @@ Chaque fichier `*.postgres.spec.ts` est ignoré sans `SEARCH_TEST_DATABASE_URL` 
 - Modify: `backend/src/app.module.ts` (ajouter `SearchModule` aux imports)
 - Modify: `backend/package.json` (script `"test:search": "jest --runInBand src/search"`)
 - Create: `.github/workflows/search.yml`
+- Create: `backend/src/search/testing/search-fixture.ts`
 - Test: `backend/src/search/infra/schema/search-schema.postgres.spec.ts`
 
 **Interfaces:**
 - Produces: `ensureSearchSchema(db: DataSource | QueryRunner): Promise<void>` ; `dropSearchSchema(db: DataSource | QueryRunner): Promise<void>` ; classe `AddContentSearch1794470400000` ; `SearchModule`.
+- Produces aussi, dans `search-fixture.ts`, pour les Tasks 3, 4, 8 et 10 :
+  - `loadSearchFixture(db: DataSource): Promise<FixtureIds>` : les 6 vidéos de l’annexe A du design, créateur `demo` (e-mail `demo@example.test`), tags, intervenants, `createdAt` = maintenant − n jours, `transcoding_status = 'ready'`, `subtitle_id = 'subtitle-auto-<id>.vtt'`, segments et `video_transcript` insérés directement ;
+  - `FixtureIds = Record<'pgsearch'|'k8s'|'rgpd'|'ffmpeg'|'sport'|'logique', string>` ;
+  - `fixtureVtt(key: keyof FixtureIds): string`, le `.vtt` de chaque vidéo : chaque cue va jusqu’à la suivante, la dernière jusqu’à la durée.
 
 - [ ] **Step 1: Write the failing test** — `search-schema.postgres.spec.ts` :
 
@@ -149,7 +154,8 @@ it('migration down then up leaves a working schema', async () => {
 - [ ] **Step 3: Implement** `ensureSearchSchema` avec exactement le SQL de la section 6.2 du design (sans la table d’échecs), rendu idempotent : `CREATE EXTENSION IF NOT EXISTS unaccent` ; configurations créées dans un bloc `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_ts_config WHERE cfgname = 'ochocast_fr') THEN … END IF; END $$` ; `CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`. `dropSearchSchema` supprime les deux tables et les deux configurations, pas l’extension. La migration `up` appelle `ensureSearchSchema(runner)`, et `down` appelle `dropSearchSchema(runner)`.
 - [ ] **Step 4: Implement** `SearchModule` (vide pour l’instant, exporte ce que les tâches suivantes ajoutent) avec `onModuleInit` : si `process.env.NODE_ENV === 'development'` (même condition que `synchronize` dans `database.config.ts`), appeler `ensureSearchSchema(this.dataSource)`.
 - [ ] **Step 5: Add** `.github/workflows/search.yml` : déclenché sur `pull_request` et `push` vers `main` quand `backend/**` change. Service `postgres:15-alpine` (`POSTGRES_PASSWORD=postgres`, `POSTGRES_DB=search_test`, port 5432, healthcheck `pg_isready`). Étapes : `npm ci` dans `backend`, puis `npm run test:search` avec `SEARCH_TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/search_test`. Calquer le reste sur le job PostgreSQL de `.github/workflows/ffmpeg-serverless.yml`.
-- [ ] **Step 6: Run** les tests (commande de la section « Lots ») — Expected : PASS, 3 tests. Puis `npm run test:unit` — Expected : PASS (rien d’autre ne casse).
+- [ ] **Step 5 bis: Implement** `search-fixture.ts` (interface ci-dessus), avec un test `loads the six fixture videos` : 6 vidéos, 11 segments pour `k8s`, et `video_transcript.tsv_fr @@ plainto_tsquery('ochocast_fr', 'kubernetes')` vrai pour `k8s`. La fixture insère les lignes `video_transcript` sans passer par l’indexeur (Task 3), qui n’existe pas encore.
+- [ ] **Step 6: Run** les tests (commande de la section « Lots ») — Expected : PASS, 4 tests. Puis `npm run test:unit` — Expected : PASS (rien d’autre ne casse).
 - [ ] **Step 7: Verify dev bootstrap** — Créer une base vide, démarrer le backend en `NODE_ENV=development` deux fois, puis `psql … -c "\d video_transcript_segment"`. Expected : la table existe ; aucun stack trace au second démarrage.
 - [ ] **Step 8: Commit** — `feat(search): add the content search schema`.
 
@@ -184,13 +190,12 @@ it('migration down then up leaves a working schema', async () => {
 
 **Files:**
 - Create: `backend/src/search/infra/transcript-indexer.ts`
-- Create: `backend/src/search/testing/search-fixture.ts`
 - Modify: `backend/src/search/search.module.ts` (provider et export `TranscriptIndexer`, import `S3Module`)
 - Test: `backend/src/search/infra/transcript-indexer.postgres.spec.ts`
 
 **Interfaces:**
-- Consumes: `parseWebVtt` (Task 2), `ensureSearchSchema` (Task 1).
-- Produces: `type IndexOutcome = 'indexed' | 'unchanged' | 'cleared' | 'not_ready' | 'failed'` ; `class TranscriptIndexer { constructor(db: DataSource, @Inject('s3Client') s3: S3Client); indexVideo(videoId: string): Promise<IndexOutcome> }`. Dans `search-fixture.ts` : `loadSearchFixture(db: DataSource): Promise<FixtureIds>` (les 6 vidéos de l’annexe A du design, créateur `demo`, tags, intervenants, `createdAt` = maintenant − n jours, segments insérés directement), `FixtureIds = Record<'pgsearch'|'k8s'|'rgpd'|'ffmpeg'|'sport'|'logique', string>` et `fixtureVtt(key): string` (le `.vtt` de chaque vidéo).
+- Consumes: `parseWebVtt` (Task 2), `ensureSearchSchema` et `fixtureVtt` (Task 1).
+- Produces: `type IndexOutcome = 'indexed' | 'unchanged' | 'cleared' | 'not_ready' | 'failed'` ; `class TranscriptIndexer { constructor(db: DataSource, @Inject('s3Client') s3: S3Client); indexVideo(videoId: string): Promise<IndexOutcome> }`.
 
 - [ ] **Step 1: Write the failing tests** (S3 simulé : un `send` qui renvoie le corps d’une `Map<clé, texte>`) :
   - `indexes a new subtitle` : vidéo `ready`, `subtitle_id = 'subtitle-auto-<id>.vtt'` → `'indexed'` ; 11 segments pour `k8s` ; `video_transcript.source = 'auto'` ; `segment_count = 11`.
@@ -326,7 +331,7 @@ expect(parseSearchQuery('a & b | !c :*').groups.flatMap(g => g.kind === 'terms' 
 - Test: `backend/src/search/infra/postgres-search.gateway.postgres.spec.ts`
 
 **Interfaces:**
-- Consumes: Tasks 6 et 7, `loadSearchFixture` (Task 3).
+- Consumes: Tasks 6 et 7, `loadSearchFixture` (Task 1).
 - Produces :
   ```ts
   interface SearchGateway {
