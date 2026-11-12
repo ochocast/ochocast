@@ -27,6 +27,11 @@ interface TranscriptPanelProps {
   onSeek: (seconds: number) => void;
   onMatchesChange: (passages: StripPassage[]) => void;
   className?: string;
+  /**
+   * A change refetches the transcript with the query in the field (a
+   * transcript that was being prepared may be ready).
+   */
+  refreshKey?: string;
 }
 
 const DEBOUNCE_MS = 300;
@@ -96,6 +101,7 @@ const Panel: React.FC<TranscriptPanelProps> = ({
   onSeek,
   onMatchesChange,
   className,
+  refreshKey,
 }) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialQuery);
@@ -140,7 +146,7 @@ const Panel: React.FC<TranscriptPanelProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [videoId, fetchQuery]);
+  }, [videoId, fetchQuery, refreshKey]);
 
   const result = loaded?.result ?? null;
   const ready = result?.status === 'ready';
