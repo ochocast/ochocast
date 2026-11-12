@@ -174,6 +174,7 @@ describe('TranscriptPanel', () => {
       name: 'Rechercher dans cette vidéo',
     });
     expect(field).toHaveValue('kubernetes');
+    expect(field).toHaveAttribute('maxLength', '200');
     expect(mockedGetTranscript).toHaveBeenCalledTimes(1);
     expect(mockedGetTranscript).toHaveBeenCalledWith('k8s', 'kubernetes');
   });
