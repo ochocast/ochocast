@@ -247,6 +247,20 @@ describe('TranscriptPanel', () => {
     expect(onSeek).toHaveBeenCalledWith(95);
   });
 
+  it('reaches a fractional start from its whole second', async () => {
+    const result = k8s({ highlight: true });
+    result.segments[5].start = 1012.48;
+    mockedGetTranscript.mockResolvedValue(result);
+    await renderPanel({ initialQuery: 'kubernetes', currentTime: 1012 });
+
+    const active = lineButtons().filter(
+      (button) => button.getAttribute('aria-current') === 'true',
+    );
+    expect(active).toHaveLength(1);
+    expect(active[0].textContent).toContain('16:52');
+    expect(screen.getByText('2 / 3')).toBeInTheDocument();
+  });
+
   it('disables next on the last occurrence', async () => {
     mockedGetTranscript.mockResolvedValue(k8s({ highlight: true }));
     await renderPanel({ initialQuery: 'kubernetes', currentTime: 2562 });

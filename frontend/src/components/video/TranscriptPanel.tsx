@@ -15,6 +15,7 @@ import {
 } from '../../utils/searchApi';
 import { formatTimestamp } from '../../utils/formatTimestamp';
 import { StripPassage } from './PassageStrip';
+import { lastReachedIndex } from './playbackPosition';
 import styles from './TranscriptPanel.module.css';
 
 interface TranscriptPanelProps {
@@ -162,11 +163,11 @@ const Panel: React.FC<TranscriptPanelProps> = ({
     onMatchesRef.current(passages);
   }, [passages]);
 
-  let activeIndex = -1;
-  for (let i = 0; i < segments.length; i += 1) {
-    if (segments[i].start <= currentTime) activeIndex = i;
-    else break;
-  }
+  const segmentStarts = useMemo(
+    () => segments.map((segment) => segment.start),
+    [segments],
+  );
+  const activeIndex = lastReachedIndex(segmentStarts, currentTime);
 
   // Follow the playback inside the list only, never the page.
   useEffect(() => {
@@ -202,10 +203,7 @@ const Panel: React.FC<TranscriptPanelProps> = ({
   }
   if (!ready || !result) return null;
 
-  let currentOccurrence = -1;
-  matchStarts.forEach((start, i) => {
-    if (start <= currentTime) currentOccurrence = i;
-  });
+  const currentOccurrence = lastReachedIndex(matchStarts, currentTime);
   const total = matchStarts.length;
   const goTo = (index: number) => onSeek(matchStarts[index]);
 
