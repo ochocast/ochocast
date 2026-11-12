@@ -405,7 +405,7 @@ func (s *SFUServer) ConnectToUpstreamForRoom(roomID, originURL string) error {
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf("[EDGE] Received track from origin: %s (kind: %s, codec: %s)",
 			track.ID(), track.Kind(), track.Codec().MimeType)
-		room.AddTrack(track)
+		room.AddTrack(track, peerConnection)
 
 		room.mu.Lock()
 		room.StreamActive = true
