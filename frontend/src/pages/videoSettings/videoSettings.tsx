@@ -1088,9 +1088,17 @@ const VideoSettings: FC<VideoSettingsProps> = () => {
       }
     };
 
+    // Publishing a recording (or a speaker's request) prefills its own title:
+    // a draft left by another upload must not overwrite it.
+    const source = location.state as {
+      recordingId?: string;
+      publicationRequestId?: string;
+    } | null;
     if (videoId !== undefined) {
       clearLocalStorage();
       void get_video();
+    } else if (source?.recordingId || source?.publicationRequestId) {
+      clearLocalStorage();
     } else {
       try {
         const draft = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
