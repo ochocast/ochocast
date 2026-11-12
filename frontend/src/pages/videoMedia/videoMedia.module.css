@@ -73,8 +73,9 @@
   display: none;
 }
 
+/* Never under 18rem: a landscape phone keeps a usable list. */
 .panelArea > aside {
-  max-height: 50vh;
+  max-height: max(50vh, 18rem);
 }
 
 @media (min-width: 1025px) {
