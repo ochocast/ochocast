@@ -199,6 +199,68 @@ describe('TranscriptPanel', () => {
     expect(mockedGetTranscript).toHaveBeenLastCalledWith('k8s', 'kubernetes');
   });
 
+  it('refetches with the typed query when refreshKey changes', async () => {
+    jest.useFakeTimers();
+    mockedGetTranscript.mockResolvedValue(empty('pending'));
+    const { rerender, onSeek, onMatchesChange } = await renderPanel({
+      transcriptionStatus: 'pending',
+      refreshKey: '',
+    });
+    expect(
+      screen.getByText('Transcription en préparation'),
+    ).toBeInTheDocument();
+    expect(mockedGetTranscript).toHaveBeenCalledTimes(1);
+
+    mockedGetTranscript.mockResolvedValue(k8s());
+    rerender(
+      <TranscriptPanel
+        videoId="k8s"
+        initialQuery=""
+        currentTime={0}
+        transcriptionStatus="ready"
+        refreshKey="https://bucket.example/subtitle-auto-k8s.vtt"
+        onSeek={onSeek}
+        onMatchesChange={onMatchesChange}
+      />,
+    );
+    await flush();
+
+    expect(mockedGetTranscript).toHaveBeenCalledTimes(2);
+    expect(mockedGetTranscript).toHaveBeenLastCalledWith('k8s', '');
+    expect(lineButtons()).toHaveLength(11);
+  });
+
+  it('keeps the typed query when refreshKey changes', async () => {
+    jest.useFakeTimers();
+    const { rerender, onSeek, onMatchesChange } = await renderPanel({
+      refreshKey: 'a',
+    });
+    fireEvent.change(screen.getByRole('searchbox'), {
+      target: { value: 'cluster' },
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(mockedGetTranscript).toHaveBeenCalledTimes(2);
+
+    rerender(
+      <TranscriptPanel
+        videoId="k8s"
+        initialQuery=""
+        currentTime={0}
+        transcriptionStatus="ready"
+        refreshKey="b"
+        onSeek={onSeek}
+        onMatchesChange={onMatchesChange}
+      />,
+    );
+    await flush();
+
+    expect(mockedGetTranscript).toHaveBeenCalledTimes(3);
+    expect(mockedGetTranscript).toHaveBeenLastCalledWith('k8s', 'cluster');
+    expect(screen.getByRole('searchbox')).toHaveValue('cluster');
+  });
+
   it('ignores a stale response arriving after a newer one', async () => {
     jest.useFakeTimers();
     let resolveOld: (value: TranscriptResult) => void = () => {};

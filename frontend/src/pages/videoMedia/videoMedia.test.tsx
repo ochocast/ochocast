@@ -252,10 +252,20 @@ describe('VideoMedia', () => {
       });
     // Without a subtitle the API answers 200 with an empty body.
     (getSubtitle as jest.Mock).mockResolvedValueOnce({ ok: true, data: '' });
+    (getTranscript as jest.Mock).mockResolvedValueOnce({
+      videoId: 'A',
+      source: 'auto',
+      status: 'pending',
+      segments: [],
+      matches: [],
+    });
     render(<VideoMedia />);
     await settle();
     const player = screen.getByTestId('player');
     expect(player).toBeEmptyDOMElement();
+    expect(
+      screen.getByText('Transcription en préparation'),
+    ).toBeInTheDocument();
 
     (getSubtitle as jest.Mock).mockResolvedValue({
       ok: true,
@@ -272,6 +282,10 @@ describe('VideoMedia', () => {
     expect(player.innerHTML).toContain(`src="${subtitleUrl}"`);
     expect(player.innerHTML).toContain('label="Français"');
     expect(getMedia).toHaveBeenCalledTimes(1);
+    // The panel reads the transcript again.
+    expect(getTranscript).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Transcription en préparation')).toBeNull();
+    expect(screen.getByTestId('transcript-list')).toBeInTheDocument();
   });
 
   const advance = async (...delays: number[]) => {

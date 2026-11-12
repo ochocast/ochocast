@@ -912,6 +912,8 @@ const VideoMedia: FC = () => {
             transcriptionStatus={video.transcription_status || ''}
             onSeek={handleSeek}
             onMatchesChange={setPassages}
+            // A transcript that arrives while the page stays open is read.
+            refreshKey={`${video.transcription_status ?? ''} ${subtitleUrl ?? ''}`}
           />
         </div>
 
