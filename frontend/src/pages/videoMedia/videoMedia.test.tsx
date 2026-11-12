@@ -18,6 +18,7 @@ import '../../testUtils/initTestI18n';
 // Jest here cannot load react-router 7 (package exports): the route is
 // stubbed.
 let mockSearch = '';
+let mockVideoId = 'A';
 jest.mock('react-router-dom', () => ({
   Link: ({
     to,
@@ -34,7 +35,7 @@ jest.mock('react-router-dom', () => ({
   useSearchParams: () => [new URLSearchParams(mockSearch)],
   useLocation: () => ({ pathname: '/video/A', state: null }),
   useNavigate: () => jest.fn(),
-  useParams: () => ({ videoId: 'A' }),
+  useParams: () => ({ videoId: mockVideoId }),
 }));
 
 jest.mock('../../utils/api', () => ({
@@ -187,6 +188,7 @@ beforeEach(() => {
   window.scrollTo = jest.fn();
   sessionStorage.clear();
   mockSearch = '';
+  mockVideoId = 'A';
   mockPlayerDuration = 2712;
   (getTranscript as jest.Mock).mockImplementation((_id: string, q: string) =>
     Promise.resolve(k8sTranscript(q ? [1, 5, 10] : [])),
@@ -520,6 +522,32 @@ describe('VideoMedia', () => {
         name: '← Retour aux résultats pour « kube & k8s »',
       });
       expect(link).toHaveAttribute('href', '/search?q=kube%20%26%20k8s');
+    });
+
+    // Another video, opened from the suggestions, starts clean.
+    it('drops the banner and the passages of the previous video', async () => {
+      mockSearch = '?t=1012&q=kubernetes';
+      const { rerender } = render(<VideoMedia />);
+      await settle();
+      ready();
+      await settle();
+      expect(screen.getByRole('status')).toHaveTextContent(/16:52/);
+      expect(screen.getAllByRole('button', { name: /^Aller à/ })).toHaveLength(
+        3,
+      );
+
+      mockVideoId = 'B';
+      mockSearch = '';
+      (getVideo as jest.Mock).mockResolvedValue({
+        ok: true,
+        data: [{ ...video, id: 'B', title: 'Title B' }],
+      });
+      rerender(<VideoMedia />);
+      await settle();
+
+      expect(screen.getByText('Title B')).toBeInTheDocument();
+      expect(screen.queryByText(/Lecture à/)).toBeNull();
+      expect(screen.queryAllByRole('button', { name: /^Aller à/ })).toEqual([]);
     });
 
     it('shows no back link without q', async () => {
