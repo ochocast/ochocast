@@ -506,5 +506,19 @@
   "Selected users": "Utilisateurs sélectionnés",
   "Selected dates": "Dates sélectionnées",
   "Delete all": "Tout effacer",
-  "backendLoginFailed": "Impossible de se connecter au serveur OchoCast."
+  "backendLoginFailed": "Impossible de se connecter au serveur OchoCast.",
+  "searchResult": {
+    "foundIn": "Trouvé dans :",
+    "matchedIn": {
+      "title": "Titre",
+      "tags": "Tags",
+      "people": "Intervenants",
+      "description": "Description",
+      "transcript_one": "Transcription · {{count}} passage",
+      "transcript_other": "Transcription · {{count}} passages"
+    },
+    "morePassages_one": "Voir l'autre passage",
+    "morePassages_other": "Voir les {{count}} autres passages",
+    "lessPassages": "Afficher moins de passages"
+  }
 }

@@ -1,0 +1,202 @@
+.card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 16px;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  font-family: 'Outfit', sans-serif;
+}
+
+.thumbnailLink {
+  flex: 0 1 320px;
+  min-width: 240px;
+  align-self: flex-start;
+  display: block;
+}
+
+.thumbnail {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000000;
+}
+
+.thumbnailImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.badge {
+  position: absolute;
+  bottom: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.viewsBadge {
+  left: 8px;
+}
+
+.durationBadge {
+  right: 8px;
+}
+
+.viewIcon {
+  width: 14px;
+  height: 14px;
+}
+
+.body {
+  flex: 999 1 360px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.titleLink {
+  color: #111111;
+  font-size: 19.2px;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.titleLink:hover,
+.titleLink:focus-visible {
+  text-decoration: underline;
+}
+
+.meta {
+  font-size: 13.6px;
+  color: #606060;
+  overflow-wrap: anywhere;
+}
+
+.foundIn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 12.8px;
+  color: #344054;
+}
+
+.foundBadge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  color: #344054;
+}
+
+.passages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.passage {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.passage:hover,
+.passage:focus-visible {
+  border-color: #147854;
+}
+
+.timestamp {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: -10px 0;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #147854;
+  color: #ffffff;
+  font-size: 12.8px;
+  font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.excerpt {
+  min-width: 0;
+  align-self: center;
+  font-size: 14.4px;
+  line-height: 1.5;
+  color: #344054;
+  overflow-wrap: anywhere;
+}
+
+.toggle {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 4px 2px;
+  background: none;
+  border: 0;
+  color: #147854;
+  font-family: inherit;
+  font-size: 13.6px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: #cdefe0;
+  color: #062218;
+  font-weight: 600;
+}
+
+.titleMark {
+  font-weight: 700;
+}
+
+@media (max-width: 599px) {
+  .card {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 14px;
+  }
+
+  .thumbnailLink {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .body {
+    flex: none;
+    width: 100%;
+  }
+}

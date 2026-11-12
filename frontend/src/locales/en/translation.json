@@ -506,5 +506,19 @@
   "Selected users": "Selected users",
   "Selected dates": "Selected dates",
   "Delete all": "Delete all",
-  "backendLoginFailed": "Unable to sign in to the OchoCast server."
+  "backendLoginFailed": "Unable to sign in to the OchoCast server.",
+  "searchResult": {
+    "foundIn": "Found in:",
+    "matchedIn": {
+      "title": "Title",
+      "tags": "Tags",
+      "people": "Speakers",
+      "description": "Description",
+      "transcript_one": "Transcript · {{count}} passage",
+      "transcript_other": "Transcript · {{count}} passages"
+    },
+    "morePassages_one": "Show the other passage",
+    "morePassages_other": "Show the {{count}} other passages",
+    "lessPassages": "Show fewer passages"
+  }
 }
