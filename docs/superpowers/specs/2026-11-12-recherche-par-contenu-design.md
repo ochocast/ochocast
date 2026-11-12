@@ -442,7 +442,7 @@ Réponse 200 :
   "source": "auto",
   "status": "ready",
   "segments": [{ "start": 12.0, "end": 17.5, "parts": [{ "text": "…", "hit": false }] }],
-  "matches": [1, 6, 10]
+  "matches": [1, 5, 10]
 }
 ```
 
