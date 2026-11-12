@@ -101,6 +101,7 @@
   margin: 0;
   padding: 0 4px 0 0;
   list-style: none;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -123,6 +124,13 @@
   cursor: pointer;
 }
 
+/* The app styles buttons with white-space: nowrap: lines wrap in the panel.
+   The extra class keeps this above such a rule. */
+.list .line,
+.list .text {
+  white-space: normal;
+}
+
 .line:hover {
   background: #f2f4f7;
 }
@@ -142,6 +150,7 @@
 }
 
 .text {
+  flex: 1 1 0;
   min-width: 0;
   font-size: 14.4px;
   line-height: 1.5;
