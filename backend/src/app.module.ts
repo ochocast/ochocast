@@ -18,6 +18,7 @@ import { RecordingModule } from './recording/recording.module';
 import { QueueModule } from './queue/queue.module';
 import { TranscriptionModule } from './transcription/transcription.module';
 import { VideoEditsModule } from './video-edits/video-edits.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -49,6 +50,7 @@ import { VideoEditsModule } from './video-edits/video-edits.module';
     QueueModule,
     TranscriptionModule,
     VideoEditsModule,
+    SearchModule,
   ],
 })
 export class AppModule {}
