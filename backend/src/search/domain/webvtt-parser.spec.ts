@@ -60,12 +60,15 @@ describe('parseWebVtt', () => {
     const vtt =
       'WEBVTT\n\n00:00:01.000 --> 00:00:04.000\n<v Marie><i>Salut</i> <c.red>toi</c><00:00:03.000></v>\n\n' +
       '00:00:05.000 --> 00:00:06.000\n<b>gras</b> <u>souligné</u> <c>classe</c>\n\n' +
-      '00:00:07.000 --> 00:00:08.000\n<c.bg-red>hi</c>\n';
+      '00:00:07.000 --> 00:00:08.000\n<c.bg-red>hi</c>\n\n' +
+      // Removing the inner tags must not leave a new tag behind.
+      '00:00:09.000 --> 00:00:10.000\n<scr<b>ipt>alert(1)</scr</b>ipt>\n';
 
     expect(parseWebVtt(vtt)).toEqual([
       { start: 1, end: 4, text: 'Salut toi' },
       { start: 5, end: 6, text: 'gras souligné classe' },
       { start: 7, end: 8, text: 'hi' },
+      { start: 9, end: 10, text: 'alert(1)' },
     ]);
   });
 

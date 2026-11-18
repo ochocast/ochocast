@@ -32,10 +32,18 @@ function parseTimingLine(line: string): { start: number; end: number } | null {
     : { start, end: Math.max(end, start) };
 }
 
+function stripTags(text: string): string {
+  // Repeat until stable: removing "<b>" from "<scr<b>ipt>" leaves "<script>".
+  let previous: string;
+  do {
+    previous = text;
+    text = text.replace(TAG, '');
+  } while (text !== previous);
+  return text;
+}
+
 function cleanText(lines: string[]): string {
-  return lines
-    .join(' ')
-    .replace(TAG, '')
+  return stripTags(lines.join(' '))
     .replace(/&nbsp;/g, ' ')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
