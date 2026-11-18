@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import {
   DeleteObjectCommand,
@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { toWebVtt } from './webvtt';
+import { TranscriptIndexer } from '../search/infra/transcript-indexer';
 
 const LOCK = 1791540000;
 const MAX_ATTEMPTS = 3;
@@ -73,6 +74,7 @@ export class TranscriptionService {
   constructor(
     private readonly db: DataSource,
     @Inject('s3Client') private readonly s3: S3Client,
+    @Optional() private readonly indexer?: TranscriptIndexer,
   ) {
     // recover() also runs while transcription is disabled: the stop endpoint
     // and its token are checked in every mode.
@@ -194,6 +196,15 @@ export class TranscriptionService {
               continue;
             }
             summary.processed += 1;
+            // Committed (autocommit); an indexing failure never fails the batch.
+            if (vtt)
+              void this.indexer
+                ?.indexVideo(video.id)
+                .catch((e) =>
+                  this.logger.error(
+                    `Indexing video ${video.id} failed: ${e?.message ?? e}`,
+                  ),
+                );
           } catch (error) {
             summary.failed += 1;
             // A shutdown aborts the request in flight: the video is retried.

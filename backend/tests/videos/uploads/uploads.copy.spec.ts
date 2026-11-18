@@ -1,4 +1,5 @@
 import { DataSource } from 'typeorm';
+import { TranscriptIndexer } from 'src/search/infra/transcript-indexer';
 import { UploadsService } from 'src/videos/uploads/uploads.service';
 import { MultipartStorage } from 'src/videos/uploads/multipart-storage';
 import { VideoUpload } from 'src/videos/uploads/upload.entity';
@@ -54,6 +55,7 @@ describe('Upload copied server side from a stored recording', () => {
       storage,
       { enabled: true } as any,
       {} as TranscodingJobsService,
+      {} as TranscriptIndexer,
     );
 
   it('copies the whole file in large parts and records their ETags', async () => {

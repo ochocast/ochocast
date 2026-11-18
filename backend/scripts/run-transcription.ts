@@ -1,13 +1,18 @@
 import 'reflect-metadata';
 import db from '../src/config/typeorm.config';
 import { createS3Client } from '../src/s3.module';
+import { TranscriptIndexer } from '../src/search/infra/transcript-indexer';
 import { TranscriptionService } from '../src/transcription/transcription.service';
 
 async function main() {
   const s3 = createS3Client();
   try {
     await db.initialize();
-    const service = new TranscriptionService(db, s3);
+    const service = new TranscriptionService(
+      db,
+      s3,
+      new TranscriptIndexer(db, s3),
+    );
     if (!service.enabled)
       throw new Error('Set TRANSCRIPTION_ENABLED=true before running a batch');
     const summary = await service.run();

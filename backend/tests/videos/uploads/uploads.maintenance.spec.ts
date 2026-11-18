@@ -1,5 +1,6 @@
 import { DataSource } from 'typeorm';
 import { Logger } from '@nestjs/common';
+import { TranscriptIndexer } from 'src/search/infra/transcript-indexer';
 import { UploadsService } from 'src/videos/uploads/uploads.service';
 import { MultipartStorage } from 'src/videos/uploads/multipart-storage';
 import { VideoUpload } from 'src/videos/uploads/upload.entity';
@@ -44,12 +45,16 @@ describe('Upload maintenance with and without a transcoding queue', () => {
     builders[name] = builder;
     return builder;
   };
+  const indexer = {
+    indexVideo: jest.fn(async () => 'unchanged'),
+  } as unknown as TranscriptIndexer;
   const service = (enabled: boolean) =>
     new UploadsService(
       db as unknown as DataSource,
       storage as unknown as MultipartStorage,
       { enabled, publishRegisteredJob } as any,
       new TranscodingJobsService(db as unknown as DataSource),
+      indexer,
     );
   const job = (overrides: Partial<TranscodingJobEntity>) =>
     Object.assign(new TranscodingJobEntity(), {

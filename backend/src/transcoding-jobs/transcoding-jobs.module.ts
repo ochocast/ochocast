@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SearchModule } from '../search/search.module';
 import { TranscodingJobEntity } from './transcoding-job.entity';
 import { TranscodingJobsService } from './transcoding-jobs.service';
 import {
@@ -8,7 +9,7 @@ import {
 } from './transcoding-jobs.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TranscodingJobEntity])],
+  imports: [TypeOrmModule.forFeature([TranscodingJobEntity]), SearchModule],
   controllers: [TranscodingJobsController],
   providers: [TranscodingJobsService, TranscodingCallbackGuard],
   exports: [TranscodingJobsService],
