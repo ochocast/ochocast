@@ -133,3 +133,9 @@ La route protégée `GET /api/videos/:videoId/edit/source` permet au créateur e
 - Vérification : TypeScript, tests frontend ciblés et build de production ; contrôle visuel desktop/mobile avec API simulée et vidéo synthétique, lecture continue, transition entre passages, glisser-déposer et réordonnancement au clavier. La recette réelle complète frontend → backend → file → worker reste à exécuter sur un environnement lancé et configuré.
 - Environnement : utiliser le Node 22 déjà installé via nvm si le Node Homebrew échoue sur `libsimdjson.30.dylib`. Le build est validé avec le plugin ESLint désactivé : le cache de `node_modules` est hors du périmètre d’écriture et la commande ESLint autonome rencontre une incompatibilité de plugin existante. Aucune dépendance n’a été ajoutée.
 - Reste : pré-découpage à valider avant code, infrastructure, recette en préproduction et mesure des deux encodages de 45 minutes. Voir `PREDECOUPAGE.md` et `MESSAGE-OPS.md`.
+
+### Détail du problème ESLint local (18 novembre 2026)
+
+Le build standard échoue à écrire `frontend/node_modules/.cache/.eslintcache` (`EPERM`, dépendances locales liées hors du périmètre d’écriture). Le lancement autonome d’ESLint depuis la racine rencontre ensuite `@typescript-eslint/no-unused-expressions: Cannot read properties of undefined (reading allowShortCircuit)` avec les versions installées. Depuis `frontend/`, la configuration racine résout aussi incorrectement `frontend/frontend/tsconfig.json`.
+
+Contournement de vérification utilisé : Node 22 via nvm, `npx tsc --noEmit`, tests ciblés, puis `CI=true DISABLE_ESLINT_PLUGIN=true npm run build`. Il valide compilation et build, **pas ESLint**. Aucun paquet ni fichier de dépendances n’a été modifié pour contourner ces problèmes.
