@@ -244,3 +244,17 @@
     padding: 16px;
   }
 }
+
+.panel .proposal {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.panel input[type='checkbox'] {
+  width: auto;
+  accent-color: #11825a;
+}
+.panel progress {
+  width: 100%;
+  accent-color: #11825a;
+}

@@ -572,7 +572,31 @@
       "textBounds": "Passage {{passage}}, texte {{text}} : le texte doit rester dans son passage avec une durée positive.",
       "textStyle": "Passage {{passage}}, texte {{text}} : position ou couleur invalide."
     },
-    "cutTextLimit": "Coupe refusée : un des nouveaux passages dépasserait 10 textes."
+    "cutTextLimit": "Coupe refusée : un des nouveaux passages dépasserait 10 textes.",
+    "analysis": {
+      "title": "Coupes proposées par les silences",
+      "help": "Analyse de l’original. Aucune suppression automatique : seules les coupes que vous acceptez sont appliquées localement.",
+      "request": "Proposer des coupes",
+      "requesting": "Demande en cours…",
+      "unavailable": "Analyse indisponible. Réessayez plus tard.",
+      "queued": "L’analyse attend sa prise en charge dans la file partagée avec les rendus. D’autres traitements peuvent passer avant.",
+      "downloading": "Analyse démarrée : lecture de l’original.",
+      "analyzing": "Recherche des silences en cours.",
+      "elapsed": "Temps écoulé depuis la demande : {{time}}",
+      "progress": "Progression de l’analyse",
+      "waitHelp": "Vous pouvez quitter puis revenir. Le calcul est limité à {{minutes}} minute(s) après sa prise en charge ; l’attente dans la file est distincte. Aucun changement local n’est enregistré.",
+      "pollError": "Le suivi est momentanément indisponible ; nouvelle tentative automatique.",
+      "failed": "L’analyse a échoué. Vous pouvez la relancer.",
+      "noAudio": "Cette vidéo n’a pas de piste audio : aucune coupe proposée.",
+      "noSilence": "Aucun silence correspondant aux réglages n’a été détecté.",
+      "suggestions": "Choisissez les coupes à accepter (temps dans l’original)",
+      "apply": "Appliquer les coupes sélectionnées",
+      "ignore": "Ignorer les propositions",
+      "outside": "Une coupe ne se trouve plus dans les passages conservés. Revoyez la sélection.",
+      "short": "Cette sélection laisserait moins de 5 secondes entre deux bornes.",
+      "limit": "Cette sélection dépasserait 100 passages.",
+      "texts": "Une coupe dépasserait 10 textes sur un passage."
+    }
   },
   "videonotallowedit": "Vous n’avez pas le droit de monter cette vidéo."
 }

@@ -572,7 +572,31 @@
       "textBounds": "Segment {{passage}}, text {{text}}: text must stay within its segment with a positive duration.",
       "textStyle": "Segment {{passage}}, text {{text}}: invalid position or color."
     },
-    "cutTextLimit": "Split refused: a resulting segment would exceed 10 text layers."
+    "cutTextLimit": "Split refused: a resulting segment would exceed 10 text layers.",
+    "analysis": {
+      "title": "Suggested silence cuts",
+      "help": "Analyze the original. Nothing is removed automatically: only accepted cuts are applied locally.",
+      "request": "Suggest cuts",
+      "requesting": "Requesting…",
+      "unavailable": "Analysis unavailable. Try again later.",
+      "queued": "Analysis is waiting in the queue shared with renders. Other jobs may run first.",
+      "downloading": "Analysis started: reading the original.",
+      "analyzing": "Detecting silences.",
+      "elapsed": "Time since request: {{time}}",
+      "progress": "Analysis progress",
+      "waitHelp": "You can leave and return. Processing is limited to {{minutes}} minute(s) after acquisition; queue waiting is separate. Local changes are not saved.",
+      "pollError": "Status temporarily unavailable; retrying automatically.",
+      "failed": "Analysis failed. You can request it again.",
+      "noAudio": "This video has no audio track: no cuts suggested.",
+      "noSilence": "No silence matching the settings was detected.",
+      "suggestions": "Choose cuts to accept (original timestamps)",
+      "apply": "Apply selected cuts",
+      "ignore": "Ignore suggestions",
+      "outside": "A cut is no longer inside a kept segment. Review the selection.",
+      "short": "This selection leaves less than 5 seconds between boundaries.",
+      "limit": "This selection would exceed 100 segments.",
+      "texts": "A cut would exceed 10 text layers on a segment."
+    }
   },
   "videonotallowedit": "You may not edit this video."
 }

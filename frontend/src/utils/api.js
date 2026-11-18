@@ -254,3 +254,8 @@ export const saveVideoEdit = (id, edit) => api.put(`/videos/${id}/edit`, edit);
 export const getVideoEditRenderStatus = (id) =>
   api.get(`/videos/${id}/edit/render-status`);
 export const revertVideoEdit = (id) => api.post(`/videos/${id}/edit/revert`);
+
+export const requestSilenceAnalysis = (id) =>
+  api.post(`/videos/${id}/edit/silence-analysis`);
+export const getSilenceAnalysis = (id, jobId) =>
+  api.get(`/videos/${id}/edit/silence-analysis${jobId ? `/${jobId}` : ''}`);

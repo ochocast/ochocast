@@ -1,3 +1,4 @@
+import SilenceAnalysisPanel from './SilenceAnalysisPanel';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -430,6 +431,14 @@ export default function VideoEditPage() {
                     </div>
                   ))}
                 </section>
+                <SilenceAnalysisPanel
+                  videoId={videoId!}
+                  segments={segments}
+                  onApply={(next) => {
+                    changeSegments(next);
+                    setSelectedText(undefined);
+                  }}
+                />
                 <TextLayerEditor
                   text={text}
                   duration={textSegment ? segmentDuration(textSegment) : 0}

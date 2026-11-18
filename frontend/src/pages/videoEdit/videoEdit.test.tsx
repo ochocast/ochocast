@@ -1,3 +1,7 @@
+jest.mock('./SilenceAnalysisPanel', () => ({
+  __esModule: true,
+  default: () => null,
+}));
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import VideoEditPage from './videoEdit';
