@@ -1,3 +1,9 @@
+import { AnalysisJobEntity } from './infra/analysis/analysis-job.entity';
+import { AnalysisService } from './infra/analysis/analysis.service';
+import {
+  AnalysisController,
+  AnalysisCallbacksController,
+} from './infra/analysis/analysis.controller';
 import { GetVideoEditSourceUsecase } from './domain/usecases/getVideoEditSource.usecase';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -25,12 +31,18 @@ import { VideoEditRenderDispatcher } from './infra/render-jobs/video-edit-render
       VideoEditSegmentEntity,
       VideoEditTextLayerEntity,
       VideoEditRenderJobEntity,
+      AnalysisJobEntity,
     ]),
     S3Module,
     UsersModule,
     VideosModule,
   ],
-  controllers: [VideoEditsController, VideoEditRenderJobsController],
+  controllers: [
+    VideoEditsController,
+    VideoEditRenderJobsController,
+    AnalysisController,
+    AnalysisCallbacksController,
+  ],
   providers: [
     { provide: 'VideoEditGateway', useClass: VideoEditGateway },
     // Disabled (PUT answers 503) without VIDEO_EDIT_RENDER_QUEUE_URL.
@@ -39,6 +51,7 @@ import { VideoEditRenderDispatcher } from './infra/render-jobs/video-edit-render
       useClass: VideoEditRenderDispatcher,
     },
     VideoEditRenderJobsService,
+    AnalysisService,
     CreateVideoEditUsecase,
     GetVideoEditUsecase,
     GetVideoEditSourceUsecase,

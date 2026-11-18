@@ -1,3 +1,4 @@
+import { AnalysisMessage } from '../../domain/videoEditAnalysis';
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import { ScalewayQueuesClient } from 'src/queue/scaleway-queues.client';
@@ -78,7 +79,9 @@ export class VideoEditRenderDispatcher implements IVideoEditRenderDispatcher {
     this.enabled = true;
   }
 
-  async publish(message: VideoEditRenderMessage): Promise<void> {
+  async publish(
+    message: VideoEditRenderMessage | AnalysisMessage,
+  ): Promise<void> {
     if (!this.enabled) throw new Error('Video edit rendering is disabled');
     const signature = createHmac('sha256', this.dispatchSecret)
       .update(JSON.stringify(message))
