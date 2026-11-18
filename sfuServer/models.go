@@ -33,6 +33,12 @@ type TrackBroadcaster struct {
 	// 🎬 RECORDER: Dedicated track that bypasses SharedTracks (no packet drop!)
 	recorderTrack *webrtc.TrackLocalStaticRTP // Dedicated track for recorder
 	recorderCh    chan []byte                 // Dedicated channel (larger buffer, never drops)
+
+	// source is the PeerConnection the track comes from: keyframe requests
+	// (PLI) from viewers and the recorder are relayed to it.
+	source              *webrtc.PeerConnection
+	keyframeMu          sync.Mutex
+	lastKeyframeRequest time.Time
 }
 
 // Room represents a streaming room with multiple publishers and viewers
