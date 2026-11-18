@@ -28,23 +28,23 @@ describe('buildTsQueries', () => {
     const queries = build('ffmpeg -audio', params)!;
     expect(params).toEqual(['ffmpeg', 'audio']);
     expect(queries.all).toBe(
-      `(plainto_tsquery('ochocast_fr', $1)) && !!(plainto_tsquery('ochocast_fr', $2))`,
+      `((plainto_tsquery('ochocast_fr', $1)) && !!(plainto_tsquery('ochocast_fr', $2)))`,
     );
-    expect(queries.any).toBe(`(plainto_tsquery('ochocast_fr', $1))`);
-    expect(queries.positive).toBe(`(plainto_tsquery('ochocast_fr', $1))`);
+    expect(queries.any).toBe(`((plainto_tsquery('ochocast_fr', $1)))`);
+    expect(queries.positive).toBe(`((plainto_tsquery('ochocast_fr', $1)))`);
     expect(queries.exact).toBe(
-      `(plainto_tsquery('ochocast_exact', $1)) && !!(plainto_tsquery('ochocast_exact', $2))`,
+      `((plainto_tsquery('ochocast_exact', $1)) && !!(plainto_tsquery('ochocast_exact', $2)))`,
     );
   });
 
   it('requires every group in all and positive, any group in any', () => {
     const queries = build('ffmpeg rgpd')!;
     expect(queries.all).toBe(
-      `(plainto_tsquery('ochocast_fr', $1)) && (plainto_tsquery('ochocast_fr', $2))`,
+      `((plainto_tsquery('ochocast_fr', $1)) && (plainto_tsquery('ochocast_fr', $2)))`,
     );
     expect(queries.positive).toBe(queries.all);
     expect(queries.any).toBe(
-      `(plainto_tsquery('ochocast_fr', $1)) || (plainto_tsquery('ochocast_fr', $2))`,
+      `((plainto_tsquery('ochocast_fr', $1)) || (plainto_tsquery('ochocast_fr', $2)))`,
     );
   });
 
@@ -52,8 +52,8 @@ describe('buildTsQueries', () => {
     const params: unknown[] = [];
     const queries = build('"données personnelles"', params)!;
     expect(params).toEqual(['données personnelles']);
-    expect(queries.all).toBe(`(phraseto_tsquery('ochocast_fr', $1))`);
-    expect(queries.exact).toBe(`(phraseto_tsquery('ochocast_exact', $1))`);
+    expect(queries.all).toBe(`((phraseto_tsquery('ochocast_fr', $1)))`);
+    expect(queries.exact).toBe(`((phraseto_tsquery('ochocast_exact', $1)))`);
   });
 
   it('uses || between alternatives', () => {
@@ -61,7 +61,7 @@ describe('buildTsQueries', () => {
     const queries = build('ffmpeg or rgpd', params)!;
     expect(params).toEqual(['ffmpeg', 'rgpd']);
     expect(queries.all).toBe(
-      `(plainto_tsquery('ochocast_fr', $1) || plainto_tsquery('ochocast_fr', $2))`,
+      `((plainto_tsquery('ochocast_fr', $1) || plainto_tsquery('ochocast_fr', $2)))`,
     );
     expect(queries.any).toBe(queries.all);
   });
@@ -69,7 +69,7 @@ describe('buildTsQueries', () => {
   it('parenthesises an alternatives group inside a conjunction', () => {
     const queries = build('a or b c')!;
     expect(queries.all).toBe(
-      `(plainto_tsquery('ochocast_fr', $1) || plainto_tsquery('ochocast_fr', $2)) && (plainto_tsquery('ochocast_fr', $3))`,
+      `((plainto_tsquery('ochocast_fr', $1) || plainto_tsquery('ochocast_fr', $2)) && (plainto_tsquery('ochocast_fr', $3)))`,
     );
   });
 
@@ -78,9 +78,9 @@ describe('buildTsQueries', () => {
     const queries = build('ffmpeg -"mauvais son"', params)!;
     expect(params).toEqual(['ffmpeg', 'mauvais son']);
     expect(queries.all).toBe(
-      `(plainto_tsquery('ochocast_fr', $1)) && !!(phraseto_tsquery('ochocast_fr', $2))`,
+      `((plainto_tsquery('ochocast_fr', $1)) && !!(phraseto_tsquery('ochocast_fr', $2)))`,
     );
-    expect(queries.positive).toBe(`(plainto_tsquery('ochocast_fr', $1))`);
+    expect(queries.positive).toBe(`((plainto_tsquery('ochocast_fr', $1)))`);
   });
 
   it('continues numbering after existing parameters', () => {
@@ -97,7 +97,7 @@ describe('buildTsQueries', () => {
     const queries = build('ffmpeg ffmpeg -ffmpeg', params)!;
     expect(params).toEqual(['ffmpeg']);
     expect(queries.all).toBe(
-      `(plainto_tsquery('ochocast_fr', $1)) && (plainto_tsquery('ochocast_fr', $1)) && !!(plainto_tsquery('ochocast_fr', $1))`,
+      `((plainto_tsquery('ochocast_fr', $1)) && (plainto_tsquery('ochocast_fr', $1)) && !!(plainto_tsquery('ochocast_fr', $1)))`,
     );
   });
 

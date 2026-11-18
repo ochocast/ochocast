@@ -60,11 +60,14 @@ export function buildTsQueries(
       ' && ',
     );
 
+  // Whole fragments are parenthesised: `&&` and `||` have the same precedence
+  // as `@@`, so `x @@ (A) && (B)` would not parse as `x @@ ((A) && (B))`.
+  const wrap = (sql: string) => `(${sql})`;
   const fr = SEARCH_CONFIG[DEFAULT_LANGUAGE];
   return {
-    all: withExclusions(fr),
-    any: q.groups.map((g) => group(fr, g)).join(' || '),
-    positive: positive(fr),
-    exact: withExclusions(EXACT_CONFIG),
+    all: wrap(withExclusions(fr)),
+    any: wrap(q.groups.map((g) => group(fr, g)).join(' || ')),
+    positive: wrap(positive(fr)),
+    exact: wrap(withExclusions(EXACT_CONFIG)),
   };
 }

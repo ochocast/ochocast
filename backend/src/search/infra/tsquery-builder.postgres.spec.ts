@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
 import { parseSearchQuery } from '../domain/query-parser';
 import { openSearchTestDatabase } from '../testing/search-fixture';
-import { buildTsQueries } from './tsquery-builder';
+import { buildTsQueries, EXACT_CONFIG, SEARCH_CONFIG } from './tsquery-builder';
 
 const integration = process.env.SEARCH_TEST_DATABASE_URL
   ? describe
@@ -60,14 +60,70 @@ integration('buildTsQueries (PostgreSQL)', () => {
   });
 
   it('passes an injection attempt as data', async () => {
-    const params: unknown[] = [];
-    const queries = buildTsQueries(
-      parseSearchQuery(`x'; DROP TABLE y; --`),
-      params,
-    )!;
-    await expect(
-      db.query(`SELECT (${queries.all})::text AS q`, params),
-    ).resolves.toHaveLength(1);
+    const q = await render(`x'; DROP TABLE y; --`);
+    expect(q.all).toBe(`'x' & 'drop' & 'tabl'`);
+  });
+
+  // Fragments are embedded right after `@@`, with no parentheses added by the
+  // caller: `&&` and `||` share the precedence of `@@`.
+  describe('composed with @@', () => {
+    const matches = async (
+      key: 'all' | 'any' | 'positive' | 'exact',
+      input: string,
+      text: string,
+    ): Promise<boolean> => {
+      const params: unknown[] = [text];
+      const q = buildTsQueries(parseSearchQuery(input), params)!;
+      // `any` and `positive` do not use the exclusion parameters, and
+      // PostgreSQL requires every bound parameter to be referenced.
+      const unused = params
+        .slice(1)
+        .map((_, i) => ` AND $${i + 2}::text IS NOT NULL`)
+        .join('');
+      const config = key === 'exact' ? EXACT_CONFIG : SEARCH_CONFIG.fr;
+      const [row] = await db.query(
+        `SELECT (to_tsvector('${config}', $1) @@ ${q[key]})${unused} AS hit`,
+        params,
+      );
+      return row.hit;
+    };
+
+    it('all: requires every group and rejects exclusions', async () => {
+      const query = 'vidéo montage -audio -"données personnelles"';
+      expect(await matches('all', query, 'Un montage de la vidéo')).toBe(true);
+      expect(await matches('all', query, 'Un montage seul')).toBe(false);
+      expect(await matches('all', query, 'Le montage vidéo et audio')).toBe(
+        false,
+      );
+      expect(
+        await matches('all', query, 'Montage vidéo, données personnelles'),
+      ).toBe(false);
+    });
+
+    it('all: accepts any alternative of a group', async () => {
+      const query = 'vidéo or film montage -audio';
+      expect(await matches('all', query, 'Le film du montage')).toBe(true);
+      expect(await matches('all', query, 'Le film sans rien')).toBe(false);
+    });
+
+    it('any: matches when one group is present', async () => {
+      expect(await matches('any', 'vidéo montage', 'Un montage')).toBe(true);
+      expect(await matches('any', 'vidéo montage', 'Un son')).toBe(false);
+    });
+
+    it('positive: ignores exclusions', async () => {
+      const query = 'vidéo montage -audio';
+      expect(await matches('positive', query, 'Montage vidéo audio')).toBe(
+        true,
+      );
+      expect(await matches('positive', query, 'Montage audio')).toBe(false);
+    });
+
+    it('exact: matches the unstemmed form only', async () => {
+      const query = 'montages -audio';
+      expect(await matches('exact', query, 'Des montages')).toBe(true);
+      expect(await matches('exact', query, 'Un montage')).toBe(false);
+    });
   });
 
   it('works after existing parameters', async () => {
