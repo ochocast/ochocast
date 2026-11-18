@@ -400,6 +400,10 @@ integration('PostgresSearchGateway.transcript (fixture of annexe A)', () => {
   );
 
   it('accepts an upper-case UUID', async () => {
-    expect((await transcript(ids.k8s.toUpperCase()))!.status).toBe('ready');
+    const result = (await transcript(ids.k8s.toUpperCase()))!;
+    expect(result.status).toBe('ready');
+    // The id of the database, not an echo of the request.
+    expect(result.videoId).toBe(ids.k8s);
+    expect(result.videoId).toBe(ids.k8s.toLowerCase());
   });
 });

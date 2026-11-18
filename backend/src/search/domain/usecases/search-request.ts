@@ -17,7 +17,7 @@ export async function findViewer(
   return { userId: user.id, isAdmin: user.role === 'admin' };
 }
 
-/** Parses `q`; a query the parser refuses (too long, too many groups) is a 400. */
+/** Parses `q`; a query the parser refuses (too long, too many words) is a 400. */
 export function parseQueryOr400(q: string | undefined): ParsedQuery {
   try {
     return parseSearchQuery(q);

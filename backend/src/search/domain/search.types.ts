@@ -60,7 +60,7 @@ export interface SearchVideo {
     username: string;
     firstName: string;
     lastName: string;
-  } | null;
+  };
   speakers: string[];
   tags: string[];
 }

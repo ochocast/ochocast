@@ -1,7 +1,8 @@
 import { ParsedQuery, QueryGroup } from './search.types';
 
 const MAX_QUERY_LENGTH = 200;
-const MAX_GROUPS = 10;
+// Words, phrases and excluded terms: every alternative of an `or` counts.
+const MAX_TERMS = 10;
 
 export class QueryTooLongError extends Error {
   constructor() {
@@ -13,7 +14,7 @@ export class QueryTooLongError extends Error {
 
 export class TooManyGroupsError extends Error {
   constructor() {
-    super(`Search query has more than ${MAX_GROUPS} terms`);
+    super(`Search query has more than ${MAX_TERMS} words or expressions`);
     this.name = 'TooManyGroupsError';
     Object.setPrototypeOf(this, TooManyGroupsError.prototype);
   }
@@ -133,7 +134,12 @@ export function parseSearchQuery(input: string | undefined): ParsedQuery {
   const { groups, excluded } = buildGroups(
     tokenize(dropUnclosedQuote(normalizeInput(raw))),
   );
-  if (groups.length + excluded.length > MAX_GROUPS) {
+  const words = groups.reduce(
+    (count, group) =>
+      count + (group.kind === 'terms' ? group.alternatives.length : 1),
+    excluded.length,
+  );
+  if (words > MAX_TERMS) {
     throw new TooManyGroupsError();
   }
   return { raw, groups, excluded, isEmpty: raw.trim() === '' };

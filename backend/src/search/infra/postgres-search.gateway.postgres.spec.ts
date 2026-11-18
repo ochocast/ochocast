@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { parseSearchQuery } from '../domain/query-parser';
 import {
   Page,
@@ -26,6 +26,7 @@ const NO_FILTERS: SearchFilters = {
   favoris: false,
   archived: false,
 };
+const NO_CREATOR = { id: '', username: '', firstName: '', lastName: '' };
 const FIRST_PAGE: Page = { limit: 20, offset: 0, sort: 'relevance' };
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000);
@@ -707,7 +708,10 @@ integration('PostgresSearchGateway.search (fixture of annexe A)', () => {
       ]);
       expect(k8s.matchedIn).toEqual(['people']);
       const [anonymous] = (await search('anonyme')).videos;
-      expect(anonymous.video).toMatchObject({ creator: null, duration: 0 });
+      expect(anonymous.video).toMatchObject({
+        creator: NO_CREATOR,
+        duration: 0,
+      });
     } finally {
       await db.query(
         `UPDATE video_entity SET external_speakers = '' WHERE id = $1`,
@@ -715,6 +719,161 @@ integration('PostgresSearchGateway.search (fixture of annexe A)', () => {
       );
       await removeVideo(id);
     }
+  });
+
+  it('returns an empty creator object for a video without creator', async () => {
+    const id = await insertVideo('sans-createur', {
+      title: 'Montage sans auteur',
+      createdDaysAgo: 1,
+      creatorId: null,
+    });
+    try {
+      const browse = (await search('', {}, { sort: 'recent' })).videos.find(
+        (hit) => hit.video.id === id,
+      );
+      expect(browse!.video.creator).toEqual(NO_CREATOR);
+      const [byQuery] = (await search('auteur')).videos;
+      expect(byQuery.video.creator).toEqual(NO_CREATOR);
+    } finally {
+      await removeVideo(id);
+    }
+  });
+
+  it('returns an empty username for a creator without username', async () => {
+    const creatorId = randomUUID();
+    await db.query(
+      `INSERT INTO user_entity (id, username, "firstName", "lastName", email, role, "createdAt")
+       VALUES ($1, NULL, 'Nora', 'Sans', 'nora.sans@example.test', 'user', now())`,
+      [creatorId],
+    );
+    const id = await insertVideo('sans-pseudo', {
+      title: 'Atelier anonyme',
+      createdDaysAgo: 1,
+      creatorId,
+    });
+    try {
+      const [byQuery] = (await search('atelier')).videos;
+      expect(byQuery.video.creator).toEqual({
+        id: creatorId,
+        username: '',
+        firstName: 'Nora',
+        lastName: 'Sans',
+      });
+      const browse = (await search('', {}, { sort: 'recent' })).videos.find(
+        (hit) => hit.video.id === id,
+      );
+      expect(browse!.video.creator.username).toBe('');
+    } finally {
+      await removeVideo(id);
+      await db.query(`DELETE FROM user_entity WHERE id = $1`, [creatorId]);
+    }
+  });
+
+  it('reads the tags in name order whatever their insertion order', async () => {
+    const id = await insertVideo('tags-ordre', {
+      title: 'Video etiquetee',
+      createdDaysAgo: 1,
+    });
+    const tagIds = [randomUUID(), randomUUID()];
+    try {
+      // Linked in reverse alphabetical order.
+      for (const [i, name] of ['zetatag', 'alphatag'].entries()) {
+        await db.query(
+          `INSERT INTO tag_entity (id, name, "createdAt", "updatedAt") VALUES ($1, $2, now(), now())`,
+          [tagIds[i], name],
+        );
+        await db.query(
+          `INSERT INTO video_entity_tags_tag_entity ("videoEntityId", "tagEntityId") VALUES ($1, $2)`,
+          [id, tagIds[i]],
+        );
+      }
+      const result = await search('"alphatag zetatag"');
+      expect(found(result)).toEqual(['tags-ordre']);
+      expect(result.videos[0].matchedIn).toEqual(['tags']);
+    } finally {
+      await removeVideo(id);
+      await db.query(`DELETE FROM tag_entity WHERE id = ANY($1::uuid[])`, [
+        tagIds,
+      ]);
+    }
+  });
+
+  it('reads the speakers in name order whatever their insertion order', async () => {
+    const id = await insertVideo('orateurs-ordre', {
+      title: 'Video avec orateurs',
+      createdDaysAgo: 1,
+    });
+    const userIds = [randomUUID(), randomUUID()];
+    try {
+      // Linked in reverse order of last name.
+      const speakers = [
+        ['Zed', 'Baxter'],
+        ['Ann', 'Adamson'],
+      ];
+      for (const [i, [firstName, lastName]] of speakers.entries()) {
+        await db.query(
+          `INSERT INTO user_entity (id, username, "firstName", "lastName", email, role, "createdAt")
+           VALUES ($1, $2, $3, $4, $5, 'user', now())`,
+          [
+            userIds[i],
+            `speaker${i}`,
+            firstName,
+            lastName,
+            `speaker${i}@example.test`,
+          ],
+        );
+        await db.query(
+          `INSERT INTO video_entity_internal_speakers_user_entity ("videoEntityId", "userEntityId") VALUES ($1, $2)`,
+          [id, userIds[i]],
+        );
+      }
+      const result = await search('"ann adamson zed baxter"');
+      expect(found(result)).toEqual(['orateurs-ordre']);
+      expect(result.videos[0].matchedIn).toEqual(['people']);
+    } finally {
+      await removeVideo(id);
+      await db.query(`DELETE FROM user_entity WHERE id = ANY($1::uuid[])`, [
+        userIds,
+      ]);
+    }
+  });
+
+  it('shares one 2 s budget between the statements of a search', async () => {
+    // Elapsed time as seen by the gateway: nothing at first, 10 s afterwards.
+    let ticks = 0;
+    const clock = jest
+      .spyOn(performance, 'now')
+      .mockImplementation(() => (ticks++ === 0 ? 0 : 10_000));
+    // The fixture is too small for any statement to last a millisecond: the
+    // passages statement is preceded by a sleep, on the same connection.
+    const budgets: unknown[][] = [];
+    const run = db.transaction.bind(db) as (
+      work: (m: EntityManager) => Promise<unknown>,
+    ) => Promise<unknown>;
+    const transaction = jest.spyOn(db, 'transaction').mockImplementation(((
+      work: (m: EntityManager) => Promise<unknown>,
+    ) =>
+      run(async (m) => {
+        const query = m.query.bind(m);
+        m.query = (sql: string, params?: unknown[]) => {
+          if (sql.includes('set_config')) budgets.push(params ?? []);
+          return sql.includes('hits AS')
+            ? query('SELECT pg_sleep(0.05)').then(() => query(sql, params))
+            : query(sql, params);
+        };
+        return work(m);
+      })) as unknown as typeof db.transaction);
+    try {
+      await expect(search('kubernetes')).rejects.toMatchObject({
+        code: '57014',
+      });
+      expect(budgets).toEqual([['1']]);
+    } finally {
+      clock.mockRestore();
+      transaction.mockRestore();
+    }
+    // Back to the real clock and connection, the same search succeeds.
+    expect(found(await search('kubernetes'))).toContain('k8s');
   });
 
   it('matchedIn contains people', async () => {

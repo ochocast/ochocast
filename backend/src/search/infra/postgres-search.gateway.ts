@@ -38,6 +38,8 @@ const RANK_WEIGHTS = `'{0.1, 0.2, 0.4, 1.0}'`;
 const EXACT_BONUS = 0.2;
 const MAX_PASSAGES = 20;
 const BEST_PASSAGES = 3;
+// One budget for the whole search, shared by its statements.
+const SEARCH_BUDGET_MS = 2000;
 
 // The fields of a video that match q_any, in this order (`in_<field>` columns).
 const FIELDS: MatchedIn[] = [
@@ -190,13 +192,14 @@ videos AS (
   LEFT JOIN user_entity creator ON creator.id = v."creatorId"
   LEFT JOIN video_transcript vt ON vt.video_id = v.id AND vt.subtitle_key = v.subtitle_id
   LEFT JOIN LATERAL (
-    SELECT string_agg(t.name, ' ') AS names
+    SELECT string_agg(t.name, ' ' ORDER BY t.name) AS names
     FROM video_entity_tags_tag_entity vtt
     JOIN tag_entity t ON t.id = vtt."tagEntityId"
     WHERE vtt."videoEntityId" = v.id
   ) tags ON true
   LEFT JOIN LATERAL (
-    SELECT string_agg(u."firstName" || ' ' || u."lastName", ' ') AS names
+    SELECT string_agg(u."firstName" || ' ' || u."lastName", ' '
+                      ORDER BY u."lastName", u."firstName", u.id) AS names
     FROM video_entity_internal_speakers_user_entity s
     JOIN user_entity u ON u.id = s."userEntityId"
     WHERE s."videoEntityId" = v.id
@@ -305,19 +308,22 @@ ORDER BY video_id, start_s, position`;
 }
 
 /** The segments of a video in order, those matching `any` with their highlight. */
-function segmentsSql(any: string | null): string {
-  const match = any ? `s.tsv_fr @@ ${any}` : 'false';
-  return `
-SELECT s.start_s, s.end_s, s.text,
-       CASE WHEN ${match}
+export function segmentsSql(any: string | null): string {
+  // Without a query nothing matches: no highlight to build.
+  const marked = any
+    ? `CASE WHEN s.tsv_fr @@ ${any}
          THEN ts_headline(${CONFIG}, s.text, ${any}, ${HIGHLIGHT_OPTIONS})
-       END AS marked
+       END`
+    : 'NULL::text';
+  return `
+SELECT s.start_s, s.end_s, s.text, ${marked} AS marked
 FROM video_transcript_segment s
 WHERE s.video_id = $1
 ORDER BY s.position`;
 }
 
 interface VideoRow {
+  id: string;
   subtitle_id: string | null;
   transcription_status: string;
   /** Source of the indexed transcript; null when it is not indexed. */
@@ -343,9 +349,9 @@ interface PageRow {
   views: number;
   createdAt: Date;
   creator_id: string | null;
-  creator_username: string;
-  creator_first_name: string;
-  creator_last_name: string;
+  creator_username: string | null;
+  creator_first_name: string | null;
+  creator_last_name: string | null;
   tags: string[];
   speakers: string[];
   // Query mode only.
@@ -371,14 +377,13 @@ function toVideo(row: PageRow): SearchVideo {
     duration: row.duration,
     views: row.views,
     createdAt: row.createdAt,
-    creator: row.creator_id
-      ? {
-          id: row.creator_id,
-          username: row.creator_username,
-          firstName: row.creator_first_name,
-          lastName: row.creator_last_name,
-        }
-      : null,
+    // The front reads the creator unguarded: always an object, empty if unknown.
+    creator: {
+      id: row.creator_id ?? '',
+      username: row.creator_username ?? '',
+      firstName: row.creator_first_name ?? '',
+      lastName: row.creator_last_name ?? '',
+    },
     speakers: row.speakers,
     tags: row.tags,
   };
@@ -436,14 +441,12 @@ export class PostgresSearchGateway implements SearchGateway {
       bind(params, page.limit),
       bind(params, page.offset),
     );
-    return this.withTimeout(async (m) => {
+    return this.withTimeout(async (m, spend) => {
       const rows: PageRow[] = await m.query(sql, params);
       const withPassages = rows.filter((row) => row.passage_count > 0);
-      const passages = await this.passages(
-        m,
-        q,
-        withPassages.map((row) => row.id),
-      );
+      const ids = withPassages.map((row) => row.id);
+      if (ids.length > 0) await spend();
+      const passages = await this.passages(m, q, ids);
       return toResult(q.raw, rows, (row) => ({
         video: toVideo(row),
         titleParts: splitHighlight(row.title_marked),
@@ -464,7 +467,7 @@ export class PostgresSearchGateway implements SearchGateway {
     if (!UUID.test(videoId)) return null;
 
     const [video]: VideoRow[] = await this.db.query(
-      `SELECT v.subtitle_id, v.transcription_status, vt.source
+      `SELECT v.id, v.subtitle_id, v.transcription_status, vt.source
        FROM video_entity v
        LEFT JOIN video_transcript vt
          ON vt.video_id = v.id AND vt.subtitle_key = v.subtitle_id
@@ -473,13 +476,20 @@ export class PostgresSearchGateway implements SearchGateway {
     );
     if (!video) return null;
 
+    // The id of the database (lower case), not the spelling of the request.
     // R5: ready only while the transcript is the one of the current subtitle (R4).
     const result = (
       status: TranscriptResult['status'],
       source: TranscriptResult['source'],
       segments: TranscriptSegment[] = [],
       matches: number[] = [],
-    ): TranscriptResult => ({ videoId, source, status, segments, matches });
+    ): TranscriptResult => ({
+      videoId: video.id,
+      source,
+      status,
+      segments,
+      matches,
+    });
 
     if (!video.subtitle_id) {
       const running = ['pending', 'processing'].includes(
@@ -517,11 +527,24 @@ export class PostgresSearchGateway implements SearchGateway {
   /**
    * Runs the statements in one transaction bounded by the search timeout. A
    * timeout rejects with the pg code 57014, left for the use case to map.
+   * `work` calls `spend` before each statement after the first, so that all of
+   * them share the one budget instead of each getting the full 2 s.
    */
-  private withTimeout<T>(work: (m: EntityManager) => Promise<T>): Promise<T> {
+  private withTimeout<T>(
+    work: (m: EntityManager, spend: () => Promise<void>) => Promise<T>,
+  ): Promise<T> {
     return this.db.transaction(async (m) => {
+      const started = performance.now();
       await m.query(`SET LOCAL statement_timeout = '2s'`);
-      return work(m);
+      const spend = async () => {
+        const left = Math.ceil(
+          SEARCH_BUDGET_MS - (performance.now() - started),
+        );
+        await m.query(`SELECT set_config('statement_timeout', $1, true)`, [
+          String(Math.max(1, left)),
+        ]);
+      };
+      return work(m, spend);
     });
   }
 

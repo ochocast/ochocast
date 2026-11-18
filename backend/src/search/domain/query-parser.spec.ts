@@ -140,7 +140,7 @@ describe('parseSearchQuery', () => {
     );
   });
 
-  it('rejects more than 10 groups', () => {
+  it('rejects more than 10 words', () => {
     expect(() => parseSearchQuery('a b c d e f g h i j k')).toThrow(
       TooManyGroupsError,
     );
@@ -154,10 +154,25 @@ describe('parseSearchQuery', () => {
     expect(() => parseSearchQuery('a b c d e f g h i -j')).not.toThrow();
   });
 
-  it('counts an or group once', () => {
-    expect(parseSearchQuery('a or b c d e f g h i j k').groups).toHaveLength(
-      10,
+  it('counts every alternative of an or group', () => {
+    expect(() => parseSearchQuery('a or b c d e f g h i j k')).toThrow(
+      TooManyGroupsError,
     );
+    expect(() =>
+      parseSearchQuery('a or b or c or d or e or f or g or h or i or j or k'),
+    ).toThrow(TooManyGroupsError);
+  });
+
+  it('accepts exactly 10 words across groups, alternatives and exclusions', () => {
+    expect(() =>
+      parseSearchQuery('a or b or c or d or e or f or g or h or i or j'),
+    ).not.toThrow();
+    expect(() =>
+      parseSearchQuery('a or b c or d e "f g" h -i -j -k'),
+    ).not.toThrow();
+    expect(() =>
+      parseSearchQuery('a or b c or d e "f g" h -i -j -k -l'),
+    ).toThrow(TooManyGroupsError);
   });
 
   it('exposes error classes that work with instanceof', () => {
