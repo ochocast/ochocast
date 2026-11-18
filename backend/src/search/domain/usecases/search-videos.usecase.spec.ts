@@ -140,9 +140,11 @@ describe('SearchVideosUsecase', () => {
         code: '57014',
       }),
     );
-    await expect(
-      usecase.execute(dto({ q: 'kubernetes' }), 'a@b.c'),
-    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+    const error = await usecase
+      .execute(dto({ q: 'kubernetes' }), 'a@b.c')
+      .catch((e) => e);
+    expect(error).toBeInstanceOf(ServiceUnavailableException);
+    expect(error.message).not.toMatch(/statement|canceling|timeout/i);
   });
 
   it('rethrows any other error', async () => {

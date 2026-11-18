@@ -66,6 +66,12 @@ describe('SearchQueryDto (through ValidationPipe)', () => {
     });
   });
 
+  it('removes control characters from tags and users', async () => {
+    const dto = await parse({ tags: 'a\u0000b,\u0002,c\td', users: '\u0000' });
+    expect(dto.tags).toEqual(['ab', 'c d']);
+    expect(dto.users).toEqual([]);
+  });
+
   it('keeps a long query for the parser to reject', async () => {
     expect((await parse({ q: 'a'.repeat(500) })).q).toHaveLength(500);
   });
@@ -80,6 +86,10 @@ describe('SearchQueryDto (through ValidationPipe)', () => {
     ['sort=foo', { sort: 'foo' }],
     ['an invalid dateFrom', { dateFrom: 'not-a-date' }],
     ['an impossible dateTo', { dateTo: '2024-02-31' }],
+    ['a week date', { dateFrom: '2024-W10' }],
+    ['an ordinal date', { dateTo: '2024-123' }],
+    ['offset=1e19', { offset: '1e19' }],
+    ['offset=1000001', { offset: '1000001' }],
     ['favoris=yes', { favoris: 'yes' }],
     ['archived=1', { archived: '1' }],
     ['a repeated q', { q: ['a', 'b'] }],

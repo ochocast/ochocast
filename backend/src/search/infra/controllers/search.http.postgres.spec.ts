@@ -242,6 +242,10 @@ integration('GET /api/search (HTTP contract, dedicated test database)', () => {
     'dateFrom=hier',
     'favoris=maybe',
     'archived=1',
+    'dateFrom=2024-W10',
+    'dateTo=2024-123',
+    'offset=1e19',
+    'offset=1e30',
   ])('answers 400 for %s', async (query) => {
     await get(`?${query}`).expect(400);
   });
@@ -254,6 +258,14 @@ integration('GET /api/search (HTTP contract, dedicated test database)', () => {
     expect(response.body.query).toBe('');
     expect(response.body.total).toBe(0);
   });
+
+  it.each(['tags', 'users'])(
+    'answers 200 for a NUL byte in %s',
+    async (name) => {
+      await get(`?${name}=a%00b`).expect(200);
+      await get(`?q=kubernetes&${name}=%00`).expect(200);
+    },
+  );
 
   it('answers 403 without an authenticated e-mail or for an unknown user', async () => {
     currentEmail = undefined;
