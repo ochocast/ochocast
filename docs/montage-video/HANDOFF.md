@@ -116,3 +116,9 @@ Avec l'environnement local lancé et un jeton Keycloak d'un utilisateur créateu
 6. **Échec volontaire** : dans MinIO (bucket `media`), déplacer l'original `<videoId>/source/original.*` hors de son chemin, puis faire un `PUT`. Le rendu passe `failed` dès la première tentative, avec l'erreur `invalid_source`.
 7. **Reprise** : remettre l'original en place et refaire un `PUT` avec la version renvoyée par `GET /videos/<videoId>/edit`. Le rendu repasse `ready`.
 8. **Nettoyage** : supprimer la vidéo de test, ses objets MinIO (`<videoId>/`) et l'utilisateur Keycloak de test, puis arrêter les conteneurs.
+
+## Reprise interface : lecture de l’original
+
+La route protégée `GET /api/videos/:videoId/edit/source` permet au créateur et aux administrateurs de lire l’original même après un rendu, sans exiger de montage existant. L’éditeur doit l’utiliser plutôt que la route de lecture des spectateurs.
+
+**Décision produit à valider avec le client, hors de cette implémentation :** pour une vidéo HLS, l’original reste publiquement lisible par son chemin même lorsqu’un montage est actif. Un créateur qui coupe un passage sensible peut croire que ce passage est caché. La nouvelle route ne change pas cette accessibilité.

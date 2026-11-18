@@ -175,3 +175,9 @@ cd ffmpegServer && npm run build && npm test
 ```
 
 `tests/render.test.ts` rend une vidéo de 6 s générée par FFmpeg et vérifie l'ordre des passages, l'affichage des textes pendant leur durée seulement et les trois qualités HLS.
+
+## Lecture de l’original dans l’éditeur
+
+`GET /api/videos/:videoId/edit/source` renvoie une chaîne contenant l’adresse de l’original, au même format que `GET /api/videos/media/:id`. Cette route ignore le montage actif et fonctionne avant sa création. Pour une vidéo HLS, elle renvoie la playlist originale ; pour une vidéo lue depuis sa source, une URL présignée. L’éditeur doit utiliser cette route pour conserver la correspondance entre la lecture et les temps source des passages.
+
+Accès : créateur et administrateurs via `getEditableVideo`. Erreurs : `400` pour un UUID mal formé, `403 videonotallowedit` pour un utilisateur sans droit, `404` pour un utilisateur ou une vidéo introuvable, `409` pour une vidéo non prête.

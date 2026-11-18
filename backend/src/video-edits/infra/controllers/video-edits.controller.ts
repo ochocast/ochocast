@@ -1,3 +1,5 @@
+import { Request } from 'express';
+import { GetVideoEditSourceUsecase } from '../../domain/usecases/getVideoEditSource.usecase';
 import {
   Body,
   Controller,
@@ -8,6 +10,7 @@ import {
   Param,
   Post,
   Put,
+  Req,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -42,6 +45,7 @@ function assertVideoId(id: string): void {
 @Controller('videos/:videoId/edit')
 export class VideoEditsController {
   constructor(
+    private getVideoEditSourceUsecase: GetVideoEditSourceUsecase,
     private createVideoEditUsecase: CreateVideoEditUsecase,
     private getVideoEditUsecase: GetVideoEditUsecase,
     private saveVideoEditUsecase: SaveVideoEditUsecase,
@@ -74,6 +78,32 @@ export class VideoEditsController {
   ): Promise<VideoEditObject> {
     assertVideoId(videoId);
     return this.getVideoEditUsecase.execute(videoId, email);
+  }
+
+  @Get('source')
+  @ApiOperation({
+    summary: 'Read the original video for editing',
+    description:
+      'Creator and admins only. Works without a montage and ignores any active rendition. Returns an HLS URL or a presigned source URL.',
+  })
+  @ApiOkResponse({ type: String })
+  @ApiBadRequestResponse({ description: 'Malformed video UUID.' })
+  @ApiConflictResponse({ description: 'Video is not ready.' })
+  async source(
+    @Param('videoId') videoId: string,
+    @CurrentUserEmail() email: string,
+    @Req() request: Request,
+  ): Promise<string> {
+    assertVideoId(videoId);
+    const configuredBaseUrl = process.env.PUBLIC_API_URL?.replace(/\/$/, '');
+    const requestOrigin = new URL(
+      `${request.protocol}://${request.get('host')}`,
+    ).origin;
+    return this.getVideoEditSourceUsecase.execute(
+      videoId,
+      email,
+      configuredBaseUrl || `${requestOrigin}/api`,
+    );
   }
 
   @Put()

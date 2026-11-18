@@ -1,3 +1,4 @@
+import { GetVideoEditSourceUsecase } from './domain/usecases/getVideoEditSource.usecase';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from 'src/users/users.module';
@@ -40,6 +41,7 @@ import { VideoEditRenderDispatcher } from './infra/render-jobs/video-edit-render
     VideoEditRenderJobsService,
     CreateVideoEditUsecase,
     GetVideoEditUsecase,
+    GetVideoEditSourceUsecase,
     SaveVideoEditUsecase,
     RevertVideoEditUsecase,
   ],

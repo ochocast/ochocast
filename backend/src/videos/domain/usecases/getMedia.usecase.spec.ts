@@ -182,6 +182,55 @@ describe('Rendered montage', () => {
     );
   });
 
+  it.each(['hls', 'source'])(
+    'reads the %s original without consulting the montage',
+    async (kind) => {
+      const gateway = {
+        getVideos: async () => [
+          {
+            id: videoId,
+            media_id:
+              kind === 'hls'
+                ? `${videoId}/master.m3u8`
+                : `${videoId}/source/original.mp4`,
+            transcoding_status: 'ready',
+          },
+        ],
+        getRenderedMediaId: jest.fn(() => {
+          throw new Error('Must not read montage');
+        }),
+      };
+      const signer = new S3Client({
+        region: 'us-east-1',
+        endpoint: 'http://127.0.0.1:9',
+        credentials: { accessKeyId: 'test', secretAccessKey: 'test' },
+      });
+      const previous = process.env.STOCK_MEDIA_BUCKET;
+      process.env.STOCK_MEDIA_BUCKET = 'media';
+      try {
+        const url = await new GetMediaUsecase(gateway as any, signer).execute(
+          videoId,
+          'http://api.test/api',
+          { original: true },
+        );
+        if (kind === 'hls')
+          expect(url).toBe(
+            `http://api.test/api/videos/media-content/${videoId}/master.m3u8`,
+          );
+        else {
+          expect(new URL(url).pathname).toContain(
+            `${videoId}/source/original.mp4`,
+          );
+          expect(url).toContain('X-Amz-Signature=');
+        }
+        expect(gateway.getRenderedMediaId).not.toHaveBeenCalled();
+      } finally {
+        if (previous === undefined) delete process.env.STOCK_MEDIA_BUCKET;
+        else process.env.STOCK_MEDIA_BUCKET = previous;
+      }
+    },
+  );
+
   it('gives the original back once reverted', async () => {
     rendered = null;
     await expect(

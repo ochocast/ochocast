@@ -1,3 +1,5 @@
+import { GetVideoEditSourceUsecase } from 'src/video-edits/domain/usecases/getVideoEditSource.usecase';
+import { GetMediaUsecase } from 'src/videos/domain/usecases/getMedia.usecase';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
@@ -17,6 +19,11 @@ describe('VideoEditsController (HTTP)', () => {
   const videoId = 'ad1b1aa3-d2b3-4041-bfe9-a511bcbe27a2';
   const url = `/api/videos/${videoId}/edit`;
   const creator = { id: 'c', email: 'creator@example.com', role: 'user' };
+  const admin = { id: 'a', email: 'admin@example.com', role: 'admin' };
+  let ready = true;
+  const media = {
+    execute: jest.fn(async () => 'http://api.test/original.m3u8'),
+  };
   const stranger = { id: 's', email: 'nobody@example.com', role: 'user' };
 
   let app: INestApplication;
@@ -100,6 +107,8 @@ describe('VideoEditsController (HTTP)', () => {
       providers: [
         CreateVideoEditUsecase,
         GetVideoEditUsecase,
+        GetVideoEditSourceUsecase,
+        { provide: GetMediaUsecase, useValue: media },
         SaveVideoEditUsecase,
         RevertVideoEditUsecase,
         { provide: 'VideoEditGateway', useValue: editGateway },
@@ -114,7 +123,7 @@ describe('VideoEditsController (HTTP)', () => {
                       id,
                       creator,
                       duration: 3012,
-                      transcoding_status: 'ready',
+                      transcoding_status: ready ? 'ready' : 'pending',
                     },
                   ]
                 : [],
@@ -124,7 +133,7 @@ describe('VideoEditsController (HTTP)', () => {
           provide: 'UserGateway',
           useValue: {
             getUserByEmail: async (email: string) =>
-              [creator, stranger].find((u) => u.email === email) ?? null,
+              [creator, stranger, admin].find((u) => u.email === email) ?? null,
           },
         },
       ],
@@ -142,11 +151,55 @@ describe('VideoEditsController (HTTP)', () => {
 
   beforeEach(() => {
     stored = null;
+    ready = true;
+    media.execute.mockClear();
     dispatcher.enabled = true;
     dispatcher.publish.mockReset();
   });
 
   const as = (user: { email: string }) => ({ 'x-test-user': user.email });
+
+  it.each([creator, admin])(
+    'serves the original without a montage to $role',
+    async (user) => {
+      const response = await request(app.getHttpServer())
+        .get(`${url}/source`)
+        .set(as(user))
+        .expect(200);
+      expect(response.text).toBe('http://api.test/original.m3u8');
+      expect(media.execute).toHaveBeenCalledWith(
+        videoId,
+        expect.stringContaining('/api'),
+        { original: true },
+      );
+      expect(stored).toBeNull();
+    },
+  );
+  it('checks source access before reading media', async () => {
+    const response = await request(app.getHttpServer())
+      .get(`${url}/source`)
+      .set(as(stranger))
+      .expect(403);
+    expect(response.body.message).toBe('videonotallowedit');
+    await request(app.getHttpServer()).get(`${url}/source`).expect(404);
+    await request(app.getHttpServer())
+      .get('/api/videos/11111111-1111-4111-8111-111111111111/edit/source')
+      .set(as(creator))
+      .expect(404);
+    await request(app.getHttpServer())
+      .get('/api/videos/invalid/edit/source')
+      .set(as(creator))
+      .expect(400);
+    expect(media.execute).not.toHaveBeenCalled();
+  });
+  it('answers 409 when the source video is not ready', async () => {
+    ready = false;
+    await request(app.getHttpServer())
+      .get(`${url}/source`)
+      .set(as(creator))
+      .expect(409);
+    expect(media.execute).not.toHaveBeenCalled();
+  });
 
   it('creates, reads, saves then reverts a montage', async () => {
     const created = await request(app.getHttpServer())

@@ -41,7 +41,11 @@ export class GetMediaUsecase {
     private s3Client: S3Client,
   ) {}
 
-  async execute(id: string, apiBaseUrl?: string): Promise<string> {
+  async execute(
+    id: string,
+    apiBaseUrl?: string,
+    options: { original?: boolean } = {},
+  ): Promise<string> {
     const videos = await this.videoGateway.getVideos({ id: id });
 
     if (!videos.length) throw new NotFoundException('Video not found');
@@ -56,7 +60,7 @@ export class GetMediaUsecase {
     // new render runs; going back to the original clears it.
     const renditionId = renditionJobId(
       id,
-      await this.videoGateway.getRenderedMediaId(id),
+      options.original ? null : await this.videoGateway.getRenderedMediaId(id),
     );
     if (renditionId) {
       if (!apiBaseUrl)

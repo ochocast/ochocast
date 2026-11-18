@@ -55,6 +55,6 @@ import { QueueModule } from 'src/queue/queue.module';
     IncrementVideoViewsUsecase,
     // GetUsersUsecase,
   ],
-  exports: [CreateNewVideoUsecase, 'VideoGateway'],
+  exports: [CreateNewVideoUsecase, GetMediaUsecase, 'VideoGateway'],
 })
 export class VideosModule {}
