@@ -113,6 +113,12 @@ describe('parseWebVtt', () => {
 
     expect(parseWebVtt(vtt).map((cue) => cue.start)).toEqual([2, 5, 10]);
     expect(parseWebVtt(vtt)[1]).toEqual({ start: 5, end: 5, text: 'cinq' });
+
+    // A reversed cue is clamped (no negative duration) and its text is kept.
+    const [reversed] = parseWebVtt(
+      'WEBVTT\n\n00:00:05.000 --> 00:00:02.000\ninversé\n',
+    );
+    expect(reversed).toEqual({ start: 5, end: 5, text: 'inversé' });
   });
 
   it('returns [] for an empty or header-only file', () => {

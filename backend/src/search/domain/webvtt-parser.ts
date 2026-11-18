@@ -26,7 +26,10 @@ function parseTimingLine(line: string): { start: number; end: number } | null {
   // Cue settings (align:start position:10%…) follow the end timestamp.
   const start = parseTimestamp(left.trim());
   const end = parseTimestamp(right.trim().split(/\s+/)[0]);
-  return start === null || end === null ? null : { start, end };
+  // A reversed cue ("end" before "start") gets a zero duration, not a negative one.
+  return start === null || end === null
+    ? null
+    : { start, end: Math.max(end, start) };
 }
 
 function cleanText(lines: string[]): string {

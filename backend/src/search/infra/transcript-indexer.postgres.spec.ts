@@ -260,6 +260,135 @@ integration('TranscriptIndexer (PostgreSQL)', () => {
     }
   });
 
+  it('indexes a subtitle close to 4 MB', async () => {
+    // A few thousand distinct French-looking words, recombined: PostgreSQL
+    // caps a tsvector at 1 MB of distinct lexemes.
+    const syllables = [
+      'ba',
+      'be',
+      'bi',
+      'bo',
+      'ca',
+      'ce',
+      'ci',
+      'co',
+      'da',
+      'de',
+      'di',
+      'do',
+      'fa',
+      'fe',
+      'fi',
+      'fo',
+      'la',
+      'le',
+      'li',
+      'lo',
+      'ma',
+      'me',
+      'mi',
+      'mo',
+      'na',
+      'ne',
+      'ni',
+      'no',
+      'pa',
+      'pe',
+      'pi',
+      'po',
+      'ra',
+      're',
+      'ri',
+      'ro',
+      'sa',
+      'se',
+      'si',
+      'so',
+      'ta',
+      'te',
+      'ti',
+      'to',
+      'va',
+      've',
+      'vi',
+      'vo',
+    ];
+    const vocabulary = Array.from(
+      { length: 4000 },
+      (_, i) =>
+        syllables[i % 48] +
+        syllables[Math.floor(i / 48) % 48] +
+        syllables[Math.floor(i / 2304) % 48] +
+        'tion',
+    );
+    expect(new Set(vocabulary).size).toBe(4000);
+    const wordsPerCue = 30;
+    const cueCount = 11000;
+    const cues = Array.from({ length: cueCount }, (_, i) => {
+      const words = Array.from(
+        { length: wordsPerCue },
+        (_, j) => vocabulary[(i * 31 + j * 17) % vocabulary.length],
+      );
+      if (i === cueCount - 1) words[wordsPerCue - 1] = 'zygomatique';
+      return { start: i * 4, end: i * 4 + 4, text: words.join(' ') };
+    });
+    const vtt = toWebVtt(cues)!;
+    const bytes = Buffer.byteLength(vtt);
+    expect(bytes).toBeGreaterThan(3.5 * 1024 ** 2);
+    expect(bytes).toBeLessThan(MAX_BYTES);
+
+    const key = `subtitle-near-limit-${ids.sport}.vtt`;
+    await setVideo(ids.sport, key);
+    await unindex(ids.sport);
+    objects.set(key, vtt);
+
+    await expect(indexer.indexVideo(ids.sport)).resolves.toBe('indexed');
+
+    expect(await segmentCount(ids.sport)).toBe(cueCount);
+    const [row] = await transcriptRows(ids.sport);
+    expect(row.segment_count).toBe(cueCount);
+    const [{ matches }] = await db.query(
+      `SELECT tsv_fr @@ plainto_tsquery('ochocast_fr', 'zygomatique') AS matches
+       FROM video_transcript WHERE video_id = $1`,
+      [ids.sport],
+    );
+    expect(matches).toBe(true);
+  });
+
+  it('indexes an archived video', async () => {
+    // Archived videos stay findable by admins (design criterion 11).
+    const key = `subtitle-archived-${ids.logique}.vtt`;
+    await setVideo(ids.logique, key);
+    await unindex(ids.logique);
+    await db.query(`UPDATE video_entity SET archived = true WHERE id = $1`, [
+      ids.logique,
+    ]);
+    objects.set(key, fixtureVtt('logique'));
+    try {
+      await expect(indexer.indexVideo(ids.logique)).resolves.toBe('indexed');
+
+      expect(await segmentCount(ids.logique)).toBe(7);
+      const [row] = await transcriptRows(ids.logique);
+      expect(row.subtitle_key).toBe(key);
+    } finally {
+      await db.query(`UPDATE video_entity SET archived = false WHERE id = $1`, [
+        ids.logique,
+      ]);
+    }
+  });
+
+  it('fails cleanly on an invalid id', async () => {
+    const error = silenceErrors();
+    try {
+      await expect(indexer.indexVideo('not-a-uuid')).resolves.toBe('failed');
+
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('not-a-uuid'));
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it('reindexes every pending video and is idempotent', async () => {
     // Whatever the previous tests left: every fixture video starts ready,
     // pointing at its automatic subtitle, with no index.

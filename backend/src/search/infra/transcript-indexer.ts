@@ -62,10 +62,12 @@ export class TranscriptIndexer {
     try {
       return await this.db.transaction(async (tx) => {
         // Held until commit: a concurrent call waits here, then sees the new key.
-        await tx.query(`SELECT pg_advisory_xact_lock($1, hashtext($2::text))`, [
-          LOCK_NAMESPACE,
-          videoId,
-        ]);
+        // Cast through uuid so the key equals hashtext(video_id::text) of the
+        // stored row whatever the casing; a non-uuid id raises here.
+        await tx.query(
+          `SELECT pg_advisory_xact_lock($1, hashtext($2::uuid::text))`,
+          [LOCK_NAMESPACE, videoId],
+        );
 
         const [video] = await tx.query(
           `SELECT subtitle_id, transcoding_status FROM video_entity WHERE id = $1`,

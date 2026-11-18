@@ -31,8 +31,9 @@ kubectl -n <ns> exec deploy/<backend> -- node dist/search/reindex.cli.js
 
 ### Lecture de la sortie
 
-Le résumé est une ligne JSON, la dernière de la sortie standard (dotenv peut
-afficher une ligne d'information avant), par exemple :
+Le résumé est une ligne JSON, toujours la dernière de la sortie standard.
+D'autres lignes peuvent la précéder (bandeau dotenv, journaux SQL en
+développement) : lire la dernière ligne, pas la première. Par exemple :
 
 ```text
 {"indexed":3,"cleared":1,"failed":0,"unchanged":0}
@@ -55,3 +56,11 @@ message va sur la sortie d'erreur), 0 sinon.
 
 Chaque échec est journalisé au niveau `error` avec l'identifiant de la vidéo, la
 clé du sous-titre et la cause. Après correction, relancer la commande.
+
+Certains échecs sont permanents et attendus tant que le sous-titre lui-même n'est
+pas corrigé ou supprimé : objet absent, fichier sans aucune cue lisible, fichier
+de plus de 4 Mo, ou vocabulaire trop grand pour la limite de 1 Mo d'un
+`tsvector` PostgreSQL. Une telle vidéo reste en attente : chaque exécution de
+`search:reindex` la compte dans `failed` et se termine avec le code 1. Lire
+l'identifiant, la clé et la cause journalisés, puis corriger ou retirer ce
+sous-titre.
