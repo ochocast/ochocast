@@ -158,6 +158,32 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     expect(indexVideo).not.toHaveBeenCalled();
   });
 
+  it('settled() waits for in-flight indexing', async () => {
+    let finish: () => void;
+    indexVideo.mockReturnValue(
+      new Promise((resolve) => (finish = () => resolve('indexed'))),
+    );
+    await service.run();
+    let done = false;
+    const settled = service.settled().then(() => (done = true));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(done).toBe(false);
+    finish();
+    await settled;
+    expect(done).toBe(true);
+  });
+
+  it('settled() does not reject when indexing failed', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    try {
+      indexVideo.mockRejectedValue(new Error('index down'));
+      await service.run();
+      await expect(service.settled()).resolves.toBeUndefined();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
   it('an indexing failure does not fail the transcription', async () => {
     const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     try {

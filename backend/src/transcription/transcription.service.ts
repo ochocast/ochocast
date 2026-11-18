@@ -69,6 +69,7 @@ export class TranscriptionService {
     process.env.TRANSCRIPTION_BATCH_SIZE || 20,
   );
   private running = false;
+  private readonly indexing = new Set<Promise<void>>();
   private whisperDispatcher: { destroy(): Promise<void> } | undefined;
 
   constructor(
@@ -197,14 +198,7 @@ export class TranscriptionService {
             }
             summary.processed += 1;
             // Committed (autocommit); an indexing failure never fails the batch.
-            if (vtt)
-              void this.indexer
-                ?.indexVideo(video.id)
-                .catch((e) =>
-                  this.logger.error(
-                    `Indexing video ${video.id} failed: ${e?.message ?? e}`,
-                  ),
-                );
+            if (vtt) this.index(video.id);
           } catch (error) {
             summary.failed += 1;
             // A shutdown aborts the request in flight: the video is retried.
@@ -233,6 +227,29 @@ export class TranscriptionService {
       );
       return summary;
     });
+  }
+
+  /**
+   * Waits for the indexing started by run(). A standalone process must not
+   * destroy the DataSource or the S3 client while it still runs.
+   */
+  async settled(): Promise<void> {
+    await Promise.all([...this.indexing]);
+  }
+
+  private index(videoId: string) {
+    if (!this.indexer) return;
+    const pending: Promise<void> = this.indexer
+      .indexVideo(videoId)
+      .then(
+        () => undefined,
+        (e) =>
+          this.logger.error(
+            `Indexing video ${videoId} failed: ${e?.message ?? e}`,
+          ),
+      )
+      .finally(() => this.indexing.delete(pending));
+    this.indexing.add(pending);
   }
 
   async recover() {
