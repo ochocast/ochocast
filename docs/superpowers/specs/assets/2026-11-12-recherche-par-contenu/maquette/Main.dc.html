@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>OchoCast · recherche dans le contenu des vidéos</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;background:#ffffff}
+button{font-family:inherit}
+a{color:#147854}a:hover{color:#0e5a3f}
+</style>
+</helmet>
+<div style="min-height: 100vh; font-family: Outfit, sans-serif; color: #000000; background: #ffffff">
+
+<div style="background: #062218; color: #d7f5e8; font-size: 13px; padding: 8px 24px; display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between">
+<span>Maquette interactive · contenu et sous-titres fictifs · interface, logo et miniatures repris de staging.demo.ochocast.fr</span>
+<span>Option A : recherche intégrée à PostgreSQL</span>
+</div>
+
+<header style="background: #147854; min-height: 100px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; padding: 12px 24px; box-sizing: border-box">
+<button onClick="{{goHome}}" aria-label="Accueil OchoCast" style="background: none; border: 0; padding: 0; cursor: pointer; display: flex">
+<img src="/_blob/f03cf78ae6ebd5fc0577b39786a143e8" alt="OchoCast" style="height: 52px; width: auto; display: block">
+</button>
+<div style="flex: 1 1 360px; max-width: 600px; position: relative">
+<div style="background: #ffffff; border-radius: 999px; height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 16px">
+<img src="/_blob/6f731f34686824cce61df8df09d84f66" alt="" style="width: 22px; height: 22px">
+<input aria-label="Rechercher" value="{{input}}" onChange="{{onInput}}" onKeyDown="{{onKey}}" onFocus="{{onFocus}}" onBlur="{{onBlur}}" placeholder="Rechercher des vidéos, des événements… et ce qui y est dit" style="flex: 1; min-width: 0; border: 0; outline: none; background: transparent; font-family: Outfit, sans-serif; font-size: 14.4px; color: #062218">
+<button onClick="{{toggleFilters}}" aria-label="Filtres" style="background: none; border: 0; padding: 4px; cursor: pointer; display: flex"><img src="/_blob/5bf099b464eacf69adf04a6899116b84" alt="" style="width: 22px; height: 22px"></button>
+<button aria-label="Partager les filtres" style="background: none; border: 0; padding: 4px; cursor: pointer; display: flex"><img src="/_blob/060c89814e805f6dd0e58c9c809f4fd9" alt="" style="width: 22px; height: 22px"></button>
+<button onClick="{{clear}}" aria-label="Effacer la recherche" style="background: none; border: 0; padding: 4px 8px; cursor: pointer; font-size: 16px; font-weight: 600; color: #000000">×</button>
+</div>
+
+<sc-if value="{{showSuggest}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; top: 52px; left: 0; right: 0; background: #ffffff; border-radius: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18); padding: 16px; z-index: 20; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 1.92px; text-transform: uppercase; color: #606060">Essayez la recherche dans le contenu</p>
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-for list="{{suggestions}}" as="s" hint-placeholder-count="6">
+<button onMouseDown="{{s.run}}" style="display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; text-align: left; background: #ffffff; border: 0; border-radius: 10px; padding: 8px 10px; cursor: pointer">
+<span style="font-size: 15px; font-weight: 600; color: #062218">{{s.label}}</span>
+<span style="font-size: 13px; color: #606060">{{s.hint}}</span>
+</button>
+</sc-for>
+</div>
+<p style="margin: 0; font-size: 12.8px; color: #606060; border-top: 1px solid rgba(0, 0, 0, 0.08); padding-top: 10px">"expression exacte" · -mot pour exclure · or pour l’un ou l’autre</p>
+</div>
+</sc-if>
+
+<sc-if value="{{showFilters}}" hint-placeholder-val="{{false}}">
+<div style="position: absolute; top: 52px; right: 0; width: 260px; background: #f9fafb; border: 1px solid #cfe9dd; border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12); padding: 14px; z-index: 20; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cfe9dd; padding-bottom: 10px">
+<span style="font-size: 17px; font-weight: 700">Filtres</span>
+<button style="background: #ffffff; border: 1px solid #1dac78; color: #147854; border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer">Réinitialiser</button>
+</div>
+<span style="font-size: 14px; font-weight: 600">Favoris</span>
+<label style="display: flex; gap: 12px; align-items: center; background: #ffffff; border: 1px solid #cfe9dd; border-radius: 12px; padding: 12px">
+<input type="checkbox" style="width: 22px; height: 22px; accent-color: #1dac78">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 13px; font-weight: 600">Favoris uniquement</span><span style="font-size: 11.5px; color: #147854">Limiter les résultats à vos vidéos favorites.</span></span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Tag<input placeholder="Exemple : kubernetes" style="border: 1px solid #000000; border-radius: 999px; padding: 9px 14px; font-family: Outfit, sans-serif; font-size: 14px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Utilisateur<input placeholder="Exemple : Marie" style="border: 1px solid #000000; border-radius: 999px; padding: 9px 14px; font-family: Outfit, sans-serif; font-size: 14px"></label>
+<label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600">Date de publication<input placeholder="Choisir une date" style="border: 1px solid #000000; border-radius: 6px; padding: 7px 10px; font-family: Outfit, sans-serif; font-size: 13px"></label>
+<button onClick="{{toggleFilters}}" style="background: #062218; color: #ffffff; border: 0; border-radius: 6px; padding: 9px; font-size: 13px; font-weight: 600; cursor: pointer">Valider</button>
+</div>
+</sc-if>
+</div>
+
+<div style="margin-left: auto; display: flex; align-items: center; gap: 6px">
+<span style="width: 36px; height: 36px; border-radius: 50%; background: #ffffff; display: flex; align-items: flex-end; justify-content: center; overflow: hidden"><img src="/_blob/52b50886195db6bef0c4568f7a0cc677" alt="Profil de demo" style="width: 26px; height: 32px"></span>
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+</div>
+</header>
+
+<sc-if value="{{isHome}}" hint-placeholder-val="{{true}}">
+<main style="max-width: 1100px; margin: 0 auto; padding: 40px 24px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 48px">
+<section style="display: flex; flex-direction: column; gap: 24px">
+<h2 style="margin: 0; font-size: 24px; font-weight: 600">Événements</h2>
+<div style="width: 100%; max-width: 640px; align-self: center; box-sizing: border-box; background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 16px; padding: 24px 20px; display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 1.92px; text-transform: uppercase; color: #344054; font-weight: 600">0 événement</p>
+<p style="margin: 0; font-size: 17px; font-weight: 700">Aucun événement publié</p>
+<p style="margin: 0; font-size: 14px; color: #344054">Les événements publiés apparaîtront ici dès que les organisateurs les partageront.</p>
+<button style="align-self: flex-start; margin-top: 8px; background: #ffffff; border: 1px solid #000000; border-radius: 999px; padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer">Créer un événement</button>
+</div>
+</section>
+<section style="display: flex; flex-direction: column; gap: 24px">
+<h2 style="margin: 0; font-size: 24px; font-weight: 600">Vidéos</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 28px 20px">
+<sc-for list="{{homeVideos}}" as="c" hint-placeholder-count="6">
+<button onClick="{{c.open}}" style="background: none; border: 0; padding: 0; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 10px">
+<span style="position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000000">
+<img src="{{c.thumb}}" alt="{{c.title}}" style="width: 100%; height: 100%; object-fit: cover; display: block">
+<span style="position: absolute; top: 0; left: 0; width: 36px; height: 36px; background: rgba(255, 255, 255, 0.78); border-bottom-right-radius: 12px; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path><path d="M4 4h7"></path></svg></span>
+<span style="position: absolute; top: 0; right: 0; width: 36px; height: 36px; background: rgba(255, 255, 255, 0.78); border-bottom-left-radius: 12px; display: flex; align-items: center; justify-content: center"><img src="/_blob/180a53a3e1b2f2ec47689321ecc02320" alt="Ajouter aux favoris" style="width: 20px; height: 20px"></span>
+<span style="position: absolute; left: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.75); border-radius: 6px; padding: 4px 10px; display: flex; gap: 6px; align-items: center; color: #ffffff; font-size: 12px; font-weight: 600"><img src="/_blob/3884c34dc57c98ddf77e4125e2cfff8b" alt="Vues" style="width: 14px; height: 14px">{{c.views}}</span>
+<span style="position: absolute; right: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.75); border-radius: 6px; padding: 4px 10px; color: #ffffff; font-size: 12px; font-weight: 600">{{c.dur}}</span>
+</span>
+<span style="display: flex; gap: 10px; align-items: flex-start">
+<img src="/_blob/4882c0a2296e38c662fb224932543d3e" alt="Profil de demo" style="width: 32px; height: 32px; border-radius: 50%">
+<span style="display: flex; flex-direction: column; gap: 2px; min-width: 0">
+<span style="font-size: 19.2px; font-weight: 700; color: #111111">{{c.title}}</span>
+<span style="font-size: 13.6px; color: #606060">{{c.meta}}</span>
+</span>
+</span>
+</button>
+</sc-for>
+</div>
+</section>
+</main>
+</sc-if>
+
+<sc-if value="{{isResults}}" hint-placeholder-val="{{false}}">
+<main style="max-width: 1100px; margin: 0 auto; padding: 20px 24px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 1.92px; text-transform: uppercase; color: #606060">Recherche globale</p>
+<h1 style="margin: 0; font-size: 22.4px; font-weight: 700">Résultats pour « {{q}} »</h1>
+<p style="margin: 0; font-size: 14.08px; color: #606060">Les résultats combinent les vidéos et les événements, y compris ce qui est dit dans les vidéos.</p>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid rgba(0, 0, 0, 0.08)">
+<span style="background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 999px; padding: 8.8px 12.8px; font-size: 13.12px">0 événement trouvé</span>
+<span style="background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 999px; padding: 8.8px 12.8px; font-size: 13.12px">{{videoCountLabel}}</span>
+<span style="background: #e3f6ee; border: 1px solid #b9e6d2; border-radius: 999px; padding: 8.8px 12.8px; font-size: 13.12px; color: #0b3d2a">{{passageCountLabel}}</span>
+<span style="margin-left: auto; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: #606060">Trier par
+<button onClick="{{sortRel}}" style="{{relStyle}}">Pertinence</button>
+<button onClick="{{sortRec}}" style="{{recStyle}}">Plus récentes</button>
+</span>
+</div>
+
+<section style="background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 24px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 1.92px; text-transform: uppercase; color: #606060">Événements</p>
+<p style="margin: 0; font-size: 17px; font-weight: 700">0 événement trouvé</p>
+<p style="margin: 0; border: 1px dashed rgba(0, 0, 0, 0.12); border-radius: 12px; padding: 12px 14px; font-size: 14px; color: #344054">Aucun événement ne correspond à cette recherche.</p>
+</section>
+
+<section style="background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 24px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 1.92px; text-transform: uppercase; color: #606060">Vidéos</p>
+<p style="margin: 0; font-size: 17px; font-weight: 700">{{videoCountLabel}}</p>
+
+<sc-if value="{{hasResults}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 16px">
+<sc-for list="{{results}}" as="r" hint-placeholder-count="3">
+<article style="background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 16px; padding: 16px; display: flex; flex-wrap: wrap; gap: 20px">
+<button onClick="{{r.open}}" aria-label="{{r.openLabel}}" style="flex: 0 1 320px; min-width: 240px; background: none; border: 0; padding: 0; cursor: pointer; align-self: flex-start">
+<span style="position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: #000000">
+<img src="{{r.thumb}}" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block">
+<span style="position: absolute; left: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.75); border-radius: 6px; padding: 4px 10px; display: flex; gap: 6px; align-items: center; color: #ffffff; font-size: 12px; font-weight: 600"><img src="/_blob/3884c34dc57c98ddf77e4125e2cfff8b" alt="Vues" style="width: 14px; height: 14px">{{r.views}}</span>
+<span style="position: absolute; right: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.75); border-radius: 6px; padding: 4px 10px; color: #ffffff; font-size: 12px; font-weight: 600">{{r.dur}}</span>
+</span>
+</button>
+<div style="flex: 999 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+<button onClick="{{r.open}}" style="background: none; border: 0; padding: 0; text-align: left; cursor: pointer">
+<span style="font-size: 19.2px; font-weight: 700; color: #111111"><sc-for list="{{r.titleParts}}" as="w" hint-placeholder-count="1"><sc-if value="{{w.hit}}" hint-placeholder-val="{{false}}"><mark style="background: #cdefe0; color: #062218; border-radius: 4px; padding: 0 2px">{{w.t}}</mark></sc-if><sc-if value="{{w.plain}}" hint-placeholder-val="{{true}}">{{w.t}}</sc-if></sc-for></span>
+</button>
+<span style="display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 13.6px; color: #606060">
+<img src="/_blob/4882c0a2296e38c662fb224932543d3e" alt="" style="width: 22px; height: 22px; border-radius: 50%">{{r.meta}}
+</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12.8px; color: #344054">Trouvé dans :
+<sc-for list="{{r.badges}}" as="b" hint-placeholder-count="2"><span style="background: #f2f4f7; border-radius: 999px; padding: 3px 10px; color: #344054">{{b.label}}</span></sc-for>
+</span>
+<sc-if value="{{r.hasPassages}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<sc-for list="{{r.shown}}" as="p" hint-placeholder-count="3">
+<button onClick="{{p.open}}" style="display: flex; gap: 12px; align-items: flex-start; text-align: left; background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 12px; padding: 10px 12px; cursor: pointer; width: 100%">
+<span style="display: flex; gap: 6px; align-items: center; background: #147854; color: #ffffff; border-radius: 999px; padding: 3px 10px; font-size: 12.8px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1l7 4-7 4z" fill="#ffffff"></path></svg>{{p.tLabel}}</span>
+<span style="font-size: 14.4px; line-height: 1.5; color: #344054">« <sc-for list="{{p.parts}}" as="w" hint-placeholder-count="1"><sc-if value="{{w.hit}}" hint-placeholder-val="{{false}}"><mark style="background: #cdefe0; color: #062218; border-radius: 4px; padding: 0 2px; font-weight: 600">{{w.t}}</mark></sc-if><sc-if value="{{w.plain}}" hint-placeholder-val="{{true}}">{{w.t}}</sc-if></sc-for> »</span>
+</button>
+</sc-for>
+<sc-if value="{{r.hasMore}}" hint-placeholder-val="{{false}}">
+<button onClick="{{r.toggleMore}}" style="align-self: flex-start; background: none; border: 0; padding: 4px 2px; color: #147854; font-size: 13.6px; font-weight: 600; cursor: pointer; text-decoration: underline">{{r.moreLabel}}</button>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</article>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{noResults}}" hint-placeholder-val="{{false}}">
+<div style="background: #ffffff; border: 1px dashed rgba(0, 0, 0, 0.14); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 16px; font-weight: 600">Aucune vidéo ne correspond à « {{q}} ».</p>
+<sc-if value="{{hasDym}}" hint-placeholder-val="{{false}}">
+<p style="margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 15px">Vouliez-vous dire
+<button onClick="{{dymRun}}" style="background: none; border: 0; padding: 0; color: #147854; font-size: 15px; font-weight: 700; text-decoration: underline; cursor: pointer">{{dymLabel}}</button> ?
+<span style="background: #fff4e5; color: #8a4b00; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600">prévu en V1.1</span>
+</p>
+</sc-if>
+<p style="margin: 0; font-size: 14px; color: #344054">Conseils : vérifiez l’orthographe, essayez un mot plus général, ou retirez un terme exclu. La recherche par le sens (synonymes, reformulations) n’est pas dans la première version.</p>
+</div>
+</sc-if>
+</section>
+</main>
+</sc-if>
+
+<sc-if value="{{isVideo}}" hint-placeholder-val="{{false}}">
+<main style="max-width: 1320px; margin: 0 auto; padding: 12px 12px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+<sc-if value="{{hasQ}}" hint-placeholder-val="{{true}}">
+<button onClick="{{backToResults}}" style="align-self: flex-start; background: none; border: 0; padding: 4px 0; color: #147854; font-size: 14px; font-weight: 600; cursor: pointer">← Retour aux résultats pour « {{q}} »</button>
+</sc-if>
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+<div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+
+<div style="position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000000">
+<img src="{{v.thumb}}" alt="" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.88">
+<span style="position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; align-items: center; background: rgba(0, 0, 0, 0.75); color: #ffffff; border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12px; font-weight: 600">Qualité <span style="background: #1dac78; border-radius: 999px; padding: 3px 12px">Auto</span></span>
+<sc-if value="{{toastShow}}" hint-placeholder-val="{{false}}">
+<span style="position: absolute; top: 14px; left: 14px; max-width: 70%; background: rgba(6, 34, 24, 0.9); color: #ffffff; border-radius: 999px; padding: 8px 16px; font-size: 14px">{{toast}}</span>
+</sc-if>
+<sc-if value="{{paused}}" hint-placeholder-val="{{true}}">
+<button onClick="{{togglePlay}}" aria-label="Lire" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 76px; height: 76px; border-radius: 50%; border: 0; background: rgba(6, 34, 24, 0.82); cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 1.2l6.3 3.8-6.3 3.8z" fill="#ffffff"></path></svg></button>
+</sc-if>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 16px 12px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.75)); display: flex; flex-direction: column; gap: 10px">
+<div style="position: relative; height: 6px; background: rgba(255, 255, 255, 0.35); border-radius: 999px">
+<div style="{{progressStyle}}"></div>
+<sc-for list="{{markers}}" as="m" hint-placeholder-count="2"><span style="{{m.style}}"></span></sc-for>
+</div>
+<div style="display: flex; gap: 14px; align-items: center; color: #ffffff; font-size: 13px; font-variant-numeric: tabular-nums">
+<button onClick="{{togglePlay}}" aria-label="{{playLabel}}" style="background: none; border: 0; padding: 0; cursor: pointer; display: flex">
+<sc-if value="{{paused}}" hint-placeholder-val="{{true}}"><svg width="18" height="18" viewBox="0 0 10 10" aria-hidden="true"><path d="M2.5 1.2l6.3 3.8-6.3 3.8z" fill="#ffffff"></path></svg></sc-if>
+<sc-if value="{{playing}}" hint-placeholder-val="{{false}}"><svg width="18" height="18" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1h2.2v8H2zM5.8 1H8v8H5.8z" fill="#ffffff"></path></svg></sc-if>
+</button>
+<span>{{tLabel}} / {{v.durLabel}}</span>
+<span style="margin-left: auto; font-size: 12px; opacity: 0.85">Repères jaunes : passages trouvés</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between">
+<h1 style="margin: 0; font-size: 24px; font-weight: 700">{{v.title}}</h1>
+<span style="display: flex; gap: 12px; align-items: center">
+<img src="/_blob/060c89814e805f6dd0e58c9c809f4fd9" alt="Copier le lien" style="width: 22px; height: 22px">
+<img src="/_blob/180a53a3e1b2f2ec47689321ecc02320" alt="Ajouter aux favoris" style="width: 24px; height: 24px">
+<button style="background: #1dac78; color: #f9fafb; border: 0; border-radius: 20px; padding: 8px 16px; font-size: 13.33px; font-weight: 600; cursor: pointer">Modifier la vidéo</button>
+</span>
+</div>
+<span style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; font-style: italic">Tags :
+<sc-for list="{{v.tags}}" as="tg" hint-placeholder-count="3"><span style="font-style: normal; background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 999px; padding: 3px 10px; font-size: 13px">{{tg.name}}</span></sc-for>
+</span>
+<div style="background: #f9fafb; border-radius: 16px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12); padding: 16px; display: flex; gap: 16px; align-items: center">
+<img src="/_blob/4882c0a2296e38c662fb224932543d3e" alt="Profil de demo" style="width: 76px; height: 76px; border-radius: 50%">
+<span style="display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<span style="font-size: 20px; font-weight: 700">demo</span>
+<span style="font-size: 13px; font-weight: 600">Intervenant : {{v.speakers}}</span>
+<span style="font-size: 13px; color: #344054"><u>Description :</u> {{v.desc}}</span>
+</span>
+</div>
+<div style="background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 12px; padding: 16px">
+<p style="margin: 0; font-size: 16px; font-weight: 700">Publiée {{v.date}}</p>
+</div>
+</div>
+
+<aside style="flex: 1 1 340px; min-width: 280px; background: #f9fafb; border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 24px; padding: 16px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 12px; letter-spacing: 1.92px; text-transform: uppercase; color: #606060">Transcription · générée automatiquement</p>
+<div style="display: flex; gap: 8px; align-items: center; background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 999px; padding: 6px 8px 6px 14px">
+<img src="/_blob/6f731f34686824cce61df8df09d84f66" alt="" style="width: 16px; height: 16px">
+<input aria-label="Rechercher dans la transcription" value="{{vq}}" onChange="{{onVq}}" placeholder="Rechercher dans cette vidéo" style="flex: 1; min-width: 0; border: 0; outline: none; font-family: Outfit, sans-serif; font-size: 14px; background: transparent">
+<span style="font-size: 12.8px; color: #606060; white-space: nowrap">{{occLabel}}</span>
+<button onClick="{{occPrev}}" aria-label="Occurrence précédente" style="background: #f2f4f7; border: 0; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#344054" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 8l3-3 3 3"></path></svg></button>
+<button onClick="{{occNext}}" aria-label="Occurrence suivante" style="background: #f2f4f7; border: 0; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#344054" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 4l3 3 3-3"></path></svg></button>
+</div>
+<div style="max-height: 640px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 4px">
+<sc-for list="{{segs}}" as="s" hint-placeholder-count="8">
+<button onClick="{{s.seek}}" style="{{s.style}}">
+<span style="font-size: 12.8px; font-weight: 600; color: #147854; font-variant-numeric: tabular-nums; min-width: 44px">{{s.tLabel}}</span>
+<span style="font-size: 14.4px; line-height: 1.5; color: #344054"><sc-for list="{{s.parts}}" as="w" hint-placeholder-count="1"><sc-if value="{{w.hit}}" hint-placeholder-val="{{false}}"><mark style="background: #cdefe0; color: #062218; border-radius: 4px; padding: 0 2px; font-weight: 600">{{w.t}}</mark></sc-if><sc-if value="{{w.plain}}" hint-placeholder-val="{{true}}">{{w.t}}</sc-if></sc-for></span>
+</button>
+</sc-for>
+</div>
+</aside>
+</div>
+</main>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: "home", input: "", q: "", focus: false, filters: false, sort: "rel", expanded: {}, vid: null, t: 0, playing: false, vq: "", toast: "" };
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => this.tick(), 1000);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+    clearTimeout(this.toastTimer);
+    clearTimeout(this.blurTimer);
+  }
+
+  tick() {
+    const s = this.state;
+    if (!s.playing || s.screen !== "video") return;
+    const v = this.byId(s.vid);
+    const t = Math.min(v.duration, s.t + 1);
+    this.setState({ t: t, playing: t < v.duration });
+  }
+
+  raw() {
+    const DESK = "/_blob/ac5322eafcec6086f7b08eb24fd5dc9a";
+    const DEF = "/_blob/23943080c257bc07e9d9663135f01022";
+    const FFM = "/_blob/3c12d362c615c04398ec160d99647655";
+    const FOOT = "/_blob/57ebae3e4c5610eac5df7ae09499826f";
+    const TRUTH = "/_blob/d311a3844c1aa88f66b463ec8a2b7bec";
+    return [
+      { id: "pgsearch", title: "Rechercher dans ses vidéos avec PostgreSQL", desc: "Retour d’expérience sur la recherche plein texte dans les sous-titres.", tags: ["postgresql", "recherche", "backend"], speakers: ["Camille Martin"], date: "il y a 2 jours", rank: 2, views: 18, duration: 1690, thumb: DEF, segs: [
+        [10, "Le sujet du jour : retrouver un passage précis dans des heures de conférence."],
+        [150, "Les sous-titres sont générés par Whisper, puis rangés ligne par ligne en base."],
+        [390, "PostgreSQL sait déjà faire de la recherche plein texte, avec un index de recherche."],
+        [620, "La configuration française ramène les mots à leur racine : conférences devient conférence."],
+        [860, "Les accents sont ignorés, donc école et ecole se retrouvent."],
+        [1080, "Le titre pèse plus lourd que le contenu dans le classement."],
+        [1320, "Limite connue : une faute de frappe ne trouve rien, il faut une suggestion."],
+        [1550, "Prochaine étape : combiner avec une recherche par le sens, si le besoin apparaît."]
+      ] },
+      { id: "k8s", title: "Déployer une plateforme vidéo sur Kubernetes", desc: "Mise en production d’OchoCast : cluster Talos, transcodage FFmpeg et sauvegardes.", tags: ["kubernetes", "devops", "scaleway"], speakers: ["Camille Martin"], date: "il y a 5 jours", rank: 5, views: 42, duration: 2712, thumb: DESK, segs: [
+        [12, "Bonjour à tous, merci d’être venus à cette conférence sur la mise en production."],
+        [95, "On a choisi Kubernetes parce qu’on voulait redéployer sans couper le service."],
+        [260, "Le cluster tourne sur Talos, chez Scaleway, avec deux petits nœuds."],
+        [498, "Le transcodage passe par FFmpeg dans des conteneurs lancés à la demande."],
+        [754, "Notre première erreur : des pods sans limite de mémoire qui saturaient le nœud."],
+        [1012, "Kubernetes redémarre le pod, mais la vidéo en cours de traitement est perdue."],
+        [1290, "Les données personnelles des utilisateurs restent dans la base managée, jamais dans le cluster."],
+        [1544, "Pour les sauvegardes, on s’appuie sur celles de l’hébergeur, conservées sept jours."],
+        [1870, "Les sous-titres sont générés la nuit, quand le cluster est peu chargé."],
+        [2210, "Si c’était à refaire, on commencerait avec moins de microservices."],
+        [2560, "Merci, je prends vos questions sur Kubernetes et sur le reste."]
+      ] },
+      { id: "rgpd", title: "RGPD et IA générative : ce qui change en 2026", desc: "Ce que les équipes produit doivent savoir avant d’envoyer des données à un modèle d’IA.", tags: ["rgpd", "ia", "juridique"], speakers: ["Inès Haddad"], date: "il y a 12 jours", rank: 12, views: 128, duration: 1985, thumb: DEF, segs: [
+        [8, "Aujourd’hui, on parle de RGPD et d’intelligence artificielle générative."],
+        [140, "Première question à se poser : quelles données personnelles partent chez le fournisseur ?"],
+        [380, "Une transcription de réunion, c’est souvent plein de noms et d’informations sensibles."],
+        [615, "Le fournisseur doit signer un contrat de sous-traitance, le fameux DPA."],
+        [880, "L’hébergement en Europe ne suffit pas : il faut vérifier qui peut accéder aux données."],
+        [1104, "Conserver les requêtes pour entraîner le modèle, c’est un traitement de plus à déclarer."],
+        [1390, "Pour une école ou une entreprise, l’analyse d’impact devient presque obligatoire."],
+        [1660, "Mon conseil : minimisez, pseudonymisez, et documentez vos choix."],
+        [1900, "Merci, les slides seront partagées avec la vidéo de la conférence."]
+      ] },
+      { id: "ffmpeg", title: "Transcoder ses vidéos avec FFmpeg", desc: "Atelier pratique : formats, qualités HLS et extraction de l’audio.", tags: ["ffmpeg", "vidéo", "atelier"], speakers: ["Lucas Bernard"], date: "il y a 20 jours", rank: 20, views: 67, duration: 1520, thumb: FFM, segs: [
+        [5, "Dans cet atelier, on va transcoder une vidéo de bout en bout avec FFmpeg."],
+        [110, "Première étape : vérifier les codecs de la source avec ffprobe."],
+        [300, "Ensuite, on produit plusieurs qualités HLS, du 360p au 1080p."],
+        [560, "Chaque qualité est découpée en segments de six secondes."],
+        [790, "Pour la transcription, on extrait l’audio en FLAC, mono, à seize kilohertz."],
+        [1010, "Ce format audio pèse environ soixante mégaoctets par heure."],
+        [1230, "Attention aux vidéos très longues : le transcodage peut dépasser la limite de temps."],
+        [1450, "Des questions ? Les commandes FFmpeg sont dans la description."]
+      ] },
+      { id: "sport", title: "Analyse vidéo du sport : ce que les données racontent", desc: "Comment les clubs exploitent la vidéo et les données de match.", tags: ["sport", "data", "vidéo"], speakers: ["Hugo Lefèvre"], date: "il y a 1 mois", rank: 33, views: 210, duration: 2215, thumb: FOOT, segs: [
+        [15, "Le football est devenu un sport de données autant que de terrain."],
+        [240, "Chaque match génère des millions de points de données de position."],
+        [510, "La vidéo reste l’outil préféré des entraîneurs pour expliquer une erreur."],
+        [790, "On découpe les actions clés et on les annote, minute par minute."],
+        [1100, "Les données personnelles des joueurs, comme la santé, sont très encadrées."],
+        [1380, "Un club amateur peut commencer avec une simple caméra et un tableur."],
+        [1720, "L’apprentissage automatique aide à repérer les situations qui se répètent."],
+        [2100, "Merci à tous d’avoir suivi cette conférence."]
+      ] },
+      { id: "logique", title: "Logique propositionnelle : les bases", desc: "Cours d’introduction : tables de vérité, implication et équivalence.", tags: ["cours", "mathématiques", "école"], speakers: ["Sarah Cohen"], date: "il y a 4 mois", rank: 120, views: 314, duration: 1105, thumb: TRUTH, segs: [
+        [6, "Bienvenue dans ce premier cours de logique propositionnelle."],
+        [95, "Une proposition est soit vraie, soit fausse : on note 1 ou 0."],
+        [260, "La table de vérité liste toutes les combinaisons possibles."],
+        [430, "L’implication « P implique Q » n’est fausse que si P est vraie et Q fausse."],
+        [640, "Attention, « Q implique P » n’est pas la même chose : c’est la réciproque."],
+        [820, "À l’école, on retient souvent cette règle par cœur, sans la comprendre."],
+        [1010, "Exercice pour la semaine prochaine : construire la table de « P ou Q »."]
+      ] }
+    ];
+  }
+
+  catalog() {
+    if (this._cat) return this._cat;
+    this._cat = this.raw().map((v) => ({
+      ...v,
+      tTitle: this.words(v.title),
+      tTags: this.words(v.tags.join(" ")),
+      tPeople: this.words(v.speakers.join(" ") + " demo"),
+      tDesc: this.words(v.desc),
+      segs: v.segs.map((s) => ({ t: s[0], text: s[1], tok: this.words(s[1]) }))
+    }));
+    return this._cat;
+  }
+
+  byId(id) {
+    return this.catalog().find((v) => v.id === id);
+  }
+
+  norm(s) {
+    return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  stem(w) {
+    return w.length > 3 && /[sx]$/.test(w) ? w.slice(0, -1) : w;
+  }
+
+  words(s) {
+    return (this.norm(s).match(/[a-z0-9]+/g) || []).map((w) => this.stem(w));
+  }
+
+  stop(w) {
+    return ["le", "la", "les", "de", "des", "du", "un", "une", "et", "a", "l", "d", "en", "pour", "sur", "dans", "au", "aux", "qu", "que", "est"].indexOf(w) >= 0;
+  }
+
+  parse(q) {
+    const groups = [];
+    const not = [];
+    const rest = (q || "").replace(/"([^"]*)"/g, (m, p) => {
+      const w = this.words(p);
+      if (w.length > 1) groups.push({ phrase: w });
+      else if (w.length === 1) groups.push({ any: w });
+      return " ";
+    });
+    const toks = rest.split(/\s+/).filter(Boolean);
+    for (let k = 0; k < toks.length; k++) {
+      const tok = toks[k];
+      if (tok.toLowerCase() === "or") continue;
+      if (tok[0] === "-" && tok.length > 1) {
+        this.words(tok.slice(1)).forEach((w) => not.push(w));
+        continue;
+      }
+      const ws = this.words(tok).filter((w) => !this.stop(w));
+      if (!ws.length) continue;
+      if (toks[k + 1] && toks[k + 1].toLowerCase() === "or" && toks[k + 2]) {
+        groups.push({ any: ws.concat(this.words(toks[k + 2])) });
+        k += 2;
+        continue;
+      }
+      ws.forEach((w) => groups.push({ any: [w] }));
+    }
+    const hl = new Set();
+    groups.forEach((g) => (g.phrase || g.any).forEach((w) => hl.add(w)));
+    return { groups: groups, not: not, hl: hl };
+  }
+
+  gm(g, tok) {
+    if (g.phrase) {
+      const p = g.phrase;
+      for (let i = 0; i + p.length <= tok.length; i++) {
+        let k = 0;
+        while (k < p.length && tok[i + k] === p[k]) k++;
+        if (k === p.length) return true;
+      }
+      return false;
+    }
+    return g.any.some((w) => tok.indexOf(w) >= 0);
+  }
+
+  search(q) {
+    const P = this.parse(q);
+    const out = [];
+    if (!P.groups.length) return { P: P, out: out };
+    for (const v of this.catalog()) {
+      const fields = [
+        { label: "Titre", w: 10, tok: v.tTitle },
+        { label: "Tags", w: 4, tok: v.tTags },
+        { label: "Intervenants", w: 4, tok: v.tPeople },
+        { label: "Description", w: 2, tok: v.tDesc }
+      ];
+      const all = fields.map((f) => f.tok).concat(v.segs.map((s) => s.tok));
+      if (P.not.length && all.some((tok) => P.not.some((n) => tok.indexOf(n) >= 0))) continue;
+      if (!P.groups.every((g) => all.some((tok) => this.gm(g, tok)))) continue;
+      let score = 0;
+      const badges = [];
+      fields.forEach((f) => {
+        const n = P.groups.filter((g) => this.gm(g, f.tok)).length;
+        if (n) { score += n * f.w; badges.push(f.label); }
+      });
+      const hits = v.segs
+        .map((s) => ({ s: s, n: P.groups.filter((g) => this.gm(g, s.tok)).length }))
+        .filter((h) => h.n > 0);
+      if (hits.length) {
+        score += Math.min(hits.length, 10);
+        badges.push("Transcription · " + hits.length + " passage" + (hits.length > 1 ? "s" : ""));
+      }
+      out.push({ v: v, score: score, badges: badges, hits: hits });
+    }
+    return { P: P, out: out };
+  }
+
+  parts(text, P) {
+    const pieces = text.match(/[A-Za-zÀ-ÖØ-öø-ÿ0-9]+|[^A-Za-zÀ-ÖØ-öø-ÿ0-9]+/g) || [];
+    const wordIdx = [];
+    pieces.forEach((p, i) => { if (/[A-Za-zÀ-ÖØ-öø-ÿ0-9]/.test(p[0])) wordIdx.push(i); });
+    const stems = wordIdx.map((i) => this.stem(this.norm(pieces[i])));
+    const hit = {};
+    P.groups.forEach((g) => {
+      if (g.any) {
+        stems.forEach((st, k) => { if (g.any.indexOf(st) >= 0) hit[wordIdx[k]] = true; });
+        return;
+      }
+      for (let k = 0; k + g.phrase.length <= stems.length; k++) {
+        let n = 0;
+        while (n < g.phrase.length && stems[k + n] === g.phrase[n]) n++;
+        if (n === g.phrase.length) {
+          for (let x = wordIdx[k]; x <= wordIdx[k + n - 1]; x++) hit[x] = true;
+        }
+      }
+    });
+    return pieces.map((p, i) => ({ t: p, hit: !!hit[i], plain: !hit[i] }));
+  }
+
+  fmt(sec) {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = Math.floor(sec % 60);
+    const pad = (n) => (n < 10 ? "0" + n : "" + n);
+    return h ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+  }
+
+  lev(a, b) {
+    const d = [];
+    for (let i = 0; i <= a.length; i++) d[i] = [i];
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      }
+    }
+    return d[a.length][b.length];
+  }
+
+  suggest(q) {
+    if (!this._vocab) {
+      const set = new Set();
+      this.catalog().forEach((v) => {
+        const text = [v.title, v.desc, v.tags.join(" ")].concat(v.segs.map((s) => s.text)).join(" ");
+        (this.norm(text).match(/[a-z0-9]+/g) || []).forEach((w) => { if (w.length >= 4) set.add(w); });
+      });
+      this._vocab = Array.from(set);
+    }
+    let changed = false;
+    const fixed = q.split(/\s+/).filter(Boolean).map((tok) => {
+      if (tok[0] === "-" || tok[0] === "\"" || tok.toLowerCase() === "or") return tok;
+      const n = this.norm(tok);
+      if (n.length < 4 || this._vocab.indexOf(n) >= 0) return tok;
+      let best = null;
+      let bestD = n.length >= 8 ? 3 : 2;
+      this._vocab.forEach((w) => { const dd = this.lev(n, w); if (dd < bestD) { bestD = dd; best = w; } });
+      if (best) { changed = true; return best; }
+      return tok;
+    }).join(" ");
+    return changed ? fixed : null;
+  }
+
+  run(q) {
+    const query = (q || "").trim();
+    clearTimeout(this.blurTimer);
+    if (!query) { this.setState({ screen: "home", q: "", input: "", focus: false }); return; }
+    this.setState({ screen: "results", q: query, input: query, focus: false, filters: false, expanded: {}, playing: false });
+  }
+
+  openVideo(id, t, query) {
+    clearTimeout(this.toastTimer);
+    const toast = t > 0 && query ? "Lecture à " + this.fmt(t) + " · passage trouvé pour « " + query + " »" : "";
+    this.setState({ screen: "video", vid: id, t: t, playing: false, vq: query || "", toast: toast, focus: false, filters: false });
+    if (toast) this.toastTimer = setTimeout(() => this.setState({ toast: "" }), 4500);
+  }
+
+  jump(dir) {
+    const s = this.state;
+    const v = this.byId(s.vid);
+    const P = this.parse(s.vq);
+    const idx = v.segs.filter((sg) => P.groups.length && P.groups.some((g) => this.gm(g, sg.tok)));
+    if (!idx.length) return;
+    let target;
+    if (dir > 0) target = idx.find((sg) => sg.t > s.t + 0.5) || idx[0];
+    else {
+      const before = idx.filter((sg) => sg.t < s.t - 0.5);
+      target = before.length ? before[before.length - 1] : idx[idx.length - 1];
+    }
+    this.setState({ t: target.t });
+  }
+
+  pill(active) {
+    return active
+      ? "background: #147854; color: #ffffff; border: 1px solid #147854; border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: pointer"
+      : "background: #ffffff; color: #344054; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer";
+  }
+
+  renderVals() {
+    const s = this.state;
+    const self = this;
+    const base = {
+      input: s.input,
+      q: s.q,
+      onInput: (e) => self.setState({ input: e.target.value }),
+      onKey: (e) => { if (e.key === "Enter") self.run(self.state.input); },
+      onFocus: () => { clearTimeout(self.blurTimer); self.setState({ focus: true, filters: false }); },
+      onBlur: () => { self.blurTimer = setTimeout(() => self.setState({ focus: false }), 150); },
+      clear: () => self.setState({ input: "", q: "", screen: s.screen === "results" ? "home" : s.screen, focus: false }),
+      goHome: () => self.setState({ screen: "home", playing: false, focus: false, filters: false }),
+      toggleFilters: () => self.setState({ filters: !self.state.filters, focus: false }),
+      showSuggest: s.focus && !s.input,
+      showFilters: s.filters,
+      suggestions: [
+        { label: "kubernetes", hint: "mot présent dans le titre et dans ce qui est dit" },
+        { label: "\"données personnelles\"", hint: "expression exacte, dans trois vidéos" },
+        { label: "conférences", hint: "trouve aussi « conférence »" },
+        { label: "ecole", hint: "sans accent, trouve « école »" },
+        { label: "ffmpeg -audio", hint: "exclut la vidéo qui parle d’audio" },
+        { label: "kubernets", hint: "faute de frappe : aucun résultat en V1" }
+      ].map((x) => ({ label: x.label, hint: x.hint, run: () => self.run(x.label) })),
+      isHome: s.screen === "home",
+      isResults: s.screen === "results",
+      isVideo: s.screen === "video"
+    };
+
+    const cat = this.catalog();
+    base.homeVideos = cat.slice().sort((a, b) => a.rank - b.rank).map((v) => ({
+      title: v.title, thumb: v.thumb, views: v.views, dur: this.fmt(v.duration), meta: "demo · " + v.date,
+      open: () => self.openVideo(v.id, 0, "")
+    }));
+
+    if (s.screen === "results") {
+      const R = this.search(s.q);
+      const list = R.out.slice().sort((a, b) => (s.sort === "rec" ? a.v.rank - b.v.rank : b.score - a.score || a.v.rank - b.v.rank));
+      const total = list.reduce((n, r) => n + r.hits.length, 0);
+      base.videoCountLabel = list.length + (list.length > 1 ? " vidéos trouvées" : " vidéo trouvée");
+      base.passageCountLabel = total + (total > 1 ? " passages dans les sous-titres" : " passage dans les sous-titres");
+      base.relStyle = this.pill(s.sort !== "rec");
+      base.recStyle = this.pill(s.sort === "rec");
+      base.sortRel = () => self.setState({ sort: "rel" });
+      base.sortRec = () => self.setState({ sort: "rec" });
+      base.hasResults = list.length > 0;
+      base.noResults = list.length === 0;
+      base.results = list.map((r) => {
+        const v = r.v;
+        const open = !!s.expanded[v.id];
+        const best = r.hits.slice().sort((a, b) => b.n - a.n || a.s.t - b.s.t).slice(0, 3).sort((a, b) => a.s.t - b.s.t);
+        const shownHits = open ? r.hits : best;
+        return {
+          title: v.title,
+          openLabel: "Ouvrir la vidéo " + v.title,
+          titleParts: this.parts(v.title, R.P),
+          thumb: v.thumb,
+          views: v.views,
+          dur: this.fmt(v.duration),
+          meta: "demo · " + v.date + " · intervenant : " + v.speakers.join(", "),
+          badges: r.badges.map((b) => ({ label: b })),
+          hasPassages: r.hits.length > 0,
+          shown: shownHits.map((h) => ({
+            tLabel: this.fmt(h.s.t),
+            parts: this.parts(h.s.text, R.P),
+            open: () => self.openVideo(v.id, h.s.t, s.q)
+          })),
+          hasMore: r.hits.length > 3,
+          moreLabel: open ? "Afficher moins de passages" : "Voir les " + (r.hits.length - 3) + " autres passages",
+          toggleMore: () => {
+            const e = Object.assign({}, self.state.expanded);
+            e[v.id] = !e[v.id];
+            self.setState({ expanded: e });
+          },
+          open: () => self.openVideo(v.id, 0, s.q)
+        };
+      });
+      const dym = list.length === 0 ? this.suggest(s.q) : null;
+      base.hasDym = !!dym;
+      base.dymLabel = dym || "";
+      base.dymRun = () => { if (dym) self.run(dym); };
+    } else {
+      base.videoCountLabel = "";
+      base.passageCountLabel = "";
+      base.results = [];
+      base.hasResults = false;
+      base.noResults = false;
+      base.hasDym = false;
+    }
+
+    if (s.screen === "video") {
+      const v = this.byId(s.vid);
+      const P = this.parse(s.vq);
+      const matches = [];
+      base.v = {
+        title: v.title, thumb: v.thumb, durLabel: this.fmt(v.duration), desc: v.desc, date: v.date,
+        speakers: v.speakers.join(", "), tags: v.tags.map((t) => ({ name: t }))
+      };
+      base.segs = v.segs.map((sg, i) => {
+        const next = v.segs[i + 1];
+        const active = s.t >= sg.t && (!next || s.t < next.t);
+        const match = P.groups.length > 0 && P.groups.some((g) => this.gm(g, sg.tok));
+        if (match) matches.push(sg);
+        const bg = active ? "#ddf5ea" : match ? "#ffffff" : "transparent";
+        const border = active ? "#1dac78" : match ? "rgba(0, 0, 0, 0.08)" : "transparent";
+        return {
+          tLabel: this.fmt(sg.t),
+          parts: this.parts(sg.text, P),
+          seek: () => self.setState({ t: sg.t }),
+          style: "display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%; cursor: pointer; border-radius: 12px; padding: 8px 10px; background: " + bg + "; border: 1px solid " + border
+        };
+      });
+      const pos = matches.filter((m) => m.t <= s.t + 0.5).length;
+      base.occLabel = s.vq.trim() ? (matches.length ? Math.max(pos, 1) + " / " + matches.length : "0 résultat") : "";
+      base.markers = matches.map((m) => ({
+        style: "position: absolute; top: -4px; width: 4px; height: 14px; border-radius: 2px; background: #facc15; left: " + (m.t / v.duration * 100).toFixed(2) + "%"
+      }));
+      base.progressStyle = "height: 100%; border-radius: 999px; background: #1dac78; width: " + (s.t / v.duration * 100).toFixed(2) + "%";
+      base.tLabel = this.fmt(s.t);
+      base.playing = s.playing;
+      base.paused = !s.playing;
+      base.playLabel = s.playing ? "Pause" : "Lire";
+      base.togglePlay = () => self.setState({ playing: !self.state.playing, toast: "" });
+      base.vq = s.vq;
+      base.onVq = (e) => self.setState({ vq: e.target.value });
+      base.occPrev = () => self.jump(-1);
+      base.occNext = () => self.jump(1);
+      base.toast = s.toast;
+      base.toastShow = !!s.toast;
+      base.hasQ = !!s.q;
+      base.backToResults = () => self.setState({ screen: "results", playing: false, input: self.state.q });
+    } else {
+      base.v = { title: "", thumb: "", durLabel: "", desc: "", date: "", speakers: "", tags: [] };
+      base.segs = [];
+      base.markers = [];
+      base.occLabel = "";
+      base.toastShow = false;
+      base.hasQ = false;
+      base.paused = true;
+      base.playing = false;
+    }
+    return base;
+  }
+}
+</script>
+</body>
+</html>
