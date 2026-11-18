@@ -343,3 +343,13 @@ Sans `VIDEO_EDIT_RENDER_QUEUE_URL`, ou avec `TRANSCODING_QUEUE_PROVIDER` autre q
 En local : `ffmpegServer/docker-compose.yml` démarre aussi `ffmpeg-render` (port 8084) et ElasticMQ crée la queue `ochocast-local-render`. Avec le provider `local`, renseigner `VIDEO_EDIT_RENDER_QUEUE_URL=http://127.0.0.1:9324/000000000000/ochocast-local-render` ; le backend relaie alors chaque message vers `LOCAL_RENDER_BRIDGE_WORKER_URL` (défaut `http://127.0.0.1:8084/`).
 
 Le port 8084 peut déjà être pris sur la machine (par exemple par un autre logiciel ; `lsof -nP -iTCP:8084 -sTCP:LISTEN` montre lequel). Exposer alors le worker de rendu sur un port libre, en changeant la partie gauche de `'8084:8080'` dans `docker-compose.yml` (ou en le démarrant hors Compose avec `PORT=8085`), puis pointer le backend dessus avec `LOCAL_RENDER_BRIDGE_WORKER_URL=http://127.0.0.1:8085/`.
+
+## Analyse des silences sur la file de rendu (option B)
+
+Le déploiement `FFMPEG_WORKER_MODE=render` accepte aussi les messages signés `type=silence_analysis`. Les rendus existants sans type restent compatibles. Aucun nouveau déploiement, trigger ou queue nécessaire ; cache, déduplication et suivi sont dans `video_edit_analysis_job` côté backend.
+
+`VIDEO_EDIT_ANALYSIS_TIMEOUT_MS=300000` côté backend et worker : cinq minutes de téléchargement/inspection/analyse audio après claim, sans encodage vidéo. Plage 1000..600000 ms, strictement inférieure au timeout de rendu. L’attente dans la file ne compte pas dans ce budget ; elle est explicitement indiquée dans l’interface. Les progressions sont envoyées de façon bornée, sans callbacks concurrents ou accumulation.
+
+L’émission reste désactivée par défaut (`VIDEO_EDIT_ANALYSIS_ENABLED=false`). Mettre à jour le backend/migration puis **tous les workers render** dans une même livraison coordonnée, et activer seulement ensuite : voir `docs/montage-video/HANDOFF.md`. Un type inconnu renvoie 400 sans bloquer le slot ; un ancien worker rejette les nouveaux messages faute de champs de montage. Ces rejets peuvent être relivrés/DLQ : ils ne remplacent pas l’ordre de déploiement.
+
+L’extraction pendant l’upload reste une optimisation possible ; une queue séparée n’est envisagée que si les mesures de charge et d’attente sur de vrais lives l’imposent. Aucun fichier vidéo de test ne doit être commité.

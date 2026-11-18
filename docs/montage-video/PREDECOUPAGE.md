@@ -1,6 +1,6 @@
-# Pré-découpage par silences : cadrage avant code
+# Pré-découpage par silences — première version
 
-L’approche `silencedetect` est validée. Cette fonctionnalité n’est pas encore implémentée : ce document expose son exécution, son interface d’attente et son stockage avant le code.
+L’option B est implémentée sur `feat/video-edit-ui` : analyse à la demande dans le mode et la file de rendu existants, avec cache PostgreSQL et déduplication. La comparaison ci-dessous conserve les raisons du choix. L’activation en production reste conditionnée au déploiement coordonné décrit dans `HANDOFF.md`.
 
 ## Règles confirmées
 
@@ -30,9 +30,9 @@ A convient comme pré-calcul pour les futurs uploads. Seul, il ne satisfait pas 
 
 ### Faisabilité de B et recommandation
 
-**Recommandation pour la première version : B, sans nouvelle file ni nouveau déploiement.** C n’est pas retenue à ce stade. A pourra ensuite pré-remplir le même stockage pour réduire l’attente des nouveaux uploads, si l’usage justifie le calcul systématique ; B restera le rattrapage du stock et du recalcul.
+**Choix validé et implémenté pour la première version : B, sans nouvelle file ni nouveau déploiement.** C n’est pas retenue à ce stade. A pourra ensuite pré-remplir le même stockage pour réduire l’attente des nouveaux uploads, si l’usage justifie le calcul systématique ; B restera le rattrapage du stock et du recalcul.
 
-Ce n’est pas un simple nouvel alias HTTP : le trigger envoie à `POST /` et le mode `render` utilise actuellement `parseRenderEnvelope`/`RenderRunner`, qui exigent un montage et sa version. Il faut un discriminant signé (`render` ou `silence_analysis`), un dispatch à la racine et des contrats de claim/résultat propres à l’analyse. Les messages de rendu existants sans discriminant restent compatibles. Le job d’analyse utilise sa propre table et son propre statut : il ne passe pas le montage en `pending`, ne verrouille pas ses modifications et ne déclenche aucun encodage HLS.
+Ce n’est pas un simple nouvel alias HTTP : le trigger envoie à `POST /` et le mode `render` utilise actuellement `parseRenderEnvelope`/`RenderRunner`, qui exigent un montage et sa version. Le code ajoute un discriminant signé (`render` ou `silence_analysis`), un dispatch à la racine et des contrats de claim/résultat propres à l’analyse. Les messages de rendu existants sans discriminant restent compatibles. Le job d’analyse utilise sa propre table et son propre statut : il ne passe pas le montage en `pending`, ne verrouille pas ses modifications et ne déclenche aucun encodage HLS.
 
 L’analyse réutilise l’image FFmpeg, le client S3, les signatures, le déploiement, la file et le trigger du rendu ; elle conserve des verrous, une idempotence et une réconciliation spécifiques. Aucune URL arbitraire n’est acceptée depuis le navigateur : le worker reçoit la source validée par le backend. FFprobe vérifie les pistes ; sans audio, résultat `no_audio` immédiat après inspection.
 
@@ -58,11 +58,11 @@ Le suivi se fait par requêtes espacées sans chevauchement, avec reprise résea
 
 ## Stockage proposé
 
-Une table PostgreSQL dédiée `video_edit_analysis_job` conserve : vidéo, demandeur, type d’analyse, identité de la source (clé, taille et ETag), paramètres effectifs, statut, progression, verrous/tentatives, dates, erreur éventuelle et résultat JSON des temps source proposés. Le résultat distingue notamment `no_audio`, `no_silence` et une liste de coupes. Aucun nouveau fichier vidéo ni brouillon de montage n’est produit.
+La migration `1795000000000-AddVideoEditAnalysis` crée la table PostgreSQL `video_edit_analysis_job`, qui conserve : vidéo, demandeur, type d’analyse, identité de la source (clé, taille et ETag), paramètres effectifs, statut, progression, verrous/tentatives, dates, erreur éventuelle et résultat JSON des temps source proposés. Le résultat distingue notamment `no_audio`, `no_silence` et une liste de coupes. Aucun nouveau fichier vidéo ni brouillon de montage n’est produit.
 
-Le frontend lit le résultat via une route protégée de suivi ; il ne le stocke pas comme montage. Une analyse n’est réutilisable que si l’original et les paramètres correspondent. Proposition de rétention : 24 h pour les résultats, à confirmer avec l’équipe ; suppression en cascade si la vidéo est supprimée.
+Le frontend lit le résultat via une route protégée de suivi ; il ne le stocke pas comme montage. Une analyse n’est réutilisable que si l’original et les paramètres correspondent. Les résultats sont mis en cache 24 h après leur achèvement, puis nettoyés ; suppression en cascade si la vidéo est supprimée. Le cache est invalidé si clé, ETag, taille ou réglages de détection changent.
 
-Contrat API proposé avant implémentation : `POST /api/videos/:videoId/edit/silence-analysis` (202 et identifiant), `GET /api/videos/:videoId/edit/silence-analysis/:jobId` (état/résultat), plus lecture du dernier job de cette vidéo pour la reprise. Ces routes n’exigent pas un montage préexistant et appliquent les droits de `getEditableVideo`.
+Contrat API : `POST /api/videos/:videoId/edit/silence-analysis` (202 et identifiant), `GET /api/videos/:videoId/edit/silence-analysis/:jobId` (état/résultat), `GET /api/videos/:videoId/edit/silence-analysis` pour le dernier job et la reprise. Ces routes n’exigent pas un montage préexistant et appliquent les droits de `getEditableVideo`.
 
 ## Validation restante
 
@@ -71,3 +71,45 @@ Les vrais lives seront fournis plus tard par l’utilisateur : 2 ou 3 enregistre
 Mesurer un live de 45 minutes avant de fixer timeout, mémoire/disque et estimation d’attente. Couvrir aussi : aucune piste audio, parole continue, silence en début/fin, coupes proches, plus de 99 points, changements locaux pendant l’analyse, source modifiée, reprise réseau et droits d’accès.
 
 Référence primaire : [FFmpeg silencedetect](https://ffmpeg.org/ffmpeg-filters.html#silencedetect).
+
+## Configuration et délai maximal
+
+Backend :
+
+```dotenv
+# false par défaut ; activer seulement après mise à jour de tous les workers
+VIDEO_EDIT_ANALYSIS_ENABLED=false
+VIDEO_EDIT_ANALYSIS_TIMEOUT_MS=300000
+VIDEO_EDIT_SILENCE_NOISE_DB=-35
+VIDEO_EDIT_SILENCE_MIN_DURATION_SECONDS=0.8
+```
+
+Worker en mode `render` : `VIDEO_EDIT_ANALYSIS_TIMEOUT_MS=300000`, strictement inférieur à `TRANSCODING_JOB_TIMEOUT_MS`. Le timeout d’analyse accepte de 1 000 à 600 000 ms ; **5 minutes par défaut**, distinct du budget de rendu (50 minutes de calcul par défaut, 55 minutes au plus pour HTTP). Les deux valeurs backend/worker doivent être alignées ; le worker applique le plus petit budget, jamais un budget supérieur au sien.
+
+Ce délai couvre téléchargement, inspection FFprobe et détection audio après le claim ; il ne couvre pas l’attente dans la file partagée. Les callbacks ont leurs propres délais réseau bornés. Le timeout est définitif pour cette demande, afin de ne pas répéter trois fois un calcul trop long. Les erreurs réseau temporaires peuvent être réessayées (trois acquisitions au maximum).
+
+Un verrou de la ligne vidéo et un index unique partiel sur les statuts actifs empêchent deux demandes simultanées de lancer deux analyses, même entre réplicas ou avec des paramètres différents. Les résultats `no_audio` et `no_silence` sont aussi cachés. La demande est stockée avant publication ; une maintenance reprend la publication non confirmée et les baux expirés. Le bail d’analyse vaut son budget +60 s : une reprise n’attend donc pas les 3 900 s de visibilité de la file partagée. Les doublons sont acquittés sans retraitement si le job est terminé.
+
+Les progrès sont limités à un callback en cours, espacés d’au moins 2 s, sans accumulation d’une file de callbacks qui pourrait prolonger le traitement. L’interface suit le job sans requêtes concurrentes et affiche explicitement qu’il peut attendre derrière les rendus ; le montage reste modifiable.
+
+## Vérifications de cette version
+
+- Tests FFmpeg : vidéos générées à la volée dans le répertoire temporaire système, avec un silence, avec audio continu et sans piste audio ; changement de durée minimale, timeout propre à l’analyse, compatibilité des messages et rejet HTTP d’un type inconnu sans bloquer le job suivant.
+- PostgreSQL réel : 24 demandes concurrentes, acquisition exclusive, cache et invalidation ETag, expiration du cache, callbacks idempotents, reprise après bail expiré/publication interrompue, droits et validation HTTP. Les tests utilisent un schéma temporaire isolé dans une base explicitement de test ; aucun schéma applicatif existant n’est effacé.
+- Frontend : acceptation explicite, absence de modification automatique, règles 5 s/100 passages, textes suivant les coupes, réévaluation après modifications locales, messages `no_audio`/`no_silence`, reprise et attente en file.
+- Recette réelle : Keycloak + backend + PostgreSQL de test + MinIO/buckets de test + ElasticMQ + image worker construite de cette branche. Pour chaque média généré, deux POST simultanés ont donné le même job, une seule ligne a été créée et un POST après succès a réutilisé le cache. Résultats : coupe à 6 s, zéro coupe pour audio continu, zéro coupe avec `no_audio` pour vidéo muette. Dans Chrome : sélection appliquée seulement en local, aucun PUT automatique, montage serveur inchangé avant sauvegarde globale. Le panneau tient sur mobile ; la barre de recherche partagée de l’en-tête présente un débordement antérieur, hors de ce changement.
+
+Commandes :
+
+```bash
+cd backend
+# Base dédiée, jamais la base applicative ; ou VIDEO_EDIT_TEST_DATABASE_URL en CI
+VIDEO_EDIT_ANALYSIS_TEST_DATABASE_URL=postgresql://…/ochocast_analysis_test npm run test:unit -- --runInBand src/video-edits/analysis.postgres.spec.ts
+npm run test:unit -- --runInBand tests/video-edits
+cd ../ffmpegServer
+node --test --require ts-node/register tests/analysis.test.ts
+cd ../frontend
+CI=true npm test -- --watchAll=false --runInBand src/pages/videoEdit
+```
+
+Aucune vidéo de test n’est commitée : les fichiers générés et les futurs vrais lives restent hors dépôt. Les résultats sur de vrais lives et la mesure sur 45 minutes restent à effectuer lorsque l’équipe fournira le corpus. A reste une optimisation possible à l’upload ; C n’est réexaminée que si les mesures révèlent un problème de délai.

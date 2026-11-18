@@ -3,7 +3,7 @@
 Le créateur d'une vidéo, ou un administrateur, peut la monter : garder certains passages, les réordonner et y ajouter du texte. Le montage est **non destructif** : la vidéo originale n'est jamais modifiée, et on peut toujours y revenir.
 
 :::info État actuel
-Le modèle de données, l'API, le rendu FFmpeg et l'interface de montage sont en place. Le pré-découpage automatique reste à spécifier. La maquette de l'interface se trouve dans `docs/montage-video/maquette/`. Sans file de rendu configurée sur l'environnement, l'enregistrement d'un montage (`PUT`) répond `503`.
+Le modèle de données, l'API, le rendu FFmpeg et l'interface de montage sont en place. Le pré-découpage par silences est disponible quand il est activé par l’équipe. La maquette de l'interface se trouve dans `docs/montage-video/maquette/`. Sans file de rendu configurée sur l'environnement, l'enregistrement d'un montage (`PUT`) répond `503`.
 :::
 
 ## Principe
@@ -197,3 +197,15 @@ Depuis la page vidéo, « Monter la vidéo » ouvre `/video/:videoId/edit` pour 
 - Le retour à l’original demande confirmation. La page vidéo et les vignettes affichent « Modifiée » et `renderedDuration` lorsqu’une version montée est active. Les sous-titres restent masqués sur celle-ci.
 
 Tests : depuis `frontend/`, `CI=true npm test -- --watchAll=false --runInBand src/pages/videoEdit src/pages/videoMedia/videoMedia.test.tsx`, puis `npx tsc --noEmit`. Les tests couvrent les validations, les coupes et leurs textes, les clés locales, les déplacements, l’accès à la source, les erreurs, le verrou optimiste, le suivi du rendu et la confirmation du retour à l’original.
+
+## Proposer des coupes par les silences
+
+Le panneau « Coupes proposées par les silences » analyse l’original à la demande. Sélectionnez les points proposés puis « Appliquer les coupes sélectionnées », ou ignorez-les. Aucune portion n’est supprimée et aucun PUT n’est effectué avant « Modifier la vidéo ». Les points sont revalidés contre les passages locaux (5 s minimum, 100 passages au maximum) ; les textes sont répartis comme lors d’une coupe manuelle.
+
+L’analyse partage la file des rendus : un message indique clairement qu’elle peut attendre derrière d’autres traitements. Après prise en charge, l’interface indique lecture de l’original puis progression de la détection, avec temps écoulé ; on peut quitter et revenir. Le calcul dispose de cinq minutes par défaut, configurables indépendamment du rendu. L’attente en file est distincte. Sans piste audio : « Cette vidéo n’a pas de piste audio : aucune coupe proposée ». Sans silence correspondant : message spécifique, sans modifier le montage.
+
+- `POST /api/videos/:videoId/edit/silence-analysis` → 202, job existant/actif ou nouveau, cache 24 h si même source/réglages.
+- `GET /api/videos/:videoId/edit/silence-analysis` → dernier job, pour reprendre le suivi.
+- `GET /api/videos/:videoId/edit/silence-analysis/:jobId` → statut, phase, réglages, progression, résultat (`cuts`, `no_silence`, `no_audio`).
+
+Droits créateur/admin ; UUID invalide 400, refus 403, inconnu 404, original absent/vidéo non prête 409, fonctionnalité désactivée 503. L’analyse fonctionne sans montage préexistant. Le seuil de bruit et la durée minimale sont configurés côté serveur, pas saisis par l’utilisateur ; voir `PREDECOUPAGE.md`.

@@ -144,7 +144,7 @@ Contournement de vérification utilisé : Node 22 via nvm, `npx tsc --noEmit`, t
 
 Recette complète effectuée sur le build réel du frontend avec Keycloak, PostgreSQL, MinIO, ElasticMQ et les workers FFmpeg de cette branche : trois passages réordonnés, texte coupé en deux, rendu `ready` en 21,079 s, lecture HLS et textes vérifiés, retour à l’original, puis échec volontaire `invalid_source` en une tentative. Source originale conservée et métadonnées de test restaurées. Voir [le compte rendu détaillé](RECETTE-LOCALE-2026-11-18.md).
 
-Une correction UI ajoute un chargeur compact : le statut ne doit pas être repoussé sous le premier écran par un chargeur de 100vh. Vérifié sur un nouveau rendu réel après l’échec volontaire, avec suivi `pending → processing → ready`, puis nouveau retour à l’original. TypeScript, 31 tests frontend ciblés et build réussis (limite ESLint inchangée). Le pré-découpage n’est pas encore codé ; son exécution, l’attente pour 45 minutes et le stockage proposé sont décrits dans [PREDECOUPAGE.md](PREDECOUPAGE.md). La condition d’essais sur de vrais lives reste ouverte tant que le corpus n’est pas fourni.
+Une correction UI ajoute un chargeur compact : le statut ne doit pas être repoussé sous le premier écran par un chargeur de 100vh. Vérifié sur un nouveau rendu réel après l’échec volontaire, avec suivi `pending → processing → ready`, puis nouveau retour à l’original. TypeScript, 31 tests frontend ciblés et build réussis (limite ESLint inchangée). Le pré-découpage a ensuite été implémenté (voir la mise à jour ci-dessous) ; son exécution, l’attente pour 45 minutes et le stockage sont décrits dans [PREDECOUPAGE.md](PREDECOUPAGE.md). La condition d’essais sur de vrais lives reste ouverte tant que le corpus n’est pas fourni.
 
 Les données de recette, initialement conservées pour revue, ont ensuite été nettoyées après autorisation (voir la mise à jour ci-dessous). Le `.env` existant est inchangé : pour cette recette, **provider, endpoint, URL de file et clés** ont tous été remplacés par les valeurs locales dans le processus backend.
 
@@ -152,4 +152,30 @@ Les données de recette, initialement conservées pour revue, ont ensuite été 
 
 Après autorisation explicite et présentation de l’inventaire, les données dédiées à la recette ont été nettoyées : vidéo et lignes associées, utilisateur PostgreSQL/Keycloak, 102 objets MinIO et traces temporaires. Les autres vidéos/comptes et le fichier source de Downloads sont conservés. Le compte rendu de recette reste dans le dépôt.
 
-La proposition initiale de file d’analyse séparée est remplacée par la recommandation **job d’analyse typé dans la file et le déploiement de rendu existants**, sans nouvelle ressource ops. `PREDECOUPAGE.md` compare ce choix au pré-calcul à l’upload (utile pour les futurs uploads mais insuffisant pour le stock) et à une isolation dédiée (non retenue tant que les mesures de charge ne l’imposent pas). PostgreSQL et l’attente avec progression restent validés. Aucun code de pré-découpage ajouté ; les vrais lives de validation seront fournis plus tard et resteront hors dépôt.
+La proposition initiale de file d’analyse séparée est remplacée par la recommandation **job d’analyse typé dans la file et le déploiement de rendu existants**, sans nouvelle ressource ops. `PREDECOUPAGE.md` compare ce choix au pré-calcul à l’upload (utile pour les futurs uploads mais insuffisant pour le stock) et à une isolation dédiée (non retenue tant que les mesures de charge ne l’imposent pas). PostgreSQL et l’attente avec progression restent validés. L’option B a ensuite été implémentée ; les vrais lives de validation seront fournis plus tard et resteront hors dépôt.
+
+## Pré-découpage option B implémenté — déploiement coordonné
+
+La première version utilise le worker **mode render** et sa file existante. Aucun nouveau conteneur, aucune nouvelle file ni aucun nouveau trigger à créer en production. La table `video_edit_analysis_job` conserve le cache 24 h, les demandes actives et leurs baux. Le frontend laisse choisir les propositions sans sauvegarde automatique ; « sans audio » et « aucun silence » sont des résultats normaux. Voir `PREDECOUPAGE.md` pour le contrat et les tests.
+
+### Ordre impératif pour backend et worker
+
+Backend et worker forment une même livraison fonctionnelle ; **ne pas activer l’émission de jobs d’analyse avec un parc mixte**.
+
+1. Garder `VIDEO_EDIT_ANALYSIS_ENABLED=false` (défaut) et appliquer la migration `1795000000000-AddVideoEditAnalysis` après les migrations existantes.
+2. Déployer le backend avec les routes d’analyse et callbacks. Garder la publication désactivée. Les rendus existants sans champ `type` restent compatibles.
+3. Mettre à jour **toutes** les instances du déploiement FFmpeg `render` avec l’image acceptant les messages typés, en laissant finir les rendus engagés ; même file, même trigger. Régler `VIDEO_EDIT_ANALYSIS_TIMEOUT_MS=300000` côté backend et worker, inférieur au timeout du rendu.
+4. Vérifier santé, compatibilité d’un rendu classique, analyse générée et callbacks, puis activer `VIDEO_EDIT_ANALYSIS_ENABLED=true` sur le backend. Déployer le frontend avec le panneau de propositions dans cette fenêtre coordonnée.
+5. Pour revenir en arrière : suspendre les nouvelles demandes au point d’entrée, vérifier d’abord qu’aucune demande ne reste à publier (`pending` avec `publishedAt IS NULL`), puis désactiver le flag, laisser terminer/drainer les analyses et rendre inoffensives les redélivrances avant de remettre un ancien worker. Le flag désactive aussi la reprise de publication ; conserver le nouveau backend/worker le temps de résoudre tout élément d’outbox non publié. Ne pas retirer le nouveau routage tant que des messages typés peuvent encore être livrés.
+
+### Types inconnus et anciens workers
+
+Le discriminant `type: silence_analysis` est inclus dans la signature HMAC. Ces messages n’ont **ni editId ni version** : un worker antérieur à cette fonctionnalité les rejette avec HTTP 400 par sa validation de rendu au lieu d’exécuter un faux montage. Le nouveau routage rejette aussi explicitement tout type inconnu, même s’il porte des champs de rendu. Après rejet, le slot HTTP est libéré et le processus reste sain ; les tests vérifient le traitement du message suivant.
+
+Un rejet n’est pas un acquittement : le trigger peut relivrer le message puis l’envoyer en DLQ. Il ne faut donc pas utiliser ce rejet comme stratégie de déploiement. On ne peut pas ajouter rétroactivement une capacité à un ancien binaire : la garantie opérationnelle repose sur la désactivation de publication pendant la mise à jour de **tous** les workers, puis sur leur vérification avant activation. Surveiller la DLQ en cas de rollback ou de version inattendue.
+
+Budget d’exécution par analyse : **5 minutes**, configurable de 1 s à 10 minutes et imposé aussi pendant le téléchargement ; l’attente derrière les rendus est distincte et expliquée à l’écran. Les baux expirés sont repris sans attendre la visibilité partagée de 3 900 s. Trois tentatives au maximum pour les erreurs temporaires ; timeout et original invalide sont définitifs pour la demande.
+
+Vérifications : tests générés FFmpeg, PostgreSQL réel/concurrence/cache et HTTP, tests frontend, recette réelle avec trois médias générés et cache confirmé. Les vrais lives (dont un sans audio) et la mesure de 45 minutes restent attendus ; ne pas annoncer de performance de production à partir des petits médias générés. Tous ces médias restent hors dépôt.
+
+Résultats finaux de cette version : **141 tests backend, 41 tests frontend, 36 tests worker dans Docker**, TypeScript sur les trois projets et build frontend réussis (limite ESLint inchangée). La recette réelle d’analyse sur médias générés est décrite dans [RECETTE-ANALYSE-2026-11-18.md](RECETTE-ANALYSE-2026-11-18.md). Les fixtures, leur utilisateur et les buckets/base dédiés ont été nettoyés après annonce du périmètre ; les 10 vidéos de la base applicative originale et `Downloads/videoTest.mp4` sont inchangés.
