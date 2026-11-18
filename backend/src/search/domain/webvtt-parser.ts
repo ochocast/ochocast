@@ -7,7 +7,7 @@ export interface TranscriptCue {
 const NON_CUE_BLOCK = /^(NOTE|STYLE|REGION)(\s|$)/;
 const TIMESTAMP = /^(?:(\d+):)?(\d{2}):(\d{2})\.(\d{3})$/;
 // <v Name>, <c.class>, <i>, <b>, <u>, <00:00:03.000> and their closing tags
-const TAG = /<\/?[\w.:]+(?:\s[^>]*)?>/g;
+const TAG = /<\/?[\w.:-]+(?:\s[^>]*)?>/g;
 
 function parseTimestamp(value: string): number | null {
   const match = TIMESTAMP.exec(value);

@@ -59,11 +59,13 @@ describe('parseWebVtt', () => {
   it('strips voice, class, italic, bold and inline timestamp tags', () => {
     const vtt =
       'WEBVTT\n\n00:00:01.000 --> 00:00:04.000\n<v Marie><i>Salut</i> <c.red>toi</c><00:00:03.000></v>\n\n' +
-      '00:00:05.000 --> 00:00:06.000\n<b>gras</b> <u>souligné</u> <c>classe</c>\n';
+      '00:00:05.000 --> 00:00:06.000\n<b>gras</b> <u>souligné</u> <c>classe</c>\n\n' +
+      '00:00:07.000 --> 00:00:08.000\n<c.bg-red>hi</c>\n';
 
     expect(parseWebVtt(vtt)).toEqual([
       { start: 1, end: 4, text: 'Salut toi' },
       { start: 5, end: 6, text: 'gras souligné classe' },
+      { start: 7, end: 8, text: 'hi' },
     ]);
   });
 
