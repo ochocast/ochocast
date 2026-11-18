@@ -296,10 +296,10 @@ export default function VideoEditPage() {
         </div>
       )}
       {loading ? (
-        <LoadingCircle />
+        <LoadingCircle compact />
       ) : isRendering(edit?.renderStatus) ? (
         <section className={styles.panel} aria-live="polite">
-          <LoadingCircle />
+          <LoadingCircle compact />
           <h2>{t('videoEdit.processing')}</h2>
           <p>{t('videoEdit.processingHelp')}</p>
           <p>
