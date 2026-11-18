@@ -259,4 +259,94 @@ integration('TranscriptIndexer (PostgreSQL)', () => {
       error.mockRestore();
     }
   });
+
+  it('reindexes every pending video and is idempotent', async () => {
+    // Whatever the previous tests left: every fixture video starts ready,
+    // pointing at its automatic subtitle, with no index.
+    for (const id of Object.values(ids)) {
+      await setVideo(id, autoKey(id));
+      await unindex(id);
+    }
+    for (const [name, id] of Object.entries(ids)) {
+      objects.set(autoKey(id), fixtureVtt(name as keyof FixtureIds));
+    }
+    // Up to date: indexed and left alone.
+    await indexer.indexVideo(ids.ffmpeg);
+    // Indexed, then its subtitle was removed.
+    await indexer.indexVideo(ids.sport);
+    await setVideo(ids.sport, '');
+    // Not ready: nothing to read yet.
+    await setVideo(ids.logique, 'subtitle-new.vtt', 'pending');
+    objects.set('subtitle-new.vtt', fixtureVtt('logique'));
+    // k8s, rgpd and pgsearch: ready, subtitle not indexed.
+    send.mockClear();
+
+    await expect(indexer.reindexAll()).resolves.toEqual({
+      indexed: 3,
+      cleared: 1,
+      failed: 0,
+      unchanged: 0,
+    });
+
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(await segmentCount(ids.k8s)).toBe(11);
+    expect(await segmentCount(ids.rgpd)).toBe(9);
+    expect(await segmentCount(ids.pgsearch)).toBeGreaterThan(0);
+    expect(await segmentCount(ids.ffmpeg)).toBe(8);
+    expect(await segmentCount(ids.sport)).toBe(0);
+    expect(await transcriptRows(ids.sport)).toHaveLength(0);
+    expect(await segmentCount(ids.logique)).toBe(0);
+    expect(await transcriptRows(ids.logique)).toHaveLength(0);
+
+    send.mockClear();
+    await expect(indexer.reindexAll()).resolves.toEqual({
+      indexed: 0,
+      cleared: 0,
+      failed: 0,
+      unchanged: 0,
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('visits every video once when more than one page keeps failing', async () => {
+    // 45 clones with the same "createdAt": the id tiebreak must carry the paging.
+    const clones = await db.query(
+      `INSERT INTO video_entity (id, media_id, miniature_id, subtitle_id, transcription_status,
+         title, description, external_speakers, views, duration, transcoding_status, archived,
+         "creatorId", "createdAt", "updatedAt")
+       SELECT gen_random_uuid(), media_id, miniature_id, 'subtitle-gone.vtt', 'ready',
+         'clone ' || n, description, external_speakers, 0, duration, 'ready', false,
+         "creatorId", "createdAt", "updatedAt"
+       FROM video_entity, generate_series(1, 45) AS n
+       WHERE id = $1
+       RETURNING id`,
+      [ids.k8s],
+    );
+    const error = silenceErrors();
+    try {
+      // The six fixture videos are up to date, only the clones are pending.
+      for (const id of Object.values(ids)) await unindex(id);
+      for (const [name, id] of Object.entries(ids)) {
+        objects.set(autoKey(id), fixtureVtt(name as keyof FixtureIds));
+        await setVideo(id, autoKey(id));
+        await indexer.indexVideo(id);
+      }
+      send.mockClear();
+
+      await expect(indexer.reindexAll()).resolves.toEqual({
+        indexed: 0,
+        cleared: 0,
+        failed: 45,
+        unchanged: 0,
+      });
+
+      expect(send).toHaveBeenCalledTimes(45);
+      for (const { id } of clones) {
+        expect(error).toHaveBeenCalledWith(expect.stringContaining(id));
+      }
+    } finally {
+      error.mockRestore();
+      await db.query(`DELETE FROM video_entity WHERE title LIKE 'clone %'`);
+    }
+  });
 });

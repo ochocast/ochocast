@@ -16,6 +16,27 @@ const LOCK_NAMESPACE = 1794470400;
 const MAX_SUBTITLE_BYTES = 4 * 1024 ** 2;
 const INSERT_BATCH_SIZE = 1000;
 const LANGUAGE = 'fr';
+const REINDEX_PAGE_SIZE = 20;
+
+export interface ReindexSummary {
+  indexed: number;
+  cleared: number;
+  failed: number;
+  unchanged: number;
+}
+
+// Both sets only ever look at `video_entity` and `video_transcript`; the
+// per-video work (and its re-check under the lock) stays in `indexVideo`.
+const TO_INDEX = `
+  v.subtitle_id IS NOT NULL AND v.subtitle_id <> ''
+  AND v.transcoding_status = 'ready'
+  AND NOT EXISTS (
+    SELECT 1 FROM video_transcript t
+    WHERE t.video_id = v.id AND t.subtitle_key = v.subtitle_id
+  )`;
+const TO_CLEAN = `
+  (v.subtitle_id IS NULL OR v.subtitle_id = '')
+  AND EXISTS (SELECT 1 FROM video_transcript t WHERE t.video_id = v.id)`;
 
 // Design 6.3 / section 12: search configurations are looked up by language.
 const SEARCH_CONFIGS = {
@@ -84,6 +105,55 @@ export class TranscriptIndexer {
         }`,
       );
       return 'failed';
+    }
+  }
+
+  /**
+   * Resumes after an incident: indexes the ready videos whose subtitle is not
+   * indexed (most recent first), then clears the videos that lost theirs.
+   * Every video goes through `indexVideo`, one at a time, so a slow read never
+   * holds more than one pooled connection.
+   */
+  async reindexAll(): Promise<ReindexSummary> {
+    const summary: ReindexSummary = {
+      indexed: 0,
+      cleared: 0,
+      failed: 0,
+      unchanged: 0,
+    };
+    for (const condition of [TO_INDEX, TO_CLEAN]) {
+      for await (const videoId of this.pendingVideos(condition)) {
+        const outcome = await this.indexVideo(videoId);
+        if (outcome === 'indexed') summary.indexed++;
+        else if (outcome === 'cleared') summary.cleared++;
+        else if (outcome === 'failed') summary.failed++;
+        else summary.unchanged++;
+      }
+    }
+    return summary;
+  }
+
+  /**
+   * Keyset pagination on ("createdAt", id): a video that keeps failing stays
+   * pending, so "the first 20 still pending" would select it forever.
+   * "createdAt" travels as text to keep its microseconds.
+   */
+  private async *pendingVideos(condition: string): AsyncGenerator<string> {
+    let after: { createdAt: string; id: string } | null = null;
+    for (;;) {
+      const page: { id: string; created_at: string }[] = await this.db.query(
+        `SELECT v.id, v."createdAt"::text AS created_at
+         FROM video_entity v
+         WHERE (${condition})
+           AND ($1::text IS NULL OR (v."createdAt", v.id) < ($1::timestamp, $2::uuid))
+         ORDER BY v."createdAt" DESC, v.id DESC
+         LIMIT ${REINDEX_PAGE_SIZE}`,
+        [after?.createdAt ?? null, after?.id ?? null],
+      );
+      for (const row of page) yield row.id;
+      if (page.length < REINDEX_PAGE_SIZE) return;
+      const last = page[page.length - 1];
+      after = { createdAt: last.created_at, id: last.id };
     }
   }
 
