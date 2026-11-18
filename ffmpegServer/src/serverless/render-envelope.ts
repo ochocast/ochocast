@@ -45,6 +45,9 @@ export function parseRenderEnvelope(
     .digest();
   if (!timingSafeEqual(expected, Buffer.from(signature, 'hex')))
     throw new HttpError(401, 'Invalid job signature');
+  const type = (job as VideoEditRenderMessage & { type?: unknown }).type;
+  if (type !== undefined && type !== 'render')
+    throw new HttpError(400, 'Unsupported render job type');
   if (
     !UUID.test(job.jobId) ||
     !UUID.test(job.editId) ||

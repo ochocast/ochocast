@@ -1,3 +1,12 @@
+import { analysisSettings } from './types/analysis.types';
+import { AnalysisService } from './services/analysis.service';
+import { AnalysisBackendClient } from './serverless/analysis-backend-client';
+import { AnalysisRunner } from './serverless/analysis-runner';
+import {
+  parseEditEnvelope,
+  isAnalysis,
+  SharedEditMessage,
+} from './serverless/analysis-envelope';
 import 'dotenv/config';
 import { createServer, IncomingMessage } from 'node:http';
 import { createS3Client } from './config/s3.config';
@@ -12,7 +21,6 @@ import { MergeRunner } from './serverless/merge-runner';
 import { MergeService } from './services/merge.service';
 import { VideoTranscodingJob } from './types/job.types';
 import { RenderBackendClient } from './serverless/render-backend-client';
-import { parseRenderEnvelope } from './serverless/render-envelope';
 import { RenderRunner } from './serverless/render-runner';
 import { RenderService, renderFontFile } from './services/render.service';
 
@@ -160,18 +168,34 @@ function main() {
   if (mode !== 'transcode' && mode !== 'merge' && mode !== 'render')
     throw new Error('FFMPEG_WORKER_MODE must be transcode, merge or render');
   // A render without its font would fail every job with text: refuse to boot.
-  if (mode === 'render') renderFontFile();
+  if (mode === 'render') {
+    renderFontFile();
+    if (analysisSettings().timeoutMs >= timeoutMs)
+      throw new Error('Analysis timeout must be shorter than render timeout');
+  }
   const { server, shutdown } =
     mode === 'render'
-      ? createWorkerServer(
-          new RenderRunner(
+      ? (() => {
+          const render = new RenderRunner(
             new RenderBackendClient(backendUrl, callbackSecret),
             new RenderService(s3),
             timeoutMs,
-          ),
-          dispatchSecret,
-          { parse: parseRenderEnvelope, alias: '/render' },
-        )
+          );
+          const analysis = new AnalysisRunner(
+            new AnalysisBackendClient(backendUrl, callbackSecret),
+            new AnalysisService(s3),
+          );
+          return createWorkerServer<SharedEditMessage>(
+            {
+              run: (job, signal) =>
+                isAnalysis(job)
+                  ? analysis.run(job, signal)
+                  : render.run(job, signal),
+            },
+            dispatchSecret,
+            { parse: parseEditEnvelope, alias: '/render' },
+          );
+        })()
       : mode === 'merge'
         ? createWorkerServer(
             new MergeRunner(
