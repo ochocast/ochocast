@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -78,10 +79,19 @@ func newWebRTCAPI(publicIP string, relayOnly bool) (*webrtc.API, error) {
 		}
 	}
 
+	// NACK (retransmission of lost packets, both from the publisher and to
+	// each viewer) and RTCP reports: the default codecs announce nack/pli in
+	// the SDP, and without these interceptors nothing honours them.
+	registry := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(mediaEngine, registry); err != nil {
+		return nil, fmt.Errorf("register default interceptors: %w", err)
+	}
+
 	// Create the WebRTC API with MediaEngine and SettingEngine
 	return webrtc.NewAPI(
 		webrtc.WithMediaEngine(mediaEngine),
 		webrtc.WithSettingEngine(settingEngine),
+		webrtc.WithInterceptorRegistry(registry),
 	), nil
 }
 
@@ -567,7 +577,7 @@ func handleWHIP(w http.ResponseWriter, r *http.Request) {
 			roomID, track.Kind(), track.Codec().MimeType, track.ID(), track.StreamID())
 
 		// Add track to room for broadcasting
-		room.AddTrack(track)
+		room.AddTrack(track, peerConnection)
 
 		// Mark stream as active when first track is received
 		room.mu.Lock()
@@ -879,7 +889,7 @@ func handleCascadePublish(w http.ResponseWriter, r *http.Request) {
 	// Handle incoming tracks from upstream origin
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf("[CASCADE-PUB] Received cascaded track: %s from origin", track.ID())
-		room.AddTrack(track)
+		room.AddTrack(track, peerConnection)
 
 		room.mu.Lock()
 		if !room.StreamActive {
@@ -1110,7 +1120,7 @@ func handlePromoteViewer(w http.ResponseWriter, r *http.Request) {
 	peerConnection.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		log.Printf("[PROMOTE][ROOM-%s] Received track from speaker %s: %s (kind: %s)",
 			roomID, publisherID, track.ID(), track.Kind())
-		room.AddTrack(track)
+		room.AddTrack(track, peerConnection)
 	})
 
 	// Set up disconnect handlers

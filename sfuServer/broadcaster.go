@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 )
 
@@ -46,6 +47,48 @@ func NewTrackBroadcaster(track *webrtc.TrackRemote, sharedTrack *webrtc.TrackLoc
 	}
 
 	return tb
+}
+
+// keyframeRequestMinInterval bounds the PLIs relayed to a publisher: every
+// viewer that joins or loses a packet asks for one.
+const keyframeRequestMinInterval = 500 * time.Millisecond
+
+// RequestKeyframe asks the publisher of the track for a keyframe (PLI).
+func (tb *TrackBroadcaster) RequestKeyframe() {
+	if tb.source == nil || tb.track.Kind() != webrtc.RTPCodecTypeVideo {
+		return
+	}
+	tb.keyframeMu.Lock()
+	if time.Since(tb.lastKeyframeRequest) < keyframeRequestMinInterval {
+		tb.keyframeMu.Unlock()
+		return
+	}
+	tb.lastKeyframeRequest = time.Now()
+	tb.keyframeMu.Unlock()
+
+	if err := tb.source.WriteRTCP([]rtcp.Packet{
+		&rtcp.PictureLossIndication{MediaSSRC: uint32(tb.track.SSRC())},
+	}); err != nil {
+		log.Printf("[BROADCASTER] Keyframe request for track %s failed: %v", tb.track.ID(), err)
+	}
+}
+
+// forwardRTCP reads the RTCP a viewer sends about one of our tracks. Reading
+// it drives the interceptors (NACK retransmissions to that viewer); keyframe
+// requests are relayed to the publisher. It returns when the sender closes.
+func forwardRTCP(sender *webrtc.RTPSender, tb *TrackBroadcaster) {
+	for {
+		packets, _, err := sender.ReadRTCP()
+		if err != nil {
+			return
+		}
+		for _, packet := range packets {
+			switch packet.(type) {
+			case *rtcp.PictureLossIndication, *rtcp.FullIntraRequest:
+				tb.RequestKeyframe()
+			}
+		}
+	}
 }
 
 // SetRecorderTrack sets the dedicated recorder track

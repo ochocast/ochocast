@@ -18,6 +18,7 @@ import { RecordingModule } from './recording/recording.module';
 import { QueueModule } from './queue/queue.module';
 import { HealthController } from './health/health.controller';
 import { TranscriptionModule } from './transcription/transcription.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { TranscriptionModule } from './transcription/transcription.module';
     RecordingModule,
     QueueModule,
     TranscriptionModule,
+    SearchModule,
   ],
   controllers: [HealthController],
 })

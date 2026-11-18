@@ -27,9 +27,10 @@ func NewRoom(id, key string) *Room {
 	}
 }
 
-// AddTrack adds a new track to the room for broadcasting
+// AddTrack adds a new track to the room for broadcasting; source is the
+// PeerConnection it arrives on (keyframe requests go back to it).
 // ⚡ OPTIMIZED: Crée 1 TrackLocalStaticRTP partagée, pas 1 per viewer!
-func (room *Room) AddTrack(track *webrtc.TrackRemote) {
+func (room *Room) AddTrack(track *webrtc.TrackRemote, source *webrtc.PeerConnection) {
 	room.mu.Lock()
 
 	trackKey := track.ID() + "-" + track.StreamID()
@@ -59,6 +60,7 @@ func (room *Room) AddTrack(track *webrtc.TrackRemote) {
 
 	// ⚡ Create broadcaster with the shared track (direct write, no viewer dispatch!)
 	broadcaster := NewTrackBroadcaster(track, localTrack)
+	broadcaster.source = source
 	room.Broadcasters[trackKey] = broadcaster
 	log.Printf("[ROOM-%s] ✅ Added shared track broadcaster: %s (1 track for all viewers!)", room.ID, trackKey)
 
@@ -71,11 +73,12 @@ func (room *Room) AddTrack(track *webrtc.TrackRemote) {
 
 	// Add the SAME shared track to all existing viewers (no duplication!)
 	for viewerID, viewerPC := range viewers {
-		_, err := viewerPC.AddTrack(localTrack)
+		sender, err := viewerPC.AddTrack(localTrack)
 		if err != nil {
 			log.Printf("[ROOM-%s] Error adding shared track to existing viewer %s: %v", room.ID, viewerID, err)
 			continue
 		}
+		go forwardRTCP(sender, broadcaster)
 		log.Printf("[ROOM-%s] ✅ Added shared track %s to viewer %s (no new alloc!)", room.ID, trackKey, viewerID)
 	}
 }
@@ -88,9 +91,11 @@ func (room *Room) AddViewer(viewerID string, peerConnection *webrtc.PeerConnecti
 
 	// Copy the shared tracks (already created by AddTrack)
 	sharedTracks := make(map[string]*webrtc.TrackLocalStaticRTP)
+	broadcasters := make(map[string]*TrackBroadcaster)
 	if room.SharedTracks != nil {
 		for k, v := range room.SharedTracks {
 			sharedTracks[k] = v
+			broadcasters[k] = room.Broadcasters[k]
 		}
 	}
 	room.mu.Unlock()
@@ -98,9 +103,13 @@ func (room *Room) AddViewer(viewerID string, peerConnection *webrtc.PeerConnecti
 	// ⚡ Add EXISTING shared tracks (no new allocations!)
 	trackCount := 0
 	for trackKey, localTrack := range sharedTracks {
-		if _, err := peerConnection.AddTrack(localTrack); err != nil {
+		sender, err := peerConnection.AddTrack(localTrack)
+		if err != nil {
 			log.Printf("[ROOM-%s] Error adding shared track to viewer %s: %v", room.ID, viewerID, err)
 			continue
+		}
+		if broadcaster := broadcasters[trackKey]; broadcaster != nil {
+			go forwardRTCP(sender, broadcaster)
 		}
 		trackCount++
 		log.Printf("[ROOM-%s] ✅ Viewer %s attached to shared track %s (O(1)!)", room.ID, viewerID, trackKey)
@@ -177,10 +186,12 @@ func (room *Room) AddRecorder(recorderID string, peerConnection *webrtc.PeerConn
 		}
 
 		// Add track to recorder's PeerConnection
-		if _, err := peerConnection.AddTrack(recorderTrack); err != nil {
+		sender, err := peerConnection.AddTrack(recorderTrack)
+		if err != nil {
 			log.Printf("[ROOM-%s] 🎬 Error adding recorder track to PC: %v", room.ID, err)
 			continue
 		}
+		go forwardRTCP(sender, broadcaster)
 
 		// Store the recorder track
 		room.mu.Lock()

@@ -6,33 +6,53 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/rtp"
-	"github.com/pion/rtp/codecs"
 	"github.com/yapingcat/gomedia/go-mp4"
 )
 
-// MP4Writer writes audio and video packets directly to MP4 with proper timestamps.
+// MP4Writer writes complete audio and video frames to MP4 with proper
+// timestamps. Frames come from a jitter buffer (see recordTrack): one H.264
+// access unit or one Opus frame per write, in order and without duplicates.
 // The video and audio tracks are written from two goroutines: mu serializes
-// them (the muxer is not thread-safe) and the late packets after Close.
+// them (the muxer is not thread-safe) and the late frames after Close.
 type MP4Writer struct {
-	mu               sync.Mutex
-	closed           bool
-	videoWrites      int64  // video payloads written (0: no usable video)
-	lastPTS          uint64 // latest PTS written on any track, ms
-	file             *os.File
-	muxer            *mp4.Movmuxer
-	videoTrackID     uint32
-	audioTrackID     uint32
-	videoFirstRTP    uint32
-	audioFirstRTP    uint32
-	videoClockRate   uint32
-	audioClockRate   uint32
-	videoFirstSet    bool
-	audioFirstSet    bool
-	videoStartTime   time.Time
-	audioStartTime   time.Time
-	h264Depacketizer *codecs.H264Packet
-	opusDepacketizer *codecs.OpusPacket
+	mu             sync.Mutex
+	closed         bool
+	videoWrites    int64  // video frames written (0: no usable video)
+	lastPTS        uint64 // latest PTS written on any track, ms
+	file           *os.File
+	muxer          *mp4.Movmuxer
+	videoTrackID   uint32
+	audioTrackID   uint32
+	videoClock     rtpClock
+	audioClock     rtpClock
+	videoClockRate uint32
+	audioClockRate uint32
+	videoStartTime time.Time
+	audioStartTime time.Time
+}
+
+// rtpClock turns the 32-bit RTP timestamps of one track into the time elapsed
+// since its first written frame, across wrap-arounds (6.6 h at 90 kHz).
+type rtpClock struct {
+	started bool
+	last    uint32
+	elapsed uint64 // ticks since the first frame
+}
+
+// advance returns the ticks elapsed at ts, or false for a frame older than
+// the latest one.
+func (c *rtpClock) advance(ts uint32) (uint64, bool) {
+	if !c.started {
+		c.started, c.last = true, ts
+		return 0, true
+	}
+	delta := int32(ts - c.last)
+	if delta < 0 {
+		return 0, false
+	}
+	c.elapsed += uint64(delta)
+	c.last = ts
+	return c.elapsed, true
 }
 
 // NewMP4Writer creates a new MP4 writer
@@ -48,12 +68,7 @@ func NewMP4Writer(filePath string) (*MP4Writer, error) {
 		return nil, fmt.Errorf("failed to create MP4 muxer: %w", err)
 	}
 
-	return &MP4Writer{
-		file:             file,
-		muxer:            muxer,
-		h264Depacketizer: &codecs.H264Packet{},
-		opusDepacketizer: &codecs.OpusPacket{},
-	}, nil
+	return &MP4Writer{file: file, muxer: muxer}, nil
 }
 
 // AddVideoTrack adds a video track to the MP4
@@ -86,17 +101,17 @@ func (w *MP4Writer) AddAudioTrack(codec string, clockRate uint32) error {
 	// - Byte 18: Channel mapping family (0 for mono/stereo)
 	opusHead := make([]byte, 19)
 	copy(opusHead[0:8], []byte("OpusHead"))
-	opusHead[8] = 1                                    // Version
-	opusHead[9] = 2                                    // Channels (stereo)
-	opusHead[10] = 0                                   // Pre-skip (little endian, low byte)
-	opusHead[11] = 0                                   // Pre-skip (little endian, high byte)
-	opusHead[12] = byte(clockRate & 0xFF)              // Sample rate (little endian, byte 1)
-	opusHead[13] = byte((clockRate >> 8) & 0xFF)       // Sample rate (little endian, byte 2)
-	opusHead[14] = byte((clockRate >> 16) & 0xFF)      // Sample rate (little endian, byte 3)
-	opusHead[15] = byte((clockRate >> 24) & 0xFF)      // Sample rate (little endian, byte 4)
-	opusHead[16] = 0                                   // Gain (little endian, low byte)
-	opusHead[17] = 0                                   // Gain (little endian, high byte)
-	opusHead[18] = 0                                   // Channel mapping family
+	opusHead[8] = 1                               // Version
+	opusHead[9] = 2                               // Channels (stereo)
+	opusHead[10] = 0                              // Pre-skip (little endian, low byte)
+	opusHead[11] = 0                              // Pre-skip (little endian, high byte)
+	opusHead[12] = byte(clockRate & 0xFF)         // Sample rate (little endian, byte 1)
+	opusHead[13] = byte((clockRate >> 8) & 0xFF)  // Sample rate (little endian, byte 2)
+	opusHead[14] = byte((clockRate >> 16) & 0xFF) // Sample rate (little endian, byte 3)
+	opusHead[15] = byte((clockRate >> 24) & 0xFF) // Sample rate (little endian, byte 4)
+	opusHead[16] = 0                              // Gain (little endian, low byte)
+	opusHead[17] = 0                              // Gain (little endian, high byte)
+	opusHead[18] = 0                              // Channel mapping family
 
 	// Add Opus audio track with extradata
 	audioTrackID := w.muxer.AddAudioTrack(
@@ -110,101 +125,81 @@ func (w *MP4Writer) AddAudioTrack(codec string, clockRate uint32) error {
 	return nil
 }
 
-// WriteVideoRTP writes a video RTP packet to MP4
-func (w *MP4Writer) WriteVideoRTP(packet *rtp.Packet) error {
+// WriteVideoFrame writes one H.264 access unit (Annex-B) captured at the RTP
+// timestamp ts. Frames before the first keyframe are dropped: they cannot be
+// decoded and would show as black. It reports whether the video has started.
+func (w *MP4Writer) WriteVideoFrame(frame []byte, ts uint32) (bool, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.closed {
-		return nil // late packet after Stop
+	if w.closed || len(frame) == 0 {
+		return w.videoClock.started, nil
 	}
-
-	// Initialize first timestamp
-	if !w.videoFirstSet {
-		w.videoFirstRTP = packet.Timestamp
+	if !w.videoClock.started {
+		if !h264HasKeyframe(frame) {
+			return false, nil
+		}
 		w.videoStartTime = time.Now()
-		w.videoFirstSet = true
 	}
 
-	// Calculate PTS in milliseconds
-	rtpDelta := packet.Timestamp - w.videoFirstRTP
-	pts := uint64(rtpDelta) * 1000 / uint64(w.videoClockRate)
-	dts := pts // For simplicity, assume DTS = PTS
+	ticks, ok := w.videoClock.advance(ts)
+	if !ok {
+		return true, nil
+	}
+	pts := ticks * 1000 / uint64(w.videoClockRate)
+	if err := w.muxer.Write(w.videoTrackID, frame, pts, pts); err != nil {
+		return true, fmt.Errorf("failed to write video frame: %w", err)
+	}
+	w.videoWrites++
+	w.lastPTS = max(w.lastPTS, pts)
+	return true, nil
+}
 
-	// Depacketize H.264 RTP packet to get NAL unit payload
-	payload, err := w.h264Depacketizer.Unmarshal(packet.Payload)
-	if err != nil {
-		// Skip packets that can't be depacketized (e.g., fragmented packets being assembled)
+// WriteAudioFrame writes one Opus frame captured at the RTP timestamp ts.
+// With a video track, audio waits for the first video keyframe so both
+// tracks start together.
+func (w *MP4Writer) WriteAudioFrame(frame []byte, ts uint32) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.closed || len(frame) == 0 {
 		return nil
 	}
-
-	// Only write if we have valid payload
-	if len(payload) > 0 {
-		err := w.muxer.Write(w.videoTrackID, payload, pts, dts)
-		if err != nil {
-			return fmt.Errorf("failed to write video packet: %w", err)
-		}
-		w.videoWrites++
-		w.trackDuration(rtpDelta, pts)
+	if w.videoTrackID != 0 && !w.videoClock.started {
+		return nil
+	}
+	if !w.audioClock.started {
+		w.audioStartTime = time.Now()
 	}
 
+	ticks, ok := w.audioClock.advance(ts)
+	if !ok {
+		return nil
+	}
+	pts := ticks * 1000 / uint64(w.audioClockRate)
+	if err := w.muxer.Write(w.audioTrackID, frame, pts, pts); err != nil {
+		return fmt.Errorf("failed to write audio frame: %w", err)
+	}
+	w.lastPTS = max(w.lastPTS, pts)
 	return nil
 }
 
-// WriteAudioRTP writes an audio RTP packet to MP4
-func (w *MP4Writer) WriteAudioRTP(packet *rtp.Packet) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	if w.closed {
-		return nil // late packet after Stop
-	}
-
-	// Initialize first timestamp
-	if !w.audioFirstSet {
-		w.audioFirstRTP = packet.Timestamp
-		w.audioStartTime = time.Now()
-		w.audioFirstSet = true
-	}
-
-	// Calculate PTS in milliseconds
-	rtpDelta := packet.Timestamp - w.audioFirstRTP
-	pts := uint64(rtpDelta) * 1000 / uint64(w.audioClockRate)
-	dts := pts
-
-	// Depacketize Opus RTP packet to get audio frame
-	payload, err := w.opusDepacketizer.Unmarshal(packet.Payload)
-	if err != nil {
-		// Skip packets that can't be depacketized
-		return nil
-	}
-
-	// Only write if we have valid payload
-	if len(payload) > 0 {
-		err := w.muxer.Write(w.audioTrackID, payload, pts, dts)
-		if err != nil {
-			return fmt.Errorf("failed to write audio packet: %w", err)
+// h264HasKeyframe reports whether an Annex-B access unit holds an IDR slice.
+func h264HasKeyframe(frame []byte) bool {
+	for i := 0; i+3 < len(frame); i++ {
+		if frame[i] == 0 && frame[i+1] == 0 && frame[i+2] == 1 && frame[i+3]&0x1f == 5 {
+			return true
 		}
-		w.trackDuration(rtpDelta, pts)
 	}
-
-	return nil
+	return false
 }
 
 // GetSyncOffset returns the sync offset between audio and video in seconds
 func (w *MP4Writer) GetSyncOffset() float64 {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if !w.videoFirstSet || !w.audioFirstSet {
+	if !w.videoClock.started || !w.audioClock.started {
 		return 0
 	}
 	return w.audioStartTime.Sub(w.videoStartTime).Seconds()
-}
-
-// trackDuration keeps the latest PTS. A packet older than the first one
-// (reordered) wraps around to a huge delta and is ignored.
-func (w *MP4Writer) trackDuration(rtpDelta uint32, pts uint64) {
-	if int32(rtpDelta) >= 0 {
-		w.lastPTS = max(w.lastPTS, pts)
-	}
 }
 
 // Duration is the recorded media duration: the latest PTS written (each

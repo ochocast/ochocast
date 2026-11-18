@@ -12,7 +12,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v4"
+	"github.com/pion/webrtc/v4/pkg/media/samplebuilder"
+)
+
+// Jitter buffer bounds: how many packets (and how long) a frame may wait for
+// a late or retransmitted packet before it is given up.
+const (
+	videoMaxLatePackets = 512
+	videoMaxLateTime    = time.Second
+	audioMaxLatePackets = 64
+	audioMaxLateTime    = 500 * time.Millisecond
+	// keyframeRequestInterval spaces the PLIs sent until the first keyframe
+	// arrives and after a frame is lost.
+	keyframeRequestInterval = time.Second
 )
 
 // RecordingSession manages a live stream recording session
@@ -318,48 +333,84 @@ func (rs *RecordingSession) setupCallbacks() error {
 	return nil
 }
 
-// recordTrack reads RTP packets from a track and writes directly to MP4
+// recordTrack reads RTP packets from a track and writes complete frames to
+// MP4. A jitter buffer puts the packets back in order, drops duplicates
+// (retransmissions) and rebuilds each frame: written packet by packet, a
+// lossy network corrupts the video and garbles the audio.
 func (rs *RecordingSession) recordTrack(track *webrtc.TrackRemote) {
 	log.Printf("Started recording %s track to MP4", track.Kind())
+
+	video := track.Kind() == webrtc.RTPCodecTypeVideo
+	var builder *samplebuilder.SampleBuilder
+	if video {
+		builder = samplebuilder.New(videoMaxLatePackets, &codecs.H264Packet{}, track.Codec().ClockRate,
+			samplebuilder.WithMaxTimeDelay(videoMaxLateTime))
+	} else {
+		builder = samplebuilder.New(audioMaxLatePackets, &codecs.OpusPacket{}, track.Codec().ClockRate,
+			samplebuilder.WithMaxTimeDelay(audioMaxLateTime))
+	}
+
+	// The recorder joins mid-stream: ask the publisher for a keyframe now
+	// rather than waiting for its next periodic one.
+	videoStarted := false
+	var lastKeyframeRequest time.Time
+	requestKeyframe := func() {
+		if !video || time.Since(lastKeyframeRequest) < keyframeRequestInterval {
+			return
+		}
+		lastKeyframeRequest = time.Now()
+		if err := rs.peerConnection.WriteRTCP([]rtcp.Packet{
+			&rtcp.PictureLossIndication{MediaSSRC: uint32(track.SSRC())},
+		}); err != nil {
+			log.Printf("[WARN] Keyframe request failed: %v", err)
+		}
+	}
+	requestKeyframe()
 
 	for {
 		select {
 		case <-rs.stopChan:
-			// Stop signal received
 			log.Printf("Stopping %s track recording", track.Kind())
 			return
-
 		default:
-			// Read RTP packet from track
-			rtpPacket, _, err := track.ReadRTP()
+		}
+
+		rtpPacket, _, err := track.ReadRTP()
+		if err != nil {
+			if err != io.EOF {
+				log.Printf("[ERROR] Error reading %s track: %v", track.Kind(), err)
+			}
+			return
+		}
+		rs.mu.Lock()
+		if video {
+			rs.videoPacketCount++
+		} else {
+			rs.audioPacketCount++
+		}
+		rs.mu.Unlock()
+
+		builder.Push(rtpPacket)
+		for sample := builder.Pop(); sample != nil; sample = builder.Pop() {
+			if !video {
+				if err := rs.mp4Writer.WriteAudioFrame(sample.Data, sample.PacketTimestamp); err != nil {
+					log.Printf("[ERROR] Error writing audio frame to MP4: %v", err)
+				}
+				continue
+			}
+			// A lost packet leaves the next frames undecodable until the
+			// next keyframe.
+			if sample.PrevDroppedPackets > 0 {
+				requestKeyframe()
+			}
+			started, err := rs.mp4Writer.WriteVideoFrame(sample.Data, sample.PacketTimestamp)
 			if err != nil {
-				if err != io.EOF {
-					log.Printf("[ERROR] Error reading %s track: %v", track.Kind(), err)
-				}
-				return
+				log.Printf("[ERROR] Error writing video frame to MP4: %v", err)
 			}
-
-			// Write packet to MP4 with timestamps
-			if track.Kind() == webrtc.RTPCodecTypeVideo {
-				if err := rs.mp4Writer.WriteVideoRTP(rtpPacket); err != nil {
-					log.Printf("[ERROR] Error writing video packet to MP4: %v", err)
-					continue
-				}
-
-				rs.mu.Lock()
-				rs.videoPacketCount++
-				rs.mu.Unlock()
-
-			} else {
-				if err := rs.mp4Writer.WriteAudioRTP(rtpPacket); err != nil {
-					log.Printf("[ERROR] Error writing audio packet to MP4: %v", err)
-					continue
-				}
-
-				rs.mu.Lock()
-				rs.audioPacketCount++
-				rs.mu.Unlock()
-			}
+			videoStarted = started
+		}
+		if video && !videoStarted {
+			requestKeyframe()
 		}
 	}
 }
