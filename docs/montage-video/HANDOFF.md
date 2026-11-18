@@ -146,4 +146,10 @@ Recette complète effectuée sur le build réel du frontend avec Keycloak, Postg
 
 Une correction UI ajoute un chargeur compact : le statut ne doit pas être repoussé sous le premier écran par un chargeur de 100vh. Vérifié sur un nouveau rendu réel après l’échec volontaire, avec suivi `pending → processing → ready`, puis nouveau retour à l’original. TypeScript, 31 tests frontend ciblés et build réussis (limite ESLint inchangée). Le pré-découpage n’est pas encore codé ; son exécution, l’attente pour 45 minutes et le stockage proposé sont décrits dans [PREDECOUPAGE.md](PREDECOUPAGE.md). La condition d’essais sur de vrais lives reste ouverte tant que le corpus n’est pas fourni.
 
-Les services et données dédiés à la recette sont conservés pour revue ; aucun nettoyage destructif sans confirmation. Le `.env` existant est inchangé : pour cette recette, **provider, endpoint, URL de file et clés** ont tous été remplacés par les valeurs locales dans le processus backend.
+Les données de recette, initialement conservées pour revue, ont ensuite été nettoyées après autorisation (voir la mise à jour ci-dessous). Le `.env` existant est inchangé : pour cette recette, **provider, endpoint, URL de file et clés** ont tous été remplacés par les valeurs locales dans le processus backend.
+
+## Nettoyage et révision du pré-découpage
+
+Après autorisation explicite et présentation de l’inventaire, les données dédiées à la recette ont été nettoyées : vidéo et lignes associées, utilisateur PostgreSQL/Keycloak, 102 objets MinIO et traces temporaires. Les autres vidéos/comptes et le fichier source de Downloads sont conservés. Le compte rendu de recette reste dans le dépôt.
+
+La proposition initiale de file d’analyse séparée est remplacée par la recommandation **job d’analyse typé dans la file et le déploiement de rendu existants**, sans nouvelle ressource ops. `PREDECOUPAGE.md` compare ce choix au pré-calcul à l’upload (utile pour les futurs uploads mais insuffisant pour le stock) et à une isolation dédiée (non retenue tant que les mesures de charge ne l’imposent pas). PostgreSQL et l’attente avec progression restent validés. Aucun code de pré-découpage ajouté ; les vrais lives de validation seront fournis plus tard et resteront hors dépôt.

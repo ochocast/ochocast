@@ -35,4 +35,6 @@ Le composant de chargement partagé occupait `100vh` et repoussait le texte du s
 
 Traces locales et captures : `/tmp/ochocast-live-recipe/` (dont `01-editor-three-segments.png`, `02-render-pending.png`, `03-rendered-video.png`, `04-original-restored.png`, `05-render-failed.png`, `first-text-half.png`, `second-text-half.png`, `06-compact-processing.png`). Ces fichiers peuvent être temporaires ; le présent compte rendu conserve les assertions et mesures.
 
-Les services, la vidéo et le compte de recette sont conservés pour revue. Leur suppression n’est pas exécutée sans confirmation, conformément aux règles du document de reprise. Aucun volume ni conteneur préexistant supprimé, aucun arrêt forcé.
+Nettoyage autorisé ensuite par l’utilisateur, après présentation de la liste exacte : vidéo `b66a158c-79ad-4fc2-8c44-224160f47810`, montage et lignes associées, session d’upload, job de transcodage, 3 jobs de rendu, compte temporaire PostgreSQL/Keycloak, **102 objets MinIO (98 413 676 octets)**, dossier temporaire de recette et journal backend. Les traces temporaires indiquées ci-dessus ne sont donc plus disponibles ; le présent compte rendu conserve les résultats.
+
+Vérifications : préfixes MinIO vides et pièces jointes absentes, compte Keycloak HTTP 404, ensembles des 10 autres vidéos et des autres utilisateurs inchangés. Le fichier `/Users/thomasballer/Downloads/videoTest.mp4` est conservé. Les deux processus Node démarrés pour la recette ont été arrêtés normalement ; aucun conteneur ni volume supprimé, aucun arrêt forcé.
