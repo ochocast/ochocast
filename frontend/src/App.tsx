@@ -1,3 +1,4 @@
+import VideoEditPage from './pages/videoEdit/videoEdit';
 import './App.css';
 import { Routes, Route } from 'react-router-dom';
 import React from 'react';
@@ -85,6 +86,10 @@ function App() {
                     <Route
                       path="/profile/profile-settings"
                       element={<ProfileSetting />}
+                    />
+                    <Route
+                      path="/video/:videoId/edit"
+                      element={<VideoEditPage />}
                     />
                     <Route path="/video/:videoId" element={<VideoMedia />} />
                     <Route path="/videos" element={<Videos />} />

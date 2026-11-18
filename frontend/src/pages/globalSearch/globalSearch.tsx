@@ -603,7 +603,8 @@ const GlobalSearchPage = () => {
                           ?.map((tag) => tag.name)
                           .sort((a, b) => a.localeCompare(b))}
                         cropTags={true}
-                        duration={video.duration}
+                        edited={video.edited}
+                        duration={video.renderedDuration ?? video.duration}
                       />
                     </div>
                   ))}

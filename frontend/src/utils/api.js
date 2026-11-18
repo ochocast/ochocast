@@ -245,3 +245,12 @@ export const votePollPublic = (pollId, voteData) =>
   publicApi.post(`/polls/${pollId}/vote`, voteData);
 export const closePoll = (pollId) => api.post(`/polls/${pollId}/close`);
 export const deletePoll = (pollId) => api.delete(`/polls/${pollId}`);
+
+// Video editing: source playback deliberately ignores an active rendition.
+export const getVideoEditSource = (id) => api.get(`/videos/${id}/edit/source`);
+export const getVideoEdit = (id) => api.get(`/videos/${id}/edit`);
+export const createVideoEdit = (id) => api.post(`/videos/${id}/edit`);
+export const saveVideoEdit = (id, edit) => api.put(`/videos/${id}/edit`, edit);
+export const getVideoEditRenderStatus = (id) =>
+  api.get(`/videos/${id}/edit/render-status`);
+export const revertVideoEdit = (id) => api.post(`/videos/${id}/edit/revert`);

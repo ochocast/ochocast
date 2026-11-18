@@ -31,7 +31,7 @@ Terminé, testé et documenté :
 - **Nettoyage** : les fichiers d'un rendu que plus personne ne lit sont supprimés 24 h après la fin du job. La suppression définitive d'une vidéo par un admin supprime aussi ses rendus.
 - **Test de bout en bout en local** réussi : montage de 3 passages avec 2 textes rendu en 36 s, lecture de la version montée, retour à l'original (l'ancienne adresse répond `404`), échec volontaire sur original absent (`failed`, `invalid_source`, une seule tentative), puis nouveau rendu réussi après restauration de l'original.
 
-Pas commencé : l'interface (rien dans `frontend/`) et le déploiement.
+Interface ajoutée sur `feat/video-edit-ui` (voir mise à jour ci-dessous). Déploiement non effectué.
 
 ## Décisions produit
 
@@ -122,3 +122,14 @@ Avec l'environnement local lancé et un jeton Keycloak d'un utilisateur créateu
 La route protégée `GET /api/videos/:videoId/edit/source` permet au créateur et aux administrateurs de lire l’original même après un rendu, sans exiger de montage existant. L’éditeur doit l’utiliser plutôt que la route de lecture des spectateurs.
 
 **Décision produit à valider avec le client, hors de cette implémentation :** pour une vidéo HLS, l’original reste publiquement lisible par son chemin même lorsqu’un montage est actif. Un créateur qui coupe un passage sensible peut croire que ce passage est caché. La nouvelle route ne change pas cette accessibilité.
+
+## Interface livrée sur feat/video-edit-ui
+
+- Découpage : `VideoEditPage` (chargement, enregistrement, suivi), `EditPreview`, `SegmentTimeline`, `TextLayerEditor`, `RevertVideoButton` ; fonctions pures dans `editorState.ts`.
+- État local : version du serveur, passages avec clés temporaires, textes imbriqués, position de lecture et sélection. Aucun brouillon enregistré ; un seul PUT global.
+- Intégration : route protégée du frontend, accès depuis la page vidéo, droits créateur/admin, badge et durée montée dans les vignettes, confirmation du retour à l’original, sous-titres masqués sur la version montée.
+- Règle confirmée pendant la reprise : un texte traversant une coupe est conservé sur chaque nouveau passage avec ses temps ajustés ; les moitiés de moins de 0,5 s sont supprimées, 0,5 s exactement est conservé. Une coupe dépassant 10 textes sur un passage est refusée avec un message explicite avant l’envoi.
+- Maquette : suppression du bouton d’annulation du traitement conformément à la règle explicite de cette version ; lecture réelle, déplacements effectifs et commandes au clavier remplacent la simulation HTML.
+- Vérification : TypeScript, tests frontend ciblés et build de production ; contrôle visuel desktop/mobile avec API simulée et vidéo synthétique, lecture continue, transition entre passages, glisser-déposer et réordonnancement au clavier. La recette réelle complète frontend → backend → file → worker reste à exécuter sur un environnement lancé et configuré.
+- Environnement : utiliser le Node 22 déjà installé via nvm si le Node Homebrew échoue sur `libsimdjson.30.dylib`. Le build est validé avec le plugin ESLint désactivé : le cache de `node_modules` est hors du périmètre d’écriture et la commande ESLint autonome rencontre une incompatibilité de plugin existante. Aucune dépendance n’a été ajoutée.
+- Reste : pré-découpage à valider avant code, infrastructure, recette en préproduction et mesure des deux encodages de 45 minutes. Voir `PREDECOUPAGE.md` et `MESSAGE-OPS.md`.

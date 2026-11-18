@@ -272,7 +272,8 @@ const HomePage: FC<HomeProps> = () => {
               views={video.views}
               createdAt={video.createdAt.toString()}
               tags={video.tags?.map((tag) => tag.name)}
-              duration={video.duration}
+              edited={video.edited}
+              duration={video.renderedDuration ?? video.duration}
             />
           ))}
         </div>

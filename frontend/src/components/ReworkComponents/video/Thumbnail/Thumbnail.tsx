@@ -33,6 +33,7 @@ export interface PreviewMinitureProps {
   onTagClick?: (tag: string) => void;
   cropTags?: boolean;
   duration?: number;
+  edited?: boolean;
   translations?: Partial<PreviewMinitureTranslations>;
 }
 
@@ -396,6 +397,7 @@ const Thumbnail = (props: PreviewMinitureProps) => {
 
           <div className={styles.textContainer}>
             <div className={styles.titleContainer}>
+              {props.edited && <span>{t('videoEdit.edited')}</span>}
               <h2 className={styles.title} title={props.title}>
                 {props.title}
               </h2>

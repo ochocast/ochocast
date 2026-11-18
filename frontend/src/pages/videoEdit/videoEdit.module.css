@@ -1,0 +1,246 @@
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px;
+  color: #062218;
+}
+.page h1 {
+  font-size: 36px;
+  margin-bottom: 6px;
+}
+.page a {
+  color: #105f42;
+  font-weight: 600;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.panel {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  padding: 20px 24px;
+  margin-top: 20px;
+}
+.panel h2 {
+  font-size: 22px;
+  margin: 0 0 14px;
+}
+.panel p {
+  color: #606060;
+  line-height: 1.5;
+}
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.page button {
+  cursor: pointer;
+  min-height: 44px;
+  font: inherit;
+}
+.page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.page button:focus-visible,
+.page input:focus-visible,
+.page textarea:focus-visible {
+  outline: 3px solid #105f42;
+  outline-offset: 3px;
+}
+.page fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.panel button {
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: white;
+  color: #062218;
+  padding: 6px 12px;
+}
+.panel button[aria-pressed='true'] {
+  background: #d9f3e9;
+  border: 2px solid #11825a;
+}
+.panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 14px 0;
+  font-weight: 600;
+}
+.panel input,
+.panel textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: white;
+  font: inherit;
+}
+.passage {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 8px;
+}
+.passage button:first-child {
+  flex: 1;
+  text-align: left;
+  border: 0;
+}
+.preview {
+  aspect-ratio: 16/9;
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  background: black;
+  container-type: inline-size;
+}
+.overlay {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  text-align: center;
+  white-space: pre-wrap;
+  font-weight: bold;
+  font-size: 3.125cqw;
+  line-height: 1.2;
+  pointer-events: none;
+}
+.top {
+  top: 6%;
+}
+.center {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.bottom {
+  bottom: 12%;
+}
+.playback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 8px 0;
+}
+.playback input {
+  flex: 1;
+  accent-color: #11825a;
+}
+.playback button {
+  border: 0;
+  background: #11825a;
+  color: white;
+  padding: 8px 18px;
+  border-radius: 20px;
+}
+.timeline {
+  display: flex;
+  position: relative;
+  min-height: 140px;
+  margin-top: 20px;
+}
+.timelineSegment {
+  min-width: 0;
+  position: relative;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+}
+.timelineSegment.insertBefore {
+  border-left-color: #062218;
+}
+.timelineSegment.insertAfter {
+  border-right-color: #062218;
+}
+.textTrack {
+  height: 48px;
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  position: relative;
+  margin-bottom: 12px;
+}
+.textTrack button {
+  position: absolute;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: #d9f3e9;
+  padding: 4px;
+  min-width: 12px;
+  max-width: 100%;
+}
+.panel .segmentBlock {
+  width: 100%;
+  background: #1dac78;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px 2px;
+  overflow: hidden;
+  cursor: grab;
+  height: 64px;
+}
+.moveButtons {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.moveButtons button {
+  padding: 2px;
+  min-width: 26px;
+}
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 44px;
+  width: 3px;
+  background: #062218;
+  z-index: 2;
+  pointer-events: none;
+}
+.scale {
+  display: flex;
+  justify-content: space-between;
+  color: #606060;
+}
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 20px;
+  margin-top: 24px;
+}
+.errors {
+  background: #fff2ee;
+  color: #8b2418;
+  padding: 16px 32px;
+  border-radius: 12px;
+}
+@media (max-width: 850px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .page {
+    padding: 20px 16px;
+  }
+  .panel {
+    padding: 16px;
+  }
+}

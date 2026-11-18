@@ -423,7 +423,8 @@ const Videos: FC<VideosProps> = () => {
                   .sort((a, b) => a.localeCompare(b))}
                 onTagClick={handleTagClick}
                 cropTags={true}
-                duration={video.duration}
+                edited={video.edited}
+                duration={video.renderedDuration ?? video.duration}
               />
             ))
           ) : (

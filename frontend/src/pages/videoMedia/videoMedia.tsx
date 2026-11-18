@@ -1,3 +1,5 @@
+import RevertVideoButton from '../videoEdit/RevertVideoButton';
+import { formatTime } from '../videoEdit/editorState';
 // videoMedia.tsx
 import React, { useEffect, useState, FC, useRef } from 'react';
 import styles from './videoMedia.module.css';
@@ -318,7 +320,7 @@ const VideoMedia: FC = () => {
       setUrl(urlOf(mediaRes) ?? '');
 
       // Without a subtitle URL, the transcript poll below can start.
-      setSubtitleUrl(urlOf(subtitleRes));
+      setSubtitleUrl(currentVideo?.edited ? null : urlOf(subtitleRes));
 
       const comments: CommentObject[] = Array.isArray(commentsRes?.data)
         ? commentsRes.data
@@ -401,6 +403,7 @@ const VideoMedia: FC = () => {
   useEffect(() => {
     if (
       !videoId ||
+      video?.edited ||
       subtitleUrl ||
       !['pending', 'processing'].includes(video?.transcription_status || '')
     )
@@ -426,7 +429,7 @@ const VideoMedia: FC = () => {
       cancelled = true;
       window.clearInterval(poll);
     };
-  }, [videoId, subtitleUrl, video?.transcription_status]);
+  }, [videoId, subtitleUrl, video?.transcription_status, video?.edited]);
 
   // ReactPlayer creates tracks when it mounts, but a transcript may arrive later.
   useEffect(() => {
@@ -675,7 +678,13 @@ const VideoMedia: FC = () => {
   const currentUserId = backendUser
     ? JSON.parse(backendUser)?.id || null
     : null;
-  const canEdit = currentUserId === video.creator.id;
+  const canEdit =
+    currentUserId === video.creator.id ||
+    ['admin', 'administrator'].includes(
+      currentUser?.role ||
+        (backendUser ? JSON.parse(backendUser)?.role : '') ||
+        '',
+    );
 
   const handleProfileClick = () => {
     const uname = video.creator?.username || video.creator.firstName;
@@ -793,6 +802,13 @@ const VideoMedia: FC = () => {
           <section className={styles.titleBlock}>
             <div className={styles.titleLeft}>
               <h2 className={styles.video_title}>{video.title}</h2>
+              {video.edited && <span>{t('videoEdit.edited')}</span>}
+              {typeof (video.renderedDuration ?? video.duration) ===
+                'number' && (
+                <span>
+                  {formatTime(video.renderedDuration ?? video.duration ?? 0)}
+                </span>
+              )}
               <div className={styles.tagList}>
                 <span className={styles.tagLabel}>Tags :</span>
                 {video.tags?.map((tag, id) => (
@@ -821,6 +837,17 @@ const VideoMedia: FC = () => {
 
               {canEdit && (
                 <div className={styles.titleActions}>
+                  <Button
+                    type={ButtonType.secondary}
+                    label={t('videoEdit.editAction')}
+                    onClick={() => navigate(`/video/${video.id}/edit`)}
+                  />
+                  {video.edited && (
+                    <RevertVideoButton
+                      videoId={video.id}
+                      onReverted={() => setReloads((n) => n + 1)}
+                    />
+                  )}
                   <Button
                     type={ButtonType.primary}
                     label={t('modifyVideo')}
@@ -1000,7 +1027,8 @@ const VideoMedia: FC = () => {
                     views={vid.views}
                     createdAt={vid.createdAt.toString()}
                     tags={vid.tags.map((tag) => tag.name)}
-                    duration={vid.duration}
+                    edited={vid.edited}
+                    duration={vid.renderedDuration ?? vid.duration}
                   />
                 </div>
               ))}

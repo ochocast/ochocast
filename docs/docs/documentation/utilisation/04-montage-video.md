@@ -3,7 +3,7 @@
 Le créateur d'une vidéo, ou un administrateur, peut la monter : garder certains passages, les réordonner et y ajouter du texte. Le montage est **non destructif** : la vidéo originale n'est jamais modifiée, et on peut toujours y revenir.
 
 :::info État actuel
-Le modèle de données, l'API et le rendu FFmpeg sont en place. L'interface et le pré-découpage arrivent aux étapes suivantes. La maquette de l'interface se trouve dans `docs/montage-video/maquette/`. Sans file de rendu configurée sur l'environnement, l'enregistrement d'un montage (`PUT`) répond `503`.
+Le modèle de données, l'API, le rendu FFmpeg et l'interface de montage sont en place. Le pré-découpage automatique reste à spécifier. La maquette de l'interface se trouve dans `docs/montage-video/maquette/`. Sans file de rendu configurée sur l'environnement, l'enregistrement d'un montage (`PUT`) répond `503`.
 :::
 
 ## Principe
@@ -181,3 +181,19 @@ cd ffmpegServer && npm run build && npm test
 `GET /api/videos/:videoId/edit/source` renvoie une chaîne contenant l’adresse de l’original, au même format que `GET /api/videos/media/:id`. Cette route ignore le montage actif et fonctionne avant sa création. Pour une vidéo HLS, elle renvoie la playlist originale ; pour une vidéo lue depuis sa source, une URL présignée. L’éditeur doit utiliser cette route pour conserver la correspondance entre la lecture et les temps source des passages.
 
 Accès : créateur et administrateurs via `getEditableVideo`. Erreurs : `400` pour un UUID mal formé, `403 videonotallowedit` pour un utilisateur sans droit, `404` pour un utilisateur ou une vidéo introuvable, `409` pour une vidéo non prête.
+
+## Interface de montage
+
+Depuis la page vidéo, « Monter la vidéo » ouvre `/video/:videoId/edit` pour le créateur ou un administrateur. Le lecteur de l’éditeur utilise exclusivement `GET /api/videos/:videoId/edit/source`, y compris pour modifier à nouveau une vidéo déjà montée. La prévisualisation parcourt les passages dans leur ordre local et affiche leurs textes ; le rendu FFmpeg reste la référence pour la typographie finale.
+
+- Cliquez sur la timeline ou utilisez le curseur de lecture, puis « Couper ici ». Une coupe exige 5 secondes de chaque côté, avec 100 passages au maximum.
+- Glissez le bloc vidéo entier sur la timeline : le repère vertical indique l’insertion. Les flèches gauche/droite permettent aussi le déplacement au clavier. Les textes restent attachés au passage ; supprimer un passage supprime ses textes.
+- Ajoutez ou sélectionnez un texte pour modifier contenu, début relatif en secondes, durée, position et couleur. Le retour à la ligne utilise les mêmes règles de mots que le worker (40 caractères, 3 lignes au maximum). Les champs invalides sont signalés avant l’envoi.
+- **Texte traversant une coupe** : le texte est conservé sur les deux nouveaux passages, avec début relatif, durée et fin ajustés à chacun. Toute moitié de moins de **0,5 s** est supprimée ; une moitié de exactement 0,5 s est conservée. Si un passage résultant aurait plus de 10 textes, la coupe est refusée avec un message avant toute requête.
+- Le plafond de 45 minutes est vérifié avant le premier PUT, même si le montage créé initialement couvre un original plus long. Supprimez les passages inutiles pour le raccourcir.
+- Les changements restent locaux. « Annuler les changements » quitte sans PUT. « Modifier la vidéo » envoie tous les passages et textes avec la version lue. Les clés locales ne sont pas les identifiants recréés par le serveur.
+- Une erreur 400 affiche toutes les raisons renvoyées. Les refus 403 sont traduits, les conflits 409 et indisponibilités 503 conservent les modifications locales. Recharger depuis le serveur demande confirmation avant de les abandonner.
+- Pendant le rendu, aucun bouton d’annulation du traitement n’est proposé. Le suivi interroge le statut sans requêtes concurrentes, réessaie après une interruption réseau et s’arrête à `ready` ou `failed` en revenant à la page vidéo avec un message.
+- Le retour à l’original demande confirmation. La page vidéo et les vignettes affichent « Modifiée » et `renderedDuration` lorsqu’une version montée est active. Les sous-titres restent masqués sur celle-ci.
+
+Tests : depuis `frontend/`, `CI=true npm test -- --watchAll=false --runInBand src/pages/videoEdit src/pages/videoMedia/videoMedia.test.tsx`, puis `npx tsc --noEmit`. Les tests couvrent les validations, les coupes et leurs textes, les clés locales, les déplacements, l’accès à la source, les erreurs, le verrou optimiste, le suivi du rendu et la confirmation du retour à l’original.
