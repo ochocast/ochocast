@@ -139,3 +139,11 @@ La route protégée `GET /api/videos/:videoId/edit/source` permet au créateur e
 Le build standard échoue à écrire `frontend/node_modules/.cache/.eslintcache` (`EPERM`, dépendances locales liées hors du périmètre d’écriture). Le lancement autonome d’ESLint depuis la racine rencontre ensuite `@typescript-eslint/no-unused-expressions: Cannot read properties of undefined (reading allowShortCircuit)` avec les versions installées. Depuis `frontend/`, la configuration racine résout aussi incorrectement `frontend/frontend/tsconfig.json`.
 
 Contournement de vérification utilisé : Node 22 via nvm, `npx tsc --noEmit`, tests ciblés, puis `CI=true DISABLE_ESLINT_PLUGIN=true npm run build`. Il valide compilation et build, **pas ESLint**. Aucun paquet ni fichier de dépendances n’a été modifié pour contourner ces problèmes.
+
+## Recette UI avec worker réel (18 novembre 2026)
+
+Recette complète effectuée sur le build réel du frontend avec Keycloak, PostgreSQL, MinIO, ElasticMQ et les workers FFmpeg de cette branche : trois passages réordonnés, texte coupé en deux, rendu `ready` en 21,079 s, lecture HLS et textes vérifiés, retour à l’original, puis échec volontaire `invalid_source` en une tentative. Source originale conservée et métadonnées de test restaurées. Voir [le compte rendu détaillé](RECETTE-LOCALE-2026-11-18.md).
+
+Une correction UI ajoute un chargeur compact : le statut ne doit pas être repoussé sous le premier écran par un chargeur de 100vh. Vérifié sur un nouveau rendu réel après l’échec volontaire, avec suivi `pending → processing → ready`, puis nouveau retour à l’original. TypeScript, 31 tests frontend ciblés et build réussis (limite ESLint inchangée). Le pré-découpage n’est pas encore codé ; son exécution, l’attente pour 45 minutes et le stockage proposé sont décrits dans [PREDECOUPAGE.md](PREDECOUPAGE.md). La condition d’essais sur de vrais lives reste ouverte tant que le corpus n’est pas fourni.
+
+Les services et données dédiés à la recette sont conservés pour revue ; aucun nettoyage destructif sans confirmation. Le `.env` existant est inchangé : pour cette recette, **provider, endpoint, URL de file et clés** ont tous été remplacés par les valeurs locales dans le processus backend.
