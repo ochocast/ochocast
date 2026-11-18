@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   ForbiddenException,
   Inject,
   Injectable,
@@ -8,12 +7,8 @@ import {
 import { IUserGateway } from 'src/users/domain/gateways/users.gateway';
 import { SearchQueryDto } from '../../infra/controllers/search-query.dto';
 import { SEARCH_GATEWAY, SearchGateway } from '../gateways/search.gateway';
-import {
-  parseSearchQuery,
-  QueryTooLongError,
-  TooManyGroupsError,
-} from '../query-parser';
 import { SearchResult } from '../search.types';
+import { findViewer, parseQueryOr400 } from './search-request';
 
 /** PostgreSQL `query_canceled`, raised when `statement_timeout` is exceeded. */
 const STATEMENT_TIMEOUT = '57014';
@@ -28,16 +23,15 @@ export class SearchVideosUsecase {
   ) {}
 
   async execute(dto: SearchQueryDto, email: string): Promise<SearchResult> {
-    const user = email ? await this.userGateway.getUserByEmail(email) : null;
-    if (!user) throw new ForbiddenException('User not found');
-    const isAdmin = user.role === 'admin';
-    if (dto.archived && !isAdmin) {
+    const viewer = await findViewer(this.userGateway, email);
+    if (dto.archived && !viewer.isAdmin) {
       throw new ForbiddenException('Archived videos are reserved to admins');
     }
+    const parsed = parseQueryOr400(dto.q);
 
     try {
       return await this.searchGateway.search(
-        parseSearchQuery(dto.q),
+        parsed,
         {
           tags: dto.tags ?? [],
           users: dto.users ?? [],
@@ -47,15 +41,9 @@ export class SearchVideosUsecase {
           archived: dto.archived,
         },
         { limit: dto.limit, offset: dto.offset, sort: dto.sort },
-        { userId: user.id, isAdmin },
+        viewer,
       );
     } catch (error) {
-      if (
-        error instanceof QueryTooLongError ||
-        error instanceof TooManyGroupsError
-      ) {
-        throw new BadRequestException(error.message);
-      }
       if ((error as { code?: unknown })?.code === STATEMENT_TIMEOUT) {
         throw new ServiceUnavailableException(
           'La recherche a pris trop de temps. Réessayez avec moins de mots.',

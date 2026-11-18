@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ValidationPipe,
 } from '@nestjs/common';
+import { GetTranscriptUsecase } from '../../domain/usecases/get-transcript.usecase';
 import { SearchVideosUsecase } from '../../domain/usecases/search-videos.usecase';
 import { SearchController } from './search.controller';
 import { SearchQueryDto } from './search-query.dto';
@@ -100,15 +101,56 @@ describe('SearchQueryDto (through ValidationPipe)', () => {
 });
 
 describe('SearchController', () => {
+  const searchUsecase = { execute: jest.fn() };
+  const transcriptUsecase = { execute: jest.fn() };
+  const controller = new SearchController(
+    searchUsecase as unknown as SearchVideosUsecase,
+    transcriptUsecase as unknown as GetTranscriptUsecase,
+  );
+
+  beforeEach(() => jest.resetAllMocks());
+
   it('delegates to the use case with the current user e-mail', async () => {
     const result = { query: '', total: 0, passageTotal: 0, videos: [] };
-    const usecase = { execute: jest.fn().mockResolvedValue(result) };
-    const controller = new SearchController(
-      usecase as unknown as SearchVideosUsecase,
-    );
+    searchUsecase.execute.mockResolvedValue(result);
     const dto = new SearchQueryDto();
 
     await expect(controller.search(dto, 'a@b.c')).resolves.toBe(result);
-    expect(usecase.execute).toHaveBeenCalledWith(dto, 'a@b.c');
+    expect(searchUsecase.execute).toHaveBeenCalledWith(dto, 'a@b.c');
+  });
+
+  it('delegates the transcript to its use case with id, q and e-mail', async () => {
+    const result = {
+      videoId: 'v1',
+      source: 'auto',
+      status: 'none',
+      segments: [],
+      matches: [],
+    };
+    transcriptUsecase.execute.mockResolvedValue(result);
+
+    await expect(
+      controller.transcript('v1', 'kubernetes', 'a@b.c'),
+    ).resolves.toBe(result);
+    expect(transcriptUsecase.execute).toHaveBeenCalledWith(
+      'v1',
+      'kubernetes',
+      'a@b.c',
+    );
+  });
+
+  it('rejects a repeated q with 400 before the use case', async () => {
+    await expect(
+      controller.transcript('v1', ['a', 'b'], 'a@b.c'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(transcriptUsecase.execute).not.toHaveBeenCalled();
+  });
+
+  it('lets the errors of the transcript use case through', async () => {
+    const notFound = new Error('404');
+    transcriptUsecase.execute.mockRejectedValue(notFound);
+    await expect(controller.transcript('v1', undefined, 'a@b.c')).rejects.toBe(
+      notFound,
+    );
   });
 });

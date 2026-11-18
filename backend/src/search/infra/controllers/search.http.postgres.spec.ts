@@ -3,8 +3,10 @@ import { Test } from '@nestjs/testing';
 import { randomUUID } from 'node:crypto';
 import * as request from 'supertest';
 import { DataSource } from 'typeorm';
+import { GetTranscriptUsecase } from '../../domain/usecases/get-transcript.usecase';
 import { SearchVideosUsecase } from '../../domain/usecases/search-videos.usecase';
 import {
+  FixtureIds,
   loadSearchFixture,
   openSearchTestDatabase,
 } from '../../testing/search-fixture';
@@ -24,6 +26,7 @@ integration('GET /api/search (HTTP contract, dedicated test database)', () => {
   let db: DataSource;
   let app: INestApplication;
   let currentEmail: string | undefined;
+  let ids: FixtureIds;
 
   const get = (query: string) => {
     const call = request(app.getHttpServer()).get(`/api/search${query}`);
@@ -32,7 +35,7 @@ integration('GET /api/search (HTTP contract, dedicated test database)', () => {
 
   beforeAll(async () => {
     db = await openSearchTestDatabase(process.env.SEARCH_TEST_DATABASE_URL!);
-    await loadSearchFixture(db);
+    ids = await loadSearchFixture(db);
     const users = new Map<string, { id: string; role: string }>();
     const [demo] = await db.query(
       `SELECT id FROM user_entity WHERE email = $1`,
@@ -51,6 +54,7 @@ integration('GET /api/search (HTTP contract, dedicated test database)', () => {
       controllers: [SearchController],
       providers: [
         SearchVideosUsecase,
+        GetTranscriptUsecase,
         { provide: 'SearchGateway', useClass: PostgresSearchGateway },
         { provide: DataSource, useValue: db },
         {
@@ -294,6 +298,130 @@ integration('GET /api/search (HTTP contract, dedicated test database)', () => {
       total: 0,
       passageTotal: 0,
       videos: [],
+    });
+  });
+
+  describe('GET /api/videos/:id/transcript', () => {
+    const transcript = (id: string, query = '') =>
+      request(app.getHttpServer()).get(`/api/videos/${id}/transcript${query}`);
+
+    it('answers the shape of the front contract (searchApi.ts)', async () => {
+      const { body } = await transcript(ids.k8s, '?q=kubernetes').expect(200);
+
+      expect(sortedKeys(body)).toEqual(
+        ['matches', 'segments', 'source', 'status', 'videoId'].sort(),
+      );
+      expect(body.videoId).toBe(ids.k8s);
+      expect(body.source).toBe('auto');
+      expect(body.status).toBe('ready');
+      expect(body.matches).toEqual([1, 5, 10]);
+      expect(body.segments).toHaveLength(11);
+      for (const segment of body.segments) {
+        expect(sortedKeys(segment)).toEqual(['end', 'parts', 'start']);
+        expect(typeof segment.start).toBe('number');
+        expect(typeof segment.end).toBe('number');
+        expect(segment.parts.length).toBeGreaterThan(0);
+        for (const part of segment.parts) {
+          expect(sortedKeys(part)).toEqual(['hit', 'text']);
+          expect(typeof part.text).toBe('string');
+          expect(typeof part.hit).toBe('boolean');
+        }
+      }
+      for (const index of body.matches) {
+        expect(
+          body.segments[index].parts.some((part: { hit: boolean }) => part.hit),
+        ).toBe(true);
+      }
+      const text = JSON.stringify(body);
+      expect(text).not.toContain('\u0002');
+      expect(text).not.toContain('\u0003');
+      expect(text).not.toContain('\\u0002');
+      expect(text).not.toContain('\\u0003');
+      expect(text).not.toContain('@example.test');
+    });
+
+    it('answers one plain part per segment without q', async () => {
+      const { body } = await transcript(ids.k8s).expect(200);
+      expect(body.status).toBe('ready');
+      expect(body.matches).toEqual([]);
+      for (const segment of body.segments) {
+        expect(segment.parts).toHaveLength(1);
+        expect(segment.parts[0].hit).toBe(false);
+      }
+    });
+
+    it('always sends segments and matches, empty when the transcript is not ready', async () => {
+      await db.query(
+        `UPDATE video_entity SET subtitle_id = NULL, transcription_status = 'waiting_audio' WHERE id = $1`,
+        [ids.sport],
+      );
+      try {
+        const { body } = await transcript(ids.sport, '?q=sport').expect(200);
+        expect(body).toEqual({
+          videoId: ids.sport,
+          source: 'auto',
+          status: 'none',
+          segments: [],
+          matches: [],
+        });
+      } finally {
+        await db.query(
+          `UPDATE video_entity SET subtitle_id = $2, transcription_status = 'ready' WHERE id = $1`,
+          [ids.sport, `subtitle-auto-${ids.sport}.vtt`],
+        );
+      }
+    });
+
+    it('answers 404 for an unknown id and for a malformed one', async () => {
+      await transcript(randomUUID()).expect(404);
+      await transcript('not-a-uuid', '?q=kubernetes').expect(404);
+    });
+
+    it('answers 404 for an archived video to a user, 200 to an admin', async () => {
+      await db.query(`UPDATE video_entity SET archived = true WHERE id = $1`, [
+        ids.logique,
+      ]);
+      try {
+        await transcript(ids.logique).expect(404);
+        currentEmail = ADMIN_EMAIL;
+        const { body } = await transcript(ids.logique).expect(200);
+        expect(body.status).toBe('ready');
+      } finally {
+        await db.query(
+          `UPDATE video_entity SET archived = false WHERE id = $1`,
+          [ids.logique],
+        );
+      }
+    });
+
+    it('answers 400 for a query of 201 characters or 11 groups', async () => {
+      await transcript(ids.k8s, `?q=${'a'.repeat(201)}`).expect(400);
+      const eleven = Array.from({ length: 11 }, (_, i) => `mot${i}`).join('+');
+      await transcript(ids.k8s, `?q=${eleven}`).expect(400);
+      await transcript(ids.k8s, `?q=${'a'.repeat(200)}`).expect(200);
+    });
+
+    it('answers 400 for a repeated q', async () => {
+      await transcript(ids.k8s, '?q=a&q=b').expect(400);
+    });
+
+    it('answers 403 without an authenticated e-mail or for an unknown user', async () => {
+      currentEmail = undefined;
+      await transcript(ids.k8s).expect(403);
+      currentEmail = 'ghost@example.test';
+      await transcript(ids.k8s).expect(403);
+    });
+
+    it.each([
+      ['operators', 'a & b | !c :*'],
+      ['an SQL injection', "'; DROP TABLE x; --"],
+      ['an unclosed quote', '"open'],
+    ])('answers 200 for hostile input: %s', async (_label, q) => {
+      const { body } = await transcript(
+        ids.k8s,
+        `?q=${encodeURIComponent(q)}`,
+      ).expect(200);
+      expect(Array.isArray(body.matches)).toBe(true);
     });
   });
 });

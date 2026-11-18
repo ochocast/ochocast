@@ -12,6 +12,7 @@ import {
   SearchResult,
   SearchVideo,
   TranscriptResult,
+  TranscriptSegment,
   Viewer,
 } from '../domain/search.types';
 import {
@@ -20,6 +21,8 @@ import {
   SEARCH_CONFIG,
   TsQueries,
 } from './tsquery-builder';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CONFIG = `'${SEARCH_CONFIG.fr}'`;
 const EXACT = `'${EXACT_CONFIG}'`;
@@ -301,6 +304,34 @@ WHERE rank <= ${MAX_PASSAGES}
 ORDER BY video_id, start_s, position`;
 }
 
+/** The segments of a video in order, those matching `any` with their highlight. */
+function segmentsSql(any: string | null): string {
+  const match = any ? `s.tsv_fr @@ ${any}` : 'false';
+  return `
+SELECT s.start_s, s.end_s, s.text,
+       CASE WHEN ${match}
+         THEN ts_headline(${CONFIG}, s.text, ${any}, ${HIGHLIGHT_OPTIONS})
+       END AS marked
+FROM video_transcript_segment s
+WHERE s.video_id = $1
+ORDER BY s.position`;
+}
+
+interface VideoRow {
+  subtitle_id: string | null;
+  transcription_status: string;
+  /** Source of the indexed transcript; null when it is not indexed. */
+  source: 'auto' | 'provided' | null;
+}
+
+interface SegmentRow {
+  start_s: number;
+  end_s: number;
+  text: string;
+  /** `ts_headline` output, null when the segment does not match. */
+  marked: string | null;
+}
+
 interface PageRow {
   total: number;
   passage_total: number;
@@ -424,9 +455,63 @@ export class PostgresSearchGateway implements SearchGateway {
     });
   }
 
-  async transcript(): Promise<TranscriptResult | null> {
-    // R14: implemented by Task 10.
-    throw new Error('not implemented');
+  async transcript(
+    videoId: string,
+    q: ParsedQuery | null,
+    viewer: Viewer,
+  ): Promise<TranscriptResult | null> {
+    // Not a UUID: no such video, and no cast error to provoke.
+    if (!UUID.test(videoId)) return null;
+
+    const [video]: VideoRow[] = await this.db.query(
+      `SELECT v.subtitle_id, v.transcription_status, vt.source
+       FROM video_entity v
+       LEFT JOIN video_transcript vt
+         ON vt.video_id = v.id AND vt.subtitle_key = v.subtitle_id
+       WHERE v.id = $1 AND (NOT v.archived OR $2)`,
+      [videoId, viewer.isAdmin],
+    );
+    if (!video) return null;
+
+    // R5: ready only while the transcript is the one of the current subtitle (R4).
+    const result = (
+      status: TranscriptResult['status'],
+      source: TranscriptResult['source'],
+      segments: TranscriptSegment[] = [],
+      matches: number[] = [],
+    ): TranscriptResult => ({ videoId, source, status, segments, matches });
+
+    if (!video.subtitle_id) {
+      const running = ['pending', 'processing'].includes(
+        video.transcription_status,
+      );
+      return result(running ? 'pending' : 'none', 'auto');
+    }
+    if (!video.source) {
+      const auto = video.subtitle_id.startsWith('subtitle-auto-');
+      return result('pending', auto ? 'auto' : 'provided');
+    }
+
+    const params: unknown[] = [videoId];
+    // Exclusions apply to whole videos, not to segments (as for passages).
+    const ts = q && buildTsQueries({ ...q, excluded: [] }, params);
+    const rows: SegmentRow[] = await this.db.query(
+      segmentsSql(ts ? ts.any : null),
+      params,
+    );
+    const matches: number[] = [];
+    const segments = rows.map((row, index) => {
+      if (row.marked !== null) matches.push(index);
+      return {
+        start: row.start_s,
+        end: row.end_s,
+        parts:
+          row.marked === null
+            ? [{ text: row.text, hit: false }]
+            : splitHighlight(row.marked),
+      };
+    });
+    return result('ready', video.source, segments, matches);
   }
 
   /**

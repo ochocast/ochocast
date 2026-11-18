@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { SearchController } from './infra/controllers/search.controller';
 import { PostgresSearchGateway } from './infra/postgres-search.gateway';
 import { SearchVideosUsecase } from './domain/usecases/search-videos.usecase';
+import { GetTranscriptUsecase } from './domain/usecases/get-transcript.usecase';
 
 @Module({
   imports: [S3Module, UsersModule],
@@ -15,6 +16,7 @@ import { SearchVideosUsecase } from './domain/usecases/search-videos.usecase';
     TranscriptIndexer,
     { provide: 'SearchGateway', useClass: PostgresSearchGateway },
     SearchVideosUsecase,
+    GetTranscriptUsecase,
   ],
   exports: [TranscriptIndexer],
 })
