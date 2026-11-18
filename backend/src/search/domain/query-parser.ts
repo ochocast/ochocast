@@ -27,6 +27,19 @@ type Token =
 // tsquery operators have no meaning in our syntax.
 const OPERATOR_CHARS = /[&|!:*()<>]/g;
 
+// Tab, newline and carriage return separate words; other control characters
+// (NUL, the U+0002/U+0003 highlight markers, DEL...) are removed. Typographic
+// quotes (smart punctuation on mobile keyboards) act as plain quotes.
+function normalizeInput(input: string): string {
+  return (
+    input
+      .replace(/[\t\n\r]/g, ' ')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .replace(/[\u201c\u201d\u201e\u00ab\u00bb]/g, '"')
+  );
+}
+
 function cleanWord(text: string): string {
   return text.replace(OPERATOR_CHARS, '').replace(/^-+|-+$/g, '');
 }
@@ -117,7 +130,9 @@ export function parseSearchQuery(input: string | undefined): ParsedQuery {
   const raw = input ?? '';
   if (raw.length > MAX_QUERY_LENGTH) throw new QueryTooLongError();
 
-  const { groups, excluded } = buildGroups(tokenize(dropUnclosedQuote(raw)));
+  const { groups, excluded } = buildGroups(
+    tokenize(dropUnclosedQuote(normalizeInput(raw))),
+  );
   if (groups.length + excluded.length > MAX_GROUPS) {
     throw new TooManyGroupsError();
   }

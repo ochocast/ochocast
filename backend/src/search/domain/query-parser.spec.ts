@@ -191,4 +191,37 @@ describe('parseSearchQuery', () => {
       { kind: 'phrase', text: 'a b' },
     ]);
   });
+
+  it('removes control characters and treats tab, newline and CR as spaces', () => {
+    expect(parseSearchQuery('a\u0000b c\u0002\u007f').groups).toEqual([
+      terms('ab'),
+      terms('c'),
+    ]);
+    expect(parseSearchQuery('a\tb').groups).toEqual([terms('a'), terms('b')]);
+    expect(parseSearchQuery('a\nb\rc').groups).toEqual([
+      terms('a'),
+      terms('b'),
+      terms('c'),
+    ]);
+  });
+
+  it('applies the length limit before stripping control characters', () => {
+    expect(() => parseSearchQuery('a'.repeat(200) + '\u0000')).toThrow(
+      QueryTooLongError,
+    );
+  });
+
+  it('accepts typographic quotes as plain quotes', () => {
+    const phrase = [{ kind: 'phrase', text: 'données personnelles' }];
+    expect(parseSearchQuery('“données personnelles”').groups).toEqual(phrase);
+    expect(parseSearchQuery('„données personnelles”').groups).toEqual(phrase);
+    expect(parseSearchQuery('« données personnelles »').groups).toEqual(phrase);
+  });
+
+  it('pins the behaviour of a doubled or', () => {
+    expect(parseSearchQuery('a or or b').groups).toEqual([
+      terms('a', 'or'),
+      terms('b'),
+    ]);
+  });
 });
