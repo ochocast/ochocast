@@ -61,6 +61,12 @@ Interface ajoutée sur `feat/video-edit-ui` (voir mise à jour ci-dessous). Dép
 - **`409` a plusieurs sens** : montage déjà créé, vidéo pas encore prête, vidéo sans original, version périmée, rendu en cours. Le `message` de la réponse les distingue.
 - **`503` au `PUT`** : sans `VIDEO_EDIT_RENDER_QUEUE_URL`, le rendu est désactivé et rien n'est enregistré.
 - **Port 8084 occupé** : le worker de rendu local écoute par défaut sur 8084, qui peut être pris par un autre logiciel. Voir `ffmpegServer/SERVERLESS.md` : changer le port dans `docker-compose.yml` et `LOCAL_RENDER_BRIDGE_WORKER_URL`.
+- **Port 5432 occupé par un PostgreSQL installé sur la machine** : le conteneur `ochocast-db` publie aussi 5432, mais les connexions à `127.0.0.1:5432` atteignent alors le PostgreSQL du système, qui refuse l'utilisateur du `.env` (`password authentication failed for user "admin"`, alors que le mot de passe est bon dans le conteneur). `netstat -anv -p tcp | grep LISTEN | grep '\.5432 '` montre ce qui écoute. Sans toucher à l'un ni à l'autre, ajouter un relais sur un port libre vers le conteneur, puis lancer le backend avec `PG_HOST=127.0.0.1 PG_PORT=55432` en variables du processus (le `.env` reste inchangé). Arrêter le relais après le test (`docker stop ochocast-local-pgproxy`) :
+  ```bash
+  docker run -d --name ochocast-local-pgproxy --network dev-tools_default \
+    -p 127.0.0.1:55432:5432 alpine/socat:latest \
+    tcp-listen:5432,fork,reuseaddr tcp-connect:ochocast-db:5432
+  ```
 - **Base locale** : avec `NODE_ENV=development`, TypeORM crée les tables à partir des entités (`synchronize`), sans les contraintes `CHECK` des migrations. Les tests PostgreSQL (voir plus bas) passent, eux, par les vraies migrations. La chaîne complète des migrations échoue sur une base vide (`chat_messages`), problème antérieur au montage. Ne pas lancer `migration:run` sur la base locale existante sans vérifier son schéma (voir `dev-tools/LOCAL_FFMPEG_QUEUE.md`).
 - **Comptes Keycloak locaux** : les mots de passe des utilisateurs de `dev-tools/localKeycloak/config/realm-export.json` peuvent ne pas fonctionner. Créer un utilisateur de test dans `local-realm` depuis la console d'administration (`http://localhost:8080`) et le supprimer après.
 - **Disque plein** : MinIO répond `507` quand le disque du Mac est plein. Le build de l'image FFmpeg et le cache Docker prennent beaucoup de place ; libérer de l'espace avant le test.
