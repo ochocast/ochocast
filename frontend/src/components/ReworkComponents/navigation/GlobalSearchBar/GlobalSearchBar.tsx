@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import BrandingImage from '../../BrandingImage/BrandingImage';
 import FilterIcon from '../../../../assets/filter_icon.svg';
 import CopyButtonIcon from '../../../../assets/copy.svg';
+import SearchSyntaxHelp from '../../../search/SearchSyntaxHelp';
 
 /** Longest query `GET /api/search` accepts (it answers 400 beyond). */
 const MAX_QUERY_LENGTH = 200;
@@ -27,6 +28,8 @@ export interface GlobalSearchBarProps {
   inputDescribedBy?: string;
   /** Called when the input gains or loses focus. */
   onInputFocusChange?: (focused: boolean) => void;
+  /** Shows the "?" button explaining the advanced search syntax. */
+  showSyntaxHelp?: boolean;
 }
 
 const GlobalSearchBar = ({
@@ -43,6 +46,7 @@ const GlobalSearchBar = ({
   hideTagsRow = false,
   inputDescribedBy,
   onInputFocusChange,
+  showSyntaxHelp = false,
 }: GlobalSearchBarProps) => {
   const { t } = useTranslation();
   const [query, setQuery] = useState(initialValue || '');
@@ -164,6 +168,14 @@ const GlobalSearchBar = ({
     })),
   ];
 
+  const onTryExample = (value: string) => {
+    setQuery(value);
+    setShowSuggestions(false);
+    setTagSuggestions([]);
+    setUserSuggestions([]);
+    onSearch(value);
+  };
+
   const onSuggestionClick = (value: string) => {
     setQuery(value);
     setShowSuggestions(false);
@@ -201,6 +213,8 @@ const GlobalSearchBar = ({
             placeholder={placeholder || t('Searching')}
             className={styles.searchInput}
           />
+
+          {showSyntaxHelp && <SearchSyntaxHelp onTryExample={onTryExample} />}
 
           <button
             type="button"

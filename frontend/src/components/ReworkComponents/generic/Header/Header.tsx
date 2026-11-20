@@ -430,6 +430,7 @@ const Header: FC<HeaderProps> = () => {
               handleTagsChange(filters.tags.filter((t) => t !== tag))
             }
             hideTagsRow
+            showSyntaxHelp
             inputDescribedBy={showSearchHelp ? searchHelpId : undefined}
             onInputFocusChange={setSearchFocused}
           />

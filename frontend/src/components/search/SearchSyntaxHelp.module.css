@@ -1,0 +1,203 @@
+/* The panel is placed against the search bar wrapper (position: relative). */
+.root {
+  display: flex;
+  flex: 0 0 auto;
+}
+
+.helpButton {
+  position: relative;
+  border: 1.5px solid var(--theme-color-700);
+  background: transparent;
+  color: var(--theme-color-700);
+  cursor: pointer;
+  width: 1.45rem;
+  height: 1.45rem;
+  margin: 0 0.275rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* A 44px touch target around the small round button. */
+.helpButton::before {
+  content: '';
+  position: absolute;
+  inset: -0.5rem;
+}
+
+.helpButton:hover,
+.helpButton[aria-expanded='true'] {
+  background-color: var(--theme-color-700);
+  color: var(--theme-color-white);
+}
+
+.helpButton:focus-visible {
+  outline: 2px solid var(--theme-color);
+  outline-offset: 2px;
+}
+
+/* Tooltip: on hover and keyboard focus, hidden while the panel is open. */
+.helpButton::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background-color: var(--theme-color-900);
+  color: var(--theme-color-white);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 30;
+}
+
+@media (hover: hover) {
+  .helpButton:hover::after {
+    opacity: 1;
+  }
+}
+
+.helpButton:focus-visible::after {
+  opacity: 1;
+}
+
+.helpButton[aria-expanded='true']::after {
+  opacity: 0;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: min(28rem, 100%);
+  z-index: 25;
+  padding: 1rem 1.1rem 0.9rem;
+  border-radius: 14px;
+  background-color: var(--theme-color-white);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  color: var(--theme-color-900);
+  text-align: left;
+  cursor: default;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.closeButton {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--theme-color-900);
+}
+
+.closeButton:hover {
+  background-color: var(--theme-color-200);
+}
+
+.intro {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.examples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.example {
+  display: grid;
+  grid-template-columns: 12.5rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.exampleQuery {
+  border: 1px solid var(--theme-color-200);
+  background-color: color-mix(
+    in srgb,
+    var(--theme-color) 8%,
+    var(--theme-color-white)
+  );
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  min-height: 2.25rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--theme-color-900);
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.exampleQuery:hover,
+.exampleQuery:focus-visible {
+  border-color: var(--theme-color);
+  background-color: color-mix(
+    in srgb,
+    var(--theme-color) 16%,
+    var(--theme-color-white)
+  );
+}
+
+.exampleQuery code {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.exampleLabel {
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.notes {
+  margin: 0.85rem 0 0;
+  padding: 0.65rem 0 0 1.1rem;
+  border-top: 1px solid var(--theme-color-200);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--theme-color-900) 75%, transparent);
+}
+
+@media (max-width: 600px) {
+  .panel {
+    width: 100%;
+  }
+
+  .example {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+}
