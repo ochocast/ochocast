@@ -221,6 +221,86 @@ export function locate(segments: EditSegment[], time: number) {
   }
   return null;
 }
+// ---------------------------------------------------------------------------
+// Preview: the montage is played from the original, passage by passage.
+
+/** Montage time at which each passage starts. */
+export const passageStarts = (segments: EditSegment[]): number[] => {
+  let start = 0;
+  return segments.map((s) => {
+    const at = start;
+    start += segmentDuration(s);
+    return at;
+  });
+};
+
+/** Where montage time `time` plays in the original, or null without any passage. */
+export function toSource(segments: EditSegment[], time: number) {
+  const at = locate(segments, Math.max(0, time));
+  if (!at) return null;
+  return {
+    index: at.index,
+    offset: at.offset,
+    sourceTime: at.segment.sourceStart + at.offset,
+  };
+}
+
+/** Montage time of original time `sourceTime` played as passage `index`. */
+export function toMontage(
+  segments: EditSegment[],
+  index: number,
+  sourceTime: number,
+): number {
+  const s = segments[index];
+  if (!s) return totalDuration(segments);
+  const offset = Math.max(
+    0,
+    Math.min(segmentDuration(s), sourceTime - s.sourceStart),
+  );
+  return passageStarts(segments)[index] + offset;
+}
+
+/** The passage, if any, that plays original time `sourceTime`. */
+export function passageAt(
+  segments: EditSegment[],
+  sourceTime: number,
+): number | null {
+  const index = segments.findIndex(
+    (s) => sourceTime >= s.sourceStart && sourceTime < s.sourceEnd,
+  );
+  return index < 0 ? null : index;
+}
+
+// Passages are cut to the millisecond: closer than this, two passages join
+// in the original and play on without a seek.
+const JOIN_TOLERANCE = 0.001;
+
+export type Jump =
+  | { kind: 'continue'; index: number }
+  | { kind: 'seek'; index: number; sourceTime: number }
+  | { kind: 'end' };
+
+/** What follows the end of passage `index`. */
+export function nextJump(segments: EditSegment[], index: number): Jump {
+  const current = segments[index],
+    next = segments[index + 1];
+  if (!current || !next) return { kind: 'end' };
+  if (Math.abs(next.sourceStart - current.sourceEnd) < JOIN_TOLERANCE)
+    return { kind: 'continue', index: index + 1 };
+  return { kind: 'seek', index: index + 1, sourceTime: next.sourceStart };
+}
+
+/**
+ * Texts of a passage shown at `offset` seconds into it. Like the render
+ * (FFmpeg `between(t,start,end)`), both bounds are included: a text that
+ * starts the passage shows on its first frame, one that ends it on its last.
+ */
+export function visibleTexts(segment: EditSegment, offset: number): EditText[] {
+  return segment.textLayers.filter(
+    (t) => offset >= t.startOffset && offset <= t.startOffset + t.duration,
+  );
+}
+
 export function formatTime(seconds: number) {
   const n = Math.max(0, Math.floor(seconds || 0));
   return `${Math.floor(n / 60)

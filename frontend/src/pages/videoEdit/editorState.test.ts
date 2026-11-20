@@ -4,10 +4,16 @@ import {
   localKey,
   locate,
   moveSegment,
+  nextJump,
+  passageAt,
+  passageStarts,
   payload,
   splitSegment,
+  toMontage,
+  toSource,
   totalDuration,
   validate,
+  visibleTexts,
   wrapText,
 } from './editorState';
 const segment = (sourceStart = 0, sourceEnd = 20): EditSegment => ({
@@ -169,4 +175,84 @@ it('preserves a short text that does not cross the cut', () => {
   expect(splitSegment([s], s.key, 10)[0].textLayers[0].duration).toBeCloseTo(
     0.2,
   );
+});
+
+describe('preview timing', () => {
+  // Reordered: original 20-30 s first, then 0-5 s (a 5 s passage), then 5-12 s
+  // which joins the previous one in the original.
+  const reordered = () => [segment(20, 30), segment(0, 5), segment(5, 12)];
+
+  it('places each passage on the montage timeline', () => {
+    expect(passageStarts(reordered())).toEqual([0, 10, 15]);
+    expect(passageStarts([])).toEqual([]);
+  });
+
+  it('converts montage time to the original and back', () => {
+    const list = reordered();
+    for (const [time, index, sourceTime] of [
+      [0, 0, 20],
+      [9.5, 0, 29.5],
+      [10, 1, 0],
+      [14.9, 1, 4.9],
+      [15, 2, 5],
+      [21.5, 2, 11.5],
+    ]) {
+      const at = toSource(list, time);
+      expect(at?.index).toBe(index);
+      expect(at?.offset).toBeCloseTo(time - passageStarts(list)[index], 6);
+      expect(at?.sourceTime).toBeCloseTo(sourceTime, 6);
+      expect(toMontage(list, index, sourceTime)).toBeCloseTo(time, 6);
+    }
+  });
+
+  it('clamps times outside the montage and outside a passage', () => {
+    const list = reordered();
+    expect(toSource(list, -3)).toMatchObject({ index: 0, sourceTime: 20 });
+    // Past the end: the last frame of the last passage.
+    expect(toSource(list, 99)).toMatchObject({ index: 2, sourceTime: 12 });
+    expect(toSource([], 3)).toBeNull();
+    expect(toMontage(list, 1, -1)).toBe(10);
+    expect(toMontage(list, 1, 8)).toBe(15);
+    // A passage removed meanwhile: the end of the montage.
+    expect(toMontage(list, 7, 3)).toBe(22);
+  });
+
+  it('finds the passage playing an original time, if any', () => {
+    const list = reordered();
+    expect(passageAt(list, 25)).toBe(0);
+    expect(passageAt(list, 0)).toBe(1);
+    expect(passageAt(list, 5)).toBe(2);
+    expect(passageAt(list, 15)).toBeNull();
+  });
+
+  it('seeks to a passage elsewhere, plays on into a joined one, stops after the last', () => {
+    const list = reordered();
+    expect(nextJump(list, 0)).toEqual({
+      kind: 'seek',
+      index: 1,
+      sourceTime: 0,
+    });
+    expect(nextJump(list, 1)).toEqual({ kind: 'continue', index: 2 });
+    expect(nextJump(list, 2)).toEqual({ kind: 'end' });
+    expect(nextJump(list, 5)).toEqual({ kind: 'end' });
+    // A removed passage changes what follows.
+    expect(nextJump([list[0], list[2]], 0)).toEqual({
+      kind: 'seek',
+      index: 1,
+      sourceTime: 5,
+    });
+  });
+
+  it('shows texts on both bounds of their interval, like the render', () => {
+    const s = segment(0, 5);
+    const first = text(0, 2),
+      last = text(3, 2),
+      whole = text(0, 5);
+    s.textLayers = [first, last, whole];
+    expect(visibleTexts(s, 0)).toEqual([first, whole]);
+    expect(visibleTexts(s, 2)).toEqual([first, whole]);
+    expect(visibleTexts(s, 2.5)).toEqual([whole]);
+    expect(visibleTexts(s, 5)).toEqual([last, whole]);
+    expect(visibleTexts(s, 5.01)).toEqual([]);
+  });
 });
