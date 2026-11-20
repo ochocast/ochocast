@@ -24,6 +24,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createHash, randomUUID } from 'crypto';
+import { TranscriptIndexer } from 'src/search/infra/transcript-indexer';
 import {
   UploadsService,
   validateParts,
@@ -54,9 +55,13 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
   // Declare enabled explicitly: a mock without it takes the disabled path.
   const queue = { enabled: true, publishRegisteredJob: jest.fn() };
   const disabledQueue = { enabled: false, publishRegisteredJob: jest.fn() };
-  const makeService = () => new UploadsService(db, storage, queue as any, jobs);
+  const indexer = {
+    indexVideo: jest.fn(async () => 'unchanged'),
+  } as unknown as TranscriptIndexer;
+  const makeService = () =>
+    new UploadsService(db, storage, queue as any, jobs, indexer);
   const makeDisabledService = () =>
-    new UploadsService(db, storage, disabledQueue as any, jobs);
+    new UploadsService(db, storage, disabledQueue as any, jobs, indexer);
   beforeEach(() => {
     disabledQueue.publishRegisteredJob.mockReset();
     queue.publishRegisteredJob
@@ -525,7 +530,13 @@ integration('multipart with real PostgreSQL and S3 (local only)', () => {
         const workerUrl = `http://127.0.0.1:${(worker.server.address() as import('node:net').AddressInfo).port}/`;
         process.env.LOCAL_QUEUE_BRIDGE_WORKER_URL = workerUrl;
         const realQueue = new QueueService(jobs);
-        const uploads = new UploadsService(db, storage, realQueue, jobs);
+        const uploads = new UploadsService(
+          db,
+          storage,
+          realQueue,
+          jobs,
+          indexer,
+        );
         const input = join(directory, 'sample.mp4');
         execFileSync('ffmpeg', [
           '-hide_banner',

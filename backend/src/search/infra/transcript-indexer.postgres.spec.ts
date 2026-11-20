@@ -1,0 +1,481 @@
+import { Logger } from '@nestjs/common';
+import { S3Client } from '@aws-sdk/client-s3';
+import { DataSource } from 'typeorm';
+import { toWebVtt } from '../../transcription/webvtt';
+import {
+  FixtureIds,
+  fixtureVtt,
+  loadSearchFixture,
+  openSearchTestDatabase,
+} from '../testing/search-fixture';
+import { TranscriptIndexer } from './transcript-indexer';
+
+const integration = process.env.SEARCH_TEST_DATABASE_URL
+  ? describe
+  : describe.skip;
+
+const MAX_BYTES = 4 * 1024 ** 2;
+
+integration('TranscriptIndexer (PostgreSQL)', () => {
+  let db: DataSource;
+  let ids: FixtureIds;
+  let indexer: TranscriptIndexer;
+  const objects = new Map<string, string>();
+
+  const send = jest.fn(async (command: { input: { Key: string } }) => {
+    const text = objects.get(command.input.Key);
+    if (text === undefined) {
+      throw Object.assign(new Error('The specified key does not exist.'), {
+        name: 'NoSuchKey',
+      });
+    }
+    return {
+      ContentLength: Buffer.byteLength(text),
+      Body: {
+        transformToByteArray: async () => new Uint8Array(Buffer.from(text)),
+      },
+    };
+  });
+  const s3 = { send } as unknown as S3Client;
+
+  const autoKey = (id: string) => `subtitle-auto-${id}.vtt`;
+  const segmentCount = async (id: string): Promise<number> => {
+    const [{ count }] = await db.query(
+      `SELECT count(*)::int AS count FROM video_transcript_segment WHERE video_id = $1`,
+      [id],
+    );
+    return count;
+  };
+  const transcriptRows = (id: string) =>
+    db.query(`SELECT * FROM video_transcript WHERE video_id = $1`, [id]);
+  /** Puts the video in a state where its subtitle is not indexed yet. */
+  const unindex = async (id: string) => {
+    await db.query(`DELETE FROM video_transcript_segment WHERE video_id = $1`, [
+      id,
+    ]);
+    await db.query(`DELETE FROM video_transcript WHERE video_id = $1`, [id]);
+  };
+  const setVideo = (id: string, subtitleId: string | null, status = 'ready') =>
+    db.query(
+      `UPDATE video_entity SET subtitle_id = $2, transcoding_status = $3 WHERE id = $1`,
+      [id, subtitleId, status],
+    );
+  const silenceErrors = () =>
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+
+  beforeAll(async () => {
+    db = await openSearchTestDatabase(process.env.SEARCH_TEST_DATABASE_URL!);
+    ids = await loadSearchFixture(db);
+    indexer = new TranscriptIndexer(db, s3);
+  });
+  afterAll(async () => {
+    await db?.destroy();
+  });
+  beforeEach(() => {
+    send.mockClear();
+    objects.clear();
+  });
+
+  it('indexes a new subtitle', async () => {
+    await setVideo(ids.k8s, autoKey(ids.k8s));
+    await unindex(ids.k8s);
+    objects.set(autoKey(ids.k8s), fixtureVtt('k8s'));
+
+    await expect(indexer.indexVideo(ids.k8s)).resolves.toBe('indexed');
+
+    expect(await segmentCount(ids.k8s)).toBe(11);
+    const [row] = await transcriptRows(ids.k8s);
+    expect(row.source).toBe('auto');
+    expect(row.segment_count).toBe(11);
+    expect(row.subtitle_key).toBe(autoKey(ids.k8s));
+    expect(row.language).toBe('fr');
+    const [{ matches }] = await db.query(
+      `SELECT tsv_fr @@ plainto_tsquery('ochocast_fr', 'kubernetes') AS matches
+       FROM video_transcript WHERE video_id = $1`,
+      [ids.k8s],
+    );
+    expect(matches).toBe(true);
+    const [first] = await db.query(
+      `SELECT position, start_s, end_s, text FROM video_transcript_segment
+       WHERE video_id = $1 ORDER BY position LIMIT 1`,
+      [ids.k8s],
+    );
+    expect(first).toMatchObject({ position: 0, start_s: 12, end_s: 95 });
+  });
+
+  it('is unchanged when the key is already indexed', async () => {
+    await setVideo(ids.rgpd, autoKey(ids.rgpd));
+    const [before] = await transcriptRows(ids.rgpd);
+
+    await expect(indexer.indexVideo(ids.rgpd)).resolves.toBe('unchanged');
+
+    const [after] = await transcriptRows(ids.rgpd);
+    expect(after.indexed_at).toEqual(before.indexed_at);
+    expect(await segmentCount(ids.rgpd)).toBe(9);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('clears when subtitle_id is emptied', async () => {
+    await setVideo(ids.sport, '');
+
+    await expect(indexer.indexVideo(ids.sport)).resolves.toBe('cleared');
+
+    expect(await segmentCount(ids.sport)).toBe(0);
+    expect(await transcriptRows(ids.sport)).toHaveLength(0);
+    // Nothing left to delete the second time.
+    await expect(indexer.indexVideo(ids.sport)).resolves.toBe('unchanged');
+  });
+
+  it('does nothing while transcoding is pending', async () => {
+    await setVideo(ids.logique, 'subtitle-new.vtt', 'pending');
+    objects.set('subtitle-new.vtt', fixtureVtt('logique'));
+
+    await expect(indexer.indexVideo(ids.logique)).resolves.toBe('not_ready');
+
+    // The previous index stays in place.
+    expect(await segmentCount(ids.logique)).toBe(7);
+    const [row] = await transcriptRows(ids.logique);
+    expect(row.subtitle_key).toBe(autoKey(ids.logique));
+  });
+
+  it('writes nothing and logs an error for an unreadable file', async () => {
+    await setVideo(ids.ffmpeg, 'subtitle-missing.vtt');
+    const error = silenceErrors();
+    try {
+      await expect(indexer.indexVideo(ids.ffmpeg)).resolves.toBe('failed');
+
+      expect(error).toHaveBeenCalledWith(expect.stringContaining(ids.ffmpeg));
+      expect(await segmentCount(ids.ffmpeg)).toBe(8);
+      const [row] = await transcriptRows(ids.ffmpeg);
+      expect(row.subtitle_key).toBe(autoKey(ids.ffmpeg));
+
+      // A file that parses to zero cues is a failure too.
+      error.mockClear();
+      await setVideo(ids.ffmpeg, 'subtitle-empty.vtt');
+      objects.set('subtitle-empty.vtt', 'WEBVTT\n\n');
+      await expect(indexer.indexVideo(ids.ffmpeg)).resolves.toBe('failed');
+      expect(error).toHaveBeenCalledWith(expect.stringContaining(ids.ffmpeg));
+      expect(await segmentCount(ids.ffmpeg)).toBe(8);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('reindexes when the key changes', async () => {
+    const key = `subtitle-${ids.pgsearch}.vtt`;
+    await setVideo(ids.pgsearch, key);
+    objects.set(
+      key,
+      toWebVtt([
+        { start: 0, end: 4, text: 'Premier passage remplacé.' },
+        { start: 4, end: 9, text: 'Second passage remplacé.' },
+      ]),
+    );
+
+    await expect(indexer.indexVideo(ids.pgsearch)).resolves.toBe('indexed');
+
+    expect(await segmentCount(ids.pgsearch)).toBe(2);
+    const [row] = await transcriptRows(ids.pgsearch);
+    expect(row.source).toBe('provided');
+    expect(row.subtitle_key).toBe(key);
+    expect(row.segment_count).toBe(2);
+    const segments = await db.query(
+      `SELECT position, text FROM video_transcript_segment WHERE video_id = $1 ORDER BY position`,
+      [ids.pgsearch],
+    );
+    expect(segments.map((s: { text: string }) => s.text)).toEqual([
+      'Premier passage remplacé.',
+      'Second passage remplacé.',
+    ]);
+  });
+
+  it('serialises concurrent indexing', async () => {
+    await setVideo(ids.k8s, autoKey(ids.k8s));
+    await unindex(ids.k8s);
+    objects.set(autoKey(ids.k8s), fixtureVtt('k8s'));
+
+    const outcomes = await Promise.all([
+      indexer.indexVideo(ids.k8s),
+      indexer.indexVideo(ids.k8s),
+    ]);
+
+    expect([...outcomes].sort()).toEqual(['indexed', 'unchanged']);
+    expect(await segmentCount(ids.k8s)).toBe(11);
+  });
+
+  it('indexes a transcript longer than 16383 words', async () => {
+    const words = [
+      'le',
+      'cours',
+      'présente',
+      'une',
+      'méthode',
+      'simple',
+      'pour',
+      'analyser',
+      'des',
+      'données',
+      'de',
+      'terrain',
+    ];
+    const cues = Array.from({ length: 1800 }, (_, i) => ({
+      start: i * 4,
+      end: i * 4 + 4,
+      text:
+        i === 1799
+          ? [...words.slice(0, 11), 'zygomatique'].join(' ')
+          : words.map((_, j) => words[(i + j) % words.length]).join(' '),
+    }));
+    const key = `subtitle-long-${ids.pgsearch}.vtt`;
+    await setVideo(ids.pgsearch, key);
+    objects.set(key, toWebVtt(cues)!);
+
+    await expect(indexer.indexVideo(ids.pgsearch)).resolves.toBe('indexed');
+
+    expect(await segmentCount(ids.pgsearch)).toBe(1800);
+    const [{ matches }] = await db.query(
+      `SELECT tsv_fr @@ plainto_tsquery('ochocast_fr', 'zygomatique') AS matches
+       FROM video_transcript WHERE video_id = $1`,
+      [ids.pgsearch],
+    );
+    expect(matches).toBe(true);
+  });
+
+  it('refuses a file over 4 MB', async () => {
+    await setVideo(ids.sport, 'subtitle-huge.vtt');
+    await unindex(ids.sport);
+    objects.set(
+      'subtitle-huge.vtt',
+      `WEBVTT\n\n00:00:00.000 --> 00:00:04.000\n${'a'.repeat(MAX_BYTES)}\n`,
+    );
+    const error = silenceErrors();
+    try {
+      await expect(indexer.indexVideo(ids.sport)).resolves.toBe('failed');
+
+      expect(error).toHaveBeenCalledWith(expect.stringContaining(ids.sport));
+      expect(await segmentCount(ids.sport)).toBe(0);
+      expect(await transcriptRows(ids.sport)).toHaveLength(0);
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('indexes a subtitle close to 4 MB', async () => {
+    // A few thousand distinct French-looking words, recombined: PostgreSQL
+    // caps a tsvector at 1 MB of distinct lexemes.
+    const syllables = [
+      'ba',
+      'be',
+      'bi',
+      'bo',
+      'ca',
+      'ce',
+      'ci',
+      'co',
+      'da',
+      'de',
+      'di',
+      'do',
+      'fa',
+      'fe',
+      'fi',
+      'fo',
+      'la',
+      'le',
+      'li',
+      'lo',
+      'ma',
+      'me',
+      'mi',
+      'mo',
+      'na',
+      'ne',
+      'ni',
+      'no',
+      'pa',
+      'pe',
+      'pi',
+      'po',
+      'ra',
+      're',
+      'ri',
+      'ro',
+      'sa',
+      'se',
+      'si',
+      'so',
+      'ta',
+      'te',
+      'ti',
+      'to',
+      'va',
+      've',
+      'vi',
+      'vo',
+    ];
+    const vocabulary = Array.from(
+      { length: 4000 },
+      (_, i) =>
+        syllables[i % 48] +
+        syllables[Math.floor(i / 48) % 48] +
+        syllables[Math.floor(i / 2304) % 48] +
+        'tion',
+    );
+    expect(new Set(vocabulary).size).toBe(4000);
+    const wordsPerCue = 30;
+    const cueCount = 11000;
+    const cues = Array.from({ length: cueCount }, (_, i) => {
+      const words = Array.from(
+        { length: wordsPerCue },
+        (_, j) => vocabulary[(i * 31 + j * 17) % vocabulary.length],
+      );
+      if (i === cueCount - 1) words[wordsPerCue - 1] = 'zygomatique';
+      return { start: i * 4, end: i * 4 + 4, text: words.join(' ') };
+    });
+    const vtt = toWebVtt(cues)!;
+    const bytes = Buffer.byteLength(vtt);
+    expect(bytes).toBeGreaterThan(3.5 * 1024 ** 2);
+    expect(bytes).toBeLessThan(MAX_BYTES);
+
+    const key = `subtitle-near-limit-${ids.sport}.vtt`;
+    await setVideo(ids.sport, key);
+    await unindex(ids.sport);
+    objects.set(key, vtt);
+
+    await expect(indexer.indexVideo(ids.sport)).resolves.toBe('indexed');
+
+    expect(await segmentCount(ids.sport)).toBe(cueCount);
+    const [row] = await transcriptRows(ids.sport);
+    expect(row.segment_count).toBe(cueCount);
+    const [{ matches }] = await db.query(
+      `SELECT tsv_fr @@ plainto_tsquery('ochocast_fr', 'zygomatique') AS matches
+       FROM video_transcript WHERE video_id = $1`,
+      [ids.sport],
+    );
+    expect(matches).toBe(true);
+  });
+
+  it('indexes an archived video', async () => {
+    // Archived videos stay findable by admins (design criterion 11).
+    const key = `subtitle-archived-${ids.logique}.vtt`;
+    await setVideo(ids.logique, key);
+    await unindex(ids.logique);
+    await db.query(`UPDATE video_entity SET archived = true WHERE id = $1`, [
+      ids.logique,
+    ]);
+    objects.set(key, fixtureVtt('logique'));
+    try {
+      await expect(indexer.indexVideo(ids.logique)).resolves.toBe('indexed');
+
+      expect(await segmentCount(ids.logique)).toBe(7);
+      const [row] = await transcriptRows(ids.logique);
+      expect(row.subtitle_key).toBe(key);
+    } finally {
+      await db.query(`UPDATE video_entity SET archived = false WHERE id = $1`, [
+        ids.logique,
+      ]);
+    }
+  });
+
+  it('fails cleanly on an invalid id', async () => {
+    const error = silenceErrors();
+    try {
+      await expect(indexer.indexVideo('not-a-uuid')).resolves.toBe('failed');
+
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('not-a-uuid'));
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('reindexes every pending video and is idempotent', async () => {
+    // Whatever the previous tests left: every fixture video starts ready,
+    // pointing at its automatic subtitle, with no index.
+    for (const id of Object.values(ids)) {
+      await setVideo(id, autoKey(id));
+      await unindex(id);
+    }
+    for (const [name, id] of Object.entries(ids)) {
+      objects.set(autoKey(id), fixtureVtt(name as keyof FixtureIds));
+    }
+    // Up to date: indexed and left alone.
+    await indexer.indexVideo(ids.ffmpeg);
+    // Indexed, then its subtitle was removed.
+    await indexer.indexVideo(ids.sport);
+    await setVideo(ids.sport, '');
+    // Not ready: nothing to read yet.
+    await setVideo(ids.logique, 'subtitle-new.vtt', 'pending');
+    objects.set('subtitle-new.vtt', fixtureVtt('logique'));
+    // k8s, rgpd and pgsearch: ready, subtitle not indexed.
+    send.mockClear();
+
+    await expect(indexer.reindexAll()).resolves.toEqual({
+      indexed: 3,
+      cleared: 1,
+      failed: 0,
+      unchanged: 0,
+    });
+
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(await segmentCount(ids.k8s)).toBe(11);
+    expect(await segmentCount(ids.rgpd)).toBe(9);
+    expect(await segmentCount(ids.pgsearch)).toBeGreaterThan(0);
+    expect(await segmentCount(ids.ffmpeg)).toBe(8);
+    expect(await segmentCount(ids.sport)).toBe(0);
+    expect(await transcriptRows(ids.sport)).toHaveLength(0);
+    expect(await segmentCount(ids.logique)).toBe(0);
+    expect(await transcriptRows(ids.logique)).toHaveLength(0);
+
+    send.mockClear();
+    await expect(indexer.reindexAll()).resolves.toEqual({
+      indexed: 0,
+      cleared: 0,
+      failed: 0,
+      unchanged: 0,
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('visits every video once when more than one page keeps failing', async () => {
+    // 45 clones with the same "createdAt": the id tiebreak must carry the paging.
+    const clones = await db.query(
+      `INSERT INTO video_entity (id, media_id, miniature_id, subtitle_id, transcription_status,
+         title, description, external_speakers, views, duration, transcoding_status, archived,
+         "creatorId", "createdAt", "updatedAt")
+       SELECT gen_random_uuid(), media_id, miniature_id, 'subtitle-gone.vtt', 'ready',
+         'clone ' || n, description, external_speakers, 0, duration, 'ready', false,
+         "creatorId", "createdAt", "updatedAt"
+       FROM video_entity, generate_series(1, 45) AS n
+       WHERE id = $1
+       RETURNING id`,
+      [ids.k8s],
+    );
+    const error = silenceErrors();
+    try {
+      // The six fixture videos are up to date, only the clones are pending.
+      for (const id of Object.values(ids)) await unindex(id);
+      for (const [name, id] of Object.entries(ids)) {
+        objects.set(autoKey(id), fixtureVtt(name as keyof FixtureIds));
+        await setVideo(id, autoKey(id));
+        await indexer.indexVideo(id);
+      }
+      send.mockClear();
+
+      await expect(indexer.reindexAll()).resolves.toEqual({
+        indexed: 0,
+        cleared: 0,
+        failed: 45,
+        unchanged: 0,
+      });
+
+      expect(send).toHaveBeenCalledTimes(45);
+      for (const { id } of clones) {
+        expect(error).toHaveBeenCalledWith(expect.stringContaining(id));
+      }
+    } finally {
+      error.mockRestore();
+      await db.query(`DELETE FROM video_entity WHERE title LIKE 'clone %'`);
+    }
+  });
+});

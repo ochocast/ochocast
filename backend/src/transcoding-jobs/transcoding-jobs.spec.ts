@@ -3,6 +3,7 @@ import {
   ConflictException,
   GoneException,
   INestApplication,
+  Logger,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { DataSource } from 'typeorm';
@@ -14,6 +15,7 @@ import {
   TranscodingJobsController,
 } from './transcoding-jobs.controller';
 import { TranscodingJobEntity } from './transcoding-job.entity';
+import { TranscriptIndexer } from '../search/infra/transcript-indexer';
 import { VideoEntity } from '../videos/infra/gateways/entities/video.entity';
 import {
   VideoTranscodingJob,
@@ -43,6 +45,7 @@ describe('Transcoding job leases', () => {
   let service: TranscodingJobsService;
   let update: jest.Mock;
   let findOne: jest.Mock;
+  let indexVideo: jest.Mock;
   beforeEach(() => {
     stored = Object.assign(new TranscodingJobEntity(), {
       id: payload.jobId,
@@ -66,9 +69,13 @@ describe('Transcoding job leases', () => {
       save: repository.save,
       update,
     };
-    service = new TranscodingJobsService({
-      transaction: (callback) => callback(manager),
-    } as unknown as DataSource);
+    indexVideo = jest.fn(async () => 'indexed');
+    service = new TranscodingJobsService(
+      {
+        transaction: (callback) => callback(manager),
+      } as unknown as DataSource,
+      { indexVideo } as unknown as TranscriptIndexer,
+    );
   });
 
   it('locks the row and rejects duplicate claims during a running attempt', async () => {
@@ -369,6 +376,100 @@ describe('Transcoding job leases', () => {
       );
     },
   );
+  describe('indexing', () => {
+    it('indexes when a transcoding job completes with a subtitle', async () => {
+      await service.claim(payload.jobId, payload.videoId);
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...result,
+        subtitle_id: `subtitle-${payload.videoId}.vtt`,
+      });
+      expect(indexVideo).toHaveBeenCalledTimes(1);
+      expect(indexVideo).toHaveBeenCalledWith(payload.videoId);
+    });
+
+    it('indexes when a video is played from its source after a failed transcoding', async () => {
+      stored.payload = {
+        ...payload,
+        originalKey: `${payload.videoId}/source/original.mp4`,
+        subtitle_id: `subtitle-${payload.videoId}.vtt`,
+      };
+      await service.claim(payload.jobId, payload.videoId);
+      await service.complete(payload.jobId, stored.leaseToken, {
+        ...permanent('duration_exceeded', 'too long', 5400),
+        sourceCodecsPlayable: true,
+      });
+      expect(indexVideo).toHaveBeenCalledWith(payload.videoId);
+    });
+
+    it('does not index a failure or a callback for a job already ready', async () => {
+      await service.claim(payload.jobId, payload.videoId);
+      const token = stored.leaseToken;
+      await service.complete(payload.jobId, token, {
+        ...result,
+        success: false,
+        error: 'temporary error',
+      });
+      await service.complete(payload.jobId, token, {
+        ...result,
+        success: false,
+        error: 'temporary error',
+      });
+      stored.status = 'ready';
+      await service.complete(payload.jobId, token, result);
+      expect(indexVideo).not.toHaveBeenCalled();
+    });
+
+    it('indexes only after the transaction commits', async () => {
+      const seen: string[] = [];
+      const manager = {
+        getRepository: () => ({ findOne, save: jest.fn() }),
+        update,
+      };
+      const transactional = new TranscodingJobsService(
+        {
+          transaction: async (callback) => {
+            const value = await callback(manager);
+            seen.push('commit');
+            return value;
+          },
+        } as unknown as DataSource,
+        {
+          indexVideo: jest.fn(async () => {
+            seen.push('index');
+            return 'indexed';
+          }),
+        } as unknown as TranscriptIndexer,
+      );
+      findOne.mockResolvedValue({
+        ...stored,
+        status: 'processing',
+        leaseToken: 'token',
+        leaseExpiresAt: new Date(Date.now() + 60_000),
+      });
+      await transactional.complete(payload.jobId, 'token', result);
+      expect(seen).toEqual(['commit', 'index']);
+    });
+
+    it('an indexing failure does not fail the transcoding result', async () => {
+      const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+      try {
+        indexVideo.mockRejectedValue(new Error('index down'));
+        await service.claim(payload.jobId, payload.videoId);
+        await expect(
+          service.complete(payload.jobId, stored.leaseToken, result),
+        ).resolves.toBeUndefined();
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(error).toHaveBeenCalledWith(
+          expect.stringContaining(payload.videoId),
+        );
+        expect(error).toHaveBeenCalledWith(
+          expect.stringContaining('index down'),
+        );
+      } finally {
+        error.mockRestore();
+      }
+    });
+  });
 });
 
 describe('Internal transcoding HTTP API', () => {

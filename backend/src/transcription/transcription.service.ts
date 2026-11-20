@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { DataSource, QueryRunner } from 'typeorm';
 import {
   DeleteObjectCommand,
@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { toWebVtt } from './webvtt';
+import { TranscriptIndexer } from '../search/infra/transcript-indexer';
 
 const LOCK = 1791540000;
 const MAX_ATTEMPTS = 3;
@@ -68,11 +69,13 @@ export class TranscriptionService {
     process.env.TRANSCRIPTION_BATCH_SIZE || 20,
   );
   private running = false;
+  private readonly indexing = new Set<Promise<void>>();
   private whisperDispatcher: { destroy(): Promise<void> } | undefined;
 
   constructor(
     private readonly db: DataSource,
     @Inject('s3Client') private readonly s3: S3Client,
+    @Optional() private readonly indexer?: TranscriptIndexer,
   ) {
     // recover() also runs while transcription is disabled: the stop endpoint
     // and its token are checked in every mode.
@@ -194,6 +197,8 @@ export class TranscriptionService {
               continue;
             }
             summary.processed += 1;
+            // Committed (autocommit); an indexing failure never fails the batch.
+            if (vtt) this.index(video.id);
           } catch (error) {
             summary.failed += 1;
             // A shutdown aborts the request in flight: the video is retried.
@@ -222,6 +227,29 @@ export class TranscriptionService {
       );
       return summary;
     });
+  }
+
+  /**
+   * Waits for the indexing started by run(). A standalone process must not
+   * destroy the DataSource or the S3 client while it still runs.
+   */
+  async settled(): Promise<void> {
+    await Promise.all([...this.indexing]);
+  }
+
+  private index(videoId: string) {
+    if (!this.indexer) return;
+    const pending: Promise<void> = this.indexer
+      .indexVideo(videoId)
+      .then(
+        () => undefined,
+        (e) =>
+          this.logger.error(
+            `Indexing video ${videoId} failed: ${e?.message ?? e}`,
+          ),
+      )
+      .finally(() => this.indexing.delete(pending));
+    this.indexing.add(pending);
   }
 
   async recover() {

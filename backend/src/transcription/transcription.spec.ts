@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   S3Client,
@@ -6,6 +7,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { TranscriptionService } from './transcription.service';
 import { toWebVtt } from './webvtt';
+import { TranscriptIndexer } from '../search/infra/transcript-indexer';
 
 // A counted failure waits as pending while attempts remain, so an open page
 // keeps polling; out of attempts it is final.
@@ -21,6 +23,7 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
   let requested: boolean;
   let videos: { id: string; audio_key: string }[];
   let service: TranscriptionService;
+  let indexVideo: jest.Mock;
 
   beforeEach(() => {
     originalEnv = { ...process.env };
@@ -57,9 +60,11 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
       credentials: { accessKeyId: 'local', secretAccessKey: 'local' },
     });
     s3.send = send;
+    indexVideo = jest.fn(async () => 'indexed');
     service = new TranscriptionService(
       { createQueryRunner: () => runner } as unknown as DataSource,
       s3,
+      { indexVideo } as unknown as TranscriptIndexer,
     );
     fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
       if (String(url).endsWith('/v1/audio/transcriptions'))
@@ -128,6 +133,71 @@ describe('Automatic subtitles and on-demand lifecycle', () => {
     expect(interrupted).toBeLessThan(
       statements.findIndex((sql) => sql.startsWith('SELECT id')),
     );
+  });
+
+  it('indexes after automatic subtitles are attached', async () => {
+    await service.run();
+    expect(indexVideo).toHaveBeenCalledTimes(1);
+    expect(indexVideo).toHaveBeenCalledWith('video-1');
+  });
+
+  it('does not index when no subtitle was attached', async () => {
+    fetchMock.mockImplementation(
+      async () => new Response(JSON.stringify({ segments: [] })),
+    );
+    await service.run();
+    expect(indexVideo).not.toHaveBeenCalled();
+  });
+
+  it('does not index when a manual subtitle won the race', async () => {
+    const base = query.getMockImplementation();
+    query.mockImplementation(async (sql: string, params?: unknown[]) =>
+      sql.includes('SET subtitle_id') ? [[], 0] : base(sql, params),
+    );
+    await expect(service.run()).resolves.toEqual({ processed: 0, failed: 0 });
+    expect(indexVideo).not.toHaveBeenCalled();
+  });
+
+  it('settled() waits for in-flight indexing', async () => {
+    let finish: () => void;
+    indexVideo.mockReturnValue(
+      new Promise((resolve) => (finish = () => resolve('indexed'))),
+    );
+    await service.run();
+    let done = false;
+    const settled = service.settled().then(() => (done = true));
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(done).toBe(false);
+    finish();
+    await settled;
+    expect(done).toBe(true);
+  });
+
+  it('settled() does not reject when indexing failed', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    try {
+      indexVideo.mockRejectedValue(new Error('index down'));
+      await service.run();
+      await expect(service.settled()).resolves.toBeUndefined();
+    } finally {
+      error.mockRestore();
+    }
+  });
+
+  it('an indexing failure does not fail the transcription', async () => {
+    const error = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+    try {
+      indexVideo.mockRejectedValue(new Error('index down'));
+      await expect(service.run()).resolves.toEqual({
+        processed: 1,
+        failed: 0,
+      });
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('video-1'));
+      expect(error).toHaveBeenCalledWith(expect.stringContaining('index down'));
+    } finally {
+      error.mockRestore();
+    }
   });
 
   it('records silence as no_speech without publishing an empty subtitle', async () => {

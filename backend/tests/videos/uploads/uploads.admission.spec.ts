@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { TranscriptIndexer } from 'src/search/infra/transcript-indexer';
 import { UploadsService } from 'src/videos/uploads/uploads.service';
 import {
   MultipartStorage,
@@ -16,6 +17,7 @@ describe('Upload admission of the source file', () => {
       {} as MultipartStorage,
       { enabled } as any,
       {} as TranscodingJobsService,
+      {} as TranscriptIndexer,
     );
 
   beforeEach(() => {

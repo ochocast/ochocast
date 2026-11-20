@@ -4,6 +4,7 @@ import {
   GoneException,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { randomUUID } from 'node:crypto';
@@ -15,6 +16,7 @@ import {
 import { PLAYABLE_AS_IS } from '../queue/transcoding-plan';
 import { VideoEntity } from '../videos/infra/gateways/entities/video.entity';
 import { TranscodingJobEntity } from './transcoding-job.entity';
+import { TranscriptIndexer } from '../search/infra/transcript-indexer';
 
 // Too long to transcode in the worker's limits: the source is played instead.
 export const SOURCE_PLAYBACK_REASONS = new Set([
@@ -50,7 +52,10 @@ export class TranscodingJobsService {
   /** Claims a job may use, for both claim() and the maintenance sweep. */
   readonly maxAttempts = Number(process.env.TRANSCODING_MAX_ATTEMPTS || 10);
 
-  constructor(private readonly dataSource: DataSource) {
+  constructor(
+    private readonly dataSource: DataSource,
+    @Optional() private readonly indexer?: TranscriptIndexer,
+  ) {
     if (!Number.isInteger(this.leaseSeconds) || this.leaseSeconds < 60) {
       throw new Error('TRANSCODING_LEASE_SECONDS must be an integer >= 60');
     }
@@ -163,7 +168,7 @@ export class TranscodingJobsService {
   ): Promise<void> {
     if (result.jobId !== jobId)
       throw new BadRequestException('Result does not match the job');
-    await this.dataSource.transaction(async (manager) => {
+    const ready = await this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(TranscodingJobEntity);
       const job = await repository.findOne({
         where: { id: jobId, videoId: result.videoId },
@@ -171,13 +176,13 @@ export class TranscodingJobsService {
       });
       if (!job) throw new GoneException('Transcoding job not found');
       // A delayed failure or repeated callback must never overwrite a success.
-      if (job.status === 'ready') return;
+      if (job.status === 'ready') return false;
       if (
         job.status === 'failed' &&
         job.leaseToken === leaseToken &&
         !result.success
       )
-        return;
+        return false;
       if (
         job.leaseToken !== leaseToken ||
         !job.leaseExpiresAt ||
@@ -190,22 +195,30 @@ export class TranscodingJobsService {
       job.leaseExpiresAt = null;
       // Retain this attempt's token to acknowledge a repeated failure callback.
       await repository.save(job);
-      await manager.update(
-        VideoEntity,
-        job.videoId,
-        result.success
-          ? {
-              duration: result.duration,
-              transcoding_status: 'ready',
-              transcoding_error: null,
-              ...transcriptionFields(result, !!result.subtitle_id),
-              ...(result.subtitle_id !== undefined
-                ? { subtitle_id: result.subtitle_id }
-                : {}),
-            }
-          : this.failedVideo(job, result),
-      );
+      const video: Partial<VideoEntity> = result.success
+        ? {
+            duration: result.duration,
+            transcoding_status: 'ready',
+            transcoding_error: null,
+            ...transcriptionFields(result, !!result.subtitle_id),
+            ...(result.subtitle_id !== undefined
+              ? { subtitle_id: result.subtitle_id }
+              : {}),
+          }
+        : this.failedVideo(job, result);
+      await manager.update(VideoEntity, job.videoId, video);
+      return video.transcoding_status === 'ready';
     });
+    // After the commit: the video is now readable, and an indexing failure
+    // never fails the result. indexVideo finds out whether a subtitle exists.
+    if (ready)
+      void this.indexer
+        ?.indexVideo(result.videoId)
+        .catch((e) =>
+          this.logger.error(
+            `Indexing video ${result.videoId} failed: ${e?.message ?? e}`,
+          ),
+        );
   }
 
   private failedVideo(

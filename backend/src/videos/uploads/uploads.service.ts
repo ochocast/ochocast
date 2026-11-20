@@ -27,6 +27,7 @@ import {
 import { TranscodingJobsService } from 'src/transcoding-jobs/transcoding-jobs.service';
 import { TranscodingJobEntity } from 'src/transcoding-jobs/transcoding-job.entity';
 import { VideoGateway } from '../infra/gateways/video.gateway';
+import { TranscriptIndexer } from 'src/search/infra/transcript-indexer';
 
 export function validateParts(s: VideoUpload, parts: StoredPart[]) {
   const count = Math.ceil(Number(s.size) / s.partSize);
@@ -67,6 +68,7 @@ export class UploadsService {
     private readonly storage: MultipartStorage,
     private readonly queue: QueueService,
     private readonly jobs: TranscodingJobsService,
+    private readonly indexer: TranscriptIndexer,
   ) {}
 
   private async owner(email: string, m = this.db.manager) {
@@ -311,6 +313,8 @@ export class UploadsService {
     fields: Record<string, any>,
     files: Express.Multer.File[] = [],
   ) {
+    // Set once this call created the video with a subtitle that is already final.
+    let indexable = false;
     const result = await this.locked(id, email, async (s, m) => {
       if (s.state === 'uploaded' || s.state === 'queued') return { id: s.id };
       this.active(s);
@@ -431,10 +435,24 @@ export class UploadsService {
       s.state = 'uploaded';
       s.completedAt = new Date();
       await m.save(s);
+      // With the queue, the transcoding job's completion indexes instead.
+      indexable = !this.queue.enabled && !!plan.subtitle_id;
       return { id: s.id };
     });
     if (this.queue.enabled) await this.dispatch(result.id);
+    // After the commit: an indexing failure never fails the upload.
+    if (indexable) this.index(result.id);
     return result;
+  }
+
+  private index(videoId: string) {
+    void this.indexer
+      .indexVideo(videoId)
+      .catch((e) =>
+        this.logger.error(
+          `Indexing video ${videoId} failed: ${e?.message ?? e}`,
+        ),
+      );
   }
 
   private async dispatch(id: string) {
