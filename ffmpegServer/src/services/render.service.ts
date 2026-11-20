@@ -258,7 +258,23 @@ export class RenderService {
         '-threads',
         ffmpegThreads(),
         ...(hasAudio
-          ? ['-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '192k']
+          ? [
+              // The video stops on a whole frame, before the requested end;
+              // audio running past it makes the joined passages overlap
+              // (non-monotonic timestamps). Resampled from 0, padded, then
+              // cut with the video, the audio never outlasts it.
+              '-af',
+              'aresample=async=1:first_pts=0,apad',
+              '-shortest',
+              '-c:a',
+              'aac',
+              '-ar',
+              '48000',
+              '-ac',
+              '2',
+              '-b:a',
+              '192k',
+            ]
           : ['-an']),
         '-sn',
         '-dn',

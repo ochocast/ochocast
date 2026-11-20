@@ -362,6 +362,47 @@ const count = (
     if (keep(rgb[i], rgb[i + 1], rgb[i + 2])) n++;
   return n;
 };
+/**
+ * Renders `job` from the local `source` as the worker does, S3 aside: the
+ * rendition lands in `<root>/hls`, and the S3 writes are listed.
+ */
+async function renderLocally(
+  t: TestContext,
+  root: string,
+  source: string,
+  job: VideoEditRenderJob,
+) {
+  const puts: string[] = [];
+  const s3 = {
+    send: async (command: unknown) => {
+      if (command instanceof HeadObjectCommand)
+        return { ContentLength: (await stat(source)).size };
+      if (command instanceof GetObjectCommand) {
+        if (command.input.Key === job.sourceKey)
+          return { Body: createReadStream(source) };
+        throw Object.assign(new Error('missing'), { name: 'NoSuchKey' });
+      }
+      if (command instanceof PutObjectCommand) {
+        puts.push(command.input.Key!);
+        return {};
+      }
+      throw new Error(`Unexpected S3 command ${String(command)}`);
+    },
+  } as unknown as S3Client;
+  const service = new RenderService(s3);
+  const output = path.join(root, 'hls');
+  t.mock.method(
+    service,
+    'uploadRendition',
+    async (_transcoder: unknown, hlsDir: string, prefix: string) => {
+      assert.equal(prefix, job.outputPrefix);
+      await cp(hlsDir, output, { recursive: true });
+    },
+  );
+  const result = await service.render(job, new AbortController().signal);
+  return { result, output, puts };
+}
+
 const mean = (rgb: Buffer) => rgb.reduce((sum, v) => sum + v, 0) / rgb.length;
 const isGreen = (r: number, g: number, b: number) => g > r + 60 && g > b + 30;
 const isWhite = (r: number, g: number, b: number) =>
@@ -395,37 +436,8 @@ test('renders segments in playback order with their texts, as HLS', async (t) =>
     source,
   ]);
 
-  const m = message();
-  const job = fullJob(m);
-  const puts: string[] = [];
-  const s3 = {
-    send: async (command: unknown) => {
-      if (command instanceof HeadObjectCommand)
-        return { ContentLength: (await stat(source)).size };
-      if (command instanceof GetObjectCommand) {
-        if (command.input.Key === job.sourceKey)
-          return { Body: createReadStream(source) };
-        throw Object.assign(new Error('missing'), { name: 'NoSuchKey' });
-      }
-      if (command instanceof PutObjectCommand) {
-        puts.push(command.input.Key!);
-        return {};
-      }
-      throw new Error(`Unexpected S3 command ${String(command)}`);
-    },
-  } as unknown as S3Client;
-  const service = new RenderService(s3);
-  const output = path.join(root, 'hls');
-  t.mock.method(
-    service,
-    'uploadRendition',
-    async (_transcoder: unknown, hlsDir: string, prefix: string) => {
-      assert.equal(prefix, job.outputPrefix);
-      await cp(hlsDir, output, { recursive: true });
-    },
-  );
-
-  const result = await service.render(job, new AbortController().signal);
+  const job = fullJob(message());
+  const { result, output, puts } = await renderLocally(t, root, source, job);
 
   assert.equal(result.mediaId, `${job.outputPrefix}/master.m3u8`);
   assert.ok(Math.abs(result.duration - 4) < 0.3, `duration ${result.duration}`);
@@ -454,6 +466,60 @@ test('renders segments in playback order with their texts, as HLS', async (t) =>
   assert.equal(count(await pixels(hls, 2.2, bottom), isWhite), 0);
   // Nothing is left in the work directory.
   assert.deepEqual(await readdir(process.env.TRANSCODING_WORK_DIR!), []);
+});
+
+// A screen recording (60 fps, mono AAC) cut between frames and between audio
+// frames: each passage's audio must start and end with its video, or the
+// joined rendition carries non-monotonic audio timestamps.
+test('joins passages into a rendition that decodes without timestamp errors', async (t) => {
+  const root = await workRoot(t);
+  process.env.TRANSCODING_WORK_DIR = path.join(root, 'work');
+  t.after(() => delete process.env.TRANSCODING_WORK_DIR);
+  const source = path.join(root, 'source.mov');
+  await run(FFMPEG, [
+    '-v',
+    'error',
+    '-f',
+    'lavfi',
+    '-i',
+    'testsrc2=s=320x180:r=60:d=10',
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:sample_rate=48000:duration=10',
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-c:a',
+    'aac',
+    '-ac',
+    '1',
+    '-shortest',
+    source,
+  ]);
+  const job = fullJob(message(), {
+    segments: [
+      { sourceStart: 0, sourceEnd: 2.945, textLayers: [] },
+      { sourceStart: 6.852, sourceEnd: 10, textLayers: [] },
+      { sourceStart: 2.945, sourceEnd: 6.852, textLayers: [] },
+    ],
+  });
+
+  const { output } = await renderLocally(t, root, source, job);
+
+  for (const variant of ['360p', '480p', '720p']) {
+    const { stderr } = await run(FFMPEG, [
+      '-v',
+      'error',
+      '-i',
+      path.join(output, `${variant}.m3u8`),
+      '-f',
+      'null',
+      '-',
+    ]);
+    assert.equal(stderr.trim(), '', `${variant}: ${stderr}`);
+  }
 });
 
 test('fails for good when the original is gone', async (t) => {
