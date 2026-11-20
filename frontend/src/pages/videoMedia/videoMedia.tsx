@@ -1,5 +1,5 @@
 // videoMedia.tsx
-import React, { useEffect, useState, FC, useRef } from 'react';
+import React, { useEffect, useMemo, useState, FC, useRef } from 'react';
 import styles from './videoMedia.module.css';
 import ReactMarkdown from 'react-markdown';
 import { default as _ReactPlayer } from 'react-player/lazy';
@@ -15,7 +15,13 @@ import {
   getVideoSuggestions,
   incrementVideoViews,
 } from '../../utils/api';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom';
 import { CommentObject, User, Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
 import LoadingCircle from '../../components/ReworkComponents/LoadingCircle/LoadingCircle';
@@ -43,8 +49,18 @@ import Thumbnail from '../../components/ReworkComponents/video/Thumbnail/Thumbna
 import { Root, RootContent } from 'mdast';
 import CopyButtonIcon from '../../assets/copy.svg';
 import Toast from '../../components/ReworkComponents/generic/Toast/Toast';
+import { formatTimestamp } from '../../utils/formatTimestamp';
+import { parseStartTime } from './parseStartTime';
+import PassageStrip, {
+  StripPassage,
+} from '../../components/video/PassageStrip';
+import TranscriptPanel from '../../components/video/TranscriptPanel';
 
 const ReactPlayer = _ReactPlayer as unknown as React.FC<ReactPlayerProps>;
+
+const START_BANNER_MS = 4500;
+
+const TOUCH_QUERY = '(pointer: coarse)';
 
 const PERSONA_IMAGE = '/branding/persona.png';
 
@@ -105,6 +121,9 @@ const removeH1 = () => {
   };
 };
 
+// Module scope: the page renders twice a second while the video plays.
+const REMARK_PLUGINS = [removeH1()];
+
 const VideoMedia: FC = () => {
   const { t } = useTranslation();
   const [replyPanelOpen, setReplyPanelOpen] = useState(false);
@@ -124,6 +143,11 @@ const VideoMedia: FC = () => {
   }>({});
 
   const { videoId } = useParams();
+  // Arriving from the search results: `t` is the start of the passage that
+  // was clicked, `q` the words that were searched.
+  const [searchParams] = useSearchParams();
+  const startParam = searchParams.get('t');
+  const searchQuery = searchParams.get('q')?.trim() ?? '';
   const [url, setUrl] = useState<string>('');
   const [subtitleUrl, setSubtitleUrl] = useState<string | null>(null);
   const [video, setVideo] = useState<Video>();
@@ -233,8 +257,68 @@ const VideoMedia: FC = () => {
   const [showEndScreen, setShowEndScreen] = useState(false);
   const [qualityOptions, setQualityOptions] = useState<QualityOption[]>([]);
   const [selectedQuality, setSelectedQuality] = useState(-1);
+  // The video already positioned at `t`: the player is ready again after a
+  // quality switch or a reload of the media, which must not seek again.
+  const positionedVideoId = useRef<string | null>(null);
+  const [startBanner, setStartBanner] = useState<number | null>(null);
+  // Playback position shared by the strip and the transcript panel.
+  const [currentTime, setCurrentTime] = useState(0);
+  const [playerDuration, setPlayerDuration] = useState(0);
+  const [passages, setPassages] = useState<StripPassage[]>([]);
+  // No hover on a touch screen: the markers get bigger hit areas.
+  const [isTouch, setIsTouch] = useState(
+    () =>
+      typeof window.matchMedia === 'function' &&
+      Boolean(window.matchMedia(TOUCH_QUERY)?.matches),
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const query = window.matchMedia(TOUCH_QUERY);
+    if (!query) return;
+    const update = () => setIsTouch(query.matches);
+    update();
+    query.addEventListener?.('change', update);
+    return () => query.removeEventListener?.('change', update);
+  }, []);
+
+  // Another video starts from the beginning, without the passages and the
+  // banner of the previous one.
+  useEffect(() => {
+    setCurrentTime(0);
+    setPlayerDuration(0);
+    setPassages([]);
+    setStartBanner(null);
+  }, [videoId]);
+
+  // The strip, the panel and the arrival at `t` all go through here: the
+  // video moves and the panel line follows at once, even while paused.
+  const handleSeek = (seconds: number) => {
+    playerRef.current?.seekTo(seconds, 'seconds');
+    setCurrentTime(seconds);
+  };
+
+  useEffect(() => {
+    if (startBanner === null) return;
+    const timer = setTimeout(() => setStartBanner(null), START_BANNER_MS);
+    return () => clearTimeout(timer);
+  }, [startBanner]);
 
   const handlePlayerReady = (player: _ReactPlayer) => {
+    if (positionedVideoId.current !== videoId) {
+      positionedVideoId.current = videoId ?? null;
+      const start = parseStartTime(
+        startParam,
+        player.getDuration() || video?.duration || null,
+      );
+      if (start !== null) {
+        // No autoplay: browsers block it with sound.
+        player.seekTo(start, 'seconds');
+        setCurrentTime(start);
+        if (searchQuery) setStartBanner(start);
+      }
+    }
+
     const hls = player.getInternalPlayer('hls') as HlsPlayer | null;
     if (hls?.levels?.length) {
       setQualityOptions(
@@ -655,6 +739,38 @@ const VideoMedia: FC = () => {
     navigate(`/video/${next.id}`);
   };
 
+  // The player reports its position twice a second: what does not depend on
+  // it keeps the same elements, so that React skips it.
+  const videoDescription = video?.description || '';
+  const description = useMemo(
+    () => (
+      <ReactMarkdown remarkPlugins={REMARK_PLUGINS}>
+        {videoDescription}
+      </ReactMarkdown>
+    ),
+    [videoDescription],
+  );
+  const suggestions = useMemo(
+    () =>
+      suggestedVideos.map((vid) => (
+        <div key={vid.id} className={styles.thumbnailWrapper}>
+          <Thumbnail
+            Id={vid.id}
+            title={vid.title}
+            createBy={
+              vid.creator?.username ||
+              `${vid.creator.firstName} ${vid.creator.lastName}`
+            }
+            views={vid.views}
+            createdAt={vid.createdAt.toString()}
+            tags={vid.tags.map((tag) => tag.name)}
+            duration={vid.duration}
+          />
+        </div>
+      )),
+    [suggestedVideos],
+  );
+
   if (isLoading) return <LoadingCircle />;
   if (loadFailed)
     return (
@@ -684,9 +800,17 @@ const VideoMedia: FC = () => {
 
   return (
     <div className={styles.containerGlobal}>
-      <div className={styles.watchLayout}>
+      <main className={styles.watchLayout}>
         {/* COLONNE PRINCIPALE */}
-        <main className={styles.mainColumn}>
+        {searchQuery && (
+          <Link
+            className={styles.backToResults}
+            to={`/search?q=${encodeURIComponent(searchQuery)}`}
+          >
+            {t('videoSearch.backToResults', { query: searchQuery })}
+          </Link>
+        )}
+        <div className={styles.playerArea}>
           {/* Player */}
           <div className={styles.playerWrapper}>
             {video.transcoding_status === 'pending' ? (
@@ -708,6 +832,11 @@ const VideoMedia: FC = () => {
                   }}
                   onPause={() => setIsPlaying(false)}
                   onEnded={handleVideoEnded}
+                  progressInterval={500}
+                  onProgress={({ playedSeconds }) =>
+                    setCurrentTime(playedSeconds)
+                  }
+                  onDuration={setPlayerDuration}
                   onReady={handlePlayerReady}
                   config={{
                     file: {
@@ -754,6 +883,23 @@ const VideoMedia: FC = () => {
               </>
             )}
 
+            {/* A live region created with its text may not be announced: this
+                one stays mounted, empty and hidden while there is no banner. */}
+            <p
+              className={
+                startBanner !== null
+                  ? styles.startBanner
+                  : styles.startBannerIdle
+              }
+              role="status"
+            >
+              {startBanner !== null &&
+                t('videoSearch.startBanner', {
+                  time: formatTimestamp(startBanner),
+                  query: searchQuery,
+                })}
+            </p>
+
             {/* ✅ END SCREEN OVERLAY (visible même en plein écran) */}
             {showEndScreen && (
               <div className={styles.endScreenOverlay}>
@@ -789,6 +935,35 @@ const VideoMedia: FC = () => {
             )}
           </div>
 
+          {/* Barre des passages, sous le lecteur */}
+          <div className={styles.stripArea}>
+            <PassageStrip
+              duration={
+                playerDuration > 0 ? playerDuration : video.duration || null
+              }
+              passages={passages}
+              currentTime={currentTime}
+              isTouch={isTouch}
+              onSeek={handleSeek}
+            />
+          </div>
+        </div>
+
+        {/* Panneau Transcription */}
+        <div className={styles.panelArea}>
+          <TranscriptPanel
+            videoId={video.id}
+            initialQuery={searchQuery}
+            currentTime={currentTime}
+            transcriptionStatus={video.transcription_status || ''}
+            onSeek={handleSeek}
+            onMatchesChange={setPassages}
+            // A transcript that arrives while the page stays open is read.
+            refreshKey={`${video.transcription_status ?? ''} ${subtitleUrl ?? ''}`}
+          />
+        </div>
+
+        <div className={styles.infoColumn}>
           {/* Titre + tags */}
           <section className={styles.titleBlock}>
             <div className={styles.titleLeft}>
@@ -859,11 +1034,7 @@ const VideoMedia: FC = () => {
           <section className={styles.descriptionBlock}>
             <h3 className={styles.video_description_title}> </h3>
 
-            <div className={styles.video_description}>
-              <ReactMarkdown remarkPlugins={[removeH1()]}>
-                {video.description || ''}
-              </ReactMarkdown>
-            </div>
+            <div className={styles.video_description}>{description}</div>
 
             {/* Orateurs (internal_speakers) */}
             {Array.isArray(video.internal_speakers) &&
@@ -982,32 +1153,17 @@ const VideoMedia: FC = () => {
                   })}
             </div>
           </section>
-        </main>
+        </div>
 
         {/* SIDEBAR */}
         <aside className={styles.sideColumn}>
           <div className={styles.sideSticky}>
             <div className={styles.miniatureList} ref={suggestionsRef}>
-              {suggestedVideos.map((vid) => (
-                <div key={vid.id} className={styles.thumbnailWrapper}>
-                  <Thumbnail
-                    Id={vid.id}
-                    title={vid.title}
-                    createBy={
-                      vid.creator?.username ||
-                      `${vid.creator.firstName} ${vid.creator.lastName}`
-                    }
-                    views={vid.views}
-                    createdAt={vid.createdAt.toString()}
-                    tags={vid.tags.map((tag) => tag.name)}
-                    duration={vid.duration}
-                  />
-                </div>
-              ))}
+              {suggestions}
             </div>
           </div>
         </aside>
-      </div>
+      </main>
       {toast && (
         <Toast
           message={toast.message}

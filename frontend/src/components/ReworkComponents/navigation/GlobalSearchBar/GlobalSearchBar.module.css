@@ -43,7 +43,7 @@
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 0.9rem;
+  font-size: 1rem; /* at least 16px: avoids the iOS zoom on focus */
   color: var(--theme-color-900);
   min-width: 0;
 }

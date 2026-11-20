@@ -14,24 +14,128 @@
 }
 
 /* === Layout type YouTube === */
+/* One grid, five areas. Up to 1024 px, one column: the transcript panel sits
+   under the passage strip, before the title. Above, the player and its strip
+   are on the left and the panel is beside them, on the right, above the
+   suggestions. */
 .watchLayout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 2rem;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'back'
+    'player'
+    'panel'
+    'info'
+    'side';
+  column-gap: 2rem;
   align-items: start;
 }
 
-.mainColumn {
+.backToResults {
+  grid-area: back;
+  justify-self: start;
+}
+
+.playerArea {
+  grid-area: player;
+  min-width: 0;
+}
+
+.infoColumn {
+  grid-area: info;
   min-width: 0;
 }
 
 .sideColumn {
+  grid-area: side;
   min-width: 0;
+  margin-top: 2rem;
 }
 
-.sideSticky {
-  position: sticky;
-  top: 1rem;
+/* The strip is the player's width, right under it; nothing is left of it
+   when there is no passage. */
+.stripArea {
+  margin-top: 0.5rem;
+}
+
+.stripArea:empty {
+  display: none;
+}
+
+/* The panel fills this area. It is absent when the video has no transcript. */
+.panelArea {
+  grid-area: panel;
+  min-width: 0;
+  margin-top: 0.75rem;
+}
+
+.panelArea:empty {
+  display: none;
+}
+
+/* Never under 18rem: a landscape phone keeps a usable list. */
+.panelArea > aside {
+  max-height: max(50vh, 18rem);
+}
+
+@media (min-width: 1025px) {
+  .watchLayout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    grid-template-areas:
+      'back back'
+      'player panel'
+      'info side';
+  }
+
+  /* Same top as the player, same height as the player and its strip: the
+     area is as tall as the row, the panel scrolls inside it. */
+  .panelArea {
+    position: relative;
+    align-self: stretch;
+    min-height: 22rem;
+    margin-top: 0;
+  }
+
+  .panelArea > aside {
+    position: absolute;
+    inset: 0;
+    max-height: none;
+  }
+
+  .sideColumn {
+    margin-top: 1rem;
+  }
+
+  /* Without a panel, the suggestions stay beside the player. */
+  .watchLayout:has(.panelArea:empty) .sideColumn {
+    grid-row: 2 / span 2;
+    margin-top: 0;
+  }
+
+  /* « Transcription en préparation » is one line: the panel is as tall as
+     its content and the suggestions follow it, beside the player. */
+  .watchLayout:has(.panelArea [data-state='preparing']) {
+    grid-template-areas:
+      'back back'
+      'player panel'
+      'player side'
+      'info side';
+  }
+
+  .panelArea:has([data-state='preparing']) {
+    align-self: start;
+    min-height: 0;
+  }
+
+  .panelArea > aside[data-state='preparing'] {
+    position: static;
+    height: auto;
+  }
+
+  .sideSticky {
+    position: sticky;
+    top: 1rem;
+  }
 }
 
 /* === Player === */
@@ -41,6 +145,58 @@
   border-radius: 12px;
   overflow: hidden;
   background: #050505;
+}
+
+.backToResults {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  max-width: 100%;
+  color: var(--theme-color-600, var(--theme-color-500));
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.backToResults:hover,
+.backToResults:focus-visible {
+  text-decoration: underline;
+}
+
+/* Temporary banner over the player, top left (the quality control is on the
+   right). Never wider than the player. */
+.startBanner {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 13;
+  box-sizing: border-box;
+  max-width: 65%;
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: rgba(6, 34, 24, 0.9);
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+/* The banner's live region while it is empty: out of sight, but still in
+   the accessibility tree (not display: none). */
+.startBannerIdle {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .qualityControl {
@@ -295,17 +451,6 @@
 .thumbnailWrapper {
   width: 100%;
   box-sizing: border-box;
-}
-
-/* === Responsive === */
-@media (max-width: 1100px) {
-  .watchLayout {
-    grid-template-columns: 1fr;
-  }
-
-  .sideSticky {
-    position: static;
-  }
 }
 
 .copyButtonIcon {
