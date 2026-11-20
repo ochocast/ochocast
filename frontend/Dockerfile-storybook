@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build-storybook
 
 # Stage 2: Serve with Nginx
-FROM nginx:alpine@sha256:582c496ccf79d8aa6f8203a79d32aaf7ffd8b13362c60a701a2f9ac64886c93d
+FROM nginx:alpine@sha256:fb4658584bd9a916ffb6f6e365f97c25cfdb2923801f551ea08356e695f14ff7
 
 # Copy built Storybook assets from builder stage
 # Storybook builds into storybook-static by default
