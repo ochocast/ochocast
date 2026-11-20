@@ -199,6 +199,15 @@ export default function VideoEditPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId, edit?.renderStatus, navigate, t]);
 
+  // Retry of the preview: the original's address is read again.
+  const refreshSource = async () => {
+    if (!videoId) return;
+    const source = await readSource(videoId);
+    if (!alive.current) return;
+    if (source?.ok && typeof source.data === 'string' && source.data)
+      setUrl(source.data);
+    else setErrors(responseErrors(source));
+  };
   const current = locate(segments, time);
   const total = totalDuration(segments);
   const issues = validate(segments, video?.duration || 0);
@@ -348,6 +357,8 @@ export default function VideoEditPage() {
                   segments={segments}
                   time={time}
                   onTime={setTime}
+                  sourceDuration={video.duration || 0}
+                  onRetry={refreshSource}
                 />
                 <section className={styles.panel}>
                   <div className={styles.row}>
