@@ -18,7 +18,8 @@ FROM alpine:latest@sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f
 
 RUN apk --no-cache add ca-certificates
 
-WORKDIR /root/
+# /app is readable by any user: the deployment templates run this image as a non-root user.
+WORKDIR /app
 
 # Copy the binary from builder
 COPY --from=builder /app/controlplane .

@@ -26,7 +26,13 @@ import { useTrackSettings } from './useTrackSettings';
 import { useRecordingStatus } from '../../hooks/useRecordingStatus';
 import { User } from '../../utils/EventsProperties';
 import { formatDateForInput, formatTimeForInput } from '../../utils/formatDate';
-import { closeTrack, setTrackRecordingArmed } from '../../utils/api';
+import {
+  closeTrack,
+  getLiveRoom,
+  getLiveRoomStatus,
+  openLiveRoom,
+  setTrackRecordingArmed,
+} from '../../utils/api';
 
 import styles from './trackSettings.module.css';
 import getEnv from '../../utils/env';
@@ -111,23 +117,13 @@ const TrackSettings: FC = () => {
 
   const fetchRoomStatus = useCallback(async (roomId: string) => {
     try {
-      const response = await fetch(
-        `${CONTROL_PLANE_URL}/room/status?room_id=${encodeURIComponent(
-          roomId,
-        )}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-
+      // Through the backend: it checks the user may stream on this track.
+      const response = await getLiveRoomStatus(roomId);
       if (!response.ok) {
         return null;
       }
 
-      return (await response.json()) as RoomStatusResponse;
+      return response.data as RoomStatusResponse;
     } catch (error) {
       console.error('Error fetching room status:', error);
       return null;
@@ -213,21 +209,13 @@ const TrackSettings: FC = () => {
         }
       }
 
-      const response = await fetch(
-        `${CONTROL_PLANE_URL}/room/exists?room_id=${trackId}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        },
-      );
+      const response = await getLiveRoom(trackId);
 
       if (!response.ok) {
         throw new Error('Failed to check room');
       }
 
-      const data = await response.json();
+      const data = response.data as { exists?: boolean; whip_url?: string };
       if (data.exists && data.whip_url) {
         setRoomLifecycleState('ready');
         setRoomStatusMessage('');
@@ -331,21 +319,14 @@ const TrackSettings: FC = () => {
     setRoomLifecycleState('provisioning');
     setRoomStatusMessage(t('RoomProvisioningDescription'));
     try {
-      const response = await fetch(`${CONTROL_PLANE_URL}/room/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          room_id: trackId,
-        }),
-      });
+      // The backend creates the room on the SFU and returns its key to speakers only.
+      const response = await openLiveRoom(trackId);
 
       if (!response.ok) {
         throw new Error('Failed to create room');
       }
 
-      const data = (await response.json()) as CreateRoomResponse;
+      const data = response.data as CreateRoomResponse;
 
       const state = data.state || (data.ready ? 'ready' : 'provisioning');
       setRoomLifecycleState(state);

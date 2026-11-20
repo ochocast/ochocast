@@ -12,6 +12,8 @@ import { GetTrackByIdUsecase } from './domain/usecases/getTrackById.usecase';
 import { CloseTrackUsecase } from './domain/usecases/closeTrack.usecase';
 import { EventGateway } from 'src/events/infra/gateways/event.gateway';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
+import { LiveRoomUsecase } from './domain/usecases/liveRoom.usecase';
+import { LiveRoomGateway } from './infra/gateways/live-room.gateway';
 import { RecordingModule } from 'src/recording/recording.module';
 
 @Module({
@@ -37,7 +39,12 @@ import { RecordingModule } from 'src/recording/recording.module';
     GetTrackByIdUsecase,
     UpdateTrackUsecase,
     DeleteTrackUsecase,
+    {
+      provide: 'LiveRoomGateway',
+      useClass: LiveRoomGateway,
+    },
     CloseTrackUsecase,
+    LiveRoomUsecase,
   ],
   exports: ['TrackGateway', 'EventGateway', 'UserGateway'],
 })
