@@ -10,8 +10,14 @@ import {
   getVideoSuggestions,
   incrementVideoViews,
   isVideoFavorite,
+  storeSessionToken,
 } from '../../utils/api';
 import VideoMedia from './videoMedia';
+
+const mockSigninSilent = jest.fn();
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => ({ signinSilent: mockSigninSilent }),
+}));
 
 // Jest here cannot load react-router 7 (package exports): the route is
 // stubbed.
@@ -35,6 +41,7 @@ jest.mock('../../utils/api', () => ({
   incrementVideoViews: jest.fn(),
   isVideoFavorite: jest.fn(),
   removeFromFavorites: jest.fn(),
+  storeSessionToken: jest.fn(),
 }));
 
 jest.mock('react-markdown', () => ({
@@ -303,6 +310,57 @@ describe('VideoMedia', () => {
     await advance(HOUR);
     expect(getMedia).toHaveBeenCalledTimes(6);
     expect(screen.getByRole('button', { name: 'retry' })).toBeInTheDocument();
+  });
+
+  // A page opened with an expired token gets 401 for the media of a ready
+  // video: the token is renewed once and the media read again.
+  it('renews an expired session once to read the media of a ready video', async () => {
+    const expired = { ok: false, status: 401, data: { statusCode: 401 } };
+    (getMedia as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValue({ ok: true, data: sourceUrl(1) });
+    mockSigninSilent.mockResolvedValue({ access_token: 'fresh-token' });
+    render(<VideoMedia />);
+    await settle();
+
+    expect(mockSigninSilent).toHaveBeenCalledTimes(1);
+    expect(storeSessionToken).toHaveBeenCalledWith('fresh-token');
+    expect(getMedia).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('player')).toHaveAttribute(
+      'data-url',
+      sourceUrl(1),
+    );
+  });
+
+  // Never an empty player: when the media of a ready video still cannot be
+  // read, or the session cannot be renewed, the page offers a reload.
+  it.each([
+    ['the read fails again', { access_token: 'fresh-token' }, 2],
+    ['the session cannot be renewed', null, 1],
+  ])('offers a reload when %s', async (_case, renewed, mediaReads) => {
+    const expired = { ok: false, status: 401, data: { statusCode: 401 } };
+    (getMedia as jest.Mock)
+      .mockReset()
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValue({ ok: true, data: sourceUrl(1) });
+    if (renewed) mockSigninSilent.mockResolvedValue(renewed);
+    else mockSigninSilent.mockRejectedValue(new Error('login_required'));
+    render(<VideoMedia />);
+    await settle();
+
+    expect(getMedia).toHaveBeenCalledTimes(mediaReads);
+    expect(screen.queryByTestId('player')).toBeNull();
+    expect(screen.getByText('errorLoadingVideo')).toBeInTheDocument();
+
+    mockSigninSilent.mockResolvedValue({ access_token: 'fresh-token' });
+    fireEvent.click(screen.getByRole('button', { name: 'retry' }));
+    await settle();
+    expect(screen.getByTestId('player')).toHaveAttribute(
+      'data-url',
+      sourceUrl(1),
+    );
   });
 
   it('shows the not-found page for an unknown video', async () => {

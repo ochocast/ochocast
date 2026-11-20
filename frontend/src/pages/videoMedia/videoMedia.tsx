@@ -16,7 +16,9 @@ import {
   getVideo,
   getVideoSuggestions,
   incrementVideoViews,
+  storeSessionToken,
 } from '../../utils/api';
+import { useAuth } from 'react-oidc-context';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CommentObject, User, Video } from '../../utils/VideoProperties';
 import NotFoundPage from '../notFound/notFound';
@@ -143,6 +145,10 @@ const VideoMedia: FC = () => {
   )?.id;
 
   const location = useLocation();
+  // Read through a ref: a token renewal must not reload the whole page.
+  const auth = useAuth();
+  const authRef = useRef(auth);
+  authRef.current = auth;
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -309,6 +315,30 @@ const VideoMedia: FC = () => {
       }
       // An unknown video ends on the not-found page.
       const currentVideo = firstVideo(videoRes);
+
+      // A ready video always has a media URL. A failed read (an expired
+      // session answers 401) is retried once with a renewed token, then the
+      // page offers a reload instead of an empty player.
+      let mediaUrl = urlOf(mediaRes);
+      if (!mediaUrl && currentVideo?.transcoding_status === 'ready') {
+        let renewed = null;
+        try {
+          renewed = await authRef.current.signinSilent();
+        } catch {
+          // No session left to renew: the reload below signs in again.
+        }
+        if (renewed?.access_token) {
+          storeSessionToken(renewed.access_token);
+          mediaUrl = urlOf(await getMedia(videoId));
+        }
+        if (!mediaUrl) {
+          setVideo(currentVideo);
+          setLoadFailed(true);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       setVideo(currentVideo);
       if (currentVideo) {
         const suggestionsRes = await getVideoSuggestions(currentVideo.id);
@@ -317,7 +347,7 @@ const VideoMedia: FC = () => {
       }
 
       // A pending upload has no media yet: its poll below sets it.
-      setUrl(urlOf(mediaRes) ?? '');
+      setUrl(mediaUrl ?? '');
 
       // Without a subtitle URL, the transcript poll below can start.
       setSubtitleUrl(currentVideo?.edited ? null : urlOf(subtitleRes));

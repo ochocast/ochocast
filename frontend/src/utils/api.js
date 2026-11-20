@@ -21,6 +21,20 @@ api.addAsyncRequestTransform(async (request) => {
   }
 });
 
+// The transform above reads the token stored with the backend user: a renewed
+// token replaces it there before the next request.
+export const storeSessionToken = (token) => {
+  const userString = localStorage.getItem('backendUser');
+  if (!userString) return;
+  try {
+    const user = JSON.parse(userString);
+    user.token = token;
+    localStorage.setItem('backendUser', JSON.stringify(user));
+  } catch {
+    // A corrupt entry is left to the next login.
+  }
+};
+
 // Public API instance without authentication
 export const publicApi = create({
   baseURL: `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}/api`,
