@@ -16,8 +16,8 @@ import {
   getVideo,
   getVideoSuggestions,
   incrementVideoViews,
-  storeSessionToken,
 } from '../../utils/api';
+import { renewSession } from '../../utils/session';
 import { useAuth } from 'react-oidc-context';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { CommentObject, User, Video } from '../../utils/VideoProperties';
@@ -321,16 +321,8 @@ const VideoMedia: FC = () => {
       // page offers a reload instead of an empty player.
       let mediaUrl = urlOf(mediaRes);
       if (!mediaUrl && currentVideo?.transcoding_status === 'ready') {
-        let renewed = null;
-        try {
-          renewed = await authRef.current.signinSilent();
-        } catch {
-          // No session left to renew: the reload below signs in again.
-        }
-        if (renewed?.access_token) {
-          storeSessionToken(renewed.access_token);
+        if (await renewSession(() => authRef.current.signinSilent()))
           mediaUrl = urlOf(await getMedia(videoId));
-        }
         if (!mediaUrl) {
           setVideo(currentVideo);
           setLoadFailed(true);

@@ -10,7 +10,6 @@ import {
   getVideoSuggestions,
   incrementVideoViews,
   isVideoFavorite,
-  storeSessionToken,
 } from '../../utils/api';
 import VideoMedia from './videoMedia';
 
@@ -41,7 +40,6 @@ jest.mock('../../utils/api', () => ({
   incrementVideoViews: jest.fn(),
   isVideoFavorite: jest.fn(),
   removeFromFavorites: jest.fn(),
-  storeSessionToken: jest.fn(),
 }));
 
 jest.mock('react-markdown', () => ({
@@ -132,6 +130,7 @@ beforeEach(() => {
     .mockResolvedValue({ ok: true, data: sourceUrl(2) });
   window.scrollTo = jest.fn();
   sessionStorage.clear();
+  localStorage.clear();
 });
 
 afterEach(() => {
@@ -322,11 +321,18 @@ describe('VideoMedia', () => {
       .mockResolvedValueOnce(expired)
       .mockResolvedValue({ ok: true, data: sourceUrl(1) });
     mockSigninSilent.mockResolvedValue({ access_token: 'fresh-token' });
+    localStorage.setItem(
+      'backendUser',
+      JSON.stringify({ id: 'viewer', token: 'expired-token' }),
+    );
     render(<VideoMedia />);
     await settle();
 
     expect(mockSigninSilent).toHaveBeenCalledTimes(1);
-    expect(storeSessionToken).toHaveBeenCalledWith('fresh-token');
+    // The next requests carry the renewed token.
+    expect(JSON.parse(localStorage.getItem('backendUser')!).token).toBe(
+      'fresh-token',
+    );
     expect(getMedia).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId('player')).toHaveAttribute(
       'data-url',
