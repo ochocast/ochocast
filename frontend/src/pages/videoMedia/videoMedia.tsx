@@ -832,13 +832,15 @@ const VideoMedia: FC = () => {
           <section className={styles.titleBlock}>
             <div className={styles.titleLeft}>
               <h2 className={styles.video_title}>{video.title}</h2>
-              {video.edited && <span>{t('videoEdit.edited')}</span>}
-              {typeof (video.renderedDuration ?? video.duration) ===
-                'number' && (
-                <span>
-                  {formatTime(video.renderedDuration ?? video.duration ?? 0)}
-                </span>
-              )}
+              <div className={styles.titleMeta}>
+                {video.edited && <span>{t('videoEdit.edited')}</span>}
+                {typeof (video.renderedDuration ?? video.duration) ===
+                  'number' && (
+                  <span>
+                    {formatTime(video.renderedDuration ?? video.duration ?? 0)}
+                  </span>
+                )}
+              </div>
               <div className={styles.tagList}>
                 <span className={styles.tagLabel}>Tags :</span>
                 {video.tags?.map((tag, id) => (

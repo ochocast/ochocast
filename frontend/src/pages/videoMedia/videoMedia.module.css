@@ -166,6 +166,18 @@
   min-width: 0;
 }
 
+/* "Modifiée" and the duration, side by side: never "Modifiée00:25". */
+.titleLeft .titleMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.titleLeft .titleMeta:empty {
+  display: none;
+}
+
 .titleRight {
   display: flex;
   align-items: flex-start;
