@@ -203,7 +203,8 @@ describe('VideoMedia', () => {
 
     // The page injects the track into the media element: no query reaches it.
     expect(player.innerHTML).toContain(`src="${subtitleUrl}"`);
-    expect(player.innerHTML).toContain('label="Français"');
+    // Translated: the test renders translation keys.
+    expect(player.innerHTML).toContain('label="subtitleTrackFrench"');
     expect(getMedia).toHaveBeenCalledTimes(1);
   });
 

@@ -362,6 +362,8 @@
   "videoArchivedSuccess": "Vidéo archivée avec succès",
   "videoArchiveError": "Erreur lors de l'archivage de la vidéo",
   "errorLoadingVideo": "Erreur lors du chargement de la vidéo",
+  "tagsLabel": "Tags :",
+  "subtitleTrackFrench": "Français",
   "errorLoadingVideos": "Erreur lors du chargement des vidéos",
   "cardsPerRow": "Cartes par ligne",
   "copyLink": "Copier le lien",

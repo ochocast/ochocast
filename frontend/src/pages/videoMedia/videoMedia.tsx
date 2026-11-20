@@ -473,11 +473,11 @@ const VideoMedia: FC = () => {
       track = document.createElement('track');
       track.kind = 'subtitles';
       track.srclang = 'fr';
-      track.label = 'Français';
       element.appendChild(track);
     }
+    track.label = t('subtitleTrackFrench');
     if (track.src !== subtitleUrl) track.src = subtitleUrl;
-  }, [subtitleUrl]);
+  }, [subtitleUrl, t]);
 
   const handleReplyClick = (index: number) => {
     const parent = commentaryList.filter((c) => c.parentid === null)[index];
@@ -765,7 +765,7 @@ const VideoMedia: FC = () => {
                               kind: 'subtitles',
                               src: subtitleUrl,
                               srcLang: 'fr',
-                              label: 'Français',
+                              label: t('subtitleTrackFrench'),
                               default: false,
                             },
                           ]
@@ -842,7 +842,7 @@ const VideoMedia: FC = () => {
                 )}
               </div>
               <div className={styles.tagList}>
-                <span className={styles.tagLabel}>Tags :</span>
+                <span className={styles.tagLabel}>{t('tagsLabel')}</span>
                 {video.tags?.map((tag, id) => (
                   <Tag key={id} content={tag.name} />
                 ))}
