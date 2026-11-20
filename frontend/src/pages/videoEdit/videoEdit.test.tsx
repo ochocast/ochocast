@@ -14,16 +14,22 @@ import {
   saveVideoEdit,
 } from '../../utils/api';
 const mockNavigate = jest.fn();
+const mockSigninSilent = jest.fn();
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => ({ signinSilent: mockSigninSilent }),
+}));
 const mockT = (key: string) => key;
 jest.mock('react-router-dom', () => ({
-  Link: ({ children }: any) => <span>{children}</span>,
+  Link: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
   useNavigate: () => mockNavigate,
   useParams: () => ({ videoId: 'video' }),
 }));
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock('./EditPreview', () => ({
   __esModule: true,
-  default: ({ url }: any) => <div data-testid="source">{url}</div>,
+  default: ({ url }: { url: string }) => <div data-testid="source">{url}</div>,
 }));
 jest.mock('../../utils/api', () => ({
   createVideoEdit: jest.fn(),
@@ -81,6 +87,42 @@ it('does not create a montage when source access is refused', async () => {
   expect(await screen.findByText('videonotallowedit')).toBeInTheDocument();
   expect(getVideoEdit).not.toHaveBeenCalled();
   expect(createVideoEdit).not.toHaveBeenCalled();
+});
+// An editor opened with an expired token gets 401 for the original: the
+// session is renewed once and the original read again.
+it('renews an expired session once to read the original', async () => {
+  (getVideoEditSource as jest.Mock)
+    .mockResolvedValueOnce({ ok: false, status: 401, data: {} })
+    .mockResolvedValue({ ok: true, data: 'original-url' });
+  mockSigninSilent.mockResolvedValue({ access_token: 'fresh-token' });
+  render(<VideoEditPage />);
+  expect(await screen.findByTestId('source')).toHaveTextContent('original-url');
+  expect(mockSigninSilent).toHaveBeenCalledTimes(1);
+  expect(getVideoEditSource).toHaveBeenCalledTimes(2);
+});
+it('says the session expired when it cannot be renewed', async () => {
+  (getVideoEditSource as jest.Mock).mockResolvedValue({
+    ok: false,
+    status: 401,
+    data: {},
+  });
+  mockSigninSilent.mockRejectedValue(new Error('login_required'));
+  render(<VideoEditPage />);
+  expect(
+    await screen.findByText('videoEdit.sessionExpired'),
+  ).toBeInTheDocument();
+  expect(getVideoEditSource).toHaveBeenCalledTimes(1);
+  expect(getVideoEdit).not.toHaveBeenCalled();
+});
+it('does not renew the session for a refused access', async () => {
+  (getVideoEditSource as jest.Mock).mockResolvedValue({
+    ok: false,
+    status: 403,
+    data: { message: 'videonotallowedit' },
+  });
+  render(<VideoEditPage />);
+  await screen.findByText('videonotallowedit');
+  expect(mockSigninSilent).not.toHaveBeenCalled();
 });
 it('creates the initial montage only after source authorization', async () => {
   (getVideoEdit as jest.Mock).mockResolvedValue({ ok: false, status: 404 });

@@ -514,6 +514,7 @@
     "title": "Edit video",
     "originalDuration": "Original duration {{duration}}",
     "requestFailed": "The request failed. Please retry.",
+    "sessionExpired": "Your session has expired. Reload the page to sign in again.",
     "conflict": "The edit has changed, rendering is in progress, or this video cannot be edited. Your local changes are preserved.",
     "unavailable": "Rendering is unavailable. Your local changes are preserved.",
     "reload": "Reload from server",

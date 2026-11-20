@@ -514,6 +514,7 @@
     "title": "Monter la vidéo",
     "originalDuration": "Original de {{duration}}",
     "requestFailed": "La requête a échoué. Réessayez.",
+    "sessionExpired": "Votre session a expiré. Rechargez la page pour vous reconnecter.",
     "conflict": "Le montage a changé, un rendu est en cours ou la vidéo ne peut pas être montée. Vos changements locaux sont conservés.",
     "unavailable": "Le service de rendu est indisponible. Vos changements locaux sont conservés.",
     "reload": "Recharger depuis le serveur",

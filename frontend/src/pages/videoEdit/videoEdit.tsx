@@ -10,6 +10,8 @@ import {
   getVideoEditSource,
   saveVideoEdit,
 } from '../../utils/api';
+import { renewSession } from '../../utils/session';
+import { useAuth } from 'react-oidc-context';
 import { Video } from '../../utils/VideoProperties';
 import Button, {
   ButtonType,
@@ -56,14 +58,32 @@ export default function VideoEditPage() {
   const [reload, setReload] = useState(0);
   const [pollError, setPollError] = useState(false);
   const alive = useRef(true);
+  // Read through a ref: a token renewal must not reload the editor.
+  const auth = useAuth();
+  const authRef = useRef(auth);
+  authRef.current = auth;
+  // The original's address, protected: an expired session (401) is renewed
+  // once, then read again.
+  const readSource = async (id: string) => {
+    const source = await getVideoEditSource(id);
+    if (
+      source?.status === 401 &&
+      (await renewSession(() => authRef.current.signinSilent()))
+    )
+      return getVideoEditSource(id);
+    return source;
+  };
   useEffect(() => {
     alive.current = true;
     return () => {
       alive.current = false;
     };
   }, []);
-  const responseErrors = (response: any): string[] => {
+  const responseErrors = (
+    response: { status?: number; data?: { message?: unknown } } | undefined,
+  ): string[] => {
     const message = response?.data?.message;
+    if (response?.status === 401) return [t('videoEdit.sessionExpired')];
     if (response?.status === 403) return [t('videonotallowedit')];
     const detail = (
       Array.isArray(message) ? message.flat(Infinity) : [message]
@@ -87,7 +107,7 @@ export default function VideoEditPage() {
       setTime(0);
       try {
         // Source access is checked before a possible POST: a 404 user is not mistaken for an absent montage.
-        const source = await getVideoEditSource(videoId);
+        const source = await readSource(videoId);
         if (cancelled) return;
         if (!source.ok || typeof source.data !== 'string' || !source.data) {
           setErrors(responseErrors(source));
