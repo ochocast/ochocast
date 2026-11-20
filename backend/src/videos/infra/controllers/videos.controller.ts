@@ -203,6 +203,7 @@ export class VideosController {
     return videos;
   }
 
+  /** @deprecated Use `GET /api/search` (content search: metadata and subtitles). */
   @Get('/searchvideo/:data')
   async searchVideo(@Param('data') data: string): Promise<VideoObject[]> {
     return await this.searchVideoUseCase.execute(data);
@@ -213,6 +214,7 @@ export class VideosController {
     return await this.getSuggestionsUseCase.execute(VideoId);
   }
 
+  /** @deprecated Use `GET /api/search?archived=true` (content search, admin only). */
   @Get('/searchvideoadmin/:data')
   async searchVideoAdmin(@Param('data') data: string): Promise<VideoObject[]> {
     return await this.searchVideoUseCase.execute(data);
