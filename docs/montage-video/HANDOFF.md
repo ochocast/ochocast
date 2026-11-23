@@ -8,6 +8,8 @@
 |---------|------|---------|
 | `feat/video-editing-foundation` | `main` | Modèle de données, règles, API du montage (6 commits) |
 | `feat/video-edit-render` | `feat/video-editing-foundation` | Rendu FFmpeg, lecture de la version montée, CI, environnement local, documentation, maquette (15 commits, 21 depuis `main`) |
+| `feat/video-edit-ui` | `feat/video-edit-render` | Interface de montage, lecture de l'original, pré-découpage, corrections de recette (session expirée sur la page vidéo, audio des jonctions du rendu, libellés) |
+| `feat/video-edit-preview` | `feat/video-edit-ui` | Aperçu du montage pendant l'édition, renouvellement du jeton dans l'éditeur (non poussée) |
 
 Les deux branches sont poussées sur `origin`. Aucune pull request n'est ouverte et rien n'est fusionné. Le push d'une branche ne lance aucun workflow : `ffmpeg-serverless.yml`, qui couvre ce code, tourne à l'ouverture d'une PR vers `main`.
 
@@ -185,3 +187,15 @@ Budget d’exécution par analyse : **5 minutes**, configurable de 1 s à 10 min
 Vérifications : tests générés FFmpeg, PostgreSQL réel/concurrence/cache et HTTP, tests frontend, recette réelle avec trois médias générés et cache confirmé. Les vrais lives (dont un sans audio) et la mesure de 45 minutes restent attendus ; ne pas annoncer de performance de production à partir des petits médias générés. Tous ces médias restent hors dépôt.
 
 Résultats finaux de cette version : **141 tests backend, 41 tests frontend, 36 tests worker dans Docker**, TypeScript sur les trois projets et build frontend réussis (limite ESLint inchangée). La recette réelle d’analyse sur médias générés est décrite dans [RECETTE-ANALYSE-2026-11-18.md](RECETTE-ANALYSE-2026-11-18.md). Les fixtures, leur utilisateur et les buckets/base dédiés ont été nettoyés après annonce du périmètre ; les 10 vidéos de la base applicative originale et `Downloads/videoTest.mp4` sont inchangés.
+
+## Aperçu du montage pendant l'édition (feat/video-edit-preview, 23 novembre 2026)
+
+Branche créée depuis `feat/video-edit-ui`, **non poussée**. Le détail du fonctionnement, ses limites et le tableau des écarts avec le rendu sont dans `04-montage-video.md`, section « Aperçu pendant l'édition ».
+
+- **Ce qui change** : l'aperçu de l'éditeur joue le montage non enregistré à partir de l'original (`edit/source`), avec un seul lecteur. Il enchaîne les passages image par image, saute entre les passages non contigus et s'arrête après le dernier. Le compteur et la barre sont en temps du montage. Les textes s'affichent comme dans le rendu (police, taille, interligne, contour, alignement). Un interrupteur Original / Montage complète l'ensemble.
+- **Robustesse** : un indicateur reste affiché jusqu'à ce que le lecteur soit prêt. Après 8 s sans démarrage suivant « Lire », après un refus du navigateur ou après un échec de lecture, un message apparaît avec « Réessayer », qui relit `edit/source` puis recrée le lecteur. `utils/session.ts` (`renewSession`) renouvelle un jeton expiré sans quitter la page ; il sert à la page vidéo et à l'éditeur, et il est testé seul.
+- **Code** : les fonctions de temps sont pures et testées dans `editorState.ts` (`toSource`, `toMontage`, `passageAt`, `nextJump`, `visibleTexts`, `passageStarts`). Le composant est `EditPreview.tsx`, avec un faux lecteur dans ses tests.
+- **Panne d'origine** (aperçu noir, Play sans effet) : non reproduite dans un Chrome neuf, où l'aperçu fonctionnait déjà. La cause la plus probable est un onglet ouvert avant des recompilations du serveur de développement. Les corrections rendent la panne visible et récupérable, sans prouver qu'elles suppriment cette cause exacte.
+- **Limites acceptées** : un saut d'environ 0,1 à 0,3 s (image figée, son coupé) entre deux passages non contigus dans l'original. Deux lecteurs en alternance supprimeraient ce saut ; c'est à décider à l'usage.
+- **Piège** : le hook de pré-commit lance ESLint sur les fichiers modifiés, et ESLint refuse désormais les `any` restés dans les anciens fichiers de l'éditeur. Il faut les typer plutôt que contourner le hook.
+

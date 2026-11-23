@@ -184,7 +184,7 @@ Accès : créateur et administrateurs via `getEditableVideo`. Erreurs : `400` po
 
 ## Interface de montage
 
-Depuis la page vidéo, « Monter la vidéo » ouvre `/video/:videoId/edit` pour le créateur ou un administrateur. Le lecteur de l’éditeur utilise exclusivement `GET /api/videos/:videoId/edit/source`, y compris pour modifier à nouveau une vidéo déjà montée. La prévisualisation parcourt les passages dans leur ordre local et affiche leurs textes ; le rendu FFmpeg reste la référence pour la typographie finale.
+Depuis la page vidéo, « Monter la vidéo » ouvre `/video/:videoId/edit` pour le créateur ou un administrateur. Le lecteur de l’éditeur utilise exclusivement `GET /api/videos/:videoId/edit/source`, y compris pour modifier à nouveau une vidéo déjà montée. L’aperçu joue le montage en cours d’édition, sans rendu (voir « Aperçu pendant l’édition ») ; le rendu FFmpeg reste la référence pour l’image finale.
 
 - Cliquez sur la timeline ou utilisez le curseur de lecture, puis « Couper ici ». Une coupe exige 5 secondes de chaque côté, avec 100 passages au maximum.
 - Glissez le bloc vidéo entier sur la timeline : le repère vertical indique l’insertion. Les flèches gauche/droite permettent aussi le déplacement au clavier. Les textes restent attachés au passage ; supprimer un passage supprime ses textes.
@@ -196,7 +196,35 @@ Depuis la page vidéo, « Monter la vidéo » ouvre `/video/:videoId/edit` pour 
 - Pendant le rendu, aucun bouton d’annulation du traitement n’est proposé. Le suivi interroge le statut sans requêtes concurrentes, réessaie après une interruption réseau et s’arrête à `ready` ou `failed` en revenant à la page vidéo avec un message.
 - Le retour à l’original demande confirmation. La page vidéo et les vignettes affichent « Modifiée » et `renderedDuration` lorsqu’une version montée est active. Les sous-titres restent masqués sur celle-ci.
 
-Tests : depuis `frontend/`, `CI=true npm test -- --watchAll=false --runInBand src/pages/videoEdit src/pages/videoMedia/videoMedia.test.tsx`, puis `npx tsc --noEmit`. Les tests couvrent les validations, les coupes et leurs textes, les clés locales, les déplacements, l’accès à la source, les erreurs, le verrou optimiste, le suivi du rendu et la confirmation du retour à l’original.
+### Aperçu pendant l’édition
+
+Un seul lecteur lit l’original (`edit/source`) et joue le montage tel qu’il est à l’écran, enregistré ou non :
+
+- **Enchaînement** : la position est suivie à chaque image (`requestVideoFrameCallback`, sinon `requestAnimationFrame`). À la fin d’un passage (0,03 s avant sa coupe, soit environ une image), si le passage suivant commence au même endroit de l’original (écart de moins de 1 ms), la lecture continue sans saut ; sinon le lecteur saute au début du passage suivant, et les positions reçues pendant le saut sont ignorées. Après le dernier passage, la lecture s’arrête, le compteur affiche la durée du montage et « Lire » repart de 00:00.
+- **Temps du montage** : le compteur (`00:00 / durée finale`) et la barre sont ceux du montage. Un clic sur la barre, la timeline ou un passage place la lecture au bon endroit de l’original. Les coupes, suppressions, déplacements et textes s’appliquent immédiatement, sans requête ; si le passage en cours disparaît, la lecture reprend au même temps du montage.
+- **Textes** : dessinés par-dessus la vidéo pendant leur intervalle, bornes incluses comme le filtre `between(t,début,fin)` du rendu : un texte qui commence au tout début d’un passage s’affiche sur sa première image, un texte qui le finit jusqu’à sa dernière.
+- **Original / Montage** : l’interrupteur joue l’original intact, sans textes, avec sa propre durée. Le changement conserve l’image affichée quand un passage la montre.
+- **Chargement** : un indicateur reste affiché jusqu’à ce que le lecteur soit prêt. Si l’original ne peut pas être lu, si la lecture n’a pas démarré 8 s après « Lire », ou si le navigateur la refuse, un message s’affiche avec « Réessayer » : l’adresse de l’original est relue, puis un nouveau lecteur est créé. Un jeton expiré (`401`) est renouvelé une fois sans quitter la page ; sinon l’éditeur indique que la session a expiré.
+
+Limites : un saut vers un passage qui ne suit pas le précédent dans l’original fige l’image et coupe le son pendant environ 0,1 à 0,3 s, le temps que le lecteur HLS charge et décode depuis l’image clé. La précision est d’environ une image. La qualité est celle du lecteur adaptatif (elle peut démarrer en 360p). Pendant la lecture, la timeline est actualisée environ dix fois par seconde, les textes à chaque image.
+
+**Écarts connus avec le rendu.** Les textes suivent `drawTextFilter` (`ffmpegServer/src/services/render.service.ts`) sur une toile de 1280×720, avec les mêmes proportions dans le cadre 16:9 de l’aperçu :
+
+| Élément | Rendu FFmpeg | Aperçu | Écart attendu |
+|---|---|---|---|
+| Police | DejaVu Sans Bold, fournie par l’image du worker | DejaVu Sans Bold si elle est installée, sinon Verdana (métriques très proches), puis la police sans empattement du système | Largeur des lignes légèrement différente sans DejaVu |
+| Taille | 40 px sur 720 | 3,125 % de la largeur du cadre | Aucun |
+| Retour à la ligne | 40 caractères, 3 lignes (`wrapText`) | Même fonction | Aucun |
+| Interligne | Hauteur de ligne de la police + 10 px | 1,414 em (approximation des métriques de DejaVu) | Quelques pixels sur un texte de 2 ou 3 lignes |
+| Position | Haut du bloc à 6 % ; centré ; bas du bloc à 88 % | Mêmes repères en CSS | Quelques pixels verticaux, la hauteur du bloc dépendant des métriques CSS |
+| Alignement | Bloc centré, lignes alignées à gauche | Identique | Aucun |
+| Couleurs | Blanc, noir, `#1DAC78` ; contour noir, blanc autour du noir | Identiques | Aucun |
+| Contour | `borderw=3` à l’extérieur des lettres | Trait de 6/1280 de la largeur, peint sous le texte (`paint-order`) | Sans `paint-order` (navigateur ancien), le trait mord sur les lettres |
+| Cadrage | Image ramenée à 1280×720 avec bandes noires, 30 i/s | `object-fit: contain` dans un cadre 16:9, cadence de l’original | Même cadrage ; cadence différente pour une source à 60 i/s |
+| Coupes | À l’image près à 30 i/s, audio coupé avec la vidéo | Arrêt 0,03 s avant la fin, saut de 0,1 à 0,3 s entre passages non contigus | Enchaînements moins nets dans l’aperçu |
+| Qualité | 720p, CRF 18 | Qualité HLS adaptative de l’original | Image plus douce au démarrage |
+
+Tests : depuis `frontend/`, `CI=true npm test -- --watchAll=false --runInBand src/pages/videoEdit src/pages/videoMedia/videoMedia.test.tsx src/utils/session.test.ts`, puis `npx tsc --noEmit`. Les tests couvrent les validations, les coupes et leurs textes, les clés locales, les déplacements, l’accès à la source et le renouvellement du jeton, les erreurs, le verrou optimiste, le suivi du rendu et la confirmation du retour à l’original. Ceux de l’aperçu (`EditPreview.test.tsx`, avec un faux lecteur dont le test règle le temps, les sauts et les images) couvrent la conversion temps du montage / temps de l’original, l’enchaînement avec et sans saut, l’arrêt après le dernier passage, un passage supprimé pendant la lecture, les textes à leurs bornes, l’interrupteur Original / Montage, l’échec de lecture et « Réessayer », et l’absence de démarrage.
 
 ## Proposer des coupes par les silences
 
