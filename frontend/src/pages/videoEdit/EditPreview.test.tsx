@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import EditPreview, { previewTextStyle, START_TIMEOUT_MS } from './EditPreview';
+import EditPreview, {
+  previewTextStyle,
+  retryUrl,
+  START_TIMEOUT_MS,
+} from './EditPreview';
 import { EditSegment, EditText } from './editorState';
 
 jest.mock('react-i18next', () => ({
@@ -361,7 +365,9 @@ it('offers a retry when the original cannot be played, reloading the same player
   expect(screen.getByRole('status')).toBeInTheDocument();
   expect(mockPlayer.props.url).toBe('original.m3u8');
   await act(async () => resolveRetry());
-  expect(mockPlayer.props.url).toBe('original.m3u8#retry-1');
+  expect(mockPlayer.props.url).toBe('original.m3u8?retry=1');
+  // react-player would otherwise wait for the failed address to load first.
+  expect(mockPlayer.props.disableDeferredLoading).toBe(true);
   expect(mockPlayer.mounts).toBe(1);
   ready();
   expect(screen.queryByRole('alert')).toBeNull();
@@ -370,7 +376,7 @@ it('offers a retry when the original cannot be played, reloading the same player
   act(() => mockPlayer.props.onError({ name: 'MediaError' }));
   fireEvent.click(screen.getByText('videoEdit.previewRetry'));
   await act(async () => resolveRetry());
-  expect(mockPlayer.props.url).toBe('original.m3u8#retry-2');
+  expect(mockPlayer.props.url).toBe('original.m3u8?retry=2');
 });
 
 // Seen in the browser: a passage ending with the original made the player
@@ -488,4 +494,16 @@ it.each([
     // 3 px of a 1280 px canvas on each side: a 6 px stroke, half under the text.
     WebkitTextStroke: `0.469cqw ${outline}`,
   });
+});
+
+it('makes the address of a retry new without breaking it', () => {
+  const hls = 'http://api/videos/media-content/v/master.m3u8';
+  expect(retryUrl(hls, 0)).toBe(hls);
+  // Still an .m3u8 for react-player, which then uses hls.js.
+  expect(retryUrl(hls, 2)).toBe(`${hls}?retry=2`);
+  expect(retryUrl(`${hls}?a=1`, 1)).toBe(`${hls}?a=1&retry=1`);
+  // A presigned source keeps its signature: Retry reads it again instead.
+  const signed =
+    'https://bucket/v/source/original.mp4?X-Amz-Signature=abc&X-Amz-Expires=60';
+  expect(retryUrl(signed, 3)).toBe(signed);
 });

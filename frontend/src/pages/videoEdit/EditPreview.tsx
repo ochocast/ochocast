@@ -16,7 +16,10 @@ import {
   wrapText,
 } from './editorState';
 import styles from './videoEdit.module.css';
-const ReactPlayer = Player as unknown as React.FC<ReactPlayerProps>;
+// disableDeferredLoading is passed on to the inner player but not typed.
+const ReactPlayer = Player as unknown as React.FC<
+  ReactPlayerProps & { disableDeferredLoading?: boolean }
+>;
 
 // A passage ends one frame early rather than showing a frame past its cut.
 const END_TOLERANCE = 0.03;
@@ -39,6 +42,21 @@ export function previewTextStyle(color: EditText['color']) {
     color: fill,
     WebkitTextStroke: `0.469cqw ${color === 'black' ? 'white' : 'black'}`,
   };
+}
+
+/**
+ * The address the player loads on retry number `attempt`. A retry reloads
+ * the same player (a new one would not do: in development, React's strict
+ * mode unmounts it once, which aborts its first request for good), so the
+ * address must change. The HLS playlist of our API is stable and unsigned:
+ * a query parameter, ignored by the backend, makes it new (a #fragment would
+ * hide its .m3u8 from react-player, which would skip hls.js). A presigned
+ * source must not change, or its signature breaks; Retry reads it again,
+ * freshly signed, hence already new.
+ */
+export function retryUrl(url: string, attempt: number): string {
+  if (!attempt || !/\.m3u8($|\?)/.test(url)) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}retry=${attempt}`;
 }
 
 type Mode = 'montage' | 'original';
@@ -249,7 +267,7 @@ export default function EditPreview({
     try {
       await onRetry?.();
     } finally {
-      // The same player loads the address again (see playerUrl).
+      // The same player loads the address again (see retryUrl).
       setAttempt((n) => n + 1);
     }
   };
@@ -289,11 +307,7 @@ export default function EditPreview({
   const passage = current ? segments[current.index] : undefined;
   const texts = passage && current ? visibleTexts(passage, current.offset) : [];
   const montage = mode === 'montage';
-  // A retry reloads the same player: a fragment, never sent to the server
-  // nor part of a presigned URL's signature, makes the address new. A new
-  // player would not do: in development, React's strict mode unmounts it
-  // once, which aborts its first request for good.
-  const playerUrl = attempt ? `${url}#retry-${attempt}` : url;
+  const playerUrl = retryUrl(url, attempt);
   const shownTime = montage ? localTime : originalTime;
   const shownDuration = montage ? duration : sourceDuration;
 
@@ -320,6 +334,10 @@ export default function EditPreview({
           <ReactPlayer
             ref={player}
             url={playerUrl}
+            // Without it, react-player defers a new address until the first
+            // one has loaded, which never happens after a failure: Retry
+            // would wait forever.
+            disableDeferredLoading
             width="100%"
             height="100%"
             playing={playing && status !== 'failed'}
