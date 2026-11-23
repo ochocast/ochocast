@@ -196,6 +196,27 @@ Branche créée depuis `feat/video-edit-ui`, **non poussée**. Le détail du fon
 - **Robustesse** : un indicateur reste affiché jusqu'à ce que le lecteur soit prêt. Après 8 s sans démarrage suivant « Lire », après un refus du navigateur ou après un échec de lecture, un message apparaît avec « Réessayer », qui relit `edit/source` puis recrée le lecteur. `utils/session.ts` (`renewSession`) renouvelle un jeton expiré sans quitter la page ; il sert à la page vidéo et à l'éditeur, et il est testé seul.
 - **Code** : les fonctions de temps sont pures et testées dans `editorState.ts` (`toSource`, `toMontage`, `passageAt`, `nextJump`, `visibleTexts`, `passageStarts`). Le composant est `EditPreview.tsx`, avec un faux lecteur dans ses tests.
 - **Panne d'origine** (aperçu noir, Play sans effet) : non reproduite dans un Chrome neuf, où l'aperçu fonctionnait déjà. La cause la plus probable est un onglet ouvert avant des recompilations du serveur de développement. Les corrections rendent la panne visible et récupérable, sans prouver qu'elles suppriment cette cause exacte.
-- **Limites acceptées** : un saut d'environ 0,1 à 0,3 s (image figée, son coupé) entre deux passages non contigus dans l'original. Deux lecteurs en alternance supprimeraient ce saut ; c'est à décider à l'usage.
+- **Limites acceptées** : une brève image figée, avec le son coupé, entre deux passages non contigus dans l'original. Mesurée de 33 à 150 ms dans Chrome en local, elle est à peine perceptible. Deux lecteurs en alternance la supprimeraient ; c'est à décider à l'usage, en particulier sur un réseau lent.
 - **Piège** : le hook de pré-commit lance ESLint sur les fichiers modifiés, et ESLint refuse désormais les `any` restés dans les anciens fichiers de l'éditeur. Il faut les typer plutôt que contourner le hook.
 
+### Recette dans Chrome (23 novembre 2026)
+
+Faite dans un Google Chrome au profil vierge, piloté par Playwright, sur l'application locale (Keycloak, PostgreSQL, MinIO, workers). **Aucune écriture en base** : toute requête autre qu'une lecture vers un montage était bloquée. Aucune n'a été tentée.
+
+| Scénario | Résultat |
+|---|---|
+| ef0db5fc, sans audio, montage enregistré de 3 passages réordonnés | Les 30 s jouées dans l'ordre, arrêt sur « 00:30 / 00:30 », aucun audio décodé |
+| aa18a8b7, avec son, coupé à 8 et 16 s, 3e passage remis en tête, un texte ajouté, sans enregistrer | Montage local joué dans l'ordre, texte visible de 00:00 à 00:04, arrêt sur « 00:25 / 00:25 », audio décodé |
+| 7c436951, avec son, montage simulé dans le navigateur avec textes aux bornes | « Haut vert » en haut, en vert, de 00:00 à 00:02 ; « Fin du passage » en bas, en blanc, de 00:17 à 00:19 (fin exacte du passage) |
+| Interrupteur | Montage 13 s → Original 3 s (« / 00:40 », sans textes, lecture sans saut) → retour au Montage à la même image |
+| Média entièrement bloqué dans ce navigateur | « Impossible de lire l'original », « Lire » désactivé ; « Réessayer » relance la lecture |
+| Segments sans réponse | « L'aperçu ne démarre pas » 8,5 s après « Lire » ; « Réessayer » relance la lecture |
+| Saut entre passages non contigus | Image figée de 33 à 150 ms selon les essais (sauts de 17 à 190 ms) |
+
+Quatre défauts n'apparaissaient qu'avec un vrai navigateur. Ils sont corrigés et couverts par des tests :
+- un passage qui finissait avec l'original arrêtait tout le montage ;
+- après un rendu lent de la page, le lecteur revenait en arrière vers une position qu'il avait lui-même transmise ;
+- « Réessayer » ne relançait rien. React, en mode strict de développement, démonte une fois le nouveau lecteur et annule sa première requête. `react-player` diffère aussi tout nouveau chargement tant que le premier n'a pas abouti, et un `#fragment` masquait le `.m3u8` ;
+- la demande de lecture était prise pour un démarrage, ce qui empêchait l'alerte des 8 s.
+
+Une pause de 467 ms a été vue une fois au milieu d'un passage : c'est un chargement de segment HLS, pas un changement de passage. Les erreurs de console restantes ne viennent pas de l'aperçu : 401 sur les événements publiés avant connexion, chargement du thème interrompu par la navigation, 404 de requêtes annexes déjà présents avant ces changements, et requêtes bloquées volontairement par la recette.
