@@ -33,6 +33,7 @@
     "local:queue-bridge": "node --env-file=.env -r ts-node/register scripts/local-queue-bridge.ts",
     "local:queue-config": "node scripts/configure-local-scaleway-queue.mjs",
     "test:search": "jest --runInBand src/search",
+    "search:perf": "ts-node -r tsconfig-paths/register scripts/search-perf.ts",
     "search:reindex": "node --env-file=.env -r ts-node/register -r tsconfig-paths/register src/search/reindex.cli.ts",
     "test:local-queue-config": "node --test scripts/configure-local-scaleway-queue.test.mjs"
   },
