@@ -45,26 +45,33 @@ export const hydrate = (edit: VideoEdit): EditSegment[] =>
     textLayers: s.textLayers.map((t) => ({ ...t, key: localKey() })),
   }));
 // ---------------------------------------------------------------------------
-// Precision: texts and cuts at 0.1 s; the server allows 1e-6 s of rounding.
+// Precision: every time of the editor at 0.01 s; the server allows 1e-6 s
+// of rounding.
 
-export const TIME_STEP = 0.1;
+export const TIME_STEP = 0.01;
+// The shortest text, a rule of the editor (not the rounding step).
 export const MIN_TEXT_DURATION = 0.1;
 const BOUND_EPSILON = 1e-6;
-/** To the nearest 0.1 s, without float noise (5.6, never 5.6000000000000005). */
-export const roundTenth = (seconds: number) => Math.round(seconds * 10) / 10;
-const floorTenth = (seconds: number) =>
-  Math.floor(seconds * 10 + BOUND_EPSILON) / 10;
-const ceilTenth = (seconds: number) =>
-  Math.ceil(seconds * 10 - BOUND_EPSILON) / 10;
-/** To the millisecond: what is sent of a passage's original times. */
-const roundMs = (seconds: number) => Math.round(seconds * 1000) / 1000;
+/** To the nearest 0.01 s, without float noise (5.56, never 5.5600000000000005). */
+export const roundHundredth = (seconds: number) =>
+  Math.round(seconds * 100) / 100;
+const floorHundredth = (seconds: number) =>
+  Math.floor(seconds * 100 + BOUND_EPSILON) / 100;
+const ceilHundredth = (seconds: number) =>
+  Math.ceil(seconds * 100 - BOUND_EPSILON) / 100;
+/** A time shown in a field: two decimals (5.56, 5.00). */
+export const formatSeconds = (seconds: number) =>
+  Number.isFinite(seconds) ? roundHundredth(seconds).toFixed(2) : '';
 
-/** The latest start, on the 0.1 s grid, a text may have in a passage. */
+/** The latest start, on the 0.01 s grid, a text may have in a passage. */
 export const lastTextStart = (passageDuration: number) =>
-  Math.max(0, roundTenth(floorTenth(passageDuration) - MIN_TEXT_DURATION));
+  Math.max(
+    0,
+    roundHundredth(floorHundredth(passageDuration) - MIN_TEXT_DURATION),
+  );
 
 /**
- * A text's times on the 0.1 s grid, kept within its passage: the start is
+ * A text's times on the 0.01 s grid, kept within its passage: the start is
  * rounded (down when rounding up would leave no room), never negative; the
  * duration is rounded, at least MIN_TEXT_DURATION, and shortened rather than
  * reaching past the passage. Times that are not numbers are left as they are.
@@ -78,24 +85,31 @@ export function fitText(
     return { startOffset, duration };
   const start = Math.max(
     0,
-    Math.min(roundTenth(startOffset), lastTextStart(passageDuration)),
+    Math.min(roundHundredth(startOffset), lastTextStart(passageDuration)),
   );
-  const room = roundTenth(floorTenth(passageDuration) - start);
+  const room = roundHundredth(floorHundredth(passageDuration) - start);
   return {
     startOffset: start,
-    duration: Math.max(MIN_TEXT_DURATION, Math.min(roundTenth(duration), room)),
+    duration: Math.max(
+      MIN_TEXT_DURATION,
+      Math.min(roundHundredth(duration), room),
+    ),
   };
 }
 
 /**
- * Where to cut `segment` asked at `offset` seconds into it: on the 0.1 s
+ * Where to cut `segment` asked at `offset` seconds into it: on the 0.01 s
  * grid of the original when that keeps 5 s on each side (nearest, else the
  * grid point below or above), otherwise exactly where asked.
  */
 export function cutOffset(segment: EditSegment, offset: number): number {
   const length = segmentDuration(segment);
   const at = segment.sourceStart + offset;
-  for (const grid of [roundTenth(at), floorTenth(at), ceilTenth(at)]) {
+  for (const grid of [
+    roundHundredth(at),
+    floorHundredth(at),
+    ceilHundredth(at),
+  ]) {
     const candidate = grid - segment.sourceStart;
     if (
       candidate >= 5 - BOUND_EPSILON &&
@@ -107,15 +121,20 @@ export function cutOffset(segment: EditSegment, offset: number): number {
 }
 
 /**
- * The montage as sent: original times to the millisecond, texts on the
- * 0.1 s grid within their passage. A montage saved with more decimals is
- * read as it is and sent back rounded.
+ * The montage as sent: every time on the 0.01 s grid, texts within their
+ * passage. A passage's end is never rounded past itself (it may be the end
+ * of the original); rounding keeps the order, so passages never overlap. A
+ * montage saved with more decimals is read as it is and sent back rounded.
  */
 export const payload = (version: number, segments: EditSegment[]) => ({
   version,
   segments: segments.map((s) => {
-    const sourceStart = roundMs(s.sourceStart),
-      sourceEnd = roundMs(s.sourceEnd);
+    const sourceStart = roundHundredth(s.sourceStart),
+      rounded = roundHundredth(s.sourceEnd),
+      sourceEnd =
+        rounded > s.sourceEnd + BOUND_EPSILON
+          ? floorHundredth(s.sourceEnd)
+          : rounded;
     return {
       sourceStart,
       sourceEnd,
@@ -357,7 +376,11 @@ export function nextJump(segments: EditSegment[], index: number): Jump {
   if (!current || !next) return { kind: 'end' };
   if (Math.abs(next.sourceStart - current.sourceEnd) < JOIN_TOLERANCE)
     return { kind: 'continue', index: index + 1 };
-  return { kind: 'seek', index: index + 1, sourceTime: next.sourceStart };
+  return {
+    kind: 'seek',
+    index: index + 1,
+    sourceTime: roundHundredth(next.sourceStart),
+  };
 }
 
 /**

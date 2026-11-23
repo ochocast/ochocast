@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   EditText,
@@ -7,14 +7,53 @@ import {
   TextColor,
   TextPosition,
   fitText,
+  formatSeconds,
   lastTextStart,
-  roundTenth,
+  roundHundredth,
 } from './editorState';
 import styles from './videoEdit.module.css';
 
-// Shown with one decimal at most, whatever a saved montage holds.
-const shown = (seconds: number) =>
-  Number.isFinite(seconds) ? roundTenth(seconds) : '';
+/**
+ * A time field: two decimals when shown (5.56, 5.00, whatever a saved
+ * montage holds). While typing, the field keeps what is typed and the value
+ * already applies, rounded; on validation (leaving the field or Enter), the
+ * field shows the rounded value.
+ */
+function TimeInput({
+  label,
+  value,
+  min,
+  max,
+  onValue,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onValue: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <label>
+      {label}
+      <input
+        type="number"
+        min={min}
+        max={max}
+        step={TIME_STEP}
+        value={draft ?? formatSeconds(value)}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          onValue(e.target.valueAsNumber);
+        }}
+        onBlur={() => setDraft(null)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') setDraft(null);
+        }}
+      />
+    </label>
+  );
+}
 export default function TextLayerEditor({
   text,
   duration,
@@ -27,7 +66,7 @@ export default function TextLayerEditor({
   onRemove: () => void;
 }) {
   const { t } = useTranslation();
-  // A typed or pasted time is rounded to 0.1 s and kept within the passage
+  // A typed or pasted time is rounded to 0.01 s and kept within the passage
   // (`duration`); an empty field stays empty until it is filled.
   const setStart = (value: number) => {
     if (!text || !Number.isFinite(value))
@@ -50,7 +89,7 @@ export default function TextLayerEditor({
     );
   };
   const start = Number.isFinite(text?.startOffset)
-    ? roundTenth(text!.startOffset)
+    ? roundHundredth(text!.startOffset)
     : 0;
   return (
     <section className={styles.panel}>
@@ -68,29 +107,21 @@ export default function TextLayerEditor({
             />
           </label>
           <p>{t('videoEdit.textHelp')}</p>
-          <label>
-            {t('videoEdit.textStart')}
-            <input
-              type="number"
-              min={0}
-              max={lastTextStart(duration)}
-              step={TIME_STEP}
-              value={shown(text.startOffset)}
-              onChange={(e) => setStart(e.target.valueAsNumber)}
-            />
-          </label>
-          <label>
-            {t('videoEdit.textDuration')}
-            <input
-              type="number"
-              min={MIN_TEXT_DURATION}
-              // The room left after the start, within the passage.
-              max={fitText(start, duration, duration).duration}
-              step={TIME_STEP}
-              value={shown(text.duration)}
-              onChange={(e) => setDuration(e.target.valueAsNumber)}
-            />
-          </label>
+          <TimeInput
+            label={t('videoEdit.textStart')}
+            value={text.startOffset}
+            min={0}
+            max={lastTextStart(duration)}
+            onValue={setStart}
+          />
+          <TimeInput
+            label={t('videoEdit.textDuration')}
+            value={text.duration}
+            min={MIN_TEXT_DURATION}
+            // The room left after the start, within the passage.
+            max={fitText(start, duration, duration).duration}
+            onValue={setDuration}
+          />
           <fieldset>
             <legend>{t('videoEdit.position')}</legend>
             <div className={styles.row}>

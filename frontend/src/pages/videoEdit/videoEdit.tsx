@@ -250,7 +250,7 @@ export default function VideoEditPage() {
   const addText = () => {
     if (!current || current.segment.textLayers.length >= 10) return;
     const key = localKey();
-    // At the playhead, at most 1 s before the passage end, on the 0.1 s grid.
+    // At the playhead, at most 1 s before the passage end, on the 0.01 s grid.
     const placed = fitText(
       Math.min(
         current.offset,

@@ -201,7 +201,7 @@ it.each(['ready', 'failed'])(
   },
 );
 
-it('adds a text and cuts at the playhead on 0.1 s, and sends short values', async () => {
+it('adds a text and cuts at the playhead on 0.01 s, and sends short values', async () => {
   (saveVideoEdit as jest.Mock).mockResolvedValue({ ok: true, data: edit });
   render(<VideoEditPage />);
   await screen.findByTestId('source');
@@ -210,11 +210,11 @@ it('adds a text and cuts at the playhead on 0.1 s, and sends short values', asyn
   // The new text starts at the playhead, rounded.
   expect(
     (screen.getByLabelText('videoEdit.textStart') as HTMLInputElement).value,
-  ).toBe('5.6');
+  ).toBe('5.56');
   fireEvent.change(screen.getByLabelText('videoEdit.content'), {
     target: { value: 'Titre' },
   });
-  // The cut too: 5.6 s keeps 5 s on each side of the 20 s passage.
+  // The cut too: 5.56 s keeps 5 s on each side of the 20 s passage.
   fireEvent.click(screen.getByText('videoEdit.cut'));
   fireEvent.click(screen.getByText('videoEdit.save'));
   await waitFor(() => expect(saveVideoEdit).toHaveBeenCalled());
@@ -225,8 +225,8 @@ it('adds a text and cuts at the playhead on 0.1 s, and sends short values', asyn
       s.sourceEnd,
     ]),
   ).toEqual([
-    [0, 5.6],
-    [5.6, 20],
+    [0, 5.56],
+    [5.56, 20],
   ]);
   // The text, at the start of the second passage, kept its 5 s.
   expect(sent.segments[1].textLayers).toEqual([

@@ -9,6 +9,7 @@ import {
   nextJump,
   passageAt,
   passageStarts,
+  roundHundredth,
   toMontage,
   toSource,
   totalDuration,
@@ -144,11 +145,12 @@ export default function EditPreview({
     onTime(montageTime);
   };
 
+  // Every jump of the preview lands on the 0.01 s grid of the editor.
   const seekSource = (sourceTime: number) => {
     const v = video.current;
     if (!v) return;
     state.current.seeking = true;
-    player.current?.seekTo(sourceTime, 'seconds');
+    player.current?.seekTo(roundHundredth(sourceTime), 'seconds');
   };
 
   const stop = (montageTime: number) => {
