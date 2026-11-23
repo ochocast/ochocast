@@ -22,6 +22,10 @@
     }
   ],
   "dependencyDashboard": true,
-  "rebaseWhen": "behind-base-branch",
+  "timezone": "Europe/Paris",
+  "schedule": ["after 1am and before 7am every weekday", "every weekend"],
+  "rebaseWhen": "conflicted",
+  "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
   "labels": ["dependencies"]
 }
