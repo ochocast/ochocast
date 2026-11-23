@@ -23,7 +23,7 @@
   ],
   "dependencyDashboard": true,
   "timezone": "Europe/Paris",
-  "schedule": ["after 11pm and before 5am every weekday", "every weekend"],
+  "schedule": ["after 1am and before 7am every weekday", "every weekend"],
   "rebaseWhen": "conflicted",
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
