@@ -8,10 +8,16 @@
 |---------|------|---------|
 | `feat/video-editing-foundation` | `main` | Modèle de données, règles, API du montage (6 commits) |
 | `feat/video-edit-render` | `feat/video-editing-foundation` | Rendu FFmpeg, lecture de la version montée, CI, environnement local, documentation, maquette (15 commits, 21 depuis `main`) |
-| `feat/video-edit-ui` | `feat/video-edit-render` | Interface de montage, lecture de l'original, pré-découpage, corrections de recette (session expirée sur la page vidéo, audio des jonctions du rendu, libellés) |
-| `feat/video-edit-preview` | `feat/video-edit-ui` | Aperçu du montage pendant l'édition, renouvellement du jeton dans l'éditeur (non poussée) |
+| `feat/video-edit-ui` | `feat/video-edit-render` | **Obsolète**, voir ci-dessous. Interface de montage, lecture de l'original, pré-découpage |
+| `feat/video-edit-preview` | `feat/video-edit-ui` | **Branche de référence** : tout le montage, y compris l'interface, les corrections de recette, l'aperçu pendant l'édition et les corrections de lint et de build |
 
-Les deux branches sont poussées sur `origin`. Aucune pull request n'est ouverte et rien n'est fusionné. Le push d'une branche ne lance aucun workflow : `ffmpeg-serverless.yml`, qui couvre ce code, tourne à l'ouverture d'une PR vers `main`.
+**Branche de référence : `feat/video-edit-preview`.** Elle contient tout le montage : le socle, le rendu, l'interface et les corrections de recette (session expirée sur la page vidéo, audio des jonctions du rendu, libellés). S'y ajoutent l'aperçu pendant l'édition et les corrections qui font passer le lint et le build de la CI (`CI=true npm run build`). Elle est à jour sur `origin`. Les pull requests devront être découpées à partir d'elle, jamais à partir de `feat/video-edit-ui`.
+
+**`feat/video-edit-ui` est obsolète.** Il ne faut plus s'en servir, ni y reporter de corrections :
+- sa branche distante est en retard : sur `origin`, elle s'arrête à `11e140a`. Les 5 commits suivants (corrections de recette et note sur le port 5432) n'existent qu'en local et ne seront pas poussés ; ils sont tous dans `feat/video-edit-preview` ;
+- sa CI échouerait : l'étape « Lint » sur les erreurs `import/first` de `videoEdit.test.tsx` et `testing-library/prefer-find-by` de `SilenceAnalysisPanel.test.tsx`, et le build, que la CI lance avec `CI=true` (avertissements traités comme des erreurs), sur les deux `react-hooks/exhaustive-deps` de `SilenceAnalysisPanel.tsx`. Ces erreurs sont corrigées dans `feat/video-edit-preview` (commits `74c37b7` et `4b75c67`).
+
+Les branches sont poussées sur `origin` (sauf les 5 derniers commits locaux de `feat/video-edit-ui`, voir ci-dessus). Aucune pull request n'est ouverte et rien n'est fusionné. Le push d'une branche ne lance aucun workflow : `ffmpeg-serverless.yml`, qui couvre ce code, tourne à l'ouverture d'une PR vers `main`.
 
 `main` a avancé depuis le départ des branches (4 commits). Un seul conflit, trivial : `backend/src/app.module.ts`, où `main` ajoute `SearchModule` et la branche `VideoEditsModule` au même endroit. Il faut garder les deux. La migration `1794470400000-AddContentSearch` de `main` est postérieure aux nôtres et ne touche pas les mêmes tables.
 
