@@ -539,6 +539,10 @@
   "Selected dates": "Dates sélectionnées",
   "Delete all": "Tout effacer",
   "backendLoginFailed": "Impossible de se connecter au serveur OchoCast.",
+  "videoSearch": {
+    "startBanner": "Lecture à {{time}} · passage trouvé pour « {{query}} »",
+    "backToResults": "← Retour aux résultats pour « {{query}} »"
+  },
   "searchResult": {
     "foundIn": "Trouvé dans :",
     "matchedIn": {
@@ -552,5 +556,24 @@
     "morePassages_one": "Voir l'autre passage",
     "morePassages_other": "Voir les {{count}} autres passages",
     "lessPassages": "Afficher moins de passages"
+  },
+  "passageStrip": {
+    "region": "Passages trouvés dans la vidéo",
+    "goTo": "Aller à {{time}} : {{excerpt}}",
+    "goToGroup_one": "Aller à {{time}} : {{excerpt}} (+{{count}} passage)",
+    "goToGroup_other": "Aller à {{time}} : {{excerpt}} (+{{count}} passages)"
+  },
+  "transcriptPanel": {
+    "region": "Transcription de la vidéo",
+    "titleAuto": "Transcription · générée automatiquement",
+    "titleProvided": "Transcription · fournie",
+    "search": "Rechercher dans cette vidéo",
+    "previous": "Occurrence précédente",
+    "next": "Occurrence suivante",
+    "counter": "{{current}} / {{total}}",
+    "noOccurrence": "Aucune occurrence",
+    "preparing": "Transcription en préparation",
+    "tooLong": "Recherche trop longue : 10 mots ou expressions et 200 caractères au plus.",
+    "unavailable": "Recherche indisponible pour le moment."
   }
 }
