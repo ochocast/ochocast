@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container, testing-library/no-node-access -- these tests check markup that has no role or label: <mark> highlights, absence of injected HTML, aria-hidden decoration and the thumbnail <img alt=""> */
 import React from 'react';
 import {
   fireEvent,

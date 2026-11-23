@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-unnecessary-act -- typing triggers the async tag and user suggestions: act lets them settle before the assertions */
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../../../testUtils/initTestI18n';

@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-node-access -- the thumbnail <img alt=""> has no role: it is read from its result card */
 import React from 'react';
 import {
   act,
