@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import SilenceAnalysisPanel from './SilenceAnalysisPanel';
 import { getSilenceAnalysis, requestSilenceAnalysis } from '../../utils/api';
 const mockT = (key: string) => key;
@@ -129,4 +129,69 @@ it('disables incompatible cuts after local changes', async () => {
   fireEvent.click(await screen.findByRole('checkbox'));
   expect(screen.getByText('videoEdit.analysis.short')).toBeInTheDocument();
   expect(screen.getByText('videoEdit.analysis.apply')).toBeDisabled();
+});
+
+// Each poll answer is a new job object (its progress moves): the follow-up
+// must not restart on it, only when the analysis or its status changes.
+it('polls a running analysis every 3 s until it ends, without restarting on each update', async () => {
+  jest.useFakeTimers();
+  try {
+    const at = (status: string, progress: number) => ({
+      ok: true,
+      data: {
+        ...job,
+        status,
+        phase: status === 'ready' ? 'complete' : 'analyzing',
+        progress,
+        result: status === 'ready' ? job.result : null,
+      },
+    });
+    (getSilenceAnalysis as jest.Mock)
+      .mockResolvedValueOnce(at('processing', 0)) // opening the editor
+      .mockResolvedValueOnce(at('processing', 30))
+      .mockResolvedValueOnce(at('processing', 60))
+      .mockResolvedValueOnce(at('ready', 100));
+    const calls = () => (getSilenceAnalysis as jest.Mock).mock.calls.length;
+    const flush = () =>
+      act(async () => {
+        for (let i = 0; i < 5; i++) await Promise.resolve();
+      });
+    const advance = async (ms: number) => {
+      act(() => {
+        jest.advanceTimersByTime(ms);
+      });
+      await flush();
+    };
+    render(
+      <SilenceAnalysisPanel
+        videoId="video"
+        segments={segments}
+        onApply={jest.fn()}
+      />,
+    );
+    await flush();
+    expect(calls()).toBe(1);
+    // First poll 1 s after the running analysis shows.
+    await advance(1000);
+    expect(calls()).toBe(2);
+    // Its answer (progress 30) is no restart: the next poll waits 3 s.
+    await advance(2999);
+    expect(calls()).toBe(2);
+    await advance(1);
+    expect(calls()).toBe(3);
+    await advance(3000);
+    expect(calls()).toBe(4);
+    // Ready: the follow-up stops for good.
+    expect(
+      screen.getByText('videoEdit.analysis.suggestions'),
+    ).toBeInTheDocument();
+    await advance(30000);
+    expect(calls()).toBe(4);
+    // Every poll asked for this analysis.
+    expect(
+      (getSilenceAnalysis as jest.Mock).mock.calls.slice(1).map((c) => c[1]),
+    ).toEqual(['job', 'job', 'job']);
+  } finally {
+    jest.useRealTimers();
+  }
 });

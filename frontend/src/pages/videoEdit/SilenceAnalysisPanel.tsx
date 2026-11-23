@@ -17,8 +17,9 @@ interface Analysis {
     error?: string;
   } | null;
 }
-const running = (job?: Analysis) =>
-  job?.status === 'pending' || job?.status === 'processing';
+const runningStatus = (status?: Analysis['status']) =>
+  status === 'pending' || status === 'processing';
+const running = (job?: Analysis) => runningStatus(job?.status);
 export default function SilenceAnalysisPanel({
   videoId,
   segments,
@@ -37,6 +38,12 @@ export default function SilenceAnalysisPanel({
   const [pollError, setPollError] = useState(false);
   const [hidden, setHidden] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  // Each poll answer is a new job object: the effects below read only these
+  // values, so that they restart when the analysis or its status changes,
+  // never on a mere progress update.
+  const jobId = job?.id,
+    jobStatus = job?.status,
+    jobQueuedAt = job?.queuedAt;
   useEffect(() => {
     let cancelled = false;
     const epoch = ++generation.current;
@@ -66,12 +73,12 @@ export default function SilenceAnalysisPanel({
     };
   }, [videoId]);
   useEffect(() => {
-    if (!job || !running(job)) return;
+    if (!jobId || !runningStatus(jobStatus)) return;
     let cancelled = false,
       timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       try {
-        const response = await getSilenceAnalysis(videoId, job.id);
+        const response = await getSilenceAnalysis(videoId, jobId);
         if (cancelled) return;
         if (response?.ok && response.data) {
           setJob(response.data);
@@ -96,15 +103,16 @@ export default function SilenceAnalysisPanel({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [job?.id, job?.status, videoId, t]);
+  }, [jobId, jobStatus, videoId, t]);
   useEffect(() => {
-    if (!job || !running(job)) return;
+    if (!jobId || !runningStatus(jobStatus) || jobQueuedAt === undefined)
+      return;
     const update = () =>
-      setElapsed(Math.max(0, (Date.now() - Date.parse(job.queuedAt)) / 1000));
+      setElapsed(Math.max(0, (Date.now() - Date.parse(jobQueuedAt)) / 1000));
     update();
     const timer = setInterval(update, 1000);
     return () => clearInterval(timer);
-  }, [job?.id, job?.status, job?.queuedAt]);
+  }, [jobId, jobStatus, jobQueuedAt]);
   const application = applyAnalysisCuts(segments, selected);
   return (
     <section className={styles.panel}>
