@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-node-access, testing-library/no-unnecessary-act -- transcript lines are read from their list markup, and act lets the async transcript load settle */
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';

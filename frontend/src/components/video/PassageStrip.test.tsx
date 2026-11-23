@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-container, testing-library/no-node-access -- the strip markers and the cursor are read from their markup: they have no role or label of their own */
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';
