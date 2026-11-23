@@ -80,7 +80,7 @@ beforeEach(() => {
 const renderCard = async (hit: SearchHit, query: string) => {
   const view = render(<SearchVideoResult hit={hit} query={query} />);
   await waitFor(() =>
-    expect(view.container.querySelector('img')).toHaveAttribute(
+    expect(screen.getByTestId('video-thumbnail')).toHaveAttribute(
       'src',
       'https://cdn/miniature.png',
     ),
@@ -168,13 +168,15 @@ describe('SearchVideoResult', () => {
       name: 'Déployer une plateforme vidéo sur Kubernetes',
     });
     expect(title).toHaveAttribute('href', '/video/vid-k8s');
-    expect(screen.queryByText('Trouvé dans :')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', { name: 'Trouvé dans :' }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('▶')).not.toBeInTheDocument();
   });
 
   it('shows found-in badges', async () => {
     await renderCard(k8s, 'kubernetes');
-    const row = (await screen.findByText('Trouvé dans :')).parentElement!;
+    const row = await screen.findByRole('group', { name: 'Trouvé dans :' });
     expect(within(row).getByText('Titre')).toBeInTheDocument();
     expect(within(row).getByText('Tags')).toBeInTheDocument();
     expect(
@@ -213,10 +215,12 @@ describe('SearchVideoResult', () => {
   });
 
   it('highlights hits with mark elements', async () => {
-    const { container } = await renderCard(k8s, 'kubernetes');
+    await renderCard(k8s, 'kubernetes');
     await screen.findAllByRole('link', { name: /^\d+:\d{2}/ });
     // 1 in the title + 1 per visible passage
-    expect(container.querySelectorAll('mark')).toHaveLength(4);
+    expect(
+      screen.getAllByText('Kubernetes', { selector: 'mark' }),
+    ).toHaveLength(4);
   });
 
   it('shows markup in a title literally', async () => {
@@ -226,9 +230,8 @@ describe('SearchVideoResult', () => {
       passages: [],
       passageCount: 0,
     };
-    const { container } = await renderCard(hit, 'test');
+    await renderCard(hit, 'test');
     expect(await screen.findByText('<b>test</b>')).toBeInTheDocument();
-    expect(container.querySelector('b')).toBeNull();
   });
 
   it('reads a passage without the decorative symbols', async () => {
@@ -236,9 +239,11 @@ describe('SearchVideoResult', () => {
     const link = await screen.findByRole('link', {
       name: /^16:52 On a choisi Kubernetes pour la suite$/,
     });
-    const hidden = link.querySelectorAll('[aria-hidden="true"]');
-    expect(Array.from(hidden).map((node) => node.textContent)).toEqual(
-      expect.arrayContaining(['▶', '«', '»']),
+    ['▶', '«', '»'].forEach((symbol) =>
+      expect(within(link).getByText(symbol)).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      ),
     );
   });
 
@@ -287,7 +292,9 @@ describe('SearchVideoResult', () => {
       expect(
         await screen.findByText(/demo · il y a 3 jours$/),
       ).toBeInTheDocument();
-      expect(screen.queryByText('Trouvé dans :')).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('group', { name: 'Trouvé dans :' }),
+      ).not.toBeInTheDocument();
       expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
 
@@ -315,7 +322,7 @@ describe('SearchVideoResult', () => {
   describe('miniature fallback', () => {
     it('uses the branded fallback when the miniature cannot be loaded', async () => {
       getMiniature.mockRejectedValue(new Error('404'));
-      const { container } = render(
+      render(
         <SearchVideoResult
           hit={k8s}
           query="kubernetes"
@@ -323,7 +330,7 @@ describe('SearchVideoResult', () => {
         />,
       );
       await waitFor(() => expect(getMiniature).toHaveBeenCalledWith('vid-k8s'));
-      expect(container.querySelector('img')).toHaveAttribute(
+      expect(screen.getByTestId('video-thumbnail')).toHaveAttribute(
         'src',
         'https://cdn/brand-default.png',
       );
@@ -331,11 +338,9 @@ describe('SearchVideoResult', () => {
 
     it('keeps the static image as last resort', async () => {
       getMiniature.mockRejectedValue(new Error('404'));
-      const { container } = render(
-        <SearchVideoResult hit={k8s} query="kubernetes" />,
-      );
+      render(<SearchVideoResult hit={k8s} query="kubernetes" />);
       await waitFor(() => expect(getMiniature).toHaveBeenCalledWith('vid-k8s'));
-      expect(container.querySelector('img')).toHaveAttribute(
+      expect(screen.getByTestId('video-thumbnail')).toHaveAttribute(
         'src',
         '/branding/exemple/image_tuile_event.png',
       );

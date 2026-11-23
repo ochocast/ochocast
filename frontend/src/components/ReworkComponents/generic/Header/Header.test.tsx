@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '../../../../testUtils/initTestI18n';
 import Header from './Header';
 
@@ -46,7 +46,7 @@ const HELP =
 
 beforeEach(() => {
   mockSearch = '';
-  findTags.mockResolvedValue({ data: [] });
+  findTags.mockResolvedValue({ data: [{ name: 'kubernetes' }] });
   findUsers.mockResolvedValue({ data: [] });
   // jsdom has no ResizeObserver.
   (window as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
@@ -68,16 +68,14 @@ describe('Header search help', () => {
     const help = screen.getByText(HELP);
     expect(input).toHaveAttribute('aria-describedby', help.id);
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'kub' } });
-    });
+    fireEvent.change(input, { target: { value: 'kub' } });
+    // The suggestions arrive asynchronously: wait for them before asserting.
+    await screen.findByRole('button', { name: 'kubernetes' });
     expect(screen.queryByText(HELP)).not.toBeInTheDocument();
     expect(input).not.toHaveAttribute('aria-describedby');
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: '' } });
-    });
-    expect(screen.getByText(HELP)).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: '' } });
+    expect(await screen.findByText(HELP)).toBeInTheDocument();
 
     fireEvent.blur(input);
     expect(screen.queryByText(HELP)).not.toBeInTheDocument();
@@ -92,9 +90,9 @@ describe('Header search navigation', () => {
       'Rechercher des vidéos et des événements',
     );
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'kube' } });
-    });
+    fireEvent.change(input, { target: { value: 'kube' } });
+    // The suggestions arrive asynchronously: wait for them before asserting.
+    await screen.findByRole('button', { name: 'kubernetes' });
 
     expect(mockNavigate).toHaveBeenLastCalledWith(
       '/search?q=kube&sort=recent',
@@ -109,9 +107,9 @@ describe('Header search navigation', () => {
       'Rechercher des vidéos et des événements',
     );
 
-    await act(async () => {
-      fireEvent.change(input, { target: { value: 'kube' } });
-    });
+    fireEvent.change(input, { target: { value: 'kube' } });
+    // The suggestions arrive asynchronously: wait for them before asserting.
+    await screen.findByRole('button', { name: 'kubernetes' });
 
     expect(mockNavigate).toHaveBeenLastCalledWith('/search?q=kube', {
       replace: true,

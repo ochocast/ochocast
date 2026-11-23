@@ -123,6 +123,7 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
       >
         <span className={styles.thumbnail}>
           <img
+            data-testid="video-thumbnail"
             className={styles.thumbnailImage}
             src={miniatureUrl}
             alt=""
@@ -163,7 +164,11 @@ const SearchVideoResult: React.FC<SearchVideoResultProps> = ({
         <span className={styles.meta}>{meta}</span>
 
         {matches.length > 0 && (
-          <span className={styles.foundIn}>
+          <span
+            className={styles.foundIn}
+            role="group"
+            aria-label={t('searchResult.foundIn')}
+          >
             <span>{t('searchResult.foundIn')}</span>
             {matches.map((match) => (
               <span key={match} className={styles.foundBadge}>

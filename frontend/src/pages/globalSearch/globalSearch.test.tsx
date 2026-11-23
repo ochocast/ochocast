@@ -515,11 +515,10 @@ describe('GlobalSearchPage', () => {
     mockGetImageUrl.mockResolvedValue('https://cdn/brand-default.png');
     renderPage('?q=kubernetes');
 
-    const title = await screen.findByText(
-      'Déployer une plateforme vidéo sur Kubernetes',
-    );
-    const card = title.closest('article') as HTMLElement;
-    expect(card.querySelector('img')).toHaveAttribute(
+    expect(
+      await screen.findByText('Déployer une plateforme vidéo sur Kubernetes'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('video-thumbnail')).toHaveAttribute(
       'src',
       'https://cdn/brand-default.png',
     );
