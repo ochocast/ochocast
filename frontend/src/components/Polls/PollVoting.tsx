@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './PollVoting.module.css';
 import { votePoll } from '../../utils/api';
-import { useSocket } from '../../hooks/useSocket';
 import { Poll } from './types';
 
 interface VoteData {
@@ -13,6 +12,7 @@ interface VoteData {
 
 interface PollVotingProps {
   poll: Poll;
+  // Kept for callers; the backend announces votes to the track's room itself.
   trackId: string;
   userId: string;
   onVoted?: (pollId: string) => void;
@@ -25,13 +25,11 @@ interface PollVotingProps {
 
 const PollVoting: React.FC<PollVotingProps> = ({
   poll,
-  trackId,
   userId,
   onVoted,
   isPublic = false,
   votePollFunction,
 }) => {
-  const { socket } = useSocket({ trackId, username: '' });
   const { t } = useTranslation();
   const [selectedResponse, setSelectedResponse] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -116,14 +114,7 @@ const PollVoting: React.FC<PollVotingProps> = ({
       const response = await voteFunction(poll.id, voteData);
 
       if (response.ok) {
-        // Emit vote via websocket
-        if (socket) {
-          socket.emit('pollAnswered', {
-            trackId,
-            poll: response.data,
-          });
-        }
-
+        // The backend announces the recorded vote to the room itself.
         onVoted?.(poll.id);
       } else {
         // Check if error is due to expiration

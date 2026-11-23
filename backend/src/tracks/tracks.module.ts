@@ -44,7 +44,18 @@ import { RecordingModule } from 'src/recording/recording.module';
       useClass: LiveRoomGateway,
     },
     CloseTrackUsecase,
-    LiveRoomUsecase,
+    // A framework-free use case: its gateways are passed here, not injected.
+    {
+      provide: LiveRoomUsecase,
+      useFactory: (tracks, users, events, liveRooms) =>
+        new LiveRoomUsecase(tracks, users, events, liveRooms),
+      inject: [
+        'TrackGateway',
+        'UserGateway',
+        'EventGateway',
+        'LiveRoomGateway',
+      ],
+    },
   ],
   exports: ['TrackGateway', 'EventGateway', 'UserGateway'],
 })

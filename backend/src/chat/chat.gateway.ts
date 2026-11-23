@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
 import { Inject, Logger } from '@nestjs/common';
 import { ChatService } from './core/chat.service';
+import { ChatAccess } from './core/chat-access';
 import { corsOrigins } from '../common/cors';
 import { SocketAuthService } from './socket-auth.service';
 import { IUserGateway } from '../users/domain/gateways/users.gateway';
@@ -42,6 +43,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Keep pending work out of socket.data: Redis may serialize that data.
   private readonly authenticating = new WeakMap<Socket, Promise<void>>();
+  private readonly access: ChatAccess;
 
   constructor(
     private readonly chatService: ChatService,
@@ -49,23 +51,43 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject('UserGateway') private readonly userGateway: IUserGateway,
     @Inject('TrackGateway') private readonly trackGateway: ITrackGateway,
     @Inject('EventGateway') private readonly eventGateway: IEventGateway,
-  ) {}
+  ) {
+    this.access = new ChatAccess(trackGateway, eventGateway);
+  }
 
   async handleConnection(client: Socket) {
-    const authentication = this.authenticate(client);
+    await this.track(
+      client,
+      this.authenticate(client, client.handshake?.auth?.token),
+    );
+  }
+
+  // A renewed token, sent on the open socket: the identity and its expiry follow the new
+  // token without a reconnection. An empty or invalid token signs the socket out.
+  @SubscribeMessage('authenticate')
+  async handleAuthenticate(
+    @MessageBody() data: { token?: string } | undefined,
+    @ConnectedSocket() client: Socket,
+  ): Promise<{ signedIn: boolean }> {
+    await this.authenticating.get(client);
+    await this.track(client, this.authenticate(client, data?.token));
+    return { signedIn: !!this.activeUser(client) };
+  }
+
+  // Writes wait for a pending validation (see signedIn).
+  private async track(client: Socket, authentication: Promise<void>) {
     this.authenticating.set(client, authentication);
     try {
       await authentication;
     } finally {
-      this.authenticating.delete(client);
+      if (this.authenticating.get(client) === authentication)
+        this.authenticating.delete(client);
     }
   }
 
-  private async authenticate(client: Socket): Promise<void> {
+  private async authenticate(client: Socket, token?: string): Promise<void> {
     delete client.data.user;
-    const identity = await this.socketAuth.identityFromToken(
-      client.handshake?.auth?.token,
-    );
+    const identity = await this.socketAuth.identityFromToken(token);
     const user = identity
       ? await this.userGateway.getUserByEmail(identity.email)
       : null;
@@ -102,12 +124,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Speakers of the track and the event's creator moderate its chat and run its polls.
-  private async isSpeaker(user: ChatUser, trackId: string): Promise<boolean> {
-    const tracks = await this.trackGateway.getTracks({ id: trackId });
-    if (tracks.length === 0) return false;
-    if (tracks[0].canBeEditBy(user.user)) return true;
-    const event = await this.eventGateway.getEventById(tracks[0].eventId);
-    return !!event?.canBeEditBy(user.user);
+  private isSpeaker(user: ChatUser, trackId: string): Promise<boolean> {
+    return this.access.canModerate(trackId, user.user);
+  }
+
+  // The track of a message the user may see, or null after telling the client why.
+  private async readableMessageTrack(
+    client: Socket,
+    user: ChatUser,
+    messageId: string,
+  ): Promise<string | null> {
+    const message = await this.chatService.getMessageById(messageId);
+    if (!message || !(await this.access.canRead(message.trackId, user.user))) {
+      client.emit('error', { message: 'Message not found' });
+      return null;
+    }
+    return message.trackId;
   }
 
   handleDisconnect(client: Socket) {
@@ -121,8 +153,25 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { trackId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { trackId } = data;
-    const username = this.activeUser(client)?.name;
+    const { trackId } = data ?? ({} as { trackId: string });
+    // An unpublished event's chat is only for its creator and speakers. A published one
+    // opens at once; a refusal waits for a pending sign-in, then checks again.
+    let signedInUser = this.activeUser(client);
+    let allowed = await this.access.canRead(
+      trackId,
+      signedInUser?.user ?? null,
+    );
+    const pending = this.authenticating.get(client);
+    if (!allowed && pending) {
+      await pending;
+      signedInUser = this.activeUser(client);
+      allowed = await this.access.canRead(trackId, signedInUser?.user ?? null);
+    }
+    if (!allowed) {
+      client.emit('error', { message: 'This chat is not available' });
+      return;
+    }
+    const username = signedInUser?.name;
     client.join(trackId);
     this.logger.log(
       `Client ${client.id} (${username}) joined track room: ${trackId}`,
@@ -169,6 +218,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { trackId } = messageDto;
     const user = await this.signedIn(client);
     if (!user) return;
+    if (!(await this.access.canRead(trackId, user.user))) {
+      client.emit('error', { message: 'This chat is not available' });
+      return;
+    }
     // The author is the signed-in user, whatever the message claims.
     messageDto.userId = user.id;
     messageDto.username = user.name;
@@ -217,7 +270,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId } = data;
+    const { messageId } = data;
     const user = await this.signedIn(client);
     if (!user) return;
     const userId = user.id;
@@ -230,12 +283,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.warn(`Message ${messageId} not found for deletion`);
         return;
       }
+      // The message's own track, not the one the client names.
+      const trackId = message.trackId;
 
       // Check if user can delete: own message OR is speaker
-      if (
-        message.userId !== userId &&
-        !(await this.isSpeaker(user, message.trackId ?? trackId))
-      ) {
+      if (message.userId !== userId && !(await this.isSpeaker(user, trackId))) {
         this.logger.warn(
           `User ${userId} not authorized to delete message ${messageId}`,
         );
@@ -275,7 +327,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, newContent } = data;
+    const { messageId, newContent } = data;
     const user = await this.signedIn(client);
     if (!user) return;
     const userId = user.id;
@@ -288,6 +340,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.warn(`Message ${messageId} not found for editing`);
         return;
       }
+      // The message's own track, not the one the client names.
+      const trackId = message.trackId;
 
       // Only the message owner can edit
       if (message.userId !== userId) {
@@ -348,12 +402,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, emoji } = data;
+    const { messageId, emoji } = data;
     const user = await this.signedIn(client);
     if (!user) return;
     const userId = user.id;
 
     try {
+      const trackId = await this.readableMessageTrack(client, user, messageId);
+      if (!trackId) return;
+
       // Add the reaction
       await this.chatService.addReaction(messageId, userId, emoji);
 
@@ -386,12 +443,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, emoji } = data;
+    const { messageId, emoji } = data;
     const user = await this.signedIn(client);
     if (!user) return;
     const userId = user.id;
 
     try {
+      const trackId = await this.readableMessageTrack(client, user, messageId);
+      if (!trackId) return;
+
       // Remove the reaction
       await this.chatService.removeReaction(messageId, userId, emoji);
 
@@ -431,15 +491,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(trackId).emit('pollCreated', poll);
   }
 
+  // Older clients still emit this event after voting. Only the HTTP vote handler
+  // broadcasts a persisted result, so it is ignored, without an error: the vote itself
+  // succeeded over HTTP.
   @SubscribeMessage('pollAnswered')
-  async handlePollAnswered(
-    @MessageBody() _data: { trackId: string; poll: any },
-    @ConnectedSocket() client: Socket,
-  ) {
-    // Legacy clients still emit this event. Only the HTTP vote handler can
-    // broadcast a persisted result; a socket payload is not proof of a vote.
-    if (client.data?.user) await this.signedIn(client);
-  }
+  handlePollAnswered(): void {}
 
   @SubscribeMessage('pollClosed')
   async handlePollClosed(

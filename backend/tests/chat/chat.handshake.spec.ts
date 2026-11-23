@@ -98,8 +98,24 @@ describe('Real chat handshake and expiry', () => {
             },
           },
         },
-        { provide: 'TrackGateway', useValue: {} },
-        { provide: 'EventGateway', useValue: {} },
+        {
+          provide: 'TrackGateway',
+          useValue: {
+            getTracks: async () => [
+              { eventId: 'e1', canBeEditBy: () => false },
+            ],
+          },
+        },
+        {
+          provide: 'EventGateway',
+          useValue: {
+            getEventById: async () => ({
+              published: true,
+              canBeEditBy: () => false,
+              canBeReadBy: () => true,
+            }),
+          },
+        },
       ],
     }).compile();
     app = module.createNestApplication({ logger: false });
@@ -124,17 +140,22 @@ describe('Real chat handshake and expiry', () => {
     );
     await client.wait('40');
     await lookupStarted;
-    client.send('joinTrackRoom', { trackId: 't1', username: 'Fake' });
+    client.send('joinTrackRoom', {
+      trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+      username: 'Fake',
+    });
     await client.wait('42["messageHistory"');
     client.send('sendMessage', {
-      trackId: 't1',
+      trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
       userId: 'victim',
       username: 'Fake',
       message: 'hello',
     });
     // This round trip ensures sendMessage reached the server while identity
     // lookup was still pending, rather than accidentally testing after auth.
-    client.send('joinTrackRoom', { trackId: 't1' });
+    client.send('joinTrackRoom', {
+      trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+    });
     await client.wait('42["messageHistory"');
     expect(chat.saveMessage).not.toHaveBeenCalled();
     finishLookup();
@@ -146,13 +167,15 @@ describe('Real chat handshake and expiry', () => {
     expect(chat.saveMessage).toHaveBeenCalledTimes(1);
     jest.spyOn(Date, 'now').mockReturnValue(exp * 1000);
     client.send('sendMessage', {
-      trackId: 't1',
+      trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
       userId: 'victim',
       message: 'too late',
     });
     await client.wait('42["error"');
     // Barrier on the same transport proves the expired write has been handled.
-    client.send('joinTrackRoom', { trackId: 't1' });
+    client.send('joinTrackRoom', {
+      trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+    });
     await client.wait('42["messageHistory"');
     expect(chat.saveMessage).toHaveBeenCalledTimes(1);
   });

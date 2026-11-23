@@ -19,7 +19,7 @@ after(() => {
   dom.window.close();
 });
 
-test('socket follows OIDC login, renewal, and logout while allowing anonymous viewing', () => {
+test('socket follows OIDC login and logout, re-authenticates on renewal, and allows anonymous viewing', () => {
   let auth = { isAuthenticated: false, user: null };
   const connections = [];
   const mocks = {
@@ -29,8 +29,11 @@ test('socket follows OIDC login, renewal, and logout while allowing anonymous vi
       io(_url, options) {
         const socket = {
           connected: true,
+          emitted: [],
           on() {},
-          emit() {},
+          emit(event, data) {
+            this.emitted.push([event, data]);
+          },
           disconnect() {
             this.connected = false;
           },
@@ -88,9 +91,23 @@ test('socket follows OIDC login, renewal, and logout while allowing anonymous vi
     user: { access_token: 'new-token', expired: false },
   };
   rerender();
-  assert.equal(connections.length, 3, 'token renewal reconnects the socket');
-  assert.equal(connections[1].socket.connected, false);
-  assert.equal(token(2), 'new-token');
+  assert.equal(connections.length, 2, 'token renewal keeps the open socket');
+  assert.equal(connections[1].socket.connected, true);
+  // The hook runs in a vm context: compare as JSON, not by prototype.
+  assert.equal(
+    JSON.stringify(
+      connections[1].socket.emitted.filter(([e]) => e === 'authenticate'),
+    ),
+    JSON.stringify([['authenticate', { token: 'new-token' }]]),
+    'the renewed token is sent on the open socket',
+  );
+  assert.equal(token(1), 'new-token', 'a reconnection sends the latest token');
+  rerender();
+  assert.equal(
+    connections[1].socket.emitted.filter(([e]) => e === 'authenticate').length,
+    1,
+    'an unchanged token is not sent again',
+  );
   auth = {
     isAuthenticated: true,
     user: { access_token: 'new-token', expired: true },
@@ -98,26 +115,26 @@ test('socket follows OIDC login, renewal, and logout while allowing anonymous vi
   rerender();
   assert.equal(
     connections.length,
-    4,
+    3,
     'expiry removes the authenticated socket',
   );
-  assert.equal(connections[2].socket.connected, false);
-  assert.equal(token(3), undefined);
+  assert.equal(connections[1].socket.connected, false);
+  assert.equal(token(2), undefined);
   auth = {
     isAuthenticated: true,
     user: { access_token: 'login-again', expired: false },
   };
   rerender();
-  assert.equal(connections.length, 5);
+  assert.equal(connections.length, 4);
   auth = { isAuthenticated: false, user: null };
   rerender();
   assert.equal(
     connections.length,
-    6,
+    5,
     'logout disconnects the authenticated socket',
   );
-  assert.equal(connections[4].socket.connected, false);
-  assert.equal(token(5), undefined);
+  assert.equal(connections[3].socket.connected, false);
+  assert.equal(token(4), undefined);
   unmount();
-  assert.equal(connections[5].socket.connected, false);
+  assert.equal(connections[4].socket.connected, false);
 });

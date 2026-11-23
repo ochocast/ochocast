@@ -1,4 +1,8 @@
-import { NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  NotAllowedError,
+  NotSignedInError,
+  TrackNotFoundError,
+} from 'src/tracks/domain/errors';
 import { IEventGateway } from 'src/events/domain/gateways/events.gateway';
 import { ILiveRoomGateway } from 'src/tracks/domain/gateways/live-room.gateway';
 import { ITrackGateway } from 'src/tracks/domain/gateways/tracks.gateway';
@@ -84,7 +88,7 @@ describe('LiveRoomUsecase', () => {
       () => usecase.get('track-1', stranger.email),
       () => usecase.status('track-1', stranger.email),
     ]) {
-      await expect(call()).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(call()).rejects.toBeInstanceOf(NotAllowedError);
     }
     expect(liveRoomGateway.create).not.toHaveBeenCalled();
     expect(liveRoomGateway.get).not.toHaveBeenCalled();
@@ -93,14 +97,14 @@ describe('LiveRoomUsecase', () => {
 
   it('refuses a request without a signed-in user', async () => {
     await expect(usecase.get('track-1', undefined)).rejects.toBeInstanceOf(
-      UnauthorizedException,
+      NotSignedInError,
     );
   });
 
   it('answers 404 for an unknown track', async () => {
     trackGateway.getTracks.mockResolvedValue([]);
     await expect(usecase.open('nope', speaker.email)).rejects.toBeInstanceOf(
-      NotFoundException,
+      TrackNotFoundError,
     );
   });
 });

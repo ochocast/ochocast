@@ -13,6 +13,40 @@ describe('poll vote notifications', () => {
     ).toEqual(poll);
     expect(chat.broadcastPollAnswered).toHaveBeenCalledWith('track-1', poll);
   });
+  it('votes as the signed-in user, never as a user named in the body', async () => {
+    const vote = { execute: jest.fn().mockResolvedValue(poll) };
+    const users = {
+      getUsers: jest.fn().mockResolvedValue([{ id: 'signed-in' }]),
+    };
+    const chat = { broadcastPollAnswered: jest.fn() };
+    const controller = new (PollsController as any)(
+      {},
+      vote,
+      {},
+      {},
+      users,
+      chat,
+    );
+    await controller.votePoll(
+      pollId,
+      { responseIndex: 0, userId: '11111111-1111-4111-8111-111111111111' },
+      'me@example.com',
+    );
+    expect(vote.execute).toHaveBeenCalledWith(
+      pollId,
+      0,
+      'signed-in',
+      undefined,
+    );
+    vote.execute.mockClear();
+    // Anonymous: the body's userId is ignored, the session id counts.
+    await controller.votePoll(pollId, {
+      responseIndex: 0,
+      userId: '11111111-1111-4111-8111-111111111111',
+      sessionId: 's',
+    });
+    expect(vote.execute).toHaveBeenCalledWith(pollId, 0, undefined, 's');
+  });
   it('never broadcasts when persistence rejects the vote', async () => {
     const vote = {
       execute: jest.fn().mockRejectedValue(new Error('duplicate')),
@@ -39,10 +73,7 @@ describe('poll vote notifications', () => {
       data: { user: { expiresAt: Date.now() + 10000 } },
       emit: jest.fn(),
     } as any;
-    await gateway.handlePollAnswered(
-      { trackId: 'victim', poll: { id: 'forged' } },
-      client,
-    );
+    gateway.handlePollAnswered();
     expect(emit).not.toHaveBeenCalled();
   });
 });

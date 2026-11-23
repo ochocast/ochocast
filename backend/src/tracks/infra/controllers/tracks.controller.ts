@@ -1,14 +1,19 @@
 import {
+  BadGatewayException,
   Body,
   Controller,
   Delete,
+  ForbiddenException,
+  GatewayTimeoutException,
   Get,
   HttpException,
   HttpStatus,
+  NotFoundException,
   Param,
   Post,
   Put,
   Res,
+  UnauthorizedException,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -23,6 +28,12 @@ import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decor
 import { GetTrackByIdUsecase } from 'src/tracks/domain/usecases/getTrackById.usecase';
 import { CloseTrackUsecase } from 'src/tracks/domain/usecases/closeTrack.usecase';
 import { Public } from 'nest-keycloak-connect';
+import {
+  LiveRoomUnavailableError,
+  NotAllowedError,
+  NotSignedInError,
+  TrackNotFoundError,
+} from 'src/tracks/domain/errors';
 import { Response } from 'express';
 import { LiveRoomUsecase } from 'src/tracks/domain/usecases/liveRoom.usecase';
 import { LiveRoomResponse } from 'src/tracks/domain/gateways/live-room.gateway';
@@ -136,12 +147,28 @@ export class TracksController {
     return id;
   }
 
+  // The control plane's answer is passed on (202 while a worker starts, 404 for no
+  // room...); the domain's refusals and the control plane's failures become HTTP errors.
   private async relay(
     res: Response,
     call: () => Promise<LiveRoomResponse>,
   ): Promise<Record<string, unknown>> {
-    const { status, body } = await call();
-    res.status(status);
-    return body;
+    try {
+      const { status, body } = await call();
+      res.status(status);
+      return body;
+    } catch (error) {
+      if (error instanceof TrackNotFoundError)
+        throw new NotFoundException(error.message);
+      if (error instanceof NotSignedInError)
+        throw new UnauthorizedException(error.message);
+      if (error instanceof NotAllowedError)
+        throw new ForbiddenException(error.message);
+      if (error instanceof LiveRoomUnavailableError)
+        throw error.timedOut
+          ? new GatewayTimeoutException(error.message)
+          : new BadGatewayException(error.message);
+      throw error;
+    }
   }
 }

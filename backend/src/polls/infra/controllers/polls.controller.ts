@@ -96,9 +96,11 @@ export class PollsController {
       userId = user.id;
     }
 
-    // Use provided userId/sessionId from body if available
-    const finalUserId = votePollDto.userId || userId;
-    const finalSessionId = votePollDto.sessionId;
+    // A vote is cast as the signed-in user, never as a user named in the body:
+    // `userId` in the body is ignored (older clients still send it). Anonymous viewers
+    // vote with their session id.
+    const finalUserId = userId;
+    const finalSessionId = userId ? undefined : votePollDto.sessionId;
 
     const poll = await this.votePollUsecase.execute(
       pollId,

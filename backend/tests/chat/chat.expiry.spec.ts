@@ -28,9 +28,11 @@ describe('Connected chat socket expiry', () => {
     exp = Math.floor(Date.now() / 1000) + 60;
     chat = {
       saveMessage: jest.fn().mockResolvedValue({ id: 'm1' }),
-      getMessageById: jest
-        .fn()
-        .mockResolvedValue({ id: 'm1', userId: alice.id, trackId: 't1' }),
+      getMessageById: jest.fn().mockResolvedValue({
+        id: 'm1',
+        userId: alice.id,
+        trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+      }),
       updateMessage: jest.fn().mockResolvedValue({ message: 'edited' }),
       deleteMessage: jest.fn(),
       addReaction: jest.fn(),
@@ -43,9 +45,17 @@ describe('Connected chat socket expiry', () => {
       new SocketAuthService(oidc.keycloak),
       users as unknown as IUserGateway,
       {
-        getTracks: jest.fn().mockResolvedValue([{ canBeEditBy: () => true }]),
+        getTracks: jest
+          .fn()
+          .mockResolvedValue([{ eventId: 'e1', canBeEditBy: () => true }]),
       } as unknown as ITrackGateway,
-      {} as IEventGateway,
+      {
+        getEventById: jest.fn().mockResolvedValue({
+          published: true,
+          canBeEditBy: () => false,
+          canBeReadBy: () => true,
+        }),
+      } as unknown as IEventGateway,
     );
     gateway.server = { to: () => ({ emit: emitted }) } as never;
     client = {
@@ -66,7 +76,11 @@ describe('Connected chat socket expiry', () => {
   it('accepts a pre-expiry message under the verified author', async () => {
     await gateway.handleConnection(client);
     await gateway.handleMessage(
-      { trackId: 't1', message: 'hi', userId: 'victim' } as never,
+      {
+        trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+        message: 'hi',
+        userId: 'victim',
+      } as never,
       client,
     );
     expect(chat.saveMessage.mock.calls[0][0].userId).toBe('alice');
@@ -78,13 +92,12 @@ describe('Connected chat socket expiry', () => {
     'react',
     'unreact',
     'poll-create',
-    'poll-answer',
     'poll-close',
   ])('denies %s at token expiry on an established socket', async (action) => {
     await gateway.handleConnection(client);
     expire();
     const data = {
-      trackId: 't1',
+      trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
       messageId: 'm1',
       userId: alice.id,
       isSpeaker: true,
@@ -116,7 +129,7 @@ describe('Connected chat socket expiry', () => {
         await gateway.handlePollCreated(data, client);
         break;
       case 'poll-answer':
-        await gateway.handlePollAnswered(data, client);
+        gateway.handlePollAnswered();
         break;
       case 'poll-close':
         await gateway.handlePollClosed(data, client);
@@ -131,10 +144,19 @@ describe('Connected chat socket expiry', () => {
     await gateway.handleConnection(client);
     chat.getMessageById.mockImplementation(async () => {
       expire();
-      return { id: 'm1', userId: alice.id, trackId: 't1' };
+      return {
+        id: 'm1',
+        userId: alice.id,
+        trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+      };
     });
     await gateway.handleDeleteMessage(
-      { trackId: 't1', messageId: 'm1', userId: alice.id, isSpeaker: false },
+      {
+        trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+        messageId: 'm1',
+        userId: alice.id,
+        isSpeaker: false,
+      },
       client,
     );
     expect(chat.deleteMessage).not.toHaveBeenCalled();
@@ -144,7 +166,10 @@ describe('Connected chat socket expiry', () => {
     client.connected = false;
     gateway.handleDisconnect(client);
     await gateway.handleMessage(
-      { trackId: 't1', message: 'late' } as never,
+      {
+        trackId: '3f2a8c1e-5b7d-4e9a-8c6f-1d2e3f4a5b6c',
+        message: 'late',
+      } as never,
       client,
     );
     expect(chat.saveMessage).not.toHaveBeenCalled();
