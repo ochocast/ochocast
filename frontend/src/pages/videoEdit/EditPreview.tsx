@@ -84,6 +84,10 @@ export default function EditPreview({
     index: 0,
     seeking: false,
     lastReport: 0,
+    // Montage times this preview reported while playing: the editor sends
+    // them back, sometimes after the player moved on; they are no request
+    // to move it.
+    reported: [] as number[],
     duration,
     onTime,
   });
@@ -97,9 +101,20 @@ export default function EditPreview({
     const now = Date.now();
     if (force || now - state.current.lastReport >= REPORT_INTERVAL_MS) {
       state.current.lastReport = now;
+      state.current.reported = [
+        ...state.current.reported.slice(-4),
+        montageTime,
+      ];
       state.current.onTime(montageTime);
     }
   }, []);
+
+  // A montage time chosen by the user: the player moves to it.
+  const requestTime = (montageTime: number) => {
+    setLocalTime(montageTime);
+    state.current.reported = [];
+    onTime(montageTime);
+  };
 
   const seekSource = (sourceTime: number) => {
     const v = video.current;
@@ -111,6 +126,22 @@ export default function EditPreview({
   const stop = (montageTime: number) => {
     setPlaying(false);
     report(montageTime, true);
+  };
+
+  // The current passage played to its end: the next one, or the end.
+  const finishPassage = (sourceTime: number, resume: boolean) => {
+    const s = state.current,
+      list = s.segments;
+    const jump = nextJump(list, s.index);
+    if (jump.kind === 'end') return stop(s.duration);
+    s.index = jump.index;
+    // At the end of the original, even a joined passage needs a seek.
+    if (jump.kind === 'seek' || resume) {
+      seekSource(list[jump.index].sourceStart);
+      report(passageStarts(list)[jump.index], true);
+      // The original ended and paused: playback goes on.
+      if (resume) video.current?.play().catch(() => undefined);
+    } else report(toMontage(list, jump.index, sourceTime));
   };
 
   // One step of montage playback, at each frame.
@@ -126,16 +157,8 @@ export default function EditPreview({
     const passage = list[s.index];
     if (!passage) return;
     const sourceTime = v.currentTime;
-    if (sourceTime >= passage.sourceEnd - END_TOLERANCE) {
-      const jump = nextJump(list, s.index);
-      if (jump.kind === 'end') return stop(s.duration);
-      s.index = jump.index;
-      if (jump.kind === 'seek') {
-        seekSource(jump.sourceTime);
-        report(passageStarts(list)[jump.index], true);
-      } else report(toMontage(list, jump.index, sourceTime));
-      return;
-    }
+    if (sourceTime >= passage.sourceEnd - END_TOLERANCE)
+      return finishPassage(sourceTime, false);
     // Still before the passage (a seek that has not landed yet).
     if (sourceTime < passage.sourceStart - DRIFT_TOLERANCE) {
       seekSource(passage.sourceStart);
@@ -173,9 +196,14 @@ export default function EditPreview({
 
   // A click on the timeline, a passage or the bar, and any edit of the
   // passages, move the montage time: the player follows it in the original.
+  const shownSegments = useRef(segments);
   useEffect(() => {
     if (mode !== 'montage') return;
     const s = state.current;
+    const edited = shownSegments.current !== segments;
+    shownSegments.current = segments;
+    // Playing, its own reports coming back never move the player.
+    if (playing && !edited && s.reported.includes(time)) return;
     if (s.seeking) return;
     const at = toSource(segments, time);
     if (!at) return;
@@ -217,12 +245,11 @@ export default function EditPreview({
     setPlaying(false);
     setStarted(false);
     setStatus('loading');
-    video.current = null;
     state.current.seeking = false;
     try {
       await onRetry?.();
     } finally {
-      // A new player, on the address read again.
+      // The same player loads the address again (see playerUrl).
       setAttempt((n) => n + 1);
     }
   };
@@ -242,6 +269,7 @@ export default function EditPreview({
   const switchMode = (next: Mode) => {
     if (next === mode) return;
     setPlaying(false);
+    state.current.reported = [];
     if (next === 'original') {
       setOriginalTime(
         toSource(segments, localTime)?.sourceTime ??
@@ -261,6 +289,11 @@ export default function EditPreview({
   const passage = current ? segments[current.index] : undefined;
   const texts = passage && current ? visibleTexts(passage, current.offset) : [];
   const montage = mode === 'montage';
+  // A retry reloads the same player: a fragment, never sent to the server
+  // nor part of a presigned URL's signature, makes the address new. A new
+  // player would not do: in development, React's strict mode unmounts it
+  // once, which aborts its first request for good.
+  const playerUrl = attempt ? `${url}#retry-${attempt}` : url;
   const shownTime = montage ? localTime : originalTime;
   const shownDuration = montage ? duration : sourceDuration;
 
@@ -285,9 +318,8 @@ export default function EditPreview({
       <div className={styles.preview}>
         {url && (
           <ReactPlayer
-            key={attempt}
             ref={player}
-            url={url}
+            url={playerUrl}
             width="100%"
             height="100%"
             playing={playing && status !== 'failed'}
@@ -309,7 +341,9 @@ export default function EditPreview({
               );
             }}
             onEnded={() => {
-              if (montage) stop(duration);
+              // A passage may end with the original: the montage goes on.
+              if (montage && video.current)
+                finishPassage(video.current.currentTime, true);
               else setPlaying(false);
             }}
           />
@@ -367,7 +401,7 @@ export default function EditPreview({
           value={Math.min(shownTime, shownDuration)}
           onChange={(e) => {
             const value = Number(e.target.value);
-            if (montage) report(value, true);
+            if (montage) requestTime(value);
             else {
               setOriginalTime(value);
               seekSource(value);

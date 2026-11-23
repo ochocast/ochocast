@@ -125,6 +125,28 @@ function Editor({ initial }: { initial: EditSegment[] }) {
   );
 }
 
+let showStale: (time: number) => void = () => undefined;
+
+/** An editor that shows the preview's reports only when the test says so. */
+function StaleEditor({ initial }: { initial: EditSegment[] }) {
+  const [time, setTime] = useState(0);
+  showStale = setTime;
+  return (
+    <EditPreview
+      url="original.m3u8"
+      segments={initial}
+      time={time}
+      onTime={(t) => {
+        reported.push(t);
+        // A user move shows at once; playback reports wait.
+        if (!Number.isInteger(t) || t === 12) setTime(t);
+      }}
+      sourceDuration={40}
+      onRetry={onRetry}
+    />
+  );
+}
+
 const ready = () => act(() => mockPlayer.props.onReady());
 const landSeek = () =>
   act(() => {
@@ -319,7 +341,7 @@ it('shows a loader until the player is ready', () => {
   expect(screen.queryByRole('status')).toBeNull();
 });
 
-it('offers a retry when the original cannot be played, with a new player', async () => {
+it('offers a retry when the original cannot be played, reloading the same player', async () => {
   let resolveRetry: () => void = () => undefined;
   onRetry.mockImplementation(
     () => new Promise<void>((resolve) => (resolveRetry = resolve)),
@@ -333,14 +355,74 @@ it('offers a retry when the original cannot be played, with a new player', async
   expect(playButton()).toBeDisabled();
 
   fireEvent.click(screen.getByText('videoEdit.previewRetry'));
-  // The original's address is read again, then a new player loads it.
+  // The original's address is read again, then the same player reloads it
+  // (a new player would lose its first request to React's strict mode).
   expect(onRetry).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('status')).toBeInTheDocument();
+  expect(mockPlayer.props.url).toBe('original.m3u8');
   await act(async () => resolveRetry());
-  expect(mockPlayer.mounts).toBe(2);
+  expect(mockPlayer.props.url).toBe('original.m3u8#retry-1');
+  expect(mockPlayer.mounts).toBe(1);
   ready();
   expect(screen.queryByRole('alert')).toBeNull();
   expect(playButton()).toBeEnabled();
+  // A second retry makes the address new again.
+  act(() => mockPlayer.props.onError({ name: 'MediaError' }));
+  fireEvent.click(screen.getByText('videoEdit.previewRetry'));
+  await act(async () => resolveRetry());
+  expect(mockPlayer.props.url).toBe('original.m3u8#retry-2');
+});
+
+// Seen in the browser: a passage ending with the original made the player
+// fire "ended", which stopped the montage before its last passages.
+it('goes on with the next passage when a passage ends with the original', async () => {
+  const play = jest.fn().mockResolvedValue(undefined);
+  await startPlaying([passage(0, 5), passage(35, 40), passage(10, 15)]);
+  mockPlayer.video.play = play;
+  frame(4.98);
+  landSeek();
+  frame(39.96);
+  // The original ends before the last frame of the passage reaches the loop.
+  act(() => mockPlayer.props.onEnded());
+  expect(mockPlayer.seeks).toEqual([35, 10]);
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(clock()).toBe('00:10 / 00:15');
+  expect(playButton()).toHaveTextContent('videoEdit.pause');
+  landSeek();
+  frame(12);
+  expect(clock()).toBe('00:12 / 00:15');
+  // The original ending with the last passage still ends the montage.
+  frame(14.98);
+  expect(playButton()).toHaveTextContent('videoEdit.play');
+});
+
+// Seen in the browser: the editor sent back a montage time this preview had
+// reported before a slow render, and the player jumped back to it.
+it('never moves the player back to a time it reported itself while playing', async () => {
+  let now = 1_000_000;
+  const clockSpy = jest.spyOn(Date, 'now').mockImplementation(() => now);
+  try {
+    render(<StaleEditor initial={reordered()} />);
+    ready();
+    landSeek();
+    fireEvent.click(playButton());
+    started();
+    for (const at of [21, 22, 23]) {
+      now += 200;
+      frame(at);
+    }
+    // The editor shows the first of these reports only now.
+    act(() => showStale(1));
+    expect(mockPlayer.seeks).toEqual([20]);
+    expect(clock()).toBe('00:03 / 00:22');
+    // A real request from the user still moves it, even while playing.
+    fireEvent.change(screen.getByLabelText('videoEdit.playhead'), {
+      target: { value: '12' },
+    });
+    expect(mockPlayer.seeks).toEqual([20, 2]);
+  } finally {
+    clockSpy.mockRestore();
+  }
 });
 
 it('ignores an interrupted play request', () => {
