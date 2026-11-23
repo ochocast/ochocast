@@ -12,6 +12,8 @@ import { GetTrackByIdUsecase } from './domain/usecases/getTrackById.usecase';
 import { CloseTrackUsecase } from './domain/usecases/closeTrack.usecase';
 import { EventGateway } from 'src/events/infra/gateways/event.gateway';
 import { EventEntity } from 'src/events/infra/gateways/entities/event.entity';
+import { LiveRoomUsecase } from './domain/usecases/liveRoom.usecase';
+import { LiveRoomGateway } from './infra/gateways/live-room.gateway';
 import { RecordingModule } from 'src/recording/recording.module';
 
 @Module({
@@ -37,7 +39,23 @@ import { RecordingModule } from 'src/recording/recording.module';
     GetTrackByIdUsecase,
     UpdateTrackUsecase,
     DeleteTrackUsecase,
+    {
+      provide: 'LiveRoomGateway',
+      useClass: LiveRoomGateway,
+    },
     CloseTrackUsecase,
+    // A framework-free use case: its gateways are passed here, not injected.
+    {
+      provide: LiveRoomUsecase,
+      useFactory: (tracks, users, events, liveRooms) =>
+        new LiveRoomUsecase(tracks, users, events, liveRooms),
+      inject: [
+        'TrackGateway',
+        'UserGateway',
+        'EventGateway',
+        'LiveRoomGateway',
+      ],
+    },
   ],
   exports: ['TrackGateway', 'EventGateway', 'UserGateway'],
 })

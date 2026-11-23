@@ -9,16 +9,28 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ChatMessageDto } from './dto/chat-message.dto';
-import { Logger, Optional } from '@nestjs/common';
+import { Inject, Logger } from '@nestjs/common';
 import { ChatService } from './core/chat.service';
+import { ChatAccess } from './core/chat-access';
+import { corsOrigins } from '../common/cors';
+import { SocketAuthService } from './socket-auth.service';
+import { IUserGateway } from '../users/domain/gateways/users.gateway';
+import { ITrackGateway } from '../tracks/domain/gateways/tracks.gateway';
+import { IEventGateway } from '../events/domain/gateways/events.gateway';
+import { UserObject } from '../users/domain/user';
+
+// Who is behind a socket: set at connection from the Keycloak token the client sends
+// (socket.io "auth.token"). Without a valid token the socket can only read.
+interface ChatUser {
+  id: string;
+  name: string;
+  user: UserObject;
+  expiresAt: number;
+}
 
 @WebSocketGateway({
   cors: {
-    origin: [
-      'http://localhost:3000',
-      //'https://prod-frontend.s3-website.fr-par.scw.cloud',
-      'https://demo.ochocast.fr',
-    ],
+    origin: corsOrigins(),
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -29,13 +41,109 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(ChatGateway.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  // Keep pending work out of socket.data: Redis may serialize that data.
+  private readonly authenticating = new WeakMap<Socket, Promise<void>>();
+  private readonly access: ChatAccess;
 
-  handleConnection(client: Socket) {
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly socketAuth: SocketAuthService,
+    @Inject('UserGateway') private readonly userGateway: IUserGateway,
+    @Inject('TrackGateway') private readonly trackGateway: ITrackGateway,
+    @Inject('EventGateway') private readonly eventGateway: IEventGateway,
+  ) {
+    this.access = new ChatAccess(trackGateway, eventGateway);
+  }
+
+  async handleConnection(client: Socket) {
+    await this.track(
+      client,
+      this.authenticate(client, client.handshake?.auth?.token),
+    );
+  }
+
+  // A renewed token, sent on the open socket: the identity and its expiry follow the new
+  // token without a reconnection. An empty or invalid token signs the socket out.
+  @SubscribeMessage('authenticate')
+  async handleAuthenticate(
+    @MessageBody() data: { token?: string } | undefined,
+    @ConnectedSocket() client: Socket,
+  ): Promise<{ signedIn: boolean }> {
+    await this.authenticating.get(client);
+    await this.track(client, this.authenticate(client, data?.token));
+    return { signedIn: !!this.activeUser(client) };
+  }
+
+  // Writes wait for a pending validation (see signedIn).
+  private async track(client: Socket, authentication: Promise<void>) {
+    this.authenticating.set(client, authentication);
+    try {
+      await authentication;
+    } finally {
+      if (this.authenticating.get(client) === authentication)
+        this.authenticating.delete(client);
+    }
+  }
+
+  private async authenticate(client: Socket, token?: string): Promise<void> {
+    delete client.data.user;
+    const identity = await this.socketAuth.identityFromToken(token);
+    const user = identity
+      ? await this.userGateway.getUserByEmail(identity.email)
+      : null;
+    // A disconnect or expiry during either async lookup must not restore access.
+    if (user && client.connected && identity.expiresAt > Date.now()) {
+      client.data.user = {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`.trim() || user.username,
+        user,
+        expiresAt: identity.expiresAt,
+      } as ChatUser;
+    }
     this.logger.log(`Client connected: ${client.id}`);
   }
 
+  private activeUser(client: Socket): ChatUser | null {
+    const user = client.data?.user as ChatUser | undefined;
+    if (client.connected && user && user.expiresAt > Date.now()) return user;
+    delete client.data.user;
+    return null;
+  }
+
+  // Wait for the handshake's validation, then enforce its original expiry on
+  // every write. Expired sockets remain read-only until they reconnect.
+  private async signedIn(client: Socket): Promise<ChatUser | null> {
+    await this.authenticating.get(client);
+    const user = this.activeUser(client);
+    if (!user) {
+      client.emit('error', {
+        message: 'Sign in or reconnect to take part in the chat',
+      });
+    }
+    return user;
+  }
+
+  // Speakers of the track and the event's creator moderate its chat and run its polls.
+  private isSpeaker(user: ChatUser, trackId: string): Promise<boolean> {
+    return this.access.canModerate(trackId, user.user);
+  }
+
+  // The track of an existing message, or null after telling the client why.
+  private async messageTrack(
+    client: Socket,
+    messageId: string,
+  ): Promise<string | null> {
+    const message = await this.chatService.getMessageById(messageId);
+    if (!message || !(await this.access.canRead(message.trackId))) {
+      client.emit('error', { message: 'Message not found' });
+      return null;
+    }
+    return message.trackId;
+  }
+
   handleDisconnect(client: Socket) {
+    this.authenticating.delete(client);
+    delete client.data.user;
     this.logger.log(`Client disconnected: ${client.id}`);
   }
 
@@ -44,7 +152,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { trackId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { trackId, username } = data;
+    const { trackId } = data ?? ({} as { trackId: string });
+    // Anyone who can open the live reads its chat: only an existing track has one.
+    if (!(await this.access.canRead(trackId))) {
+      client.emit('error', { message: 'This chat is not available' });
+      return;
+    }
+    const username = this.activeUser(client)?.name;
     client.join(trackId);
     this.logger.log(
       `Client ${client.id} (${username}) joined track room: ${trackId}`,
@@ -54,11 +168,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const existingMessages = await this.chatService.getTrackMessages(trackId);
     client.emit('messageHistory', existingMessages);
 
-    // Notify others in the room
-    client.to(trackId).emit('userJoined', {
-      username,
-      timestamp: new Date(),
-    });
+    // Notify others in the room (signed-in users only: the name comes from their account)
+    if (username) {
+      client.to(trackId).emit('userJoined', {
+        username,
+        timestamp: new Date(),
+      });
+    }
   }
 
   @SubscribeMessage('leaveTrackRoom')
@@ -66,17 +182,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { trackId: string; username: string },
     @ConnectedSocket() client: Socket,
   ) {
-    const { trackId, username } = data;
+    const { trackId } = data;
+    const username = this.activeUser(client)?.name;
     client.leave(trackId);
     this.logger.log(
       `Client ${client.id} (${username}) left track room: ${trackId}`,
     );
 
-    // Notify others in the room
-    client.to(trackId).emit('userLeft', {
-      username,
-      timestamp: new Date(),
-    });
+    if (username) {
+      client.to(trackId).emit('userLeft', {
+        username,
+        timestamp: new Date(),
+      });
+    }
   }
 
   @SubscribeMessage('sendMessage')
@@ -85,6 +203,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId } = messageDto;
+    const user = await this.signedIn(client);
+    if (!user) return;
+    if (!(await this.access.canRead(trackId))) {
+      client.emit('error', { message: 'This chat is not available' });
+      return;
+    }
+    // The author is the signed-in user, whatever the message claims.
+    messageDto.userId = user.id;
+    messageDto.username = user.name;
 
     // Add timestamp
     messageDto.timestamp = new Date();
@@ -115,8 +242,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.logger.error(
         `Failed to save message for track ${trackId}: ${error.message}`,
       );
-      // Still broadcast the message even if save fails to maintain real-time experience
-      this.server.to(trackId).emit('receiveMessage', messageDto);
+      client.emit('error', { message: 'Failed to send message' });
     }
   }
 
@@ -131,7 +257,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, isSpeaker } = data;
+    const { messageId } = data;
+    const user = await this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
       // Get the message to check ownership
@@ -141,9 +270,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.warn(`Message ${messageId} not found for deletion`);
         return;
       }
+      // The message's own track, not the one the client names.
+      const trackId = message.trackId;
 
       // Check if user can delete: own message OR is speaker
-      if (message.userId !== userId && !isSpeaker) {
+      if (message.userId !== userId && !(await this.isSpeaker(user, trackId))) {
         this.logger.warn(
           `User ${userId} not authorized to delete message ${messageId}`,
         );
@@ -152,6 +283,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
         return;
       }
+
+      if (!(await this.signedIn(client))) return;
 
       // Delete the message
       await this.chatService.deleteMessage(messageId);
@@ -181,7 +314,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, newContent } = data;
+    const { messageId, newContent } = data;
+    const user = await this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
       // Get the message to check ownership
@@ -191,6 +327,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.logger.warn(`Message ${messageId} not found for editing`);
         return;
       }
+      // The message's own track, not the one the client names.
+      const trackId = message.trackId;
 
       // Only the message owner can edit
       if (message.userId !== userId) {
@@ -208,6 +346,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.emit('error', { message: 'Message content cannot be empty' });
         return;
       }
+
+      if (!(await this.signedIn(client))) return;
 
       // Update the message
       const updatedMessage = await this.chatService.updateMessage(
@@ -249,9 +389,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, emoji } = data;
+    const { messageId, emoji } = data;
+    const user = await this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
+      const trackId = await this.messageTrack(client, messageId);
+      if (!trackId) return;
+
       // Add the reaction
       await this.chatService.addReaction(messageId, userId, emoji);
 
@@ -284,9 +430,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
     @ConnectedSocket() client: Socket,
   ) {
-    const { messageId, trackId, userId, emoji } = data;
+    const { messageId, emoji } = data;
+    const user = await this.signedIn(client);
+    if (!user) return;
+    const userId = user.id;
 
     try {
+      const trackId = await this.messageTrack(client, messageId);
+      if (!trackId) return;
+
       // Remove the reaction
       await this.chatService.removeReaction(messageId, userId, emoji);
 
@@ -314,21 +466,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId, poll } = data;
+    const user = await this.signedIn(client);
+    if (
+      !user ||
+      !(await this.isSpeaker(user, trackId)) ||
+      !(await this.signedIn(client))
+    )
+      return;
     this.logger.log(`Poll created in track ${trackId}`);
     // Broadcast poll creation to all clients in the track room
     this.server.to(trackId).emit('pollCreated', poll);
   }
 
+  // Older clients still emit this event after voting. Only the HTTP vote handler
+  // broadcasts a persisted result, so it is ignored, without an error: the vote itself
+  // succeeded over HTTP.
   @SubscribeMessage('pollAnswered')
-  async handlePollAnswered(
-    @MessageBody() data: { trackId: string; poll: any },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const { trackId, poll } = data;
-    this.logger.log(`Poll answered in track ${trackId}, poll ${poll.id}`);
-    // Broadcast poll update to all clients in the track room
-    this.server.to(trackId).emit('pollAnswered', poll);
-  }
+  handlePollAnswered(): void {}
 
   @SubscribeMessage('pollClosed')
   async handlePollClosed(
@@ -336,6 +490,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId, pollId } = data;
+    const user = await this.signedIn(client);
+    if (
+      !user ||
+      !(await this.isSpeaker(user, trackId)) ||
+      !(await this.signedIn(client))
+    )
+      return;
     this.logger.log(`Poll closed in track ${trackId}, poll ${pollId}`);
     // Broadcast poll closure to all clients in the track room
     this.server.to(trackId).emit('pollClosed', { pollId });
@@ -362,5 +523,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       `Broadcasting poll closure: trackId=${trackId}, pollId=${pollId}`,
     );
     this.server.to(trackId).emit('pollClosed', { pollId });
+  }
+
+  broadcastPollAnswered(trackId: string, poll: unknown): void {
+    this.server.to(trackId).emit('pollAnswered', poll);
   }
 }

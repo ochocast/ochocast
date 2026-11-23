@@ -1,0 +1,3 @@
+
+# Local build output of `go build` (the images build their own)
+liveRecorder

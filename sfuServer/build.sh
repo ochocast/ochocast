@@ -11,7 +11,7 @@ echo "✓ Control Plane built -> bin/controlplane"
 
 # Build SFU Server
 echo "Building SFU Server..."
-go build -o bin/whip-server main.go server.go handlers.go models.go room.go broadcaster.go utils.go
+go build -o bin/whip-server main.go server.go handlers.go models.go room.go broadcaster.go utils.go drain.go
 echo "✓ SFU Server built -> bin/whip-server"
 
 echo ""

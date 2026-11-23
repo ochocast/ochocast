@@ -22,6 +22,7 @@ import { PollObject } from '../../domain/poll';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentUserEmail } from 'src/common/decorators/current-user-email.decorator';
 import { isUUID } from 'class-validator';
+import { ChatGateway } from 'src/chat/chat.gateway';
 
 @ApiTags('Polls')
 @Controller('polls')
@@ -33,6 +34,7 @@ export class PollsController {
     private closePollUsecase: ClosePollUsecase,
     @Inject('UserGateway')
     private usersGateway: any,
+    private chatGateway: ChatGateway,
   ) {}
 
   @Post()
@@ -94,16 +96,20 @@ export class PollsController {
       userId = user.id;
     }
 
-    // Use provided userId/sessionId from body if available
-    const finalUserId = votePollDto.userId || userId;
-    const finalSessionId = votePollDto.sessionId;
+    // A vote is cast as the signed-in user, never as a user named in the body:
+    // `userId` in the body is ignored (older clients still send it). Anonymous viewers
+    // vote with their session id.
+    const finalUserId = userId;
+    const finalSessionId = userId ? undefined : votePollDto.sessionId;
 
-    return this.votePollUsecase.execute(
+    const poll = await this.votePollUsecase.execute(
       pollId,
       votePollDto.responseIndex,
       finalUserId,
       finalSessionId,
     );
+    this.chatGateway.broadcastPollAnswered(poll.trackId, poll);
+    return poll;
   }
 
   @Public()

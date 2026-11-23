@@ -1,6 +1,8 @@
 import {
   Controller,
+  ForbiddenException,
   Get,
+  Inject,
   Param,
   Delete,
   Query,
@@ -11,6 +13,12 @@ import { Public } from 'nest-keycloak-connect';
 import { ChatService } from './core/chat.service';
 import { ChatStatisticsService } from './core/chat-statistics.service';
 import { ChatMessageDto } from './dto/chat-message.dto';
+import { ChatAccess } from './core/chat-access';
+import { CurrentUserEmail } from '../common/decorators/current-user-email.decorator';
+import { IUserGateway } from '../users/domain/gateways/users.gateway';
+import { ITrackGateway } from '../tracks/domain/gateways/tracks.gateway';
+import { IEventGateway } from '../events/domain/gateways/events.gateway';
+import { UserObject } from '../users/domain/user';
 import {
   EventChatStatisticsDto,
   TrackChatStatisticsDto,
@@ -19,10 +27,21 @@ import {
 @ApiTags('Chat')
 @Controller('chat')
 export class ChatController {
+  private readonly access: ChatAccess;
+
   constructor(
     private readonly chatService: ChatService,
     private readonly chatStatisticsService: ChatStatisticsService,
-  ) {}
+    @Inject('UserGateway') private readonly userGateway: IUserGateway,
+    @Inject('TrackGateway') trackGateway: ITrackGateway,
+    @Inject('EventGateway') eventGateway: IEventGateway,
+  ) {
+    this.access = new ChatAccess(trackGateway, eventGateway);
+  }
+
+  private async user(email?: string): Promise<UserObject | null> {
+    return email ? await this.userGateway.getUserByEmail(email) : null;
+  }
 
   // Statistics endpoints - must come BEFORE parameterized routes
   @Public()
@@ -83,6 +102,9 @@ export class ChatController {
   async getTrackMessages(
     @Param('trackId') trackId: string,
   ): Promise<ChatMessageDto[]> {
+    // Same visibility as the live chat: any existing track.
+    if (!(await this.access.canRead(trackId)))
+      throw new NotFoundException('Track not found');
     return await this.chatService.getTrackMessages(trackId);
   }
 
@@ -92,7 +114,13 @@ export class ChatController {
     status: 200,
     description: 'All messages for the track have been cleared',
   })
-  async clearTrackMessages(@Param('trackId') trackId: string): Promise<void> {
+  async clearTrackMessages(
+    @Param('trackId') trackId: string,
+    @CurrentUserEmail() email?: string,
+  ): Promise<void> {
+    // Clearing a chat moderates it: the track's speakers and the event's creator only.
+    if (!(await this.access.canModerate(trackId, await this.user(email))))
+      throw new ForbiddenException('Only speakers can clear this chat');
     return await this.chatService.clearTrackMessages(trackId);
   }
 
@@ -102,7 +130,20 @@ export class ChatController {
     status: 200,
     description: 'Message has been deleted',
   })
-  async deleteMessage(@Param('messageId') messageId: string): Promise<void> {
+  async deleteMessage(
+    @Param('messageId') messageId: string,
+    @CurrentUserEmail() email?: string,
+  ): Promise<void> {
+    // The author, or a speaker of the message's track (same rule as the live chat).
+    const user = await this.user(email);
+    const message = await this.chatService.getMessageById(messageId);
+    if (!message) throw new NotFoundException('Message not found');
+    if (
+      !user ||
+      (message.userId !== user.id &&
+        !(await this.access.canModerate(message.trackId, user)))
+    )
+      throw new ForbiddenException('Not authorized to delete this message');
     return await this.chatService.deleteMessage(messageId);
   }
 }

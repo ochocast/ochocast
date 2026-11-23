@@ -4,6 +4,7 @@ import {
   IRecordingVMGateway,
   StartRecordingConfig,
 } from '../../domain/gateways/recording-vm.gateway';
+import { controlPlaneHeaders, controlPlaneUrl } from 'src/common/control-plane';
 
 /**
  * HMAC-SHA256 of `timestamp \n method \n path?query \n sha256(body)`, keyed
@@ -42,8 +43,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
     // Fallback when the control plane reports no per-worker recorder (local
     // development, or workers started without one).
     this.vmUrl = process.env.RECORDING_VM_URL || 'http://localhost:8080';
-    this.controlPlaneUrl =
-      process.env.CONTROL_PLANE_URL || 'http://localhost:8090';
+    this.controlPlaneUrl = controlPlaneUrl();
     this.sharedSecret = process.env.RECORDING_SHARED_SECRET || '';
     this.logger.log(`Recording VM URL: ${this.vmUrl}`);
     this.logger.log(`Control Plane URL: ${this.controlPlaneUrl}`);
@@ -91,6 +91,7 @@ export class RecordingVMGateway implements IRecordingVMGateway {
   } | null> {
     const discoveryUrl = `${this.controlPlaneUrl}/recorder?room_id=${encodeURIComponent(roomId)}`;
     const cpResponse = await fetch(discoveryUrl, {
+      headers: controlPlaneHeaders(),
       signal: AbortSignal.timeout(RECORDER_TIMEOUT_MS),
     });
     if ([404, 409, 503].includes(cpResponse.status)) return null;

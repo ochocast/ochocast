@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { useAuth } from 'react-oidc-context';
 import getEnv from '../utils/env';
 
 interface UseSocketProps {
@@ -25,6 +26,19 @@ export interface ChatMessage {
 }
 
 export const useSocket = ({ trackId, username }: UseSocketProps) => {
+  const auth = useAuth();
+  // OIDC is the source of truth, including on public pages and before the
+  // asynchronous backend-user lookup has populated localStorage.
+  const accessToken =
+    auth.isAuthenticated && !auth.user?.expired
+      ? auth.user?.access_token
+      : undefined;
+  // Signing in or out recreates the socket. A renewed token does not: it is sent on the
+  // open socket ("authenticate"), and every reconnection reads the latest one.
+  const signedIn = !!accessToken;
+  const tokenRef = useRef(accessToken);
+  tokenRef.current = accessToken;
+  const sentTokenRef = useRef<string | undefined>(undefined);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -35,9 +49,15 @@ export const useSocket = ({ trackId, username }: UseSocketProps) => {
       getEnv('REACT_APP_WS_URL') ||
       `${getEnv('REACT_APP_API_URL')}:${getEnv('REACT_APP_API_PORT')}`;
 
-    // Create socket connection
+    // Create socket connection. Its handshake carries the current token.
+    sentTokenRef.current = tokenRef.current;
     const newSocket = io(wsUrl, {
       transports: ['websocket', 'polling'],
+      // Anonymous users still connect, for read-only chat and public polls.
+      auth: (cb) => {
+        sentTokenRef.current = tokenRef.current;
+        cb({ token: tokenRef.current });
+      },
     });
 
     newSocket.on('connect', () => {
@@ -176,7 +196,21 @@ export const useSocket = ({ trackId, username }: UseSocketProps) => {
         newSocket.disconnect();
       }
     };
-  }, [trackId, username]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the token is read from a ref
+  }, [trackId, username, signedIn]);
+
+  // A renewed token keeps the open socket signed in past the old token's expiry.
+  useEffect(() => {
+    if (
+      !socket ||
+      !accessToken ||
+      !socket.connected ||
+      sentTokenRef.current === accessToken
+    )
+      return;
+    sentTokenRef.current = accessToken;
+    socket.emit('authenticate', { token: accessToken });
+  }, [socket, accessToken]);
 
   const sendMessage = useCallback(
     (message: string, userId: string) => {

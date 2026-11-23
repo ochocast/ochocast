@@ -51,11 +51,21 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The recorder only ever records the SFU of its configuration
-	// (RECORDER_SFU_URL: the local SFU on a worker), never a URL from a request.
-	if s.sfuURL == "" {
-		log.Printf("[CONFIG] RECORDER_SFU_URL is not set — cannot record")
-		http.Error(w, "Recorder SFU not configured", http.StatusServiceUnavailable)
-		return
+	// (RECORDER_SFU_URL: the local SFU on a worker) or, for a recorder shared by several
+	// workers, the worker the control plane names (CONTROL_PLANE_URL). Never a URL from a
+	// request.
+	sfuURL, roomKey := s.sfuURL, req.RoomKey
+	if sfuURL == "" {
+		if os.Getenv("CONTROL_PLANE_URL") == "" {
+			log.Printf("[CONFIG] RECORDER_SFU_URL is not set — cannot record")
+			http.Error(w, "Recorder SFU not configured", http.StatusServiceUnavailable)
+			return
+		}
+		var err error
+		if sfuURL, roomKey, err = discoverIngestion(req.RoomID); err != nil {
+			http.Error(w, "Cannot find the live: "+err.Error(), http.StatusBadGateway)
+			return
+		}
 	}
 
 	outputDir := s.defaultOutput
@@ -79,8 +89,8 @@ func (s *RecordingServer) handleStart(w http.ResponseWriter, r *http.Request) {
 	session, err := NewRecordingSession(RecordingConfig{
 		EventID:      req.RoomID,
 		RoomID:       req.RoomID,
-		RoomKey:      req.RoomKey,
-		SfuBaseURL:   s.sfuURL,
+		RoomKey:      roomKey,
+		SfuBaseURL:   sfuURL,
 		OutputDir:    outputDir,
 		BackendURL:   s.backendURL,
 		TrackID:      req.TrackID,
