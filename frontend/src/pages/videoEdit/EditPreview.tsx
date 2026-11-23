@@ -4,6 +4,7 @@ import { ReactPlayerProps } from 'react-player/types/lib';
 import { useTranslation } from 'react-i18next';
 import {
   EditSegment,
+  EditText,
   formatTime,
   nextJump,
   passageAt,
@@ -25,6 +26,20 @@ const DRIFT_TOLERANCE = 0.3;
 export const START_TIMEOUT_MS = 8000;
 // The editor's playhead follows playback at this pace; texts, every frame.
 const REPORT_INTERVAL_MS = 100;
+
+/**
+ * Colours of a text as the render draws them (render.service.ts COLORS):
+ * the fill, and a 3 px outline on the 1280 px canvas, black around white
+ * or green, white around black. The outline is a 6 px stroke whose inner
+ * half is painted under the glyphs (paint-order in the stylesheet).
+ */
+export function previewTextStyle(color: EditText['color']) {
+  const fill = { white: '#FFFFFF', black: '#000000', green: '#1DAC78' }[color];
+  return {
+    color: fill,
+    WebkitTextStroke: `0.469cqw ${color === 'black' ? 'white' : 'black'}`,
+  };
+}
 
 type Mode = 'montage' | 'original';
 type Status = 'loading' | 'ready' | 'stalled' | 'failed';
@@ -245,7 +260,6 @@ export default function EditPreview({
   const current = mode === 'montage' ? toSource(segments, localTime) : null;
   const passage = current ? segments[current.index] : undefined;
   const texts = passage && current ? visibleTexts(passage, current.offset) : [];
-  const colors = { white: '#FFFFFF', black: '#000000', green: '#1DAC78' };
   const montage = mode === 'montage';
   const shownTime = montage ? localTime : originalTime;
   const shownDuration = montage ? duration : sourceDuration;
@@ -306,10 +320,7 @@ export default function EditPreview({
               key={text.key}
               data-testid="preview-text"
               className={`${styles.overlay} ${styles[text.position]}`}
-              style={{
-                color: colors[text.color],
-                WebkitTextStroke: `0.5px ${text.color === 'black' ? 'white' : 'black'}`,
-              }}
+              style={previewTextStyle(text.color)}
             >
               {wrapText(text.content).join('\n')}
             </div>

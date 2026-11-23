@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import EditPreview, { START_TIMEOUT_MS } from './EditPreview';
+import EditPreview, { previewTextStyle, START_TIMEOUT_MS } from './EditPreview';
 import { EditSegment, EditText } from './editorState';
 
 jest.mock('react-i18next', () => ({
@@ -392,5 +392,18 @@ describe('a preview that does not start', () => {
       'videoEdit.previewStalled',
     );
     expect(playButton()).toBeEnabled();
+  });
+});
+
+// jsdom drops -webkit-text-stroke: the style is checked on its own.
+it.each([
+  ['white', '#FFFFFF', 'black'],
+  ['green', '#1DAC78', 'black'],
+  ['black', '#000000', 'white'],
+] as const)('draws a %s text like the render', (color, fill, outline) => {
+  expect(previewTextStyle(color)).toEqual({
+    color: fill,
+    // 3 px of a 1280 px canvas on each side: a 6 px stroke, half under the text.
+    WebkitTextStroke: `0.469cqw ${outline}`,
   });
 });

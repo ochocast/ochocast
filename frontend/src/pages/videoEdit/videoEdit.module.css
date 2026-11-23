@@ -146,15 +146,23 @@
 .previewProblem p {
   margin: 0;
 }
+/* The texts of the render (ffmpegServer render.service.ts, drawTextFilter),
+   on the 16:9 preview as on the 1280x720 canvas: DejaVu Sans Bold 40 px,
+   10 px line spacing, a 3 px outline outside the glyphs, a block centred
+   horizontally whose lines align left. Sizes are fractions of the width. */
 .overlay {
   position: absolute;
-  left: 6%;
-  right: 6%;
-  text-align: center;
-  white-space: pre-wrap;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 100%;
+  text-align: left;
+  white-space: pre;
+  font-family: 'DejaVu Sans', 'Bitstream Vera Sans', Verdana, sans-serif;
   font-weight: bold;
   font-size: 3.125cqw;
-  line-height: 1.2;
+  line-height: 1.414;
+  paint-order: stroke fill;
   pointer-events: none;
 }
 .top {
@@ -162,7 +170,7 @@
 }
 .center {
   top: 50%;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
 }
 .bottom {
   bottom: 12%;
