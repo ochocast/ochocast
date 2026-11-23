@@ -64,3 +64,28 @@ de plus de 4 Mo, ou vocabulaire trop grand pour la limite de 1 Mo d'un
 `search:reindex` la compte dans `failed` et se termine avec le code 1. Lire
 l'identifiant, la clé et la cause journalisés, puis corriger ou retirer ce
 sous-titre.
+
+## Mesure de performance : `search:perf`
+
+`backend/scripts/search-perf.ts` remplit une base jetable de 500 vidéos et
+250 000 segments synthétiques (vocabulaire français à longue traîne), puis lance
+100 requêtes de un à trois mots à travers `PostgresSearchGateway.search`
+(pertinence, 20 résultats par page). Il affiche p50, p95 et max. Le nom de la base
+doit contenir `perf` comme mot : le script refuse toute autre base.
+
+```bash
+docker run -d --name ochocast-search-perf --cpus=2 --memory=2g \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=perf -p 55433:5432 postgres:15-alpine
+cd backend
+SEARCH_PERF_DATABASE_URL=postgresql://postgres:postgres@localhost:55433/perf npm run search:perf
+docker rm -f ochocast-search-perf
+```
+
+Mesure du 2026-11-23 (PostgreSQL 15 alpine, 2 CPU, 2 Go, index GIN du schéma) :
+
+| Requêtes | Avec résultats | p50 | p95 | max |
+|---|---|---|---|---|
+| 100 | 98 | 109 ms | 133 ms | 151 ms |
+
+Objectif du design : p95 < 300 ms. Atteint sans matérialiser la partie
+métadonnées du document de recherche.
