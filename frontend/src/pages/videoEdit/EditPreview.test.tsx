@@ -460,6 +460,20 @@ describe('a preview that does not start', () => {
     expect(screen.getByText('videoEdit.previewRetry')).toBeInTheDocument();
   });
 
+  it('waits for pictures, not for the play request, to call it started', () => {
+    render(<Editor initial={reordered()} />);
+    ready();
+    fireEvent.click(playButton());
+    // The play request alone (react-player's onPlay) is not a start.
+    act(() => mockPlayer.props.onPlay?.());
+    act(() => {
+      jest.advanceTimersByTime(START_TIMEOUT_MS);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'videoEdit.previewStalled',
+    );
+  });
+
   it('does not complain once playback started', () => {
     render(<Editor initial={reordered()} />);
     ready();

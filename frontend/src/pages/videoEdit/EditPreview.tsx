@@ -21,6 +21,16 @@ const ReactPlayer = Player as unknown as React.FC<
   ReactPlayerProps & { disableDeferredLoading?: boolean }
 >;
 
+// react-player copies the props it does not know, disableDeferredLoading
+// included, onto its wrapper: this one leaves it off the DOM element.
+const PlayerWrapper = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & { disableDeferredLoading?: boolean }
+>(function PlayerWrapper({ disableDeferredLoading, ...attributes }, ref) {
+  void disableDeferredLoading;
+  return <div ref={ref} {...attributes} />;
+});
+
 // A passage ends one frame early rather than showing a frame past its cut.
 const END_TOLERANCE = 0.03;
 // Further from the expected original time than this, the player is moved.
@@ -338,6 +348,7 @@ export default function EditPreview({
             // one has loaded, which never happens after a failure: Retry
             // would wait forever.
             disableDeferredLoading
+            wrapper={PlayerWrapper}
             width="100%"
             height="100%"
             playing={playing && status !== 'failed'}
@@ -348,7 +359,6 @@ export default function EditPreview({
                 previous === 'failed' ? previous : 'ready',
               );
             }}
-            onPlay={() => setStarted(true)}
             onError={(error: { name?: string } | undefined) => {
               // A quick pause/seek may interrupt the play promise without a media failure.
               if (error?.name === 'AbortError') return;
