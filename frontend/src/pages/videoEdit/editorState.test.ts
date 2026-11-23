@@ -1,5 +1,9 @@
 import {
   EditSegment,
+  cutOffset,
+  fitText,
+  lastTextStart,
+  roundTenth,
   hydrate,
   localKey,
   locate,
@@ -8,6 +12,7 @@ import {
   passageAt,
   passageStarts,
   payload,
+  segmentDuration,
   splitSegment,
   toMontage,
   toSource,
@@ -254,5 +259,97 @@ describe('preview timing', () => {
     expect(visibleTexts(s, 2.5)).toEqual([whole]);
     expect(visibleTexts(s, 5)).toEqual([last, whole]);
     expect(visibleTexts(s, 5.01)).toEqual([]);
+  });
+});
+
+describe('times to 0.1 s', () => {
+  it('rounds a time from playback, without float noise', () => {
+    expect(roundTenth(5.558422046246841)).toBe(5.6);
+    expect(roundTenth(5.55)).toBe(5.6);
+    expect(roundTenth(0.1 + 0.2)).toBe(0.3);
+  });
+
+  it('places a text at the playhead on the 0.1 s grid', () => {
+    expect(fitText(5.558422046246841, 5, 20)).toEqual({
+      startOffset: 5.6,
+      duration: 5,
+    });
+    expect(fitText(2.04, 3.0499999, 20)).toEqual({
+      startOffset: 2,
+      duration: 3,
+    });
+  });
+
+  it('keeps a text that starts a passage at 0, never below', () => {
+    expect(fitText(0.04, 2, 8)).toEqual({ startOffset: 0, duration: 2 });
+    expect(fitText(-0.3, 2, 8)).toEqual({ startOffset: 0, duration: 2 });
+  });
+
+  it('keeps a text that ends a passage within it, shortening rather than passing its end', () => {
+    // Ends exactly with the passage.
+    expect(fitText(5, 3, 8)).toEqual({ startOffset: 5, duration: 3 });
+    expect(fitText(5.04, 3, 8)).toEqual({ startOffset: 5, duration: 3 });
+    // Rounded up, it would pass the end: shortened.
+    expect(fitText(5.06, 3, 8)).toEqual({ startOffset: 5.1, duration: 2.9 });
+    // A passage that does not end on the grid: the text ends before it.
+    expect(fitText(3, 2.945, 5.945)).toEqual({ startOffset: 3, duration: 2.9 });
+  });
+
+  it('rounds the start down when rounding up leaves no room for the shortest text', () => {
+    expect(lastTextStart(8)).toBe(7.9);
+    expect(fitText(7.97, 1, 8)).toEqual({ startOffset: 7.9, duration: 0.1 });
+    expect(fitText(4, 0.02, 8)).toEqual({ startOffset: 4, duration: 0.1 });
+  });
+
+  it('leaves times that are not numbers to validation', () => {
+    expect(fitText(NaN, 2, 8)).toEqual({ startOffset: NaN, duration: 2 });
+  });
+
+  it('cuts on the 0.1 s grid of the original when 5 s stay on each side', () => {
+    const s = segment(0, 20);
+    expect(cutOffset(s, 8.0423)).toBe(8);
+    // Near the 5 s limit: the grid point that keeps 5 s on each side.
+    expect(cutOffset(segment(0, 10.07), 5.06)).toBe(5);
+    expect(cutOffset(segment(0, 10.07), 5.02)).toBe(5);
+    // No grid point keeps 5 s on each side: exactly where asked.
+    expect(cutOffset(segment(0.05, 10.05), 5)).toBe(5);
+  });
+
+  it('splits a passage on a grid cut of an original that does not start on the grid', () => {
+    const s = segment(0.1, 20);
+    const offset = cutOffset(s, 5.04);
+    const [left, right] = splitSegment([s], s.key, offset);
+    expect(left.sourceEnd).toBeCloseTo(5.1, 9);
+    expect(right.sourceStart).toBeCloseTo(5.1, 9);
+    // Exactly 5 s before the cut, despite float noise.
+    expect(splitSegment([s], s.key, 5.1 - 0.1)).toHaveLength(2);
+  });
+
+  it('sends short values, and sends back a montage saved with more decimals', () => {
+    const saved: EditSegment = {
+      ...segment(5.945396603872895, 16.85230868983674),
+      textLayers: [text(5.558422046246841, 3.20000000001)],
+    };
+    // Read as it is: valid, nothing rejected.
+    expect(validate([saved], 25)).toEqual([]);
+    const sent = payload(3, [saved]).segments[0];
+    expect(sent.sourceStart).toBe(5.945);
+    expect(sent.sourceEnd).toBe(16.852);
+    expect(sent.textLayers[0]).toMatchObject({
+      startOffset: 5.6,
+      duration: 3.2,
+    });
+  });
+
+  it('accepts a text ending exactly with a passage despite float noise', () => {
+    // 6.1 - 0.2 = 5.8999999999999995 in floating point.
+    const s = segment(0.2, 6.1);
+    s.textLayers = [text(0, 5.9)];
+    expect(segmentDuration(s)).toBeLessThan(5.9);
+    expect(validate([s], 20)).toEqual([]);
+    expect(fitText(0, 5.9, segmentDuration(s))).toEqual({
+      startOffset: 0,
+      duration: 5.9,
+    });
   });
 });

@@ -44,21 +44,91 @@ export const hydrate = (edit: VideoEdit): EditSegment[] =>
     sourceEnd: s.sourceEnd,
     textLayers: s.textLayers.map((t) => ({ ...t, key: localKey() })),
   }));
+// ---------------------------------------------------------------------------
+// Precision: texts and cuts at 0.1 s; the server allows 1e-6 s of rounding.
+
+export const TIME_STEP = 0.1;
+export const MIN_TEXT_DURATION = 0.1;
+const BOUND_EPSILON = 1e-6;
+/** To the nearest 0.1 s, without float noise (5.6, never 5.6000000000000005). */
+export const roundTenth = (seconds: number) => Math.round(seconds * 10) / 10;
+const floorTenth = (seconds: number) =>
+  Math.floor(seconds * 10 + BOUND_EPSILON) / 10;
+const ceilTenth = (seconds: number) =>
+  Math.ceil(seconds * 10 - BOUND_EPSILON) / 10;
+/** To the millisecond: what is sent of a passage's original times. */
+const roundMs = (seconds: number) => Math.round(seconds * 1000) / 1000;
+
+/** The latest start, on the 0.1 s grid, a text may have in a passage. */
+export const lastTextStart = (passageDuration: number) =>
+  Math.max(0, roundTenth(floorTenth(passageDuration) - MIN_TEXT_DURATION));
+
+/**
+ * A text's times on the 0.1 s grid, kept within its passage: the start is
+ * rounded (down when rounding up would leave no room), never negative; the
+ * duration is rounded, at least MIN_TEXT_DURATION, and shortened rather than
+ * reaching past the passage. Times that are not numbers are left as they are.
+ */
+export function fitText(
+  startOffset: number,
+  duration: number,
+  passageDuration: number,
+): { startOffset: number; duration: number } {
+  if (![startOffset, duration, passageDuration].every(Number.isFinite))
+    return { startOffset, duration };
+  const start = Math.max(
+    0,
+    Math.min(roundTenth(startOffset), lastTextStart(passageDuration)),
+  );
+  const room = roundTenth(floorTenth(passageDuration) - start);
+  return {
+    startOffset: start,
+    duration: Math.max(MIN_TEXT_DURATION, Math.min(roundTenth(duration), room)),
+  };
+}
+
+/**
+ * Where to cut `segment` asked at `offset` seconds into it: on the 0.1 s
+ * grid of the original when that keeps 5 s on each side (nearest, else the
+ * grid point below or above), otherwise exactly where asked.
+ */
+export function cutOffset(segment: EditSegment, offset: number): number {
+  const length = segmentDuration(segment);
+  const at = segment.sourceStart + offset;
+  for (const grid of [roundTenth(at), floorTenth(at), ceilTenth(at)]) {
+    const candidate = grid - segment.sourceStart;
+    if (
+      candidate >= 5 - BOUND_EPSILON &&
+      length - candidate >= 5 - BOUND_EPSILON
+    )
+      return candidate;
+  }
+  return offset;
+}
+
+/**
+ * The montage as sent: original times to the millisecond, texts on the
+ * 0.1 s grid within their passage. A montage saved with more decimals is
+ * read as it is and sent back rounded.
+ */
 export const payload = (version: number, segments: EditSegment[]) => ({
   version,
-  segments: segments.map((s) => ({
-    sourceStart: s.sourceStart,
-    sourceEnd: s.sourceEnd,
-    textLayers: s.textLayers.map(
-      ({ content, position, color, startOffset, duration }) => ({
-        content,
-        position,
-        color,
-        startOffset,
-        duration,
-      }),
-    ),
-  })),
+  segments: segments.map((s) => {
+    const sourceStart = roundMs(s.sourceStart),
+      sourceEnd = roundMs(s.sourceEnd);
+    return {
+      sourceStart,
+      sourceEnd,
+      textLayers: s.textLayers.map(
+        ({ content, position, color, startOffset, duration }) => ({
+          content,
+          position,
+          color,
+          ...fitText(startOffset, duration, sourceEnd - sourceStart),
+        }),
+      ),
+    };
+  }),
 });
 // Same word wrapping as backend/domain/textWrap and the FFmpeg worker.
 export function wrapText(content: string): string[] {
@@ -134,7 +204,7 @@ export function validate(
         ![t.startOffset, t.duration].every(Number.isFinite) ||
         t.startOffset < 0 ||
         t.duration <= 0 ||
-        t.startOffset + t.duration > segmentDuration(s)
+        t.startOffset + t.duration > segmentDuration(s) + BOUND_EPSILON
       )
         errors.push({ code: 'textBounds', passage, text });
       if (
@@ -156,8 +226,8 @@ export function splitSegment(
   if (
     !s ||
     !Number.isFinite(offset) ||
-    offset < 5 ||
-    segmentDuration(s) - offset < 5 ||
+    offset < 5 - BOUND_EPSILON ||
+    segmentDuration(s) - offset < 5 - BOUND_EPSILON ||
     segments.length >= 100
   )
     return segments;

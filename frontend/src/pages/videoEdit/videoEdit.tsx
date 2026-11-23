@@ -24,6 +24,8 @@ import {
   EditSegment,
   EditText,
   VideoEdit,
+  cutOffset,
+  fitText,
   formatTime,
   hydrate,
   isRendering,
@@ -248,9 +250,14 @@ export default function VideoEditPage() {
   const addText = () => {
     if (!current || current.segment.textLayers.length >= 10) return;
     const key = localKey();
-    const offset = Math.min(
-      current.offset,
-      Math.max(0, segmentDuration(current.segment) - 1),
+    // At the playhead, at most 1 s before the passage end, on the 0.1 s grid.
+    const placed = fitText(
+      Math.min(
+        current.offset,
+        Math.max(0, segmentDuration(current.segment) - 1),
+      ),
+      5,
+      segmentDuration(current.segment),
     );
     setSegments((previous) =>
       previous.map((s) =>
@@ -264,8 +271,7 @@ export default function VideoEditPage() {
                   content: '',
                   position: 'bottom',
                   color: 'white',
-                  startOffset: offset,
-                  duration: Math.min(5, segmentDuration(s) - offset),
+                  ...placed,
                 },
               ],
             }
@@ -379,7 +385,7 @@ export default function VideoEditPage() {
                           const next = splitSegment(
                             segments,
                             current.segment.key,
-                            current.offset,
+                            cutOffset(current.segment, current.offset),
                           );
                           if (next === segments)
                             setErrors([t('videoEdit.cutTextLimit')]);

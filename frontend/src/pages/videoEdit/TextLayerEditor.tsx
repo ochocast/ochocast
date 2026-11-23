@@ -1,6 +1,19 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { EditText, TextPosition, TextColor } from './editorState';
+import {
+  EditText,
+  MIN_TEXT_DURATION,
+  TIME_STEP,
+  TextColor,
+  TextPosition,
+  fitText,
+  lastTextStart,
+  roundTenth,
+} from './editorState';
+
+// Shown with one decimal at most, whatever a saved montage holds.
+const shown = (seconds: number) =>
+  Number.isFinite(seconds) ? roundTenth(seconds) : '';
 import styles from './videoEdit.module.css';
 export default function TextLayerEditor({
   text,
@@ -14,6 +27,31 @@ export default function TextLayerEditor({
   onRemove: () => void;
 }) {
   const { t } = useTranslation();
+  // A typed or pasted time is rounded to 0.1 s and kept within the passage
+  // (`duration`); an empty field stays empty until it is filled.
+  const setStart = (value: number) => {
+    if (!text || !Number.isFinite(value))
+      return onChange({ startOffset: value });
+    onChange(
+      Number.isFinite(text.duration)
+        ? fitText(value, text.duration, duration)
+        : {
+            startOffset: fitText(value, MIN_TEXT_DURATION, duration)
+              .startOffset,
+          },
+    );
+  };
+  const setDuration = (value: number) => {
+    if (!text || !Number.isFinite(value)) return onChange({ duration: value });
+    onChange(
+      Number.isFinite(text.startOffset)
+        ? fitText(text.startOffset, value, duration)
+        : { duration: fitText(0, value, duration).duration },
+    );
+  };
+  const start = Number.isFinite(text?.startOffset)
+    ? roundTenth(text!.startOffset)
+    : 0;
   return (
     <section className={styles.panel}>
       <h2>{t('videoEdit.selectedText')}</h2>
@@ -35,23 +73,22 @@ export default function TextLayerEditor({
             <input
               type="number"
               min={0}
-              max={duration}
-              step="0.1"
-              value={Number.isFinite(text.startOffset) ? text.startOffset : ''}
-              onChange={(e) =>
-                onChange({ startOffset: e.target.valueAsNumber })
-              }
+              max={lastTextStart(duration)}
+              step={TIME_STEP}
+              value={shown(text.startOffset)}
+              onChange={(e) => setStart(e.target.valueAsNumber)}
             />
           </label>
           <label>
             {t('videoEdit.textDuration')}
             <input
               type="number"
-              min={0.1}
-              max={duration}
-              step="0.1"
-              value={Number.isFinite(text.duration) ? text.duration : ''}
-              onChange={(e) => onChange({ duration: e.target.valueAsNumber })}
+              min={MIN_TEXT_DURATION}
+              // The room left after the start, within the passage.
+              max={fitText(start, duration, duration).duration}
+              step={TIME_STEP}
+              value={shown(text.duration)}
+              onChange={(e) => setDuration(e.target.valueAsNumber)}
             />
           </label>
           <fieldset>

@@ -29,7 +29,19 @@ jest.mock('react-router-dom', () => ({
 jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock('./EditPreview', () => ({
   __esModule: true,
-  default: ({ url }: { url: string }) => <div data-testid="source">{url}</div>,
+  default: ({
+    url,
+    onTime,
+  }: {
+    url: string;
+    onTime: (time: number) => void;
+  }) => (
+    <div data-testid="source">
+      {url}
+      {/* The playhead as playback leaves it: far too precise. */}
+      <button onClick={() => onTime(5.558422046246841)}>playhead</button>
+    </div>
+  ),
 }));
 jest.mock('../../utils/api', () => ({
   createVideoEdit: jest.fn(),
@@ -187,3 +199,42 @@ it.each(['ready', 'failed'])(
     );
   },
 );
+
+it('adds a text and cuts at the playhead on 0.1 s, and sends short values', async () => {
+  (saveVideoEdit as jest.Mock).mockResolvedValue({ ok: true, data: edit });
+  render(<VideoEditPage />);
+  await screen.findByTestId('source');
+  fireEvent.click(screen.getByText('playhead'));
+  fireEvent.click(screen.getByText('videoEdit.addText'));
+  // The new text starts at the playhead, rounded.
+  expect(
+    (screen.getByLabelText('videoEdit.textStart') as HTMLInputElement).value,
+  ).toBe('5.6');
+  fireEvent.change(screen.getByLabelText('videoEdit.content'), {
+    target: { value: 'Titre' },
+  });
+  // The cut too: 5.6 s keeps 5 s on each side of the 20 s passage.
+  fireEvent.click(screen.getByText('videoEdit.cut'));
+  fireEvent.click(screen.getByText('videoEdit.save'));
+  await waitFor(() => expect(saveVideoEdit).toHaveBeenCalled());
+  const sent = (saveVideoEdit as jest.Mock).mock.calls[0][1];
+  expect(
+    sent.segments.map((s: { sourceStart: number; sourceEnd: number }) => [
+      s.sourceStart,
+      s.sourceEnd,
+    ]),
+  ).toEqual([
+    [0, 5.6],
+    [5.6, 20],
+  ]);
+  // The text, at the start of the second passage, kept its 5 s.
+  expect(sent.segments[1].textLayers).toEqual([
+    {
+      content: 'Titre',
+      position: 'bottom',
+      color: 'white',
+      startOffset: 0,
+      duration: 5,
+    },
+  ]);
+});
