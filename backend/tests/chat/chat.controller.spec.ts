@@ -52,14 +52,12 @@ describe('ChatController access', () => {
     );
   });
 
-  it("hides an unpublished event's messages from strangers", async () => {
+  it('shows the messages of any existing track, unpublished or not', async () => {
     published = false;
+    await expect(controller.getTrackMessages(TRACK)).resolves.toEqual([]);
     await expect(
-      controller.getTrackMessages(TRACK, stranger.email),
+      controller.getTrackMessages('not-a-track'),
     ).rejects.toBeInstanceOf(NotFoundException);
-    await expect(
-      controller.getTrackMessages(TRACK, speaker.email),
-    ).resolves.toEqual([]);
   });
 
   it('lets only speakers clear a chat', async () => {

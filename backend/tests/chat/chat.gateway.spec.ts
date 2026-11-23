@@ -204,43 +204,34 @@ describe('ChatGateway authorization', () => {
     );
   });
 
-  it('opens an unpublished event chat to its speakers only', async () => {
+  it('opens an unpublished event chat to anyone with the link', async () => {
     unpublished();
-    const stranger = await connect('mallory-token');
-    await gateway.handleJoinRoom(
-      { trackId: TRACK } as never,
-      stranger as never,
-    );
-    expect(stranger.join).not.toHaveBeenCalled();
-    expect(stranger.errors).toHaveLength(1);
-
-    const anonymous = await connect();
-    await gateway.handleJoinRoom(
-      { trackId: TRACK } as never,
-      anonymous as never,
-    );
-    expect(anonymous.join).not.toHaveBeenCalled();
-
-    const speakerSocket = await connect('speaker-token');
-    await gateway.handleJoinRoom(
-      { trackId: TRACK } as never,
-      speakerSocket as never,
-    );
-    expect(speakerSocket.join).toHaveBeenCalledWith(TRACK);
+    for (const client of [await connect('mallory-token'), await connect()]) {
+      await gateway.handleJoinRoom(
+        { trackId: TRACK } as never,
+        client as never,
+      );
+      expect(client.join).toHaveBeenCalledWith(TRACK);
+    }
   });
 
-  it('does not take messages into a chat the author may not see', async () => {
-    unpublished();
+  it('refuses the chat of a track that does not exist', async () => {
     const client = await connect('mallory-token');
+    await gateway.handleJoinRoom(
+      { trackId: 'not-a-track' } as never,
+      client as never,
+    );
+    expect(client.join).not.toHaveBeenCalled();
+    expect(client.errors).toHaveLength(1);
     await gateway.handleMessage(
-      { trackId: TRACK, message: 'hi' } as never,
+      { trackId: 'not-a-track', message: 'hi' } as never,
       client as never,
     );
     expect(chatService.saveMessage).not.toHaveBeenCalled();
   });
 
-  it('refuses reactions on messages the user may not see', async () => {
-    unpublished();
+  it('refuses reactions on messages whose track is gone', async () => {
+    events.getEventById.mockResolvedValue(null);
     const client = await connect('mallory-token');
     await gateway.handleAddReaction(
       { messageId: 'm1', trackId: 'any-room', emoji: '👍' } as never,

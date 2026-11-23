@@ -128,14 +128,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.access.canModerate(trackId, user.user);
   }
 
-  // The track of a message the user may see, or null after telling the client why.
-  private async readableMessageTrack(
+  // The track of an existing message, or null after telling the client why.
+  private async messageTrack(
     client: Socket,
-    user: ChatUser,
     messageId: string,
   ): Promise<string | null> {
     const message = await this.chatService.getMessageById(messageId);
-    if (!message || !(await this.access.canRead(message.trackId, user.user))) {
+    if (!message || !(await this.access.canRead(message.trackId))) {
       client.emit('error', { message: 'Message not found' });
       return null;
     }
@@ -154,24 +153,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ) {
     const { trackId } = data ?? ({} as { trackId: string });
-    // An unpublished event's chat is only for its creator and speakers. A published one
-    // opens at once; a refusal waits for a pending sign-in, then checks again.
-    let signedInUser = this.activeUser(client);
-    let allowed = await this.access.canRead(
-      trackId,
-      signedInUser?.user ?? null,
-    );
-    const pending = this.authenticating.get(client);
-    if (!allowed && pending) {
-      await pending;
-      signedInUser = this.activeUser(client);
-      allowed = await this.access.canRead(trackId, signedInUser?.user ?? null);
-    }
-    if (!allowed) {
+    // Anyone who can open the live reads its chat: only an existing track has one.
+    if (!(await this.access.canRead(trackId))) {
       client.emit('error', { message: 'This chat is not available' });
       return;
     }
-    const username = signedInUser?.name;
+    const username = this.activeUser(client)?.name;
     client.join(trackId);
     this.logger.log(
       `Client ${client.id} (${username}) joined track room: ${trackId}`,
@@ -218,7 +205,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { trackId } = messageDto;
     const user = await this.signedIn(client);
     if (!user) return;
-    if (!(await this.access.canRead(trackId, user.user))) {
+    if (!(await this.access.canRead(trackId))) {
       client.emit('error', { message: 'This chat is not available' });
       return;
     }
@@ -408,7 +395,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = user.id;
 
     try {
-      const trackId = await this.readableMessageTrack(client, user, messageId);
+      const trackId = await this.messageTrack(client, messageId);
       if (!trackId) return;
 
       // Add the reaction
@@ -449,7 +436,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const userId = user.id;
 
     try {
-      const trackId = await this.readableMessageTrack(client, user, messageId);
+      const trackId = await this.messageTrack(client, messageId);
       if (!trackId) return;
 
       // Remove the reaction

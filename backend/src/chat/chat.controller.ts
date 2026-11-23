@@ -101,10 +101,9 @@ export class ChatController {
   })
   async getTrackMessages(
     @Param('trackId') trackId: string,
-    @CurrentUserEmail() email?: string,
   ): Promise<ChatMessageDto[]> {
-    // Same visibility as the live chat: unpublished events only for their creator and speakers.
-    if (!(await this.access.canRead(trackId, await this.user(email))))
+    // Same visibility as the live chat: any existing track.
+    if (!(await this.access.canRead(trackId)))
       throw new NotFoundException('Track not found');
     return await this.chatService.getTrackMessages(trackId);
   }
