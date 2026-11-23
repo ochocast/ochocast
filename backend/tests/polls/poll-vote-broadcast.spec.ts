@@ -68,11 +68,7 @@ describe('poll vote notifications', () => {
     );
     const emit = jest.fn();
     gateway.server = { to: jest.fn().mockReturnValue({ emit }) } as any;
-    const client = {
-      connected: true,
-      data: { user: { expiresAt: Date.now() + 10000 } },
-      emit: jest.fn(),
-    } as any;
+    // The handler takes no payload: a socket's poll result is never relayed.
     gateway.handlePollAnswered();
     expect(emit).not.toHaveBeenCalled();
   });
