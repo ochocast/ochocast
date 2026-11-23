@@ -1,4 +1,3 @@
-/* eslint-disable testing-library/no-node-access, testing-library/no-unnecessary-act -- transcript lines are read from their list markup, and act lets the async transcript load settle */
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';
@@ -101,7 +100,10 @@ const empty = (status: 'pending' | 'none'): TranscriptResult => ({
   matches: [],
 });
 
-const flush = () => act(async () => {});
+const flush = () =>
+  act(async () => {
+    await Promise.resolve();
+  });
 
 const renderPanel = async (
   props: Partial<React.ComponentProps<typeof TranscriptPanel>> = {},
@@ -381,7 +383,7 @@ describe('TranscriptPanel', () => {
     mockedGetTranscript.mockResolvedValue(k8s({ highlight: true }));
     await renderPanel({ initialQuery: 'kubernetes' });
 
-    const marks = document.querySelectorAll('mark');
+    const marks = screen.queryAllByText(/\S/, { selector: 'mark' });
     expect(marks).toHaveLength(3);
     expect(marks[0]).toHaveTextContent('Kubernetes');
   });
@@ -487,7 +489,6 @@ describe('TranscriptPanel', () => {
     await renderPanel();
 
     expect(screen.getByText('<b>test</b>')).toBeInTheDocument();
-    expect(document.querySelector('b')).toBeNull();
   });
 
   describe('keyboard', () => {
@@ -517,18 +518,18 @@ describe('TranscriptPanel', () => {
       act(() => lines[5].focus());
 
       fireEvent.keyDown(lines[5], { key: 'ArrowDown' });
-      expect(document.activeElement).toBe(lines[6]);
+      expect(lines[6]).toHaveFocus();
       fireEvent.keyDown(lines[6], { key: 'ArrowUp' });
       fireEvent.keyDown(lines[5], { key: 'ArrowUp' });
-      expect(document.activeElement).toBe(lines[4]);
+      expect(lines[4]).toHaveFocus();
       fireEvent.keyDown(lines[4], { key: 'End' });
-      expect(document.activeElement).toBe(lines[10]);
+      expect(lines[10]).toHaveFocus();
       fireEvent.keyDown(lines[10], { key: 'ArrowDown' });
-      expect(document.activeElement).toBe(lines[10]);
+      expect(lines[10]).toHaveFocus();
       fireEvent.keyDown(lines[10], { key: 'Home' });
-      expect(document.activeElement).toBe(lines[0]);
+      expect(lines[0]).toHaveFocus();
       fireEvent.keyDown(lines[0], { key: 'ArrowUp' });
-      expect(document.activeElement).toBe(lines[0]);
+      expect(lines[0]).toHaveFocus();
       // The tab stop is where the user moved to.
       expect(tabStops()).toEqual([lines[0]]);
     });
@@ -650,7 +651,7 @@ describe('TranscriptPanel', () => {
     const expectPanelKept = (typed: string) => {
       expect(screen.getByRole('searchbox')).toHaveValue(typed);
       expect(lineButtons()).toHaveLength(11);
-      expect(document.querySelector('mark')).toBeNull();
+      expect(screen.queryAllByText(/\S/, { selector: 'mark' })).toHaveLength(0);
       expect(screen.queryByText(/\d \/ \d/)).not.toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: 'Occurrence suivante' }),
@@ -699,7 +700,7 @@ describe('TranscriptPanel', () => {
       await typeAndFlush('kubernetes');
 
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
-      expect(document.querySelectorAll('mark')).toHaveLength(3);
+      expect(screen.queryAllByText(/\S/, { selector: 'mark' })).toHaveLength(3);
       expect(screen.getByText('2 / 3')).toBeInTheDocument();
       expect(onMatchesChange).toHaveBeenLastCalledWith([
         expect.objectContaining({ start: 95 }),

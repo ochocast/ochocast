@@ -1,4 +1,3 @@
-/* eslint-disable testing-library/no-container, testing-library/no-node-access -- the strip markers and the cursor are read from their markup: they have no role or label of their own */
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import '../../testUtils/initTestI18n';
@@ -202,17 +201,15 @@ describe('PassageStrip', () => {
   });
 
   it('shows a playback cursor that follows the current time', () => {
-    const { container } = renderStrip({ currentTime: 1356 });
-    const cursor = container.querySelector('[data-testid="passage-cursor"]');
+    renderStrip({ currentTime: 1356 });
+    const cursor = screen.getByTestId('passage-cursor');
     expect(cursor).toHaveAttribute('aria-hidden', 'true');
     expect(cursor).toHaveStyle({ left: '50%' });
   });
 
   it('keeps the cursor inside the strip', () => {
-    const { container } = renderStrip({ currentTime: 99999 });
-    expect(
-      container.querySelector('[data-testid="passage-cursor"]'),
-    ).toHaveStyle({ left: '100%' });
+    renderStrip({ currentTime: 99999 });
+    expect(screen.getByTestId('passage-cursor')).toHaveStyle({ left: '100%' });
   });
 
   it('works without ResizeObserver', () => {
