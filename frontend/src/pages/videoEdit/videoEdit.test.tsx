@@ -1,7 +1,3 @@
-jest.mock('./SilenceAnalysisPanel', () => ({
-  __esModule: true,
-  default: () => null,
-}));
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import VideoEditPage from './videoEdit';
@@ -13,6 +9,11 @@ import {
   getVideoEditRenderStatus,
   saveVideoEdit,
 } from '../../utils/api';
+// Hoisted by Jest above the imports, like every jest.mock.
+jest.mock('./SilenceAnalysisPanel', () => ({
+  __esModule: true,
+  default: () => null,
+}));
 const mockNavigate = jest.fn();
 const mockSigninSilent = jest.fn();
 jest.mock('react-oidc-context', () => ({

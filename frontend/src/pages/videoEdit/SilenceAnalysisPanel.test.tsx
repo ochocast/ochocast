@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import SilenceAnalysisPanel from './SilenceAnalysisPanel';
 import { getSilenceAnalysis, requestSilenceAnalysis } from '../../utils/api';
 const mockT = (key: string) => key;
@@ -108,13 +108,13 @@ it('explains the wait behind other treatments, then polls without altering local
     await screen.findByText('videoEdit.analysis.queued'),
   ).toBeInTheDocument();
   expect(screen.getByText('videoEdit.analysis.waitHelp')).toBeInTheDocument();
-  await waitFor(
-    () =>
-      expect(
-        screen.getByText('videoEdit.analysis.noSilence'),
-      ).toBeInTheDocument(),
-    { timeout: 2500 },
-  );
+  expect(
+    await screen.findByText(
+      'videoEdit.analysis.noSilence',
+      {},
+      { timeout: 2500 },
+    ),
+  ).toBeInTheDocument();
   expect(apply).not.toHaveBeenCalled();
 });
 it('disables incompatible cuts after local changes', async () => {

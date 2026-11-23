@@ -10,11 +10,11 @@ import {
   lastTextStart,
   roundTenth,
 } from './editorState';
+import styles from './videoEdit.module.css';
 
 // Shown with one decimal at most, whatever a saved montage holds.
 const shown = (seconds: number) =>
   Number.isFinite(seconds) ? roundTenth(seconds) : '';
-import styles from './videoEdit.module.css';
 export default function TextLayerEditor({
   text,
   duration,
